@@ -17,9 +17,10 @@ Modules disponibles:
   DHCP, DNS, rapports)
 - credentials: Gestion des secrets (env, .env, keyring systeme)
 - cli: Framework CLI Command Pattern (CliCommand, CliApplication)
+- identity: Gestion idempotente des groupes et utilisateurs Unix
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 from linux_python_utils.logging import (
     Logger,
@@ -96,8 +97,16 @@ from linux_python_utils.dotconf import (
 from linux_python_utils.notification import NotificationConfig
 from linux_python_utils.scripts import (
     BashScriptConfig,
+    PythonCliConfig,
     ScriptInstaller,
     BashScriptInstaller,
+    CliInstaller,
+    LinuxCliInstaller,
+    ScriptPaths,
+    ScriptChecker,
+    LinuxScriptChecker,
+    InstallReport,
+    MissingDependency,
 )
 from linux_python_utils.commands import (
     CommandResult,
@@ -134,6 +143,12 @@ from linux_python_utils.credentials import (
     CredentialManager,
 )
 from linux_python_utils.cli import CliCommand, CliApplication
+from linux_python_utils.identity import (
+    GroupManagerBase,
+    UserManagerBase,
+    LinuxGroupManager,
+    LinuxUserManager,
+)
 from linux_python_utils.network import (
     # Modeles
     NetworkDevice,
@@ -241,8 +256,16 @@ __all__ = [
     "NotificationConfig",
     # Scripts
     "BashScriptConfig",
+    "PythonCliConfig",
     "ScriptInstaller",
     "BashScriptInstaller",
+    "CliInstaller",
+    "LinuxCliInstaller",
+    "ScriptPaths",
+    "ScriptChecker",
+    "LinuxScriptChecker",
+    "InstallReport",
+    "MissingDependency",
     # Commands - Structures de données
     "CommandResult",
     # Commands - Interface abstraite

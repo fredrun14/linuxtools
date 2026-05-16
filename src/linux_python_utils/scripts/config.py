@@ -25,7 +25,9 @@ Example:
         script = config.to_bash_script()
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Literal
 
 from linux_python_utils.notification import NotificationConfig
 
@@ -118,3 +120,53 @@ fi
 
 exit $exit_code
 """
+
+
+@dataclass(frozen=True)
+class PythonCliConfig:
+    """Configuration pour le déploiement d'un script Python CLI.
+
+    Source de vérité pour le déploiement : l'installation respecte
+    le standard FHS (system ou user scope) en s'appuyant sur
+    pyproject.toml pour les dépendances et les points d'entrée.
+
+    Attributes:
+        name: Nom de l'application (utilisé pour les chemins FHS).
+        deploy_type: Portée du déploiement ('system' ou 'user').
+        source_dir: Répertoire contenant pyproject.toml et le code.
+        venv_path: Chemin du venv (None → pas de venv géré).
+        check_extras: Groupes d'extras à vérifier (ex. ['dev']).
+        generate_wrapper: Si True, génère un wrapper bash si nécessaire.
+
+    Example:
+        >>> config = PythonCliConfig(
+        ...     name="mon-app",
+        ...     deploy_type="user",
+        ...     source_dir=Path("/home/user/mon-app"),
+        ... )
+        >>> config.deploy_type
+        'user'
+    """
+
+    name: str
+    deploy_type: Literal["system", "user"]
+    source_dir: Path
+    venv_path: Path | None = None
+    check_extras: list[str] = field(default_factory=list)
+    generate_wrapper: bool = True
+
+    def __post_init__(self) -> None:
+        """Valide les champs après initialisation.
+
+        Raises:
+            ValueError: Si name est vide ou deploy_type invalide.
+        """
+        if not self.name.strip():
+            raise ValueError(
+                "name est requis et ne peut pas être vide"
+            )
+        if self.deploy_type not in ("system", "user"):
+            raise ValueError(
+                f"deploy_type invalide : '{self.deploy_type}'."
+                " Valeurs acceptées : 'system', 'user'"
+            )
