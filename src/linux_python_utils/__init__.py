@@ -91,6 +91,7 @@ from linux_python_utils.dotconf import (
     IniConfigManager,
     ValidatedSection,
     LinuxIniConfigManager,
+    SectionAwareEditor,
     parse_validator,
     build_validators,
 )
@@ -249,6 +250,7 @@ __all__ = [
     # DotConf - Implémentations
     "ValidatedSection",
     "LinuxIniConfigManager",
+    "SectionAwareEditor",
     # DotConf - Utilitaires
     "parse_validator",
     "build_validators",
