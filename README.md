@@ -33,6 +33,21 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
   - [Module cli](#module-cli)
 - [Documentation API](#-documentation-api)
 - [Architecture des Classes](#-architecture-des-classes)
+  - [Vue d'Ensemble](#vue-densemble)
+  - [logging](#architecture-logging)
+  - [config](#architecture-config)
+  - [filesystem](#architecture-filesystem)
+  - [commands](#architecture-commands)
+  - [credentials](#architecture-credentials)
+  - [errors](#architecture-errors)
+  - [integrity](#architecture-integrity)
+  - [dotconf](#architecture-dotconf)
+  - [validation](#architecture-validation)
+  - [scripts](#architecture-scripts)
+  - [identity](#architecture-identity)
+  - [network](#architecture-network)
+  - [cli](#architecture-cli)
+  - [systemd](#architecture-systemd)
 - [Structure du Projet](#-structure-du-projet)
 - [Tests](#-tests)
 - [Troubleshooting](#-troubleshooting)
@@ -1322,41 +1337,58 @@ logger.log_info("Backup automatique configuré")
 ### Vue d'Ensemble
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                          linux-python-utils                                │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
-│  │ logging  │ │  config  │ │filesystem│ │ systemd  │ │integrity │        │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘        │
-│       │            │            │            │            │               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
-│  │ commands │ │ dotconf  │ │ scripts  │ │notificat.│ │validation│        │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘        │
-│       │            │            │            │            │               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
-│  │  errors  │ │credentials│ │ network │ │   cli    │ │ identity │        │
-│  └────┬─────┘ └────┬──────┘ └────┬────┘ └────┬─────┘ └────┬─────┘        │
-│       │            │            │            │            │               │
-│       ▼            ▼            ▼            ▼            ▼               │
-│  ┌─────────────────────────────────────────────────────────────────┐      │
-│  │              Abstract Base Classes (ABCs)                        │      │
-│  │  Logger, ConfigLoader, FileManager, Validator, CommandExecutor   │      │
-│  │  IniConfigManager, ScriptInstaller, IntegrityChecker,           │      │
-│  │  ErrorHandler, CredentialProvider, NetworkScanner,              │      │
-│  │  CliCommand, GroupManagerBase, UserManagerBase                  │      │
-│  └──────────────────────────┬──────────────────────────────────────┘      │
-│                             │                                             │
-│                             ▼                                             │
-│  ┌─────────────────────────────────────────────────────────────────┐      │
-│  │              Implémentations Linux concrètes                    │      │
-│  │  FileLogger, ConsoleLogger, LinuxFileManager,                   │      │
-│  │  LinuxCommandExecutor, LinuxIniConfigManager,                   │      │
-│  │  PathChecker, SHA256IntegrityChecker, CredentialChain,          │      │
-│  │  LinuxArpScanner, CliApplication,                               │      │
-│  │  LinuxGroupManager, LinuxUserManager ...                        │      │
-│  └─────────────────────────────────────────────────────────────────┘      │
-└────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                              linux-python-utils  v1.5                            │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  MODULES                                                                         │
+│                                                                                  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ logging  │ │  config  │ │filesystem│ │ systemd  │ │integrity │ │ dotconf  │ │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ commands │ │ scripts  │ │validation│ │  errors  │ │credential│ │ network  │ │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                                         │
+│  │ identity │ │   cli    │ │notificat.│                                         │
+│  └──────────┘ └──────────┘ └──────────┘                                         │
+│                                                                                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  ABCs (contrats publics)                                                         │
+│                                                                                  │
+│  Logger · ConfigLoader · ConfigManager · ConfigFileLoader[T]                     │
+│  FileManager · FileBackup · CommandExecutor · CommandFormatter                   │
+│  ChecksumCalculator · IniSection · IniConfig · IniConfigManager                 │
+│  Validator · ErrorHandler · CredentialProvider · CredentialStore                 │
+│  NetworkScanner · DeviceRepository · DhcpReservationManager                     │
+│  DnsManager · DeviceReporter · ScriptInstaller · ScriptChecker                  │
+│  CliCommand · GroupManagerBase · UserManagerBase                                 │
+│  UnitManager · ServiceUnitManager · TimerUnitManager · MountUnitManager          │
+│  UserUnitManager · UserServiceUnitManager · UserTimerUnitManager                 │
+│  ScheduledTaskInstaller                                                          │
+│                                                                                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  Implémentations Linux concrètes                                                 │
+│                                                                                  │
+│  FileLogger · ConsoleLogger · SecurityLogger                                     │
+│  ConfigurationManager · FileConfigLoader                                         │
+│  LinuxFileManager · LinuxFileBackup                                              │
+│  LinuxCommandExecutor · CommandBuilder · AnsiCommandFormatter                    │
+│  HashLibChecksumCalculator · SHA256IntegrityChecker · IniSectionIntegrityChecker │
+│  ValidatedSection · LinuxIniConfigManager · SectionAwareEditor                   │
+│  PathCheckerPermission · PathCheckerWorldWritable                                │
+│  ConsoleErrorHandler · LoggerErrorHandler · ErrorHandlerChain                    │
+│  EnvCredentialProvider · DotEnvCredentialProvider · KeyringCredentialProvider    │
+│  CredentialChain · CredentialManager                                             │
+│  LinuxArpScanner · LinuxNmapScanner · JsonDeviceRepository                       │
+│  LinuxDhcpReservationManager · LinuxHostsFileManager · LinuxDnsmasqConfigGen.    │
+│  ConsoleTableReporter · CsvReporter · JsonReporter · DiffReporter                │
+│  BashScriptInstaller · LinuxCliInstaller · LinuxScriptChecker                    │
+│  LinuxGroupManager · LinuxUserManager                                            │
+│  CliApplication · DryRunContext                                                  │
+│  SystemdExecutor · LinuxServiceUnitManager · LinuxTimerUnitManager               │
+│  LinuxMountUnitManager · LinuxUserServiceUnitManager · LinuxUserTimerUnitManager │
+│  SystemdScheduledTaskInstaller                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Architecture Systemd
@@ -1389,6 +1421,500 @@ logger.log_info("Backup automatique configuré")
 │ LinuxTimerUnitMgr │           │ LinuxUserServiceMgr│
 │ LinuxServiceUnitMgr│          └───────────────────┘
 └───────────────────┘
+```
+
+### Architecture logging
+
+```
+          ┌────────────────────────────────────────────┐
+          │                Logger (ABC)                 │
+          │  + log_info(message: str)    [abstract]     │
+          │  + log_warning(message: str) [abstract]     │
+          │  + log_error(message: str)   [abstract]     │
+          │  + log_success(message: str) [→ log_info]   │
+          └────────────────────┬───────────────────────┘
+                               │ hérite
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+  ┌────────────────────────┐   ┌───────────────────────────┐
+  │     ConsoleLogger      │   │        FileLogger         │
+  │                        │   │  - log_file: str          │
+  │  log_info  → stdout    │   │  - config: dict | None    │
+  │  log_warn  → stderr    │   │  - console_output: bool   │
+  │  log_error → stderr    │   │  (UTF-8, flush immédiat)  │
+  └────────────────────────┘   └───────────────────────────┘
+
+  SecurityLogger  (composition — injecte Logger)
+  ┌────────────────────────────────────────────────┐
+  │  SecurityLogger                                │
+  │  - _logger: Logger                             │
+  │  + log_event(event_type, resource, details,    │
+  │              severity, user_id) → JSON         │
+  ├────────────────────────────────────────────────┤
+  │  SecurityEventType (StrEnum)                   │
+  │  AUTH_SUCCESS · AUTH_FAILURE · AUTH_LOCKOUT    │
+  │  ACCESS_DENIED · ACCESS_ELEVATED               │
+  │  DATA_EXPORT · DATA_MODIFICATION               │
+  │  CONFIG_CHANGE · RATE_LIMIT_HIT                │
+  │  SUSPICIOUS_ACTIVITY                           │
+  ├────────────────────────────────────────────────┤
+  │  SecurityEvent (frozen dataclass)              │
+  │  - event_type / resource / details             │
+  │  - severity / user_id / timestamp (UTC ISO)    │
+  └────────────────────────────────────────────────┘
+```
+
+### Architecture config
+
+```
+  ┌──────────────────────────────────┐   ┌────────────────────────────────┐
+  │        ConfigLoader (ABC)        │   │       ConfigManager (ABC)      │
+  │  + load(path) [abstract]         │   │  + get(key)         [abstract] │
+  └────────────┬─────────────────────┘   │  + get_section(key) [abstract] │
+               │                         │  + get_profile(key) [abstract] │
+               ▼                         │  + list_profiles()  [abstract] │
+  ┌────────────────────────────────┐     │  + create_default_config()     │
+  │       FileConfigLoader         │     └────────────────┬───────────────┘
+  │  Supporte TOML + JSON          │                      │ hérite
+  │  Validation Pydantic optionnelle│                     ▼
+  └────────────────────────────────┘     ┌────────────────────────────────┐
+                                         │     ConfigurationManager       │
+  ┌────────────────────────────────┐     │  - _loader: ConfigLoader       │
+  │    ConfigFileLoader[T] (ABC)   │     │  - default_config: dict        │
+  │  Generic typé T (dataclass)    │     │  - search_paths: list[Path]    │
+  │  - _config: dict               │     │  - config: dict                │
+  │  + config (property)           │     │  + get(key, default)           │
+  │  + _get_section(key)           │     │  + get_section(key)            │
+  │  + _get_nested_value(key)      │     │  + get_profile(name)           │
+  │  + load() [abstract]           │     │  + list_profiles()             │
+  └──────────┬─────────────────────┘     │  + create_default_config()     │
+             │ hérite                    │  + _deep_merge(base, override) │
+  ┌──────────┴──────────┬──────────────┐ └────────────────────────────────┘
+  ▼                     ▼              ▼
+ServiceConfig   TimerConfig   MountConfig      ← loaders dans systemd/
+Loader          Loader        Loader
+BashScriptConfigLoader
+```
+
+### Architecture filesystem
+
+```
+  ┌─────────────────────────────────┐    ┌──────────────────────────────────┐
+  │       FileManager (ABC)         │    │        FileBackup (ABC)          │
+  │  + create_file()  [abstract]    │    │  + backup(src, dst)  [abstract]  │
+  │  + file_exists()  [abstract]    │    │  + restore(bak, dst) [abstract]  │
+  └────────────────┬────────────────┘    └─────────────────┬────────────────┘
+                   │ hérite                                 │ hérite
+                   ▼                                        ▼
+  ┌─────────────────────────────────┐    ┌──────────────────────────────────┐
+  │      LinuxFileManager           │    │       LinuxFileBackup            │
+  │  - logger: Logger               │    │  - logger: Logger                │
+  │  + create_file(path, content)   │    │  + backup(src, dst)              │
+  │  + file_exists(path)            │    │    (shutil.copy2 — préserve      │
+  │  + read_file(path)              │    │     métadonnées)                 │
+  │  (TOCTOU-safe: O_NOFOLLOW)      │    │  + restore(bak, dst)             │
+  └─────────────────────────────────┘    └──────────────────────────────────┘
+```
+
+### Architecture commands
+
+```
+  ┌──────────────────────────────────────────────────────────┐
+  │                  CommandResult (frozen dataclass)        │
+  │  command: list[str]  │  return_code: int  │  stdout: str │
+  │  stderr: str  │  success: bool  │  duration: float       │
+  │  executed_as_root: bool                                  │
+  └──────────────────────────────────────────────────────────┘
+
+  ┌───────────────────────────────┐
+  │      CommandBuilder           │
+  │  - _program: str              │
+  │  + with_options(dict)         │  ← Builder Pattern (fluent API)
+  │  + with_flag(flag, cond)      │
+  │  + with_option(key, value)    │
+  │  + with_option_if(k, v, cond) │
+  │  + with_args(args)            │
+  │  + build() → list[str]        │
+  └───────────────────────────────┘
+
+  ┌───────────────────────────────┐    ┌─────────────────────────────────┐
+  │    CommandFormatter (ABC)     │    │      CommandExecutor (ABC)      │
+  │  + format_start()  [abstract] │    │  + run(cmd, env, cwd, timeout)  │
+  │  + format_dry_run()[abstract] │    │    [abstract] → CommandResult   │
+  │  + format_line()   [abstract] │    │  + run_streaming(cmd, ...)      │
+  └──────────────┬────────────────┘    │    [abstract]                   │
+                 │ hérite              └──────────────┬──────────────────┘
+     ┌───────────┴───────────┐                        │ hérite
+     ▼                       ▼                        ▼
+PlainCommand         AnsiCommand         ┌─────────────────────────────────┐
+Formatter            Formatter           │      LinuxCommandExecutor       │
+(texte brut)         (ANSI couleurs,     │  - logger: Logger               │
+                      TTY-aware)         │  - _dry_run: bool               │
+                                         │  - _is_root: bool               │
+                                         │  - _console_formatter           │
+                                         │  + run(cmd) → CommandResult     │
+                                         │  + run_streaming(cmd)           │
+                                         │  + _build_env()                 │
+                                         │  + _make_dry_run_result()       │
+                                         └─────────────────────────────────┘
+```
+
+### Architecture credentials
+
+```
+  ┌──────────────────────────────────────┐
+  │       CredentialProvider (ABC)       │  ← lecture seule (ISP)
+  │  + get(service, key) → str | None    │
+  │  + is_available() → bool [abstract]  │
+  │  + source_name: str   [property]     │
+  └──────────────┬───────────────────────┘
+                 │ hérite
+     ┌───────────┼───────────────────────────────────┐
+     ▼           ▼                    ▼               ▼
+┌──────────┐ ┌───────────────┐ ┌──────────────┐ ┌──────────────────────┐
+│   Env    │ │    DotEnv     │ │   Keyring    │ │   CredentialChain    │
+│Credential│ │  Credential   │ │  Credential  │ │  (Chain of Resp.)    │
+│ Provider │ │   Provider    │ │   Provider   │ │  - _providers: list  │
+│ (environ)│ │  (.env file)  │ │ (KWallet...) │ │  + get(svc, key)     │
+└──────────┘ └───────────────┘ └──────┬───────┘ │  + default()classm. │
+                                       │         │    env→dotenv→keyring│
+  CredentialStore (ABC)                │ aussi   └──────────────────────┘
+  ┌─────────────────────────────┐      │ hérite
+  │  étend CredentialProvider   │      │
+  │  + set(svc, key, value)     │◄─────┘
+  │  + delete(svc, key)         │
+  └─────────────────────────────┘
+
+  ┌─────────────────────────────────────────┐
+  │           CredentialManager             │  ← Facade
+  │  - _service: str                        │
+  │  - _chain: CredentialChain              │
+  │  - _store: CredentialStore | None       │
+  │  + get(key) → str | None                │
+  │  + require(key) → str                   │
+  │  + store(key, value)                    │
+  │  + delete(key)                          │
+  │  + from_dotenv(svc, path) [classmethod] │
+  └─────────────────────────────────────────┘
+
+  CredentialKey (frozen dc): service + key
+  Credential   (frozen dc): service + key + value + source
+```
+
+### Architecture errors
+
+```
+  ┌────────────────────────────────────┐
+  │         ErrorHandler (ABC)         │
+  │  + handle(error: Exception)        │
+  │    [abstract]                      │
+  └──────────────┬─────────────────────┘
+                 │ hérite
+       ┌─────────┴─────────┐
+       ▼                   ▼
+┌──────────────┐   ┌───────────────┐
+│ ConsoleError │   │ LoggerError   │
+│   Handler    │   │   Handler     │
+│  → stderr    │   │  - logger     │
+└──────────────┘   └───────────────┘
+
+  ┌────────────────────────────────────┐
+  │         ErrorHandlerChain          │  ← pas un ABC : orchestrateur
+  │  - handlers: list[ErrorHandler]    │
+  │  + add_handler(h)                  │
+  │  + handle(error) → tous handlers   │
+  │  + handle_and_exit(error, code)    │
+  └────────────────────────────────────┘
+
+  Hiérarchie d'exceptions (errors/exceptions.py)
+  Exception
+  └── LinuxUtilsError
+      ├── ConfigurationError
+      ├── FilesystemError
+      ├── CommandExecutionError
+      ├── CredentialError
+      │   ├── CredentialNotFoundError
+      │   ├── CredentialProviderUnavailableError
+      │   └── CredentialStoreError
+      └── SystemdError
+```
+
+### Architecture integrity
+
+```
+  ┌────────────────────────────────────────────┐
+  │         ChecksumCalculator (ABC)           │
+  │  + calculate(file_path, algorithm='sha256')│
+  │    → str (hex)  [abstract]                 │
+  └───────────────────┬────────────────────────┘
+                      │ hérite
+                      ▼
+  ┌────────────────────────────────────────────┐
+  │       HashLibChecksumCalculator            │
+  │  (hashlib — sha256, sha512, md5...)        │
+  └────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────┐
+  │            SHA256IntegrityChecker                │
+  │  - _calculator: ChecksumCalculator               │
+  │  + check_file(path, expected) → bool             │
+  │  + check_directory(path, manifest) → dict        │
+  │  + generate_manifest(path) → dict                │
+  └──────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────┐
+  │            IniSectionIntegrityChecker            │
+  │  + compute_section_hash(section) → str           │
+  │  + verify_section(section, expected) → bool      │
+  └──────────────────────────────────────────────────┘
+```
+
+### Architecture dotconf
+
+```
+  ┌─────────────────────────────────┐   ┌────────────────────────────────────┐
+  │        IniSection (ABC)         │   │          IniConfig (ABC)           │
+  │  + section_name() [static abs.] │   │  + sections() [abstract]           │
+  │  + to_dict() → dict [abstract]  │   │  + to_ini() → str [abstract]       │
+  │  + from_dict(d) [cls abstract]  │   │  + from_file(path) [cls abstract]  │
+  └────────────┬────────────────────┘   └─────────────────────────────────── ┘
+               │ hérite
+               ▼
+  ┌─────────────────────────────────┐
+  │         ValidatedSection        │
+  │  Dataclass avec validation      │
+  │  __post_init__ des champs       │
+  └─────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────┐
+  │            IniConfigManager (ABC)                │
+  │  + read(path) → IniConfig   [abstract]           │
+  │  + write(config, path)      [abstract]           │
+  └────────────────────┬─────────────────────────────┘
+                       │ hérite
+                       ▼
+  ┌──────────────────────────────────────────────────┐
+  │           LinuxIniConfigManager                  │
+  │  (configparser stdlib)                           │
+  │  + read(path) → IniConfig                        │
+  │  + write(config, path)                           │
+  └──────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────┐
+  │             SectionAwareEditor                   │
+  │  Édition ligne-à-ligne préservant les            │
+  │  commentaires et la structure du fichier         │
+  │  + update_key(section, key, value)               │
+  │  + add_section(section)                          │
+  │  + remove_key(section, key)                      │
+  └──────────────────────────────────────────────────┘
+```
+
+### Architecture validation
+
+```
+  ┌──────────────────────────────────────────────────────┐
+  │                   Validator (ABC)                    │
+  │  + validate() [abstract]                             │
+  │    raises: ValueError | PermissionError              │
+  └───────────────────────────┬──────────────────────────┘
+                              │ hérite
+                              ▼
+  ┌──────────────────────────────────────────────────────┐
+  │                    PathChecker                       │
+  │  - path: Path                                        │
+  │  + validate()  [abstract]                            │
+  └──────────┬────────────────────────┬──────────────────┘
+             │ hérite                 │ hérite
+             ▼                        ▼
+  ┌──────────────────────┐  ┌──────────────────────────────┐
+  │  PathCheckerPermission│  │  PathCheckerWorldWritable    │
+  │  - expected: int      │  │  Avertit si world-writable   │
+  │  + validate()         │  │  + validate()                │
+  └──────────────────────┘  └──────────────────────────────┘
+```
+
+### Architecture scripts
+
+```
+  ┌─────────────────────────────────────────┐
+  │           ScriptInstaller (ABC)         │
+  │  + install(path, config) [abstract]     │
+  └───────────────┬─────────────────────────┘
+                  │ hérite
+       ┌──────────┴──────────┐
+       ▼                     ▼
+┌──────────────────┐  ┌────────────────────────────────────┐
+│ BashScriptInstall│  │          CliInstaller (ABC)        │
+│  - logger        │  │  + install(config) [abstract]      │
+│  - file_manager  │  └──────────────────┬─────────────────┘
+│  + install(path, │                     │ hérite
+│    config)→ bool │                     ▼
+└──────────────────┘  ┌────────────────────────────────────┐
+                       │         LinuxCliInstaller          │
+                       │  - logger: Logger                  │
+                       │  - checker: ScriptChecker          │
+                       │  + install(config) → InstallReport │
+                       │  (FHS, uv, scope sys/user)         │
+                       └────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────┐
+  │           ScriptChecker (ABC)           │
+  │  + check(config) [abstract]             │
+  └───────────────┬─────────────────────────┘
+                  │ hérite
+                  ▼
+  ┌─────────────────────────────────────────┐
+  │          LinuxScriptChecker             │
+  │  + check(config) → list[MissingDep]    │
+  └─────────────────────────────────────────┘
+
+  BashScriptConfig (frozen dataclass)
+  ┌──────────────────────────────────────────────┐
+  │  - exec_command: str                         │
+  │  - notification: NotificationConfig | None   │
+  │  + to_bash_script() → str                    │
+  └──────────────────────────────────────────────┘
+
+  PythonCliConfig (dataclass)
+  ┌──────────────────────────────────────────────┐
+  │  - name: str                                 │
+  │  - deploy_type: "user" | "system"            │
+  │  - source_dir: Path                          │
+  └──────────────────────────────────────────────┘
+
+  InstallReport + MissingDependency (rapport d'installation)
+  ScriptPaths   (utilitaires de chemins FHS)
+```
+
+### Architecture identity
+
+```
+  ┌─────────────────────────────────────────┐
+  │         GroupManagerBase (ABC)          │
+  │  + ensure_group(name, gid) [abstract]   │
+  │    (idempotent : crée ou corrige GID)   │
+  └───────────────────┬─────────────────────┘
+                      │ hérite
+                      ▼
+  ┌─────────────────────────────────────────┐
+  │          LinuxGroupManager              │
+  │  - logger: Logger                       │
+  │  - executor: CommandExecutor            │
+  │  + ensure_group(name, gid)              │
+  │    (groupadd / groupmod)                │
+  └─────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────┐
+  │           UserManagerBase (ABC)                 │
+  │  + ensure_user(name, uid, shell,                │
+  │      comment, create_home) [abstract]           │
+  │  + ensure_user_groups(name, groups) [abstract]  │
+  └────────────────────┬────────────────────────────┘
+                       │ hérite
+                       ▼
+  ┌─────────────────────────────────────────────────┐
+  │            LinuxUserManager                     │
+  │  - logger: Logger                               │
+  │  - executor: CommandExecutor                    │
+  │  + ensure_user(name, uid, shell, ...)           │
+  │    (useradd / usermod — idempotent)             │
+  │  + ensure_user_groups(name, groups)             │
+  │    (usermod --append --groups ...)              │
+  └─────────────────────────────────────────────────┘
+```
+
+### Architecture network
+
+```
+  ┌──────────────────────────────────────┐
+  │        NetworkScanner (ABC)          │
+  │  + scan(config) → list[NetworkDevice]│
+  └──────────────┬───────────────────────┘
+                 │ hérite
+      ┌──────────┴──────────┐
+      ▼                     ▼
+┌──────────────┐    ┌───────────────┐
+│LinuxArpScanner│   │LinuxNmapScanner│
+│  (arp-scan)  │   │    (nmap)      │
+└──────────────┘    └───────────────┘
+
+  ┌──────────────────────────────────────┐
+  │       DeviceRepository (ABC)        │
+  │  + load() → list[NetworkDevice]     │
+  │  + save(devices)                    │
+  │  + find_by_mac(mac)                 │
+  │  + find_by_ip(ip)                   │
+  └──────────────┬───────────────────────┘
+                 │ hérite
+                 ▼
+  ┌──────────────────────────────────────┐
+  │         JsonDeviceRepository         │
+  │  (persistance JSON)                  │
+  └──────────────────────────────────────┘
+
+  ┌─────────────────────────────────┐   ┌───────────────────────────────────┐
+  │  DhcpReservationManager (ABC)   │   │          DnsManager (ABC)         │
+  │  + generate_reservations()      │   │  + add_entry() / remove_entry()   │
+  └────────────────┬────────────────┘   └─────────────────┬─────────────────┘
+                   │ hérite                               │ hérite
+                   ▼                          ┌───────────┴────────────┐
+  ┌──────────────────────────────┐            ▼                        ▼
+  │  LinuxDhcpReservationManager │  ┌────────────────────┐  ┌─────────────────────────┐
+  └──────────────────────────────┘  │LinuxHostsFileManager│  │LinuxDnsmasqConfigGen.   │
+                                    └────────────────────┘  └─────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────┐
+  │              DeviceReporter (ABC)                   │
+  │  + report(devices) [abstract]                       │
+  └───────────────────────────┬─────────────────────────┘
+                              │ hérite
+        ┌──────────┬──────────┼──────────┐
+        ▼          ▼          ▼          ▼
+ConsoleTable    Csv       Json        Diff
+Reporter        Reporter  Reporter    Reporter
+
+  NetworkDevice (frozen dataclass)
+  ┌──────────────────────────────────────────┐
+  │  ip · mac · hostname · vendor            │
+  │  device_type · is_known · fixed_ip       │
+  │  dns_name · first_seen · last_seen       │
+  │  notes                                   │
+  │  + to_dict() / from_dict() [classmethod] │
+  └──────────────────────────────────────────┘
+
+  AsusRouterClient  ← client HTTP dédié au routeur ASUS
+```
+
+### Architecture cli
+
+```
+  ┌────────────────────────────────────────────────┐
+  │               CliCommand (ABC)                 │
+  │  + name: str              [property abstract]  │
+  │  + register(subparsers)   [abstract]           │
+  │  + execute(args: Namespace) [abstract]         │
+  └────────────────────────────────────────────────┘
+             ↑ implémentée par les commandes métier
+
+  ┌────────────────────────────────────────────────┐
+  │              CliApplication                    │
+  │  - _prog: str                                  │
+  │  - _description: str                           │
+  │  - _commands: list[CliCommand]                 │
+  │  + run() → dispatch vers la commande choisie   │
+  └────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────┐
+  │              DryRunContext                     │
+  │  - dry_run: bool                               │
+  │  + would_write() → bool                        │
+  │  + would_create() → bool                       │
+  │  + would_modify() → bool                       │
+  └────────────────────────────────────────────────┘
+
+  add_dry_run_argument(parser)
+  └── ajoute --dry-run à un ArgumentParser argparse
 ```
 
 ### Principes SOLID Appliqués
@@ -1536,7 +2062,8 @@ linux-python-utils/
 │   │   └── validators.py        # validate_ipv4, validate_mac, etc.
 │   └── cli/
 │       ├── __init__.py
-│       └── base.py              # CliCommand (ABC), CliApplication
+│       ├── base.py              # CliCommand (ABC), CliApplication
+│       └── dry_run.py           # DryRunContext, add_dry_run_argument
 ├── tests/
 │   ├── __init__.py
 │   ├── test_logging.py
@@ -1558,7 +2085,9 @@ linux-python-utils/
 │   ├── test_notification.py
 │   ├── test_validation.py
 │   ├── test_identity_group.py
-│   └── test_identity_user.py
+│   ├── test_identity_user.py
+│   ├── test_cli.py
+│   └── test_cli_dry_run.py
 ├── examples/
 │   └── nfs-mounts.toml              # Exemple de configuration
 ├── pyproject.toml
@@ -1614,7 +2143,9 @@ make all
 | `test_validation.py` | 5 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
 | `test_identity_group.py` | — | LinuxGroupManager, ensure_group (create/correct/skip) |
 | `test_identity_user.py` | — | LinuxUserManager, ensure_user, ensure_user_groups |
-| **Total** | **474+** | |
+| `test_cli.py` | 15 | CliCommand (ABC, register, execute, sous-classes partielles), CliApplication (dispatch, flags, args, edge cases) |
+| `test_cli_dry_run.py` | 9 | DryRunContext (would_write/create/modify), add_dry_run_argument (--dry-run, -n) |
+| **Total** | **498+** | |
 
 ### Tests Paramétrés
 
