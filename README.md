@@ -8,7 +8,7 @@
 
 > Bibliothèque utilitaire Python pour systèmes Linux, conçue avec les principes SOLID.
 
-Fournit des classes réutilisables et extensibles pour le logging, la configuration, la gestion de fichiers, les services systemd, l'exécution de commandes, la gestion de fichiers INI, la validation de données et la vérification d'intégrité. Architecture basée sur des Abstract Base Classes (ABC) permettant l'injection de dépendances et facilitant les tests unitaires.
+Fournit des classes réutilisables et extensibles pour le logging, la configuration, la gestion de fichiers, les services systemd, l'exécution de commandes, la gestion d'identités Unix, la gestion de fichiers INI, la validation de données et la vérification d'intégrité. Architecture basée sur des Abstract Base Classes (ABC) permettant l'injection de dépendances et facilitant les tests unitaires.
 
 ## 📋 Table des Matières
 
@@ -24,6 +24,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
   - [Module dotconf](#module-dotconf)
   - [Module commands](#module-commands)
   - [Module scripts](#module-scripts)
+  - [Module identity](#module-identity)
   - [Module notification](#module-notification)
   - [Module validation](#module-validation)
   - [Module errors](#module-errors)
@@ -47,8 +48,9 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - **📄 Chargeurs de config** — Loaders typés pour créer des dataclasses depuis TOML ou JSON
 - **🔐 Vérification d'intégrité** — Checksums SHA256/SHA512/MD5 pour fichiers et répertoires
 - **🖥️ Exécution de commandes** — Construction fluent et exécution avec streaming temps réel
-- **📋 Fichiers INI (.conf)** — Lecture, écriture et validation de fichiers de configuration INI
-- **📜 Scripts bash** — Génération de scripts bash avec support des notifications
+- **📋 Fichiers INI (.conf)** — Lecture, écriture et validation de fichiers de configuration INI ; `SectionAwareEditor` pour l'édition ligne-à-ligne préservant les commentaires
+- **📜 Scripts bash et CLI** — Génération de scripts bash + déploiement de scripts Python CLI (FHS, uv, scope système/utilisateur, rapport d'installation)
+- **👤 Gestion d'identités Unix** — Création idempotente de groupes (`groupadd`/`groupmod`) et utilisateurs (`useradd`/`usermod`) avec vérification GID/UID
 - **🔔 Notifications** — Configuration des notifications desktop (KDE Plasma)
 - **✅ Validation** — Validation de chemins (existence, permissions, world-writable) et données avec support optionnel Pydantic
 - **🚨 Gestion d'erreurs** — Hiérarchie d'exceptions applicatives + chaîne de handlers (Chain of Responsibility)
@@ -89,6 +91,7 @@ pip install -e .
 # 4. (Optionnel) Installer les extras
 pip install -e ".[validation]"   # validation Pydantic
 pip install -e ".[credentials]"  # python-dotenv + keyring
+pip install -e ".[deploy]"       # platformdirs (ScriptPaths, CLI installer)
 pip install -e ".[dev]"          # tous les outils de développement
 ```
 
@@ -148,7 +151,7 @@ Puis dans chaque script :
 
 ```python
 import linux_python_utils
-print(linux_python_utils.__version__)  # 1.0.0
+print(linux_python_utils.__version__)  # 1.6.0
 ```
 
 ## 💻 Utilisation
@@ -165,6 +168,7 @@ logger = FileLogger("/var/log/myapp.log")
 logger.log_info("Application démarrée")
 logger.log_warning("Attention: ressource limitée")
 logger.log_error("Erreur critique")
+logger.log_success("Opération terminée")  # délègue à log_info par défaut
 
 # Avec sortie console simultanée
 logger = FileLogger("/var/log/myapp.log", console_output=True)
@@ -662,6 +666,23 @@ updated = manager.update_section(
 print(f"Modifié: {updated}")
 ```
 
+#### `SectionAwareEditor` — Édition ligne-à-ligne préservant les commentaires
+
+Permet de modifier une clé dans un fichier INI sans toucher les commentaires ni la mise en forme existante.
+
+```python
+from linux_python_utils import SectionAwareEditor
+
+editor = SectionAwareEditor(Path("/etc/myapp.conf"))
+
+# Modifier une valeur dans une section existante
+editor.set_value("commands", "upgrade_type", "security")
+
+# Vérifier qu'une clé est présente
+if editor.has_key("commands", "download_updates"):
+    print("Clé présente")
+```
+
 ### Module `commands`
 
 Construction fluent et exécution de commandes système. Les commandes root
@@ -729,12 +750,13 @@ cmd = (
 
 ### Module `scripts`
 
-Génération de scripts bash avec support des notifications.
+Génération de scripts bash et déploiement de scripts Python CLI sur le système de fichiers (FHS, scope système ou utilisateur, rapport d'installation).
+
+#### Scripts bash
 
 ```python
 from linux_python_utils import BashScriptConfig, BashScriptInstaller
 
-# Configuration d'un script bash
 config = BashScriptConfig(
     name="backup",
     description="Script de sauvegarde quotidien",
@@ -748,6 +770,91 @@ print(config.to_bash_script())
 # Installer le script sur le système
 installer = BashScriptInstaller(logger)
 installer.install(config, "/usr/local/bin/backup.sh")
+```
+
+#### Déploiement de scripts Python CLI
+
+Nécessite `pip install linux-python-utils[deploy]` (platformdirs) et `uv` installé sur le système.
+
+```python
+from linux_python_utils import (
+    FileLogger,
+    LinuxCommandExecutor,
+    PythonCliConfig,
+    LinuxCliInstaller,
+    ScriptPaths,
+    LinuxScriptChecker,
+)
+from pathlib import Path
+
+logger = FileLogger("/var/log/deploy.log")
+executor = LinuxCommandExecutor(logger)
+
+# Résolution des chemins FHS (système ou utilisateur)
+paths = ScriptPaths(scope="user")  # ou "system"
+print(paths.data_dir)     # ~/.local/share/
+print(paths.scripts_dir)  # ~/.local/share/mon-script/
+
+# Configuration du déploiement
+config = PythonCliConfig(
+    name="mon-outil",
+    source_dir=Path("/home/user/projects/mon-outil"),
+    scope="user",   # "user" ou "system"
+)
+
+# Vérifications pré-installation (python3, pyproject.toml, dépendances)
+checker = LinuxScriptChecker(logger)
+report = checker.check(config)
+if not report.success:
+    for dep in report.missing_deps:
+        print(f"Manquant: {dep.name} — {dep.remedy}")
+
+# Installation via uv tool install
+installer = LinuxCliInstaller(logger, executor)
+report = installer.install(config)
+
+print(report.success)        # True/False
+print(report.install_path)   # Chemin d'installation
+print(report.missing_deps)   # Dépendances manquantes éventuelles
+```
+
+### Module `identity`
+
+Gestion idempotente des groupes et utilisateurs Unix. Les opérations sont sans effet si l'état souhaité est déjà en place.
+
+```python
+from linux_python_utils import (
+    FileLogger,
+    LinuxCommandExecutor,
+    LinuxGroupManager,
+    LinuxUserManager,
+)
+
+logger = FileLogger("/var/log/identity.log")
+executor = LinuxCommandExecutor(logger)
+
+# Groupes — crée ou corrige le GID
+group_mgr = LinuxGroupManager(executor, logger)
+group_mgr.ensure_group("appuser", gid=1500)
+# → groupadd si absent, groupmod --gid si GID incorrect, skip sinon
+
+# Utilisateurs — crée ou corrige l'UID
+user_mgr = LinuxUserManager(executor, logger)
+user_mgr.ensure_user(
+    name="appuser",
+    uid=1500,
+    shell="/sbin/nologin",
+    comment="Application service account",
+    create_home=False,
+)
+# → useradd si absent, usermod --uid si UID incorrect, skip sinon
+
+# Groupes secondaires — ajoute uniquement les manquants
+user_mgr.ensure_user_groups(
+    username="appuser",
+    groups=["docker", "systemd-journal"],
+)
+# → usermod --append --groups docker,systemd-journal (uniquement les absents)
 ```
 
 ### Module `notification`
@@ -1090,9 +1197,12 @@ logger.log_info("Backup automatique configuré")
 
 | ABC (Interface) | Implémentation | Description |
 |-----------------|----------------|-------------|
-| `IniSection` | `ValidatedSection` | Section INI avec validation |
+| `IniSection` | `ValidatedSection` | Section INI avec validation externe |
 | `IniConfig` | — | Fichier INI complet |
 | `IniConfigManager` | `LinuxIniConfigManager` | Gestion lecture/écriture INI |
+| — | `SectionAwareEditor` | Édition ligne-à-ligne préservant les commentaires |
+| — | `parse_validator` | Convertit un validateur brut en callable/liste |
+| — | `build_validators` | Construit un dictionnaire de validateurs |
 
 #### Module `commands`
 
@@ -1108,6 +1218,19 @@ logger.log_info("Backup automatique configuré")
 | ABC (Interface) | Implémentation | Description |
 |-----------------|----------------|-------------|
 | `ScriptInstaller` | `BashScriptInstaller` | Installation de scripts bash |
+| `CliInstaller` | `LinuxCliInstaller` | Déploiement CLI via `uv tool install` |
+| `ScriptChecker` | `LinuxScriptChecker` | Vérifications pré-installation (python3, pyproject.toml, dépendances) |
+| — | `ScriptPaths` | Résolution chemins FHS via platformdirs (système/utilisateur) |
+| — | `PythonCliConfig` | Configuration de déploiement d'un script Python CLI |
+| — | `InstallReport` | Rapport complet du déploiement |
+| — | `MissingDependency` | Dépendance manquante avec commande de remédiation |
+
+#### Module `identity`
+
+| ABC (Interface) | Implémentation | Description |
+|-----------------|----------------|-------------|
+| `GroupManagerBase` | `LinuxGroupManager` | Création/correction idempotente de groupes Unix |
+| `UserManagerBase` | `LinuxUserManager` | Création/correction idempotente d'utilisateurs Unix |
 
 #### Module `validation`
 
@@ -1177,6 +1300,9 @@ logger.log_info("Backup automatique configuré")
 | `TimerConfig` | Configuration d'une unité .timer |
 | `ServiceConfig` | Configuration d'une unité .service |
 | `BashScriptConfig` | Configuration d'un script bash |
+| `PythonCliConfig` | Configuration de déploiement d'un script Python CLI |
+| `InstallReport` | Rapport de déploiement (succès, chemin, dépendances manquantes) |
+| `MissingDependency` | Dépendance manquante avec commande de remédiation |
 | `NotificationConfig` | Configuration des notifications desktop |
 | `CommandResult` | Résultat d'exécution de commande (inclut `executed_as_root`) |
 | `ValidatedSection` | Section INI avec validation externe |
@@ -1198,16 +1324,17 @@ logger.log_info("Backup automatique configuré")
 │  │ commands │ │ dotconf  │ │ scripts  │ │notificat.│ │validation│        │
 │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘        │
 │       │            │            │            │            │               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐                     │
-│  │  errors  │ │credentials│ │ network │ │   cli    │                     │
-│  └────┬─────┘ └────┬──────┘ └────┬────┘ └────┬─────┘                     │
-│       │            │            │            │                            │
-│       ▼            ▼            ▼            ▼                            │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │
+│  │  errors  │ │credentials│ │ network │ │   cli    │ │ identity │        │
+│  └────┬─────┘ └────┬──────┘ └────┬────┘ └────┬─────┘ └────┬─────┘        │
+│       │            │            │            │            │               │
+│       ▼            ▼            ▼            ▼            ▼               │
 │  ┌─────────────────────────────────────────────────────────────────┐      │
 │  │              Abstract Base Classes (ABCs)                        │      │
 │  │  Logger, ConfigLoader, FileManager, Validator, CommandExecutor   │      │
 │  │  IniConfigManager, ScriptInstaller, IntegrityChecker,           │      │
-│  │  ErrorHandler, CredentialProvider, NetworkScanner, CliCommand   │      │
+│  │  ErrorHandler, CredentialProvider, NetworkScanner,              │      │
+│  │  CliCommand, GroupManagerBase, UserManagerBase                  │      │
 │  └──────────────────────────┬──────────────────────────────────────┘      │
 │                             │                                             │
 │                             ▼                                             │
@@ -1216,7 +1343,8 @@ logger.log_info("Backup automatique configuré")
 │  │  FileLogger, ConsoleLogger, LinuxFileManager,                   │      │
 │  │  LinuxCommandExecutor, LinuxIniConfigManager,                   │      │
 │  │  PathChecker, SHA256IntegrityChecker, CredentialChain,          │      │
-│  │  LinuxArpScanner, CliApplication ...                            │      │
+│  │  LinuxArpScanner, CliApplication,                               │      │
+│  │  LinuxGroupManager, LinuxUserManager ...                        │      │
 │  └─────────────────────────────────────────────────────────────────┘      │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1335,8 +1463,9 @@ linux-python-utils/
 │   ├── dotconf/
 │   │   ├── __init__.py
 │   │   ├── base.py              # ABCs IniSection, IniConfig, IniConfigManager
-│   │   ├── section.py           # ValidatedSection + utilitaires
-│   │   └── manager.py           # LinuxIniConfigManager
+│   │   ├── section.py           # ValidatedSection + parse_validator, build_validators
+│   │   ├── manager.py           # LinuxIniConfigManager
+│   │   └── line_editor.py       # SectionAwareEditor (édition préservant commentaires)
 │   ├── commands/
 │   │   ├── __init__.py
 │   │   ├── base.py              # CommandResult + ABC CommandExecutor
@@ -1345,8 +1474,16 @@ linux-python-utils/
 │   │   └── runner.py            # LinuxCommandExecutor (subprocess)
 │   ├── scripts/
 │   │   ├── __init__.py
-│   │   ├── config.py            # BashScriptConfig (dataclass)
-│   │   └── installer.py         # ABC ScriptInstaller + BashScriptInstaller
+│   │   ├── config.py            # BashScriptConfig + PythonCliConfig
+│   │   ├── installer.py         # ScriptInstaller, BashScriptInstaller, CliInstaller, LinuxCliInstaller
+│   │   ├── paths.py             # ScriptPaths — chemins FHS via platformdirs
+│   │   ├── checker.py           # ScriptChecker (ABC) + LinuxScriptChecker
+│   │   └── report.py            # InstallReport + MissingDependency
+│   ├── identity/
+│   │   ├── __init__.py
+│   │   ├── base.py              # ABCs GroupManagerBase, UserManagerBase
+│   │   ├── group.py             # LinuxGroupManager (groupadd/groupmod)
+│   │   └── user.py              # LinuxUserManager (useradd/usermod)
 │   ├── notification/
 │   │   ├── __init__.py
 │   │   └── config.py            # NotificationConfig (dataclass)
@@ -1405,10 +1542,13 @@ linux-python-utils/
 │   ├── test_systemd_scheduled_task.py
 │   ├── test_systemd_config_loaders.py
 │   ├── test_dotconf.py
+│   ├── test_dotconf_line_editor.py
 │   ├── test_commands.py
 │   ├── test_scripts.py
 │   ├── test_notification.py
-│   └── test_validation.py
+│   ├── test_validation.py
+│   ├── test_identity_group.py
+│   └── test_identity_user.py
 ├── examples/
 │   └── nfs-mounts.toml              # Exemple de configuration
 ├── pyproject.toml
@@ -1457,11 +1597,14 @@ make all
 | `test_systemd_scheduled_task.py` | 12 | SystemdScheduledTaskInstaller |
 | `test_systemd_config_loaders.py` | 30 | Tous les loaders (TOML/JSON) |
 | `test_dotconf.py` | 20 | Sections INI, validation, lecture/écriture |
+| `test_dotconf_line_editor.py` | — | SectionAwareEditor, édition préservant commentaires |
 | `test_commands.py` | 74 | CommandBuilder, formatters, exécution, streaming, dry-run, root/user |
 | `test_scripts.py` | 19 | BashScriptConfig, installation scripts |
 | `test_notification.py` | 13 | NotificationConfig, génération bash |
 | `test_validation.py` | 5 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
-| **Total** | **474** | |
+| `test_identity_group.py` | — | LinuxGroupManager, ensure_group (create/correct/skip) |
+| `test_identity_user.py` | — | LinuxUserManager, ensure_user, ensure_user_groups |
+| **Total** | **474+** | |
 
 ### Tests Paramétrés
 
