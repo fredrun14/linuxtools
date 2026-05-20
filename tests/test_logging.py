@@ -1,12 +1,14 @@
 """Tests pour le module logging."""
 
+import io
+import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from linux_python_utils.logging import Logger, FileLogger
-from unittest.mock import MagicMock
 
 
 class TestFileLogger:
@@ -306,3 +308,110 @@ class TestConsoleLogger:
         captured = capsys.readouterr()
         assert "ERROR" in captured.err
         assert "erreur critique" in captured.err
+
+
+class TestTeeStream:
+    """Tests pour TeeStream."""
+
+    def test_write_ecrit_dans_flux_original(self) -> None:
+        """write() écrit dans le flux original."""
+        # Arrange
+        original = io.StringIO()
+        log_fh = io.StringIO()
+        from linux_python_utils.logging import TeeStream
+        tee = TeeStream(original, log_fh)
+
+        # Act
+        tee.write("bonjour")
+
+        # Assert
+        assert original.getvalue() == "bonjour"
+
+    def test_write_ecrit_dans_log_fh(self) -> None:
+        """write() écrit dans le fichier log."""
+        # Arrange
+        original = io.StringIO()
+        log_fh = io.StringIO()
+        from linux_python_utils.logging import TeeStream
+        tee = TeeStream(original, log_fh)
+
+        # Act
+        tee.write("bonjour")
+
+        # Assert
+        assert log_fh.getvalue() == "bonjour"
+
+    def test_write_retourne_longueur(self) -> None:
+        """write() retourne len(data)."""
+        # Arrange
+        from linux_python_utils.logging import TeeStream
+        tee = TeeStream(io.StringIO(), io.StringIO())
+
+        # Act
+        result = tee.write("hello")
+
+        # Assert
+        assert result == 5
+
+    def test_flush_vide_les_deux_flux(self) -> None:
+        """flush() appelle flush() sur les deux flux."""
+        # Arrange
+        original = MagicMock()
+        log_fh = MagicMock()
+        from linux_python_utils.logging import TeeStream
+        tee = TeeStream(original, log_fh)
+
+        # Act
+        tee.flush()
+
+        # Assert
+        original.flush.assert_called_once()
+        log_fh.flush.assert_called_once()
+
+    def test_getattr_delegue_au_flux_original(self) -> None:
+        """__getattr__ délègue les attributs inconnus au flux original."""
+        # Arrange
+        original = io.StringIO()
+        from linux_python_utils.logging import TeeStream
+        tee = TeeStream(original, io.StringIO())
+
+        # Act / Assert
+        assert tee.encoding == original.encoding
+
+    def test_tee_stdout_capture_print(self, tmp_path: Path) -> None:
+        """Remplacer sys.stdout par TeeStream capture les print() dans le fichier."""
+        # Arrange
+        log_file = tmp_path / "out.log"
+        log_fh = log_file.open("a", encoding="utf-8")
+        from linux_python_utils.logging import TeeStream
+        original_stdout = sys.stdout
+        sys.stdout = TeeStream(original_stdout, log_fh)
+
+        # Act
+        try:
+            print("ligne capturée")
+        finally:
+            sys.stdout = original_stdout
+            log_fh.close()
+
+        # Assert
+        assert "ligne capturée" in log_file.read_text(encoding="utf-8")
+
+    def test_tee_stderr_capture_erreurs(self, tmp_path: Path) -> None:
+        """Remplacer sys.stderr par TeeStream capture stderr dans le fichier."""
+        # Arrange
+        log_file = tmp_path / "err.log"
+        log_fh = log_file.open("a", encoding="utf-8")
+        from linux_python_utils.logging import TeeStream
+        original_stderr = sys.stderr
+        sys.stderr = TeeStream(original_stderr, log_fh)
+
+        # Act
+        try:
+            print("erreur capturée", file=sys.stderr)
+        finally:
+            sys.stderr = original_stderr
+            log_fh.close()
+
+        # Assert
+        assert "erreur capturée" in log_file.read_text(encoding="utf-8")

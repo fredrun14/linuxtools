@@ -8,11 +8,13 @@ from linux_python_utils.logging.security_logger import (
     SecurityEventType,
     SecurityLogger,
 )
+from linux_python_utils.logging.tee_stream import TeeStream
 
 __all__ = [
     "Logger",
     "ConsoleLogger",
     "FileLogger",
+    "TeeStream",
     "SecurityEvent",
     "SecurityEventType",
     "SecurityLogger",

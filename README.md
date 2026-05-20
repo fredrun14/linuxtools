@@ -471,12 +471,70 @@ Types d'événements disponibles (`SecurityEventType`) :
 | `RATE_LIMIT_HIT` | `rate_limit.hit` | warning |
 | `SUSPICIOUS_ACTIVITY` | `suspicious.activity` | error |
 
+#### `TeeStream` — Capturer stdout/stderr dans un fichier log
+
+Inspiré de la commande Unix `tee` (raccord en T dans une tuyauterie) : tout ce
+qui transite par un flux est envoyé **simultanément** vers deux destinations —
+le terminal (affichage en temps réel) et un fichier log (trace persistante).
+
+```
+sys.stdout.write("hello")
+        │
+        ├──► terminal  (visible pendant l'exécution)
+        └──► fichier   (trace consultable après coup)
+```
+
+> **`TeeStream` vs `FileLogger(console_output=True)` — quelle différence ?**
+>
+> `FileLogger(console_output=True)` ne capture que les messages qui passent
+> explicitement par l'interface logger (`log_info`, `log_error`, etc.) :
+>
+> ```python
+> logger.log_info("message")  # → fichier + console ✓
+> print("résultat")           # → console seulement ✗  (pas dans le fichier)
+> ```
+>
+> `TeeStream` capture **tout** ce qui passe par `sys.stdout` / `sys.stderr`,
+> y compris les `print()`, les exceptions non catchées, et toute sortie directe :
+>
+> ```python
+> logger.log_info("message")            # → fichier (FileLogger) + console ✓
+> print("résultat")                     # → fichier (TeeStream)  + console ✓
+> print("erreur", file=sys.stderr)      # → fichier (TeeStream)  + console ✓
+> # traceback d'une exception           # → fichier (TeeStream)  + console ✓
+> ```
+>
+> Les deux sont complémentaires : `FileLogger` pour les messages de log
+> structurés, `TeeStream` pour capturer l'intégralité de ce que l'utilisateur
+> voit à l'écran.
+
+```python
+import sys
+from linux_python_utils.logging import TeeStream
+
+log_fh = open("/var/log/myapp.log", "a", encoding="utf-8")
+original_stdout, original_stderr = sys.stdout, sys.stderr
+
+# Wrapper les deux flux APRÈS la création du FileLogger,
+# pour que son StreamHandler garde une référence à l'stderr original
+# et évite les doublons dans le fichier log.
+sys.stdout = TeeStream(original_stdout, log_fh)
+sys.stderr = TeeStream(original_stderr, log_fh)
+try:
+    ...  # tout print() et toute écriture stderr sont maintenant loggés
+finally:
+    sys.stdout = original_stdout
+    sys.stderr = original_stderr
+    log_fh.close()
+```
+
 ### Documentation API
 
 | ABC (Interface) | Implémentation | Description |
 |-----------------|----------------|-------------|
 | `Logger` | `FileLogger` | Logging fichier/console (UTF-8, flush immédiat) |
 | `Logger` | `ConsoleLogger` | Logging stdout/stderr sans fichier (dry-run, tests) |
+| — | `TeeStream` | Duplique stdout/stderr vers terminal ET fichier log |
 | — | `SecurityLogger` | Journalisation structurée JSON des événements de sécurité |
 | — | `SecurityEvent` | Dataclass représentant un événement de sécurité |
 | — | `SecurityEventType` | Enum des 10 types d'événements de sécurité |
