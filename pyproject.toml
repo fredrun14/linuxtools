@@ -35,6 +35,9 @@ classifiers = [
     "Topic :: System :: Networking",
     "Typing :: Typed",
 ]
+dependencies = [
+    "platformdirs>=4.0",
+]
 
 # =============================================================================
 # DÉPENDANCES OPTIONNELLES
@@ -48,9 +51,7 @@ credentials = [
     "python-dotenv>=1.0",
     "keyring>=24.0",
 ]
-deploy = [
-    "platformdirs>=4.0",
-]
+deploy = []
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
