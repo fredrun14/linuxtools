@@ -330,9 +330,14 @@ class LinuxScriptChecker(ScriptChecker):
                     )
                 )
 
-        install_cmd = (
-            f"{pip_cmd} install -e '{pyproject_path.parent}'"
-        )
+        if venv_path is not None:
+            install_cmd = (
+                f"{pip_cmd} install -e '{pyproject_path.parent}'"
+            )
+        else:
+            install_cmd = (
+                f"uv tool install --editable '{pyproject_path.parent}'"
+            )
         return missing, len(deps), install_cmd
 
     @staticmethod

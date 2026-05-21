@@ -481,10 +481,14 @@ class LinuxCliInstaller(CliInstaller):
             cmd = [
                 "sudo", "uv", "tool", "install",
                 "--python", self._PYTHON_EXEC,
+                "--editable",
                 str(config.source_dir),
             ]
         else:
-            cmd = ["uv", "tool", "install", str(config.source_dir)]
+            cmd = [
+                "uv", "tool", "install",
+                "--editable", str(config.source_dir),
+            ]
 
         try:
             result = subprocess.run(
