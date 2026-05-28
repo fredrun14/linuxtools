@@ -492,7 +492,9 @@ class LinuxCliInstaller(CliInstaller):
 
         if config.deploy_type == "system":
             cmd = [
-                "sudo", uv_path, "tool", "install",
+                "sudo",
+                "env", "UV_TOOL_BIN_DIR=/usr/local/bin",
+                uv_path, "tool", "install",
                 "--python", self._PYTHON_EXEC,
                 "--editable",
                 str(config.source_dir),
