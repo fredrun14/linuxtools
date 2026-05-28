@@ -7,6 +7,7 @@ de configuration au format INI (.conf) avec :
 - Gestion robuste des opérations lecture/écriture
 - Édition ligne-à-ligne préservant commentaires et formatage
 - Application déclarative de blocs de configuration via spec TOML
+- Export d'un fichier conf existant vers un TOML TomlSpecLoader
 
 Classes principales:
     - IniSection: Interface abstraite pour une section INI
@@ -19,6 +20,7 @@ Classes principales:
     - ConfigSpec: Spécification complète (chemin cible + blocs)
     - TomlSpecLoader: Charge un TOML de spec → ConfigSpec
     - ConfigApplier: Applique un ConfigSpec sur un fichier cible
+    - ConfTomlExporter: Exporte un fichier conf existant vers un TOML
 
 Fonctions utilitaires:
     - parse_validator: Convertit un validateur brut en fonction/liste
@@ -58,6 +60,7 @@ Example:
 """
 
 from linux_python_utils.dotconf.applier import ConfigApplier
+from linux_python_utils.dotconf.conf_toml_exporter import ConfTomlExporter
 from linux_python_utils.dotconf.base import (
     IniConfig,
     IniConfigManager,
@@ -90,4 +93,6 @@ __all__ = [
     # Fonctions utilitaires
     "parse_validator",
     "build_validators",
+    # Export conf → TOML
+    "ConfTomlExporter",
 ]
