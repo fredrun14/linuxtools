@@ -2691,6 +2691,15 @@ make test
 make all
 ```
 
+## 🔧 Améliorations connues
+
+| # | Description | Impact |
+|---|---|---|
+| 1 | **Streaming temps réel des commandes longues** — `LinuxCommandExecutor` utilise `capture_output=True` : la sortie de `dnf5`, `flatpak`, `uv`… n'est visible qu'à la fin. Implémenter un mode streaming via `subprocess.Popen` + lecture ligne par ligne avec comportement "tee" : affichage console en temps réel **et** écriture simultanée dans le fichier de log. | UX sur transactions longues |
+| 2 | **Centralisation des logs dans `/var/log/`** — `FileLogger` écrit dans `~/.local/share/<app>/`. Objectif : `/var/log/<app>/$USER/` (mode user) et `/var/log/<app>/` (mode root), répertoire créé avec les bonnes permissions lors de l'initialisation. | Cohérence et visibilité des logs système |
+
+---
+
 ## 📄 Licence
 
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
