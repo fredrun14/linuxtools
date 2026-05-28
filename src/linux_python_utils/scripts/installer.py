@@ -327,8 +327,10 @@ class LinuxCliInstaller(CliInstaller):
                 warnings=[str(exc)],
             )
 
-        missing, total, install_cmd = self._checker.check_dependencies(
-            pyproject_path, config.venv_path, config.check_extras
+        missing, installed, total, install_cmd = (
+            self._checker.check_dependencies(
+                pyproject_path, config.venv_path, config.check_extras
+            )
         )
         if missing:
             warnings.append(
@@ -363,6 +365,7 @@ class LinuxCliInstaller(CliInstaller):
                         deploy_type=config.deploy_type,
                         install_path=paths.bin_path,
                         missing_deps=missing,
+                        installed_deps=installed,
                         total_deps=total,
                         install_command=install_cmd,
                         warnings=["Wrapper refusé par l'utilisateur"],
@@ -379,6 +382,7 @@ class LinuxCliInstaller(CliInstaller):
                 deploy_type=config.deploy_type,
                 install_path=paths.bin_path,
                 missing_deps=missing,
+                installed_deps=installed,
                 total_deps=total,
                 install_command=install_cmd,
                 warnings=warnings + ["Échec de uv tool install"],
@@ -393,6 +397,7 @@ class LinuxCliInstaller(CliInstaller):
             deploy_type=config.deploy_type,
             install_path=paths.bin_path,
             missing_deps=missing,
+            installed_deps=installed,
             total_deps=total,
             install_command=install_cmd,
             warnings=warnings,

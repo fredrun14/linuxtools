@@ -23,7 +23,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from linux_python_utils.logging import Logger
-from linux_python_utils.scripts.report import InstallReport, MissingDependency
+from linux_python_utils.scripts.report import (
+    InstallReport,
+    InstalledDependency,
+    MissingDependency,
+)
 
 
 class ScriptChecker(ABC):
@@ -292,7 +296,7 @@ class LinuxScriptChecker(ScriptChecker):
         pyproject_path: Path,
         venv_path: Path | None,
         check_extras: list[str],
-    ) -> tuple[list[MissingDependency], int, str]:
+    ) -> tuple[list[MissingDependency], list[InstalledDependency], int, str]:
         """Vérifie les dépendances déclarées dans pyproject.toml.
 
         Args:
@@ -301,7 +305,8 @@ class LinuxScriptChecker(ScriptChecker):
             check_extras: Groupes d'extras à inclure.
 
         Returns:
-            Tuple (missing_deps, total_count, install_command).
+            Tuple (missing_deps, installed_deps, total_count,
+            install_command).
         """
         pyproject_data = self.read_pyproject(pyproject_path)
 
@@ -317,14 +322,20 @@ class LinuxScriptChecker(ScriptChecker):
             pip_cmd = "pip3"
 
         missing: list[MissingDependency] = []
+        installed: list[InstalledDependency] = []
         for dep in deps:
             pkg = self._extract_package_name(dep)
             constraint = self._extract_version_constraint(dep)
-            if not self._is_installed(pkg, pip_cmd):
+            location = self._is_installed(pkg, pip_cmd)
+            if location is None:
                 missing.append(
                     MissingDependency(
                         package=pkg, required=constraint
                     )
+                )
+            else:
+                installed.append(
+                    InstalledDependency(package=pkg, location=location)
                 )
 
         if venv_path is not None:
@@ -335,7 +346,7 @@ class LinuxScriptChecker(ScriptChecker):
             install_cmd = (
                 f"uv tool install --editable '{pyproject_path.parent}'"
             )
-        return missing, len(deps), install_cmd
+        return missing, installed, len(deps), install_cmd
 
     @staticmethod
     def _extract_package_name(dep: str) -> str:
@@ -364,8 +375,8 @@ class LinuxScriptChecker(ScriptChecker):
         return match.group() if match else ""
 
     @staticmethod
-    def _is_installed(pkg: str, pip_cmd: str) -> bool:
-        """Vérifie si un paquet est installé.
+    def _is_installed(pkg: str, pip_cmd: str) -> str | None:
+        """Vérifie si un paquet est installé et retourne son chemin.
 
         Utilise d'abord importlib.metadata (détecte les installs
         éditables du venv courant), puis pip show en fallback.
@@ -375,20 +386,29 @@ class LinuxScriptChecker(ScriptChecker):
             pip_cmd: Chemin vers pip à utiliser en fallback.
 
         Returns:
-            True si le paquet est disponible, False sinon.
+            Chemin d'installation si trouvé, None sinon.
         """
-        normalized = pkg.replace("-", "_").lower()
-        try:
-            importlib.metadata.distribution(normalized)
-            return True
-        except importlib.metadata.PackageNotFoundError:
-            pass
-        try:
-            importlib.metadata.distribution(pkg)
-            return True
-        except importlib.metadata.PackageNotFoundError:
-            pass
+        import json
+
+        for name in (pkg.replace("-", "_").lower(), pkg):
+            try:
+                dist = importlib.metadata.distribution(name)
+                direct_url = dist.read_text("direct_url.json")
+                if direct_url:
+                    data = json.loads(direct_url)
+                    url = data.get("url", "")
+                    if url.startswith("file://"):
+                        return url[7:]
+                return str(dist.locate_file("."))
+            except importlib.metadata.PackageNotFoundError:
+                continue
+
         result = subprocess.run(
-            [pip_cmd, "show", pkg], capture_output=True
+            [pip_cmd, "show", pkg], capture_output=True, text=True
         )
-        return result.returncode == 0
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("Location:"):
+                    return line.split(":", 1)[1].strip()
+            return "installé"
+        return None

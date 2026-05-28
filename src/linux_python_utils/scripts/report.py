@@ -21,6 +21,19 @@ from pathlib import Path
 
 
 @dataclass
+class InstalledDependency:
+    """Représente une dépendance satisfaite lors de la vérification.
+
+    Attributes:
+        package: Nom du paquet installé.
+        location: Chemin d'installation (répertoire source ou site-packages).
+    """
+
+    package: str
+    location: str
+
+
+@dataclass
 class MissingDependency:
     """Représente une dépendance manquante lors de la vérification.
 
@@ -69,6 +82,7 @@ class InstallReport:
     deploy_type: str
     install_path: Path
     missing_deps: list[MissingDependency] = field(default_factory=list)
+    installed_deps: list[InstalledDependency] = field(default_factory=list)
     total_deps: int = 0
     install_command: str = ""
     warnings: list[str] = field(default_factory=list)
@@ -98,6 +112,10 @@ class InstallReport:
                 f"  Dépendances : {satisfied}/{self.total_deps}"
                 " satisfaites"
             )
+            for dep in self.installed_deps:
+                lines.append(
+                    f"    ✓ {dep.package}  ({dep.location})"
+                )
             for dep in self.missing_deps:
                 lines.append(
                     f"    ✗ {dep.package} {dep.required}"
