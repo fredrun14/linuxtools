@@ -16,6 +16,28 @@ from linux_python_utils.commands import (
 from linux_python_utils.logging.base import Logger
 
 
+def _setup_popen(mock_popen, returncode=0, stdout="", stderr=""):
+    """Configure un mock subprocess.Popen utilisé en context manager.
+
+    LinuxCommandExecutor.run() fait ``with subprocess.Popen(...) as p``
+    puis ``p.communicate()`` et lit ``p.returncode``.
+
+    Args:
+        mock_popen: Mock retourné par @patch(...Popen).
+        returncode: Code retour simulé du process.
+        stdout: Sortie standard simulée.
+        stderr: Sortie d'erreur simulée.
+
+    Returns:
+        Le mock du process (proc) pour assertions éventuelles.
+    """
+    proc = MagicMock()
+    proc.communicate.return_value = (stdout, stderr)
+    proc.returncode = returncode
+    mock_popen.return_value.__enter__.return_value = proc
+    return proc
+
+
 # --- Tests CommandResult ---
 
 
@@ -204,15 +226,11 @@ class TestLinuxCommandExecutorRun:
         )
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
-    def test_run_commande_reussie(self, mock_run):
+    def test_run_commande_reussie(self, mock_popen):
         """Test d'une commande réussie."""
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="sortie",
-            stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0, stdout="sortie", stderr="")
         result = self.executor.run(["echo", "test"])
 
         assert result.success is True
@@ -223,15 +241,11 @@ class TestLinuxCommandExecutorRun:
         assert result.duration >= 0
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
-    def test_run_commande_echouee(self, mock_run):
+    def test_run_commande_echouee(self, mock_popen):
         """Test d'une commande échouée."""
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="erreur",
-        )
+        _setup_popen(mock_popen, returncode=1, stdout="", stderr="erreur")
         result = self.executor.run(["false"])
 
         assert result.success is False
@@ -285,27 +299,23 @@ class TestLinuxCommandExecutorRun:
         assert "ls -la" in call_args
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
-    def test_run_avec_cwd(self, mock_run):
+    def test_run_avec_cwd(self, mock_popen):
         """Test de l'exécution avec répertoire de travail."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0)
         self.executor.run(["ls"], cwd="/tmp")
 
-        mock_run.assert_called_once()
-        call_kwargs = mock_run.call_args[1]
+        mock_popen.assert_called_once()
+        call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["cwd"] == "/tmp"
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
-    def test_run_sans_logger(self, mock_run):
+    def test_run_sans_logger(self, mock_popen):
         """Test de l'exécution sans logger."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="ok", stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0, stdout="ok", stderr="")
         executor = LinuxCommandExecutor()
         result = executor.run(["echo", "test"])
 
@@ -313,16 +323,14 @@ class TestLinuxCommandExecutorRun:
         assert result.stdout == "ok"
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
     def test_run_logue_erreur_si_code_retour_non_zero(
-        self, mock_run
+        self, mock_popen
     ):
         """Vérifie que log_error est appelé si returncode != 0."""
         # Arrange
-        mock_run.return_value = MagicMock(
-            returncode=2, stdout="", stderr="echec",
-        )
+        _setup_popen(mock_popen, returncode=2, stdout="", stderr="echec")
 
         # Act
         result = self.executor.run(["rsync", "-av", "/src"])
@@ -567,54 +575,48 @@ class TestLinuxCommandExecutorEnv:
     """Tests pour la gestion de l'environnement."""
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
     @patch.dict("os.environ", {"EXISTING": "val"})
-    def test_default_env_fusionne(self, mock_run):
+    def test_default_env_fusionne(self, mock_popen):
         """Test que default_env est fusionné."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0)
         executor = LinuxCommandExecutor(
             default_env={"MY_VAR": "42"},
         )
         executor.run(["echo"])
 
-        call_kwargs = mock_run.call_args[1]
+        call_kwargs = mock_popen.call_args[1]
         env = call_kwargs["env"]
         assert env["EXISTING"] == "val"
         assert env["MY_VAR"] == "42"
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
     @patch.dict("os.environ", {"EXISTING": "val"})
-    def test_env_appel_prioritaire(self, mock_run):
+    def test_env_appel_prioritaire(self, mock_popen):
         """Test que l'env de l'appel est prioritaire."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0)
         executor = LinuxCommandExecutor(
             default_env={"KEY": "default"},
         )
         executor.run(["echo"], env={"KEY": "override"})
 
-        call_kwargs = mock_run.call_args[1]
+        call_kwargs = mock_popen.call_args[1]
         env = call_kwargs["env"]
         assert env["KEY"] == "override"
 
     @patch(
-        "linux_python_utils.commands.runner.subprocess.run"
+        "linux_python_utils.commands.runner.subprocess.Popen"
     )
-    def test_aucun_env_passe_none(self, mock_run):
+    def test_aucun_env_passe_none(self, mock_popen):
         """Test que sans env, subprocess reçoit None."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr="",
-        )
+        _setup_popen(mock_popen, returncode=0)
         executor = LinuxCommandExecutor()
         executor.run(["echo"])
 
-        call_kwargs = mock_run.call_args[1]
+        call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["env"] is None
 
 
