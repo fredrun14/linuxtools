@@ -229,3 +229,35 @@ class TestTomlEscape:
 
     def test_plain_string_unchanged(self) -> None:
         assert ConfTomlExporter._toml_escape("keepcache=1") == "keepcache=1"
+
+    def test_escapes_esc_control_char(self) -> None:
+        # ESC (0x1b) →  (TOML interdit le caractère brut)
+        assert ConfTomlExporter._toml_escape("\x1b[32m") == "\\u001b[32m"
+
+    def test_escapes_divers_control_chars(self) -> None:
+        # backspace (0x08), form feed (0x0c)
+        assert ConfTomlExporter._toml_escape("\x08") == "\\u0008"
+        assert ConfTomlExporter._toml_escape("\x0c") == "\\u000c"
+
+    def test_tab_newline_non_traites_comme_uXXXX(self) -> None:
+        # \t et \n restent en séquences courtes
+        assert ConfTomlExporter._toml_escape("\t\n") == "\\t\\n"
+
+
+class TestExportAnsiRoundTrip:
+    """Round-trip d'un fichier contenant des séquences ANSI (ESC)."""
+
+    def test_export_ansi_produit_toml_parseable(
+        self, exporter: ConfTomlExporter, tmp_path: Path
+    ) -> None:
+        import tomllib
+
+        src = tmp_path / "prompt.zsh"
+        src.write_text("PROMPT='\x1b[32m%n\x1b[0m'\n", encoding="utf-8")
+        dest = tmp_path / "prompt.toml"
+        exporter.export(src, dest)
+        # Le TOML doit être parseable (échouait avant le fix).
+        data = tomllib.loads(dest.read_text(encoding="utf-8"))
+        blocks = data["target"]["content"]
+        # Round-trip : l'ESC est restitué après décodage.
+        assert any("\x1b[32m" in b["content"] for b in blocks)

@@ -5,6 +5,10 @@ from pathlib import Path
 
 from linux_python_utils.dotconf.spec import ConfigBlock
 
+# Caractères de contrôle interdits bruts dans une chaîne TOML basique.
+# Exclut 0x09 (\t), 0x0a (\n), 0x0d (\r), déjà gérés par des séquences.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
 
 class ConfTomlExporter:
     """Exporte un fichier conf existant vers un TOML compatible TomlSpecLoader.
@@ -151,13 +155,17 @@ class ConfTomlExporter:
             value: Chaîne brute à insérer entre guillemets doubles TOML.
 
         Returns:
-            Chaîne avec backslash, guillemets et retours ligne échappés.
+            Chaîne avec backslash, guillemets, retours ligne et
+            caractères de contrôle (ex. ESC) échappés.
         """
-        return (
+        value = (
             value
             .replace("\\", "\\\\")
             .replace('"', '\\"')
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
+        )
+        return _CONTROL_CHARS.sub(
+            lambda m: f"\\u{ord(m.group()):04x}", value
         )
