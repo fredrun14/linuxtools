@@ -178,7 +178,7 @@ def _require_store(self) -> CredentialStore:
 - [x] A09 Logging Failures — aucun log ne contient `value`.
 
 ### Bandit
-- [ ] `bandit -r src/linux_python_utils/credentials/ -ll -ii`
+- [x] `bandit -r src/linux_python_utils/credentials/ -ll -ii`
 - [x] B110 — le `except: pass` de `delete()` est désormais loggé.
 
 ---

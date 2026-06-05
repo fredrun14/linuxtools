@@ -115,7 +115,7 @@ dans `LinuxFileManager` mais non déclarés → contrat incomplet, viole LSP).
 
 ## Analyse de sécurité (OWASP / Bandit)
 - [x] A01 / TOCTOU — toutes les écritures via `O_NOFOLLOW`.
-- [ ] `bandit -r src/linux_python_utils/filesystem/ -ll -ii`
+- [x] `bandit -r src/linux_python_utils/filesystem/ -ll -ii`
 
 ---
 
