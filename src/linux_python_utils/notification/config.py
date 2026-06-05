@@ -1,18 +1,7 @@
 """Configuration pour les notifications desktop Linux.
 
 Ce module fournit une dataclass pour configurer les notifications
-envoyées via notify-send sur les systèmes Linux avec KDE Plasma
-ou d'autres environnements de bureau compatibles.
-
-Example:
-    Création d'une configuration de notification:
-
-        config = NotificationConfig(
-            title="Mise à jour",
-            message_success="Mise à jour réussie.",
-            message_failure="Échec de la mise à jour."
-        )
-        bash_function = config.to_bash_function()
+envoyées via notify-send sur les systèmes Linux.
 """
 
 import shlex
@@ -23,9 +12,10 @@ from dataclasses import dataclass
 class NotificationConfig:
     """Configuration pour les notifications desktop Linux.
 
-    Cette dataclass encapsule tous les paramètres nécessaires pour
-    envoyer des notifications via notify-send à tous les utilisateurs
-    connectés sur un système Linux.
+    Génère du code bash via ``to_bash_function()`` et ``to_bash_call_*()``.
+    Les champs texte (title, message_*) ne doivent pas contenir de
+    caractères de contrôle (ord < 32 : ``\\n``, ``\\t``, ``\\x00``…)
+    ni être vides.
 
     Attributes:
         title: Titre de la notification.
@@ -33,15 +23,7 @@ class NotificationConfig:
         message_failure: Message affiché en cas d'échec.
         icon_success: Icône affichée en cas de succès.
         icon_failure: Icône affichée en cas d'échec.
-
-    Example:
-        >>> config = NotificationConfig(
-        ...     title="Flatpak Update",
-        ...     message_success="Mise à jour terminée.",
-        ...     message_failure="Échec de la mise à jour."
-        ... )
-        >>> print(config.title)
-        Flatpak Update
+        app_name: Nom de l'application passé à notify-send (-a).
     """
 
     title: str
@@ -49,12 +31,14 @@ class NotificationConfig:
     message_failure: str
     icon_success: str = "software-update-available"
     icon_failure: str = "dialog-error"
+    app_name: str = "Flatpak"
 
     def __post_init__(self) -> None:
-        """Valide les champs requis après initialisation.
+        """Valide les champs texte après initialisation.
 
         Raises:
-            ValueError: Si un champ requis est vide.
+            ValueError: Si un champ requis est vide ou contient un
+                caractère de contrôle (ord < 32).
         """
         if not self.title:
             raise ValueError("title est requis")
@@ -62,49 +46,48 @@ class NotificationConfig:
             raise ValueError("message_success est requis")
         if not self.message_failure:
             raise ValueError("message_failure est requis")
+        for champ, valeur in (
+            ("title", self.title),
+            ("message_success", self.message_success),
+            ("message_failure", self.message_failure),
+        ):
+            if any(ord(c) < 32 for c in valeur):
+                raise ValueError(
+                    f"Caractère de contrôle interdit dans '{champ}'."
+                )
 
     def to_bash_function(self) -> str:
         """Génère la fonction bash send_notification().
 
-        Cette fonction bash envoie une notification à tous les
-        utilisateurs connectés via notify-send en utilisant leur
-        session D-Bus respective.
+        Le nom d'application injecté dans notify-send est isolé via
+        ``shlex.quote`` pour prévenir toute injection de commande.
 
         Returns:
             Code bash de la fonction send_notification().
-
-        Example:
-            >>> config = NotificationConfig(
-            ...     title="Update",
-            ...     message_success="OK",
-            ...     message_failure="Erreur"
-            ... )
-            >>> bash_code = config.to_bash_function()
-            >>> "send_notification()" in bash_code
-            True
         """
-        return '''send_notification() {
+        app_q = shlex.quote(self.app_name)
+        return f'''send_notification() {{
     local title="$1"
     local message="$2"
     local icon="$3"
 
     # Envoyer la notification à tous les utilisateurs connectés
     for user_id in $(loginctl list-users --no-legend \\
-        | awk '{print $1}'); do
+        | awk '{{print $1}}'); do
         user_name=$(loginctl list-users --no-legend \\
-            | awk -v id="$user_id" '$1==id {print $2}')
+            | awk -v id="$user_id" '$1==id {{print $2}}')
         user_runtime_dir="/run/user/$user_id"
 
         if [ -S "$user_runtime_dir/bus" ]; then
             # Exécuter notify-send avec timeout en arrière-plan
             timeout 10 runuser -u "$user_name" -- env \\
                 DBUS_SESSION_BUS_ADDRESS="unix:path=$user_runtime_dir/bus" \\
-                notify-send -i "$icon" -a "Flatpak" "$title" "$message" &
+                notify-send -i "$icon" -a {app_q} "$title" "$message" &
         fi
     done
     # Attendre brièvement que les notifications soient envoyées
     sleep 1
-}'''
+}}'''
 
     def to_bash_call_success(self) -> str:
         """Génère l'appel bash pour une notification de succès.

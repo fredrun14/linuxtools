@@ -1,5 +1,7 @@
 """Tests pour le module notification."""
 
+import shlex
+
 import pytest
 
 from linux_python_utils.notification import NotificationConfig
@@ -155,3 +157,66 @@ class TestNotificationConfigToBashCalls:
         assert "Flatpak" in result
         assert "Mise à jour échouée" in result
         assert "dialog-error" in result
+
+
+class TestNotificationConfigValidationControle:
+    """Tests de rejet des caractères de contrôle dans __post_init__."""
+
+    def test_title_avec_newline_leve_valueerror(self):
+        """title contenant \\n lève ValueError."""
+        with pytest.raises(ValueError, match="Caractère de contrôle"):
+            NotificationConfig(
+                title="titre\nmalicieux",
+                message_success="OK",
+                message_failure="KO",
+            )
+
+    def test_message_avec_caractere_controle_leve_valueerror(self):
+        """message_success contenant un char de contrôle (\\x01) lève ValueError."""
+        with pytest.raises(ValueError, match="Caractère de contrôle"):
+            NotificationConfig(
+                title="Titre",
+                message_success="msg\x01malicieux",
+                message_failure="KO",
+            )
+
+    def test_message_failure_avec_tab_leve_valueerror(self):
+        """message_failure contenant \\t lève ValueError."""
+        with pytest.raises(ValueError, match="Caractère de contrôle"):
+            NotificationConfig(
+                title="Titre",
+                message_success="OK",
+                message_failure="msg\tmalicieux",
+            )
+
+    def test_to_bash_call_echappe_entree_hostile(self):
+        """shlex.quote neutralise les entrées hostiles dans to_bash_call_success."""
+        config = NotificationConfig(
+            title='a"; rm -rf /',
+            message_success="OK",
+            message_failure="KO",
+        )
+        result = config.to_bash_call_success()
+        # shlex.quote place le titre entre apostrophes → injection neutralisée
+        assert shlex.quote('a"; rm -rf /') in result
+
+
+class TestNotificationConfigAppName:
+    """Tests pour l'attribut app_name."""
+
+    def test_app_name_defaut_flatpak(self):
+        """app_name vaut 'Flatpak' par défaut."""
+        config = NotificationConfig(
+            title="T", message_success="OK", message_failure="KO"
+        )
+        assert config.app_name == "Flatpak"
+
+    def test_app_name_personnalise_dans_bash_function(self):
+        """app_name personnalisé apparaît dans to_bash_function()."""
+        config = NotificationConfig(
+            title="T", message_success="OK", message_failure="KO",
+            app_name="MonApp",
+        )
+        result = config.to_bash_function()
+        assert "MonApp" in result
+        assert "Flatpak" not in result
