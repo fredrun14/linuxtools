@@ -257,3 +257,50 @@ class TestConfigurationManagerLogger:
         )
 
         assert manager.get("cle") == "valeur_defaut"
+
+
+class TestTomlSerialiseur:
+    """Tests de sécurité et de validité du sérialiseur TOML."""
+
+    def test_write_toml_liste_produit_tableau_valide(self, tmp_path):
+        """Liste Python → tableau TOML parseable par tomllib (round-trip)."""
+        import tomllib
+        default = {"tags": ["alpha", "beta", "gamma"]}
+        manager = ConfigurationManager(default_config=default)
+        output_file = tmp_path / "output.toml"
+
+        manager.create_default_config(output_file)
+
+        with open(output_file, "rb") as f:
+            result = tomllib.load(f)
+        assert result["tags"] == ["alpha", "beta", "gamma"]
+
+    def test_write_toml_echappe_guillemets_et_newline(self, tmp_path):
+        """Caractères spéciaux dans une chaîne : round-trip TOML correct."""
+        import tomllib
+        valeur = 'avec "guillemets" et\nnewline'
+        default = {"description": valeur}
+        manager = ConfigurationManager(default_config=default)
+        output_file = tmp_path / "output.toml"
+
+        manager.create_default_config(output_file)
+
+        with open(output_file, "rb") as f:
+            result = tomllib.load(f)
+        assert result["description"] == valeur
+
+    def test_load_config_fichier_corrompu_repli_defaut(self, tmp_path):
+        """TOML invalide → log_warning + retour config par défaut."""
+        logger = MagicMock()
+        default = {"cle": "defaut"}
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("clé = invalide ][", encoding="utf-8")
+
+        manager = ConfigurationManager(
+            config_path=config_file,
+            default_config=default,
+            logger=logger,
+        )
+
+        logger.log_warning.assert_called_once()
+        assert manager.get("cle") == "defaut"

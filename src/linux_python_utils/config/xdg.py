@@ -114,11 +114,16 @@ class XdgAppConfig:
         """
         self.config_dir.mkdir(parents=True, exist_ok=True)
         config_file = self.config_dir / filename
-        if config_file.exists() and not force:
+        if force:
+            config_file.write_text(template, encoding="utf-8")
+            return config_file
+        try:
+            with open(config_file, "x", encoding="utf-8") as f:
+                f.write(template)
+        except FileExistsError:
             raise FileExistsError(
                 f"Le fichier de configuration existe déjà : "
                 f"{config_file}. "
                 f"Utilisez force=True pour l'écraser."
             )
-        config_file.write_text(template, encoding="utf-8")
         return config_file

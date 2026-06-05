@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import Any
 
 from linux_python_utils.dotconf.spec import ConfigBlock
 
@@ -146,6 +147,56 @@ class ConfTomlExporter:
                 )
             parts.append("")
         return "\n".join(parts)
+
+    def export_mapping(
+        self,
+        data: dict[str, Any],
+        prefix: str = "",
+    ) -> str:
+        """Sérialise un dict Python en texte TOML valide.
+
+        Gère str, bool, int, float, list et dict (tables imbriquées).
+        Les chaînes sont correctement échappées via _toml_escape.
+
+        Args:
+            data: Dictionnaire à sérialiser.
+            prefix: Préfixe de section pour l'imbrication récursive.
+
+        Returns:
+            Texte TOML (sans saut de ligne final).
+        """
+        parts: list[str] = []
+        for key, value in data.items():
+            if not isinstance(value, dict):
+                parts.append(f"{key} = {self._toml_scalar(value)}")
+        for key, value in data.items():
+            if isinstance(value, dict):
+                section = f"{prefix}.{key}" if prefix else key
+                parts.append(f"\n[{section}]")
+                sub = self.export_mapping(value, prefix=section)
+                if sub:
+                    parts.append(sub)
+        return "\n".join(parts)
+
+    def _toml_scalar(self, value: Any) -> str:
+        """Sérialise une valeur scalaire Python en littéral TOML.
+
+        Args:
+            value: Valeur à sérialiser (str, bool, int, float, list).
+
+        Returns:
+            Représentation TOML du scalaire.
+        """
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, str):
+            return f'"{self._toml_escape(value)}"'
+        if isinstance(value, list):
+            items = ", ".join(self._toml_scalar(item) for item in value)
+            return f"[{items}]"
+        return f'"{self._toml_escape(str(value))}"'
 
     @staticmethod
     def _toml_escape(value: str) -> str:

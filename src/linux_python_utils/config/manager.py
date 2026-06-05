@@ -1,8 +1,9 @@
 """Gestionnaire de configuration avancé."""
 
 import json
+import tomllib
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import Any, Dict, List, Optional, Union
 
 from linux_python_utils.config.base import ConfigManager
 from linux_python_utils.config.loader import ConfigLoader, FileConfigLoader
@@ -93,10 +94,14 @@ class ConfigurationManager(ConfigManager):
                 # Fusionner avec la config par défaut
                 base = self.default_config.copy()
                 return self._deep_merge(base, user_config)
-            except Exception as e:
+            except (
+                OSError,
+                tomllib.TOMLDecodeError,
+                json.JSONDecodeError,
+                ValueError,
+            ) as e:
                 self._log_warning(
-                    f"Erreur lors du chargement de "
-                    f"{self.config_path}: {e}"
+                    f"Config illisible ({self.config_path}) : {e}"
                     " — utilisation de la configuration par défaut."
                 )
                 return self.default_config.copy()
@@ -236,29 +241,10 @@ class ConfigurationManager(ConfigManager):
         self,
         path: Path,
         data: Dict[str, Any],
-        prefix: str = ""
     ) -> None:
-        """Écrit un dictionnaire en format TOML basique."""
-        with open(path, 'w', encoding='utf-8') as f:
-            self._write_toml_section(f, data, prefix)
-
-    def _write_toml_section(self, f: TextIO, data: Dict, prefix: str) -> None:
-        """Écrit une section TOML récursivement."""
-        # D'abord les valeurs simples
-        for key, value in data.items():
-            if not isinstance(value, dict):
-                if isinstance(value, str):
-                    f.write(f'{key} = "{value}"\n')
-                elif isinstance(value, bool):
-                    f.write(f'{key} = {str(value).lower()}\n')
-                elif isinstance(value, list):
-                    f.write(f'{key} = {value}\n')
-                else:
-                    f.write(f'{key} = {value}\n')
-
-        # Ensuite les sections imbriquées
-        for key, value in data.items():
-            if isinstance(value, dict):
-                section = f"{prefix}.{key}" if prefix else key
-                f.write(f'\n[{section}]\n')
-                self._write_toml_section(f, value, section)
+        """Écrit un dict en TOML valide via ConfTomlExporter."""
+        from linux_python_utils.dotconf.conf_toml_exporter import (
+            ConfTomlExporter,
+        )
+        content = ConfTomlExporter().export_mapping(data)
+        path.write_text(content + "\n", encoding="utf-8")

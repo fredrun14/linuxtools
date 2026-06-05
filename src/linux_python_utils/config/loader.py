@@ -4,7 +4,7 @@ import json
 import tomllib
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 # Type générique pour la dataclass de configuration
 T = TypeVar("T")
@@ -21,28 +21,27 @@ class ConfigLoader(ABC):
     @abstractmethod
     def load(
         self,
-        config_path: Union[str, Path],
+        config_path: str | Path,
         schema: type | None = None
-    ) -> Union[Dict[str, Any], Any]:
-        """
-        Charge un fichier de configuration.
+    ) -> dict[str, Any] | Any:
+        """Charge un fichier de configuration.
 
         Args:
-            config_path: Chemin vers le fichier de configuration
+            config_path: Chemin vers le fichier de configuration.
             schema: Classe Pydantic BaseModel optionnelle pour
                 validation. Si fourni, retourne une instance
                 du modèle. Si None, retourne un dict brut.
 
         Returns:
-            Dictionnaire de configuration ou instance du schema
+            Dictionnaire de configuration ou instance du schema.
 
         Raises:
-            FileNotFoundError: Si le fichier n'existe pas
-            ValueError: Si le format n'est pas supporté
-            ImportError: Si schema fourni mais pydantic absent
-            TypeError: Si schema n'est pas un BaseModel
+            FileNotFoundError: Si le fichier n'existe pas.
+            ValueError: Si le format n'est pas supporté.
+            ImportError: Si schema fourni mais pydantic absent.
+            TypeError: Si schema n'est pas un BaseModel.
         """
-        pass
+        ...  # pragma: no cover
 
 
 class FileConfigLoader(ConfigLoader):
@@ -56,28 +55,27 @@ class FileConfigLoader(ConfigLoader):
 
     def load(
         self,
-        config_path: Union[str, Path],
+        config_path: str | Path,
         schema: type | None = None
-    ) -> Union[Dict[str, Any], Any]:
-        """
-        Charge un fichier de configuration TOML ou JSON.
+    ) -> dict[str, Any] | Any:
+        """Charge un fichier de configuration TOML ou JSON.
 
         Le format est détecté automatiquement par l'extension
         du fichier. Si un schema Pydantic est fourni, le dict
         brut est validé et une instance du modèle est retournée.
 
         Args:
-            config_path: Chemin vers le fichier de configuration
-            schema: Classe Pydantic BaseModel optionnelle
+            config_path: Chemin vers le fichier de configuration.
+            schema: Classe Pydantic BaseModel optionnelle.
 
         Returns:
-            Dictionnaire de configuration ou instance du schema
+            Dictionnaire de configuration ou instance du schema.
 
         Raises:
-            FileNotFoundError: Si le fichier n'existe pas
-            ValueError: Si l'extension n'est pas supportée
-            ImportError: Si schema fourni mais pydantic absent
-            TypeError: Si schema n'est pas un BaseModel
+            FileNotFoundError: Si le fichier n'existe pas.
+            ValueError: Si l'extension n'est pas supportée.
+            ImportError: Si schema fourni mais pydantic absent.
+            TypeError: Si schema n'est pas un BaseModel.
         """
         path = Path(config_path)
 
@@ -107,7 +105,7 @@ class FileConfigLoader(ConfigLoader):
 
     @staticmethod
     def _validate_with_schema(
-        data: Dict[str, Any], schema: type
+        data: dict[str, Any], schema: type
     ) -> Any:
         """Valide un dict via un modèle Pydantic.
 
@@ -254,31 +252,4 @@ class ConfigFileLoader(ABC, Generic[T]):
             KeyError: Si la section requise n'existe pas.
             TypeError: Si les données ne correspondent pas à la dataclass.
         """
-        pass
-
-
-# Instance par défaut pour rétrocompatibilité
-# _default_loader = FileConfigLoader()
-
-
-# def load_config(config_path: Union[str, Path]) -> dict:
-#     """
-#     Charge un fichier de configuration (fonction utilitaire).
-#
-#     Utilise l'implémentation FileConfigLoader par défaut.
-#     Pour les tests ou une personnalisation, utiliser directement
-#     une instance de ConfigLoader.
-#
-#     Args:
-#         config_path: Chemin vers le fichier de configuration
-#
-#     Returns:
-#         Dictionnaire de configuration
-#
-#     Raises:
-#         FileNotFoundError: Si le fichier n'existe pas
-#         ValueError: Si l'extension n'est pas supportée
-#         tomllib.TOMLDecodeError: Si le TOML est invalide
-#         json.JSONDecodeError: Si le JSON est invalide
-#     """
-#     return _default_loader.load(config_path)
+        ...  # pragma: no cover
