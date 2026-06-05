@@ -22,14 +22,14 @@ class ErrorHandler(ABC):
         pass  # pragma: no cover
 
 
-class ErrorHandlerChain():
+class ErrorHandlerChain:
     """Diffuse les erreurs à tous les handlers enregistrés.
 
     Chaque erreur est transmise à tous les handlers dans l'ordre
     d'ajout (ex: console puis logger).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialise la chaîne avec une liste vide de handlers."""
         self.handlers: list[ErrorHandler] = []
 

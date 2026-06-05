@@ -1,10 +1,7 @@
-"""
-    LoggerErrorHandler
-"""
+"""LoggerErrorHandler."""
 from linux_python_utils.errors.base import ErrorHandler
 from linux_python_utils.errors.exceptions import ApplicationError
-
-from linux_python_utils import Logger
+from linux_python_utils.logging.base import Logger
 
 
 class LoggerErrorHandler(ErrorHandler):
@@ -14,26 +11,32 @@ class LoggerErrorHandler(ErrorHandler):
     injecté au constructeur.
     """
 
-    def __init__(self,
-                 logger: Logger,
-                 base_error_type: type[Exception] = ApplicationError
-                 ) -> None:
+    def __init__(
+        self,
+        logger: Logger,
+        base_error_type: type[Exception] = ApplicationError,
+    ) -> None:
         """Initialise le handler avec un logger.
 
         Args:
             logger: Instance de Logger pour l'enregistrement des erreurs.
+            base_error_type: Classe de base pour distinguer erreurs
+                connues des erreurs inconnues (défaut: ApplicationError).
         """
-        self.logger = logger
+        self._logger = logger
+        self._base_error_type = base_error_type
 
     def handle(self, error: Exception) -> None:
-        """Log l'erreur avec différents niveaux selon la gravité.
+        """Log l'erreur avec un préfixe indiquant si elle est attendue.
 
         Args:
             error: L'exception à logger.
         """
-        if isinstance(error, ApplicationError):
-            self.logger.log_error(f"{type(error).__name__}: {str(error)}")
+        if isinstance(error, self._base_error_type):
+            self._logger.log_error(
+                f"{type(error).__name__}: {str(error)}"
+            )
         else:
-            self.logger.log_error(
+            self._logger.log_error(
                 f"Erreur inattendue: {type(error).__name__}: {str(error)}"
             )

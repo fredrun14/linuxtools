@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from linux_python_utils import Logger
 from linux_python_utils.errors.exceptions import RollbackError
@@ -11,7 +11,7 @@ class ErrorContext:
     d'erreur pendant l'installation.
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: Logger) -> None:
         """Initialise le contexte de rollback.
 
         Args:
