@@ -1,14 +1,13 @@
 """Tests pour les modules filesystem.linux et filesystem.backup."""
 
 import os
-import tempfile
-import shutil
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from linux_python_utils.filesystem.linux import LinuxFileManager
-from linux_python_utils.filesystem.backup import LinuxFileBackup
+from linux_python_utils.filesystem.backup import LinuxFileBackup, _copy_secure
 
 
 class TestLinuxFileManager:
@@ -88,6 +87,25 @@ class TestLinuxFileManager:
         assert result is False
         logger.log_error.assert_called_once()
 
+    def test_create_file_refuse_symlink(self, tmp_path):
+        """Retourne False et ne modifie pas la cible si c'est un symlink."""
+        real = tmp_path / "real.txt"
+        real.write_text("original")
+        link = tmp_path / "link.txt"
+        link.symlink_to(real)
+        manager, logger = self._make_manager()
+        result = manager.create_file(str(link), "nouveau contenu")
+        assert result is False
+        logger.log_error.assert_called_once()
+        assert real.read_text() == "original"
+
+    def test_create_file_fixe_permissions_0644(self, tmp_path):
+        """Le fichier créé a les permissions 0o644 indépendamment de l'umask."""
+        file_path = str(tmp_path / "secure.txt")
+        manager, _ = self._make_manager()
+        manager.create_file(file_path, "contenu")
+        assert os.stat(file_path).st_mode & 0o777 == 0o644
+
 
 class TestLinuxFileBackup:
     """Tests pour LinuxFileBackup."""
@@ -107,15 +125,37 @@ class TestLinuxFileBackup:
         assert os.path.exists(backup_path)
         logger.log_info.assert_called_once()
 
-    def test_backup_fichier_source_inexistant(self, tmp_path):
-        """Logge un avertissement si le fichier source n'existe pas."""
+    def test_backup_source_absente_retourne_false(self, tmp_path):
+        """Retourne False et logge un warning si la source est absente."""
         backup_path = str(tmp_path / "backup.txt")
         backup, logger = self._make_backup()
-        backup.backup(
+        result = backup.backup(
             str(tmp_path / "inexistant_source.txt"), backup_path
         )
+        assert result is False
         logger.log_warning.assert_called_once()
         assert not os.path.exists(backup_path)
+
+    def test_backup_retourne_true_si_succes(self, tmp_path):
+        """Retourne True quand la sauvegarde réussit."""
+        source = tmp_path / "original.txt"
+        source.write_text("données")
+        backup, _ = self._make_backup()
+        result = backup.backup(str(source), str(tmp_path / "bak.txt"))
+        assert result is True
+
+    def test_backup_refuse_symlink_destination(self, tmp_path):
+        """Lève OSError si la destination est un symlink."""
+        source = tmp_path / "source.txt"
+        source.write_text("données")
+        real_dest = tmp_path / "real_dest.txt"
+        real_dest.write_text("ne pas écraser")
+        link_dest = tmp_path / "link_dest.txt"
+        link_dest.symlink_to(real_dest)
+        backup, logger = self._make_backup()
+        with pytest.raises(OSError):
+            backup.backup(str(source), str(link_dest))
+        assert real_dest.read_text() == "ne pas écraser"
 
     def test_backup_erreur_destination_invalide(self, tmp_path):
         """Lève une exception si la destination est invalide."""
@@ -149,19 +189,30 @@ class TestLinuxFileBackup:
             )
         logger.log_error.assert_called_once()
 
-    def test_restore_exception_non_fnf(self, tmp_path):
-        """Teste le chemin except Exception (non-FileNotFoundError) dans restore()."""
-        from unittest.mock import patch
-        from pathlib import Path
+    def test_restore_exception_oserror(self, tmp_path):
+        """Teste le chemin except OSError (non-FileNotFoundError) dans restore()."""
         backup_path = str(tmp_path / "backup.txt")
         Path(backup_path).write_text("content")
         file_path = str(tmp_path / "restored.txt")
         logger = MagicMock()
         backup = LinuxFileBackup(logger)
         with patch(
-            "linux_python_utils.filesystem.backup.shutil.copy2",
-            side_effect=RuntimeError("disk error")
+            "linux_python_utils.filesystem.backup._copy_secure",
+            side_effect=OSError("disk error"),
         ):
-            with pytest.raises(RuntimeError):
+            with pytest.raises(OSError):
                 backup.restore(file_path, backup_path)
         logger.log_error.assert_called()
+
+    def test_restore_refuse_symlink_destination(self, tmp_path):
+        """Lève OSError si la destination de restauration est un symlink."""
+        backup_file = tmp_path / "backup.txt"
+        backup_file.write_text("sauvegarde")
+        real_dest = tmp_path / "real.txt"
+        real_dest.write_text("ne pas écraser")
+        link_dest = tmp_path / "link.txt"
+        link_dest.symlink_to(real_dest)
+        backup, logger = self._make_backup()
+        with pytest.raises(OSError):
+            backup.restore(str(link_dest), str(backup_file))
+        assert real_dest.read_text() == "ne pas écraser"

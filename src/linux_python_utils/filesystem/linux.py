@@ -1,9 +1,44 @@
 """Implémentation Linux de la gestion des fichiers."""
 
+import os
 from pathlib import Path
 
 from linux_python_utils.logging.base import Logger
 from linux_python_utils.filesystem.base import FileManager
+
+
+def write_text_secure(
+    path: str,
+    content: str,
+    mode: int = 0o644,
+    *,
+    encoding: str = "utf-8",
+) -> None:
+    """Écrit un fichier texte sans suivre les symlinks.
+
+    Utilise O_NOFOLLOW + fchmod pour garantir que :
+    - la cible n'est pas un lien symbolique (lève OSError sinon) ;
+    - les permissions sont appliquées indépendamment de l'umask.
+
+    Args:
+        path: Chemin cible.
+        content: Contenu texte à écrire.
+        mode: Permissions POSIX (défaut 0o644).
+        encoding: Encodage du fichier (défaut UTF-8).
+
+    Raises:
+        OSError: Si la cible est un symlink ou en cas d'erreur d'E/S.
+    """
+    flags = os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW
+    fd = os.open(path, flags, mode)
+    try:
+        os.fchmod(fd, mode)
+        f = os.fdopen(fd, "w", encoding=encoding)
+    except BaseException:
+        os.close(fd)
+        raise
+    with f:
+        f.write(content)
 
 
 class LinuxFileManager(FileManager):
@@ -34,13 +69,12 @@ class LinuxFileManager(FileManager):
             True si succès, False sinon
         """
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+            write_text_secure(file_path, content)
             self.logger.log_info(f"Fichier {file_path} créé avec succès.")
             return True
-        except Exception as e:
+        except OSError as exc:
             self.logger.log_error(
-                f"Erreur lors de la création du fichier {file_path}: {e}"
+                f"Erreur lors de la création du fichier {file_path}: {exc}"
             )
             return False
 
@@ -74,9 +108,9 @@ class LinuxFileManager(FileManager):
                 content = f.read()
             self.logger.log_info(f"Fichier {file_path} lu avec succès.")
             return content
-        except Exception as e:
+        except OSError as exc:
             self.logger.log_error(
-                f"Erreur lors de la lecture du fichier {file_path}: {e}"
+                f"Erreur lors de la lecture du fichier {file_path}: {exc}"
             )
             raise
 
@@ -94,8 +128,8 @@ class LinuxFileManager(FileManager):
             Path(file_path).unlink()
             self.logger.log_info(f"Fichier {file_path} supprimé avec succès.")
             return True
-        except Exception as e:
+        except OSError as exc:
             self.logger.log_error(
-                f"Erreur lors de la suppression du fichier {file_path}: {e}"
+                f"Erreur lors de la suppression du fichier {file_path}: {exc}"
             )
             return False

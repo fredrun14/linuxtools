@@ -22,13 +22,36 @@ class FileManager(ABC):
 
     @abstractmethod
     def file_exists(self, file_path: str) -> bool:
-        """
-        Vérifie si un fichier existe.
+        """Vérifie si un fichier existe.
 
         Args:
-            file_path: Chemin du fichier
+            file_path: Chemin du fichier.
 
         Returns:
-            True si le fichier existe, False sinon
+            True si le fichier existe, False sinon.
         """
-        pass
+
+    @abstractmethod
+    def read_file(self, file_path: str) -> str:
+        """Lit le contenu d'un fichier.
+
+        Args:
+            file_path: Chemin du fichier.
+
+        Returns:
+            Contenu du fichier.
+
+        Raises:
+            OSError: Si le fichier est inaccessible.
+        """
+
+    @abstractmethod
+    def delete_file(self, file_path: str) -> bool:
+        """Supprime un fichier.
+
+        Args:
+            file_path: Chemin du fichier.
+
+        Returns:
+            True si succès, False sinon.
+        """
