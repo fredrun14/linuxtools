@@ -4,7 +4,7 @@ import grp
 import pwd
 
 from linux_python_utils.commands import CommandBuilder, LinuxCommandExecutor
-from linux_python_utils.identity.base import UserManagerBase
+from linux_python_utils.identity.base import UserManagerBase, _valider_nom
 from linux_python_utils.logging import Logger
 
 
@@ -37,12 +37,17 @@ class LinuxUserManager(UserManagerBase):
         """Crée ou corrige l'utilisateur Unix avec l'UID donné.
 
         Args:
-            name: Nom d'utilisateur.
+            name: Nom d'utilisateur (convention Unix : minuscules,
+                chiffres, tiret, underscore ; pas de tiret initial).
             uid: UID souhaité.
             shell: Shell de connexion.
             comment: Commentaire GECOS.
             create_home: Créer le répertoire home si absent.
+
+        Raises:
+            ValueError: Si ``name`` ne respecte pas la convention Unix.
         """
+        _valider_nom(name)
         try:
             existing = pwd.getpwnam(name)
             if existing.pw_uid != uid:
@@ -84,10 +89,21 @@ class LinuxUserManager(UserManagerBase):
     ) -> None:
         """Ajoute l'utilisateur aux groupes manquants en une seule commande.
 
+        Comportement best-effort : un groupe inexistant sur le système
+        est loggé (warning) puis ignoré. La méthode réussit même si aucun
+        groupe n'a pu être appliqué (tous absents ou utilisateur déjà membre).
+
         Args:
-            username: Nom d'utilisateur.
+            username: Nom d'utilisateur (convention Unix).
             groups: Liste des groupes secondaires souhaités.
+
+        Raises:
+            ValueError: Si ``username`` ou un nom de groupe ne respecte
+                pas la convention Unix.
         """
+        _valider_nom(username)
+        for group_name in groups:
+            _valider_nom(group_name)
         missing: list[str] = []
         for group_name in groups:
             try:

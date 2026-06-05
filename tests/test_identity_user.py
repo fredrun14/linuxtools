@@ -183,3 +183,59 @@ class TestLinuxUserManagerEnsureUserGroups:
         # Assert
         executor.run.assert_not_called()
         logger.log_warning.assert_called_once()
+
+    def test_ensure_user_groups_tous_absents_aucun_appel_executor(
+        self,
+        manager: LinuxUserManager,
+        executor: MagicMock,
+    ) -> None:
+        """Tous les groupes absents → aucun appel executor (best-effort)."""
+        # Act
+        with patch(
+            "linux_python_utils.identity.user.grp.getgrnam",
+            side_effect=KeyError("group"),
+        ):
+            manager.ensure_user_groups("frederic", ["absent1", "absent2"])
+
+        # Assert
+        executor.run.assert_not_called()
+
+
+class TestLinuxUserManagerValidation:
+    """Tests de validation des noms Unix."""
+
+    def test_ensure_user_nom_tiret_initial_leve_valueerror(
+        self,
+        manager: LinuxUserManager,
+    ) -> None:
+        """ensure_user lève ValueError si le nom commence par '-'."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_user(
+                "-malicieux", 1000, "/bin/bash", "X", False
+            )
+
+    def test_ensure_user_nom_majuscule_leve_valueerror(
+        self,
+        manager: LinuxUserManager,
+    ) -> None:
+        """ensure_user lève ValueError si le nom contient des majuscules."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_user(
+                "Majuscule", 1000, "/bin/bash", "X", False
+            )
+
+    def test_ensure_user_groups_username_invalide_leve_valueerror(
+        self,
+        manager: LinuxUserManager,
+    ) -> None:
+        """ensure_user_groups lève ValueError si le username commence par '-'."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_user_groups("-malicieux", ["audio"])
+
+    def test_ensure_user_groups_group_invalide_leve_valueerror(
+        self,
+        manager: LinuxUserManager,
+    ) -> None:
+        """ensure_user_groups lève ValueError si un nom de groupe est invalide."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_user_groups("frederic", ["-badgroup"])

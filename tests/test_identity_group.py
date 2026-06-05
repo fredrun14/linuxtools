@@ -92,3 +92,44 @@ class TestLinuxGroupManagerEnsureGroup:
         assert "--gid" in cmd
         assert "1042" in cmd
         assert "partage-lan" in cmd
+
+
+class TestLinuxGroupManagerValidation:
+    """Tests de validation des noms Unix."""
+
+    def test_nom_tiret_initial_leve_valueerror(
+        self,
+        manager: LinuxGroupManager,
+    ) -> None:
+        """ensure_group lève ValueError si le nom commence par '-'."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_group("-malicieux", 1042)
+
+    def test_nom_espace_leve_valueerror(
+        self,
+        manager: LinuxGroupManager,
+    ) -> None:
+        """ensure_group lève ValueError si le nom contient un espace."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_group("mon groupe", 1042)
+
+    def test_nom_majuscule_leve_valueerror(
+        self,
+        manager: LinuxGroupManager,
+    ) -> None:
+        """ensure_group lève ValueError si le nom contient une majuscule."""
+        with pytest.raises(ValueError, match="Nom Unix invalide"):
+            manager.ensure_group("MonGroupe", 1042)
+
+    def test_nom_valide_ne_leve_pas(
+        self,
+        manager: LinuxGroupManager,
+        executor: MagicMock,
+    ) -> None:
+        """Un nom Unix valide (tiret interne, underscore) passe la validation."""
+        with patch(
+            "linux_python_utils.identity.group.grp.getgrnam",
+            side_effect=KeyError("partage-lan"),
+        ):
+            manager.ensure_group("partage-lan_2", 1042)
+        executor.run.assert_called_once()

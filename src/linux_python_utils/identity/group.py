@@ -3,7 +3,7 @@
 import grp
 
 from linux_python_utils.commands import CommandBuilder, LinuxCommandExecutor
-from linux_python_utils.identity.base import GroupManagerBase
+from linux_python_utils.identity.base import GroupManagerBase, _valider_nom
 from linux_python_utils.logging import Logger
 
 
@@ -29,9 +29,14 @@ class LinuxGroupManager(GroupManagerBase):
         """Crée ou corrige le groupe Unix avec le GID donné.
 
         Args:
-            name: Nom du groupe.
+            name: Nom du groupe (convention Unix : minuscules, chiffres,
+                tiret, underscore ; pas de tiret initial).
             gid: GID souhaité.
+
+        Raises:
+            ValueError: Si ``name`` ne respecte pas la convention Unix.
         """
+        _valider_nom(name)
         try:
             existing = grp.getgrnam(name)
             if existing.gr_gid != gid:
