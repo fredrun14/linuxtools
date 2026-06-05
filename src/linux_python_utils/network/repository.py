@@ -6,6 +6,8 @@ sauvegarder et charger les peripheriques depuis un fichier JSON.
 
 import dataclasses
 import json
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -51,7 +53,14 @@ class JsonDeviceRepository(DeviceRepository):
         )
         if not content.strip():
             return []
-        data = json.loads(content)
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, OSError) as exc:
+            if self._logger:
+                self._logger.log_warning(
+                    f"Inventaire illisible : {exc}"
+                )
+            return []
         devices = [
             NetworkDevice.from_dict(d) for d in data
         ]
@@ -70,13 +79,22 @@ class JsonDeviceRepository(DeviceRepository):
         Args:
             devices: Liste des peripheriques a sauvegarder.
         """
-        data = [d.to_dict() for d in devices]
-        self._file_path.write_text(
-            json.dumps(
-                data, indent=2, ensure_ascii=False
-            ),
-            encoding="utf-8",
+        payload = json.dumps(
+            [d.to_dict() for d in devices],
+            indent=2,
+            ensure_ascii=False,
         )
+        fd, tmp = tempfile.mkstemp(
+            dir=str(self._file_path.parent), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, self._file_path)
+        except BaseException:
+            os.unlink(tmp)
+            raise
         if self._logger:
             self._logger.log_info(
                 f"Sauvegarde {len(devices)} peripherique(s)"

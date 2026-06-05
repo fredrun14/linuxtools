@@ -39,7 +39,7 @@
 ### Go conditionnel (priorité 2)
 
 - [x] ✅ **commands** — fiabilité process, Template Method formatter, immutabilité ([TODO](TODO-20260605-1410-commands.md)) — commit `fbb535b`
-- [ ] ⬜ **network** — écriture atomique, SSRF DNS-rebinding, XML ParseError ([TODO](TODO-20260605-1410-network.md))
+- [x] ✅ **network** — écriture atomique, SSRF DNS-rebinding, XML ParseError ([TODO](TODO-20260605-1410-network.md)) — PR1 done
 - [ ] ⬜ **scripts** — validation `config.name` + `O_NOFOLLOW` wrapper ([TODO](TODO-20260605-1410-scripts.md))
 - [ ] ⬜ **dotconf** — `IndexError` content vide, `UnicodeDecodeError`, regex unique ([TODO](TODO-20260605-1410-dotconf.md))
 - [ ] ⬜ **errors** — paramètres injectés morts (`base_error_type`, `solutions`) ([TODO](TODO-20260605-1410-errors.md))

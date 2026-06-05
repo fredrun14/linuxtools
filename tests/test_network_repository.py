@@ -260,3 +260,39 @@ class TestJsonDeviceRepositoryAvecLogger:
         devices = [_device()]
         repo.save(devices)
         logger.log_info.assert_called_once()
+
+
+class TestJsonDeviceRepositoryRobustesse:
+    """Tests robustesse : écriture atomique et lecture tolérante."""
+
+    def test_save_inventaire_atomique(
+        self, tmp_path
+    ) -> None:
+        """save() écrit de façon atomique (aucun tmp après succès)."""
+        path = tmp_path / "devices.json"
+        repo = JsonDeviceRepository(str(path))
+        repo.save([_device()])
+        assert path.exists()
+        tmps = list(tmp_path.glob("*.tmp"))
+        assert tmps == []
+
+    def test_load_json_corrompu_retourne_liste_vide(
+        self, tmp_path
+    ) -> None:
+        """Fichier JSON corrompu retourne une liste vide."""
+        path = tmp_path / "corrupt.json"
+        path.write_text("{invalide json{{", encoding="utf-8")
+        repo = JsonDeviceRepository(str(path))
+        assert repo.load() == []
+
+    def test_load_json_corrompu_logue_warning(
+        self, tmp_path
+    ) -> None:
+        """Fichier JSON corrompu logue un warning si logger présent."""
+        from unittest.mock import MagicMock
+        path = tmp_path / "corrupt.json"
+        path.write_text("{invalide json{{", encoding="utf-8")
+        logger = MagicMock()
+        repo = JsonDeviceRepository(str(path), logger=logger)
+        repo.load()
+        logger.log_warning.assert_called_once()

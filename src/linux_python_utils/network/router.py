@@ -13,6 +13,7 @@ import dataclasses
 import ipaddress
 import json
 import re
+import socket
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -259,7 +260,24 @@ def _validate_router_url(url: str) -> None:
     try:
         addr = ipaddress.ip_address(hostname)
     except ValueError:
-        # Hostname non-IP : accepte sans resolution DNS
+        # Hostname non-IP : résoudre et vérifier toutes les IP (anti-SSRF).
+        # Si la résolution échoue (gaierror), on ne peut pas vérifier
+        # (ex. mDNS en CI) → accepter avec prudence.
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
+            return
+        for info in infos:
+            raw_ip = info[4][0]
+            try:
+                resolved = ipaddress.ip_address(raw_ip)
+            except ValueError:
+                continue
+            if not any(resolved in net for net in _LAN_NETWORKS):
+                raise ValueError(
+                    f"Hostname {hostname!r} résolu en adresse "
+                    f"non-LAN : {raw_ip!r}."
+                )
         return
     if not any(addr in net for net in _LAN_NETWORKS):
         raise ValueError(

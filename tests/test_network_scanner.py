@@ -326,3 +326,19 @@ class TestLinuxNmapScannerAvecLogger:
         ):
             devices = scanner._parse_xml_output(NMAP_XML)
         assert devices == []
+
+    def test_scanner_xml_nmap_invalide(self) -> None:
+        """Sortie nmap non-XML retourne liste vide."""
+        scanner = LinuxNmapScanner()
+        devices = scanner._parse_xml_output("pas du xml {{{{")
+        assert devices == []
+
+    def test_scanner_xml_nmap_invalide_logue_warning(
+        self,
+    ) -> None:
+        """ParseError sur sortie nmap logue un warning si logger présent."""
+        from unittest.mock import MagicMock
+        logger = MagicMock()
+        scanner = LinuxNmapScanner(logger=logger)
+        scanner._parse_xml_output("pas du xml {{{{")
+        logger.log_warning.assert_called_once()

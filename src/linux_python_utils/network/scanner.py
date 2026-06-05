@@ -312,7 +312,14 @@ class LinuxNmapScanner(NetworkScanner):
             Liste des peripheriques parses.
         """
         devices: List[NetworkDevice] = []
-        root = ET.fromstring(stdout)  # nosec B314
+        try:
+            root = ET.fromstring(stdout)  # nosec B314
+        except ET.ParseError as exc:
+            if self._logger:
+                self._logger.log_warning(
+                    f"Sortie nmap invalide : {exc}"
+                )
+            return devices
         for host in root.findall("host"):
             status = host.find("status")
             if (

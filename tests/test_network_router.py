@@ -4,7 +4,7 @@ Valide en particulier que les appareils offline (isOnline==0)
 sont bien inclus dans les resultats du scan.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -1358,3 +1358,39 @@ class TestSecuriteRouter:
             with pytest.raises(RouterAuthError):
                 client.login("admin", "password")
         logger.log_error.assert_called_once()
+
+    # --- SSRF : résolution DNS ---
+
+    def test_router_config_url_hostname_resolu_lan_accepte(
+        self,
+    ) -> None:
+        """Hostname résolu en IP LAN → accepté."""
+        with patch(
+            "socket.getaddrinfo",
+            return_value=[(None, None, None, None, ("192.168.1.1", 0))],
+        ):
+            cfg = RouterConfig(url="http://routeur.local")
+        assert cfg.url == "http://routeur.local"
+
+    def test_router_config_url_hostname_resolu_public_rejete(
+        self,
+    ) -> None:
+        """Hostname résolu en IP publique → ValueError (SSRF)."""
+        with patch(
+            "socket.getaddrinfo",
+            return_value=[(None, None, None, None, ("1.2.3.4", 0))],
+        ):
+            with pytest.raises(ValueError, match="non-LAN"):
+                RouterConfig(url="http://evil.example.com")
+
+    def test_router_config_url_hostname_non_resolvable_accepte(
+        self,
+    ) -> None:
+        """Hostname non résolvable (gaierror) → accepté (mDNS)."""
+        import socket
+        with patch(
+            "socket.getaddrinfo",
+            side_effect=socket.gaierror("no address"),
+        ):
+            cfg = RouterConfig(url="http://router.lan")
+        assert cfg.url == "http://router.lan"
