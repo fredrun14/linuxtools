@@ -53,6 +53,8 @@ class PathCheckerPermission(Validator):
                 f"Le répertoire {parent} n'existe pas."
             )
 
+        # os.access est un check préventif (UX) : non atomique, ignore les ACL.
+        # Ne pas l'utiliser comme garde de sécurité sur des chemins sensibles.
         if not os.access(parent, os.W_OK):
             raise PermissionError(
                 f"Permissions insuffisantes pour écrire dans {parent}."

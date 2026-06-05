@@ -43,7 +43,7 @@
 - [x] ✅ **scripts** — validation `config.name` + `O_NOFOLLOW` wrapper ([TODO](TODO-20260605-1410-scripts.md))
 - [x] ✅ **dotconf** — `IndexError` content vide, `UnicodeDecodeError`, regex unique ([TODO](TODO-20260605-1410-dotconf.md))
 - [x] ✅ **errors** — paramètres injectés morts (`base_error_type`, `solutions`) ([TODO](TODO-20260605-1410-errors.md))
-- [ ] ⬜ **validation** — renommage `path_checker_Exist.py`, `os.lstat` ([TODO](TODO-20260605-1410-validation.md))
+- [x] ✅ **validation** — renommage `path_checker_Exist.py`, `os.lstat` ([TODO](TODO-20260605-1410-validation.md))
 - [ ] ⬜ **notification** — filtrage `\n`/contrôle dans `__post_init__` ([TODO](TODO-20260605-1410-notification.md))
 - [ ] ⬜ **identity** — validation format `name`/`group_name` ([TODO](TODO-20260605-1410-identity.md))
 

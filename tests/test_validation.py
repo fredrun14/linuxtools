@@ -1,5 +1,6 @@
 """Tests pour le module validation."""
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -107,3 +108,33 @@ class TestPathCheckerWorldWritable:
         )
         with pytest.raises(FileNotFoundError, match="introuvable"):
             checker.validate()
+
+    def test_world_writable_ne_suit_pas_symlink(self, tmp_path):
+        """lstat() ne suit pas les liens symboliques (TOCTOU-safe).
+
+        Un lien symbolique a les bits 0o777 sur Linux, donc il est
+        détecté comme world-writable même si la cible ne l'est pas.
+        """
+        from linux_python_utils.validation.path_checker_world_writable import (
+            PathCheckerWorldWritable
+        )
+        target = tmp_path / "target.conf"
+        target.write_text("config")
+        os.chmod(str(target), 0o600)  # non world-writable
+
+        link = tmp_path / "link.conf"
+        link.symlink_to(target)
+
+        checker = PathCheckerWorldWritable(str(link))
+        # lstat voit le lien (mode 0o777 sur Linux) → world-writable
+        with pytest.raises(PermissionError, match="world-writable"):
+            checker.validate()
+
+
+class TestImportNouveauNom:
+    """Vérifie que le renommage PEP 8 est correct."""
+
+    def test_import_path_checker_exist_nouveau_nom(self):
+        """path_checker_exist (minuscule) est importable sans erreur."""
+        from linux_python_utils.validation.path_checker_exist import PathChecker  # noqa: F401
+        assert PathChecker is not None
