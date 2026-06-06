@@ -4,13 +4,23 @@ import io
 import os
 import stat
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from linux_python_utils.logging import Logger, FileLogger
+from linux_python_utils.logging import (
+    AnsiColors,
+    ConsoleLogger,
+    FileLogger,
+    Logger,
+    TeeStream,
+)
+from linux_python_utils.logging.security_logger import (
+    SecurityEvent,
+    SecurityEventType,
+    SecurityLogger,
+)
 
 
 class TestFileLogger:
@@ -137,7 +147,6 @@ class TestFileLoggerConsole:
 
     def test_console_output_active(self, tmp_path):
         """FileLogger avec console_output=True crée un StreamHandler."""
-        import logging
         log_file = str(tmp_path / "console.log")
         logger = FileLogger(log_file, console_output=True)
         # Vérifie qu'il y a 2 handlers (fichier + console)
@@ -147,9 +156,8 @@ class TestFileLoggerConsole:
     def test_logger_handler_existant_reutilise(self, tmp_path):
         """Crée deux FileLogger sur le même fichier : handler réutilisé."""
         log_file = str(tmp_path / "shared.log")
-        # Premier logger : crée les handlers
-        logger1 = FileLogger(log_file)
-        handler_count_1 = len(logger1.logger.handlers)
+        # Premier logger : crée les handlers dans le registre logging
+        _logger1 = FileLogger(log_file)  # noqa: F841
         # Deuxième logger sur le même fichier : doit réutiliser
         logger2 = FileLogger(log_file)
         # Le handler est récupéré depuis les handlers existants
@@ -182,9 +190,6 @@ class TestSecurityLogger:
 
     def test_log_event_info(self):
         """log_event avec severity='info' appelle log_info."""
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -199,9 +204,6 @@ class TestSecurityLogger:
 
     def test_log_event_warning(self):
         """log_event avec severity='warning' appelle log_warning."""
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -214,9 +216,6 @@ class TestSecurityLogger:
 
     def test_log_event_error(self):
         """log_event avec severity='error' appelle log_error."""
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -229,9 +228,6 @@ class TestSecurityLogger:
 
     def test_log_event_critical(self):
         """log_event avec severity='critical' appelle log_error."""
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -245,9 +241,6 @@ class TestSecurityLogger:
     def test_log_event_avec_user_id(self):
         """log_event inclut user_id dans le payload JSON."""
         import json
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -264,9 +257,6 @@ class TestSecurityLogger:
     def test_log_event_sans_user_id_pas_dans_payload(self):
         """log_event sans user_id n'inclut pas user_id dans le payload."""
         import json
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -281,9 +271,6 @@ class TestSecurityLogger:
     def test_log_event_avec_details(self):
         """log_event inclut les détails dans le payload JSON."""
         import json
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -300,9 +287,6 @@ class TestSecurityLogger:
     def test_security_logger_masque_les_cles_sensibles(self):
         """Les clés sensibles dans details sont remplacées par '***'."""
         import json
-        from linux_python_utils.logging.security_logger import (
-            SecurityLogger, SecurityEvent, SecurityEventType
-        )
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
         event = SecurityEvent(
@@ -342,26 +326,28 @@ class TestConsoleLogger:
 
     def test_est_instance_de_logger(self) -> None:
         """ConsoleLogger implémente l'interface Logger."""
-        from linux_python_utils.logging import ConsoleLogger, Logger
         assert isinstance(ConsoleLogger(), Logger)
 
-    def test_log_info_ecrit_sur_stdout(self, capsys: pytest.CaptureFixture) -> None:
+    def test_log_info_ecrit_sur_stdout(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
         """log_info écrit sur stdout."""
-        from linux_python_utils.logging import ConsoleLogger
         ConsoleLogger().log_info("message info")
         assert "message info" in capsys.readouterr().out
 
-    def test_log_warning_ecrit_sur_stderr(self, capsys: pytest.CaptureFixture) -> None:
+    def test_log_warning_ecrit_sur_stderr(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
         """log_warning écrit sur stderr avec préfixe WARNING."""
-        from linux_python_utils.logging import ConsoleLogger
         ConsoleLogger().log_warning("alerte")
         captured = capsys.readouterr()
         assert "WARNING" in captured.err
         assert "alerte" in captured.err
 
-    def test_log_error_ecrit_sur_stderr(self, capsys: pytest.CaptureFixture) -> None:
+    def test_log_error_ecrit_sur_stderr(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
         """log_error écrit sur stderr avec préfixe ERROR."""
-        from linux_python_utils.logging import ConsoleLogger
         ConsoleLogger().log_error("erreur critique")
         captured = capsys.readouterr()
         assert "ERROR" in captured.err
@@ -371,7 +357,6 @@ class TestConsoleLogger:
         self, capsys: pytest.CaptureFixture
     ) -> None:
         """log_info entoure le message du code ANSI bleu."""
-        from linux_python_utils.logging import AnsiColors, ConsoleLogger
         ConsoleLogger().log_info("info colorée")
         assert AnsiColors.BLUE in capsys.readouterr().out
 
@@ -379,7 +364,6 @@ class TestConsoleLogger:
         self, capsys: pytest.CaptureFixture
     ) -> None:
         """log_warning entoure le message du code ANSI orange."""
-        from linux_python_utils.logging import AnsiColors, ConsoleLogger
         ConsoleLogger().log_warning("alerte colorée")
         assert AnsiColors.ORANGE in capsys.readouterr().err
 
@@ -387,7 +371,6 @@ class TestConsoleLogger:
         self, capsys: pytest.CaptureFixture
     ) -> None:
         """log_error entoure le message du code ANSI rouge."""
-        from linux_python_utils.logging import AnsiColors, ConsoleLogger
         ConsoleLogger().log_error("erreur colorée")
         assert AnsiColors.RED in capsys.readouterr().err
 
@@ -395,7 +378,6 @@ class TestConsoleLogger:
         self, capsys: pytest.CaptureFixture
     ) -> None:
         """log_success entoure le message du code ANSI vert."""
-        from linux_python_utils.logging import AnsiColors, ConsoleLogger
         ConsoleLogger().log_success("succès coloré")
         assert AnsiColors.GREEN in capsys.readouterr().out
 
@@ -407,18 +389,20 @@ class TestFileLoggerColored:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """FileLogger(colored_console=True) colore la sortie console."""
-        from linux_python_utils.logging import AnsiColors, FileLogger
         log_file = str(tmp_path / "colored.log")
-        logger = FileLogger(log_file, console_output=True, colored_console=True)
+        logger = FileLogger(
+            log_file, console_output=True, colored_console=True
+        )
         logger.log_info("message coloré")
         captured = capsys.readouterr()
         assert AnsiColors.BLUE in captured.err
 
     def test_fichier_log_sans_codes_ansi(self, tmp_path: Path) -> None:
         """Le fichier log ne contient jamais de codes ANSI."""
-        from linux_python_utils.logging import AnsiColors, FileLogger
         log_file = str(tmp_path / "plain.log")
-        logger = FileLogger(log_file, console_output=True, colored_console=True)
+        logger = FileLogger(
+            log_file, console_output=True, colored_console=True
+        )
         logger.log_info("contenu fichier")
         content = (tmp_path / "plain.log").read_text(encoding="utf-8")
         assert AnsiColors.BLUE not in content
@@ -428,7 +412,6 @@ class TestFileLoggerColored:
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Par défaut colored_console=False : pas de codes ANSI en console."""
-        from linux_python_utils.logging import AnsiColors, FileLogger
         log_file = str(tmp_path / "plain_console.log")
         logger = FileLogger(log_file, console_output=True)
         logger.log_info("sans couleur")
@@ -441,93 +424,67 @@ class TestTeeStream:
 
     def test_write_ecrit_dans_flux_original(self) -> None:
         """write() écrit dans le flux original."""
-        # Arrange
         original = io.StringIO()
         log_fh = io.StringIO()
-        from linux_python_utils.logging import TeeStream
         tee = TeeStream(original, log_fh)
 
-        # Act
         tee.write("bonjour")
 
-        # Assert
         assert original.getvalue() == "bonjour"
 
     def test_write_ecrit_dans_log_fh(self) -> None:
         """write() écrit dans le fichier log."""
-        # Arrange
         original = io.StringIO()
         log_fh = io.StringIO()
-        from linux_python_utils.logging import TeeStream
         tee = TeeStream(original, log_fh)
 
-        # Act
         tee.write("bonjour")
 
-        # Assert
         assert log_fh.getvalue() == "bonjour"
 
     def test_write_retourne_longueur(self) -> None:
         """write() retourne len(data)."""
-        # Arrange
-        from linux_python_utils.logging import TeeStream
-        tee = TeeStream(io.StringIO(), io.StringIO())
+        result = TeeStream(io.StringIO(), io.StringIO()).write("hello")
 
-        # Act
-        result = tee.write("hello")
-
-        # Assert
         assert result == 5
 
     def test_flush_vide_les_deux_flux(self) -> None:
         """flush() appelle flush() sur les deux flux."""
-        # Arrange
         original = MagicMock()
         log_fh = MagicMock()
-        from linux_python_utils.logging import TeeStream
         tee = TeeStream(original, log_fh)
 
-        # Act
         tee.flush()
 
-        # Assert
         original.flush.assert_called_once()
         log_fh.flush.assert_called_once()
 
     def test_getattr_delegue_au_flux_original(self) -> None:
         """__getattr__ délègue les attributs inconnus au flux original."""
-        # Arrange
         original = io.StringIO()
-        from linux_python_utils.logging import TeeStream
         tee = TeeStream(original, io.StringIO())
 
-        # Act / Assert
         assert tee.encoding == original.encoding
 
     def test_tee_stdout_capture_print(self, tmp_path: Path) -> None:
         """Remplacer sys.stdout par TeeStream capture les print() dans le fichier."""
-        # Arrange
         log_file = tmp_path / "out.log"
         log_fh = log_file.open("a", encoding="utf-8")
-        from linux_python_utils.logging import TeeStream
         original_stdout = sys.stdout
         sys.stdout = TeeStream(original_stdout, log_fh)
 
-        # Act
         try:
             print("ligne capturée")
         finally:
             sys.stdout = original_stdout
             log_fh.close()
 
-        # Assert
         assert "ligne capturée" in log_file.read_text(encoding="utf-8")
 
     def test_close_ferme_log_pas_stdout(self) -> None:
         """close() ferme _log_fh mais ne ferme pas le flux original."""
         original = MagicMock()
         log_fh = MagicMock()
-        from linux_python_utils.logging import TeeStream
         tee = TeeStream(original, log_fh)
 
         tee.close()
@@ -538,19 +495,15 @@ class TestTeeStream:
 
     def test_tee_stderr_capture_erreurs(self, tmp_path: Path) -> None:
         """Remplacer sys.stderr par TeeStream capture stderr dans le fichier."""
-        # Arrange
         log_file = tmp_path / "err.log"
         log_fh = log_file.open("a", encoding="utf-8")
-        from linux_python_utils.logging import TeeStream
         original_stderr = sys.stderr
         sys.stderr = TeeStream(original_stderr, log_fh)
 
-        # Act
         try:
             print("erreur capturée", file=sys.stderr)
         finally:
             sys.stderr = original_stderr
             log_fh.close()
 
-        # Assert
         assert "erreur capturée" in log_file.read_text(encoding="utf-8")
