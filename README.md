@@ -1865,12 +1865,12 @@ logger = FileLogger("/var/log/identity.log")
 executor = LinuxCommandExecutor(logger)
 
 # Groupes — crée ou corrige le GID
-group_mgr = LinuxGroupManager(executor, logger)
+group_mgr = LinuxGroupManager(logger=logger, executor=executor)
 group_mgr.ensure_group("appuser", gid=1500)
 # → groupadd si absent, groupmod --gid si GID incorrect, skip sinon
 
 # Utilisateurs — crée ou corrige l'UID
-user_mgr = LinuxUserManager(executor, logger)
+user_mgr = LinuxUserManager(logger=logger, executor=executor)
 user_mgr.ensure_user(
     name="appuser",
     uid=1500,
