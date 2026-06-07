@@ -2012,15 +2012,16 @@ app.run()  # parse sys.argv et dispatche
   │  - _prog: str                                  │
   │  - _description: str                           │
   │  - _commands: list[CliCommand]                 │
+  │  - _logger: Logger | None                      │
   │  + run() → dispatch vers la commande choisie   │
   └────────────────────────────────────────────────┘
 
   ┌────────────────────────────────────────────────┐
   │              DryRunContext                     │
   │  + dry_run: bool                               │
-  │  + would_write(path, content) → None           │
-  │  + would_create(path) → None                   │
-  │  + would_modify(path, line) → None             │
+  │  + would_write(path, content) → None           │  ← no-op si dry_run=False
+  │  + would_create(path) → None                   │  ← no-op si dry_run=False
+  │  + would_modify(path, line) → None             │  ← no-op si dry_run=False
   └────────────────────────────────────────────────┘
 
   add_dry_run_argument(parser)
