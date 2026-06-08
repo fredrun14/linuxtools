@@ -32,11 +32,8 @@ class LoggerErrorHandler(ErrorHandler):
         Args:
             error: L'exception à logger.
         """
+        detail = f"{type(error).__name__}: {error}"
         if isinstance(error, self._base_error_type):
-            self._logger.log_error(
-                f"{type(error).__name__}: {str(error)}"
-            )
+            self._logger.log_error(detail)
         else:
-            self._logger.log_error(
-                f"Erreur inattendue: {type(error).__name__}: {str(error)}"
-            )
+            self._logger.log_error(f"Erreur inattendue: {detail}")

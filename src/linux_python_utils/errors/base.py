@@ -1,5 +1,6 @@
-""" Interfaces abstraites pour la gestion des erreurs
-    Hiérarchie d'exceptions commune
+"""Interfaces abstraites pour la gestion des erreurs.
+
+Hiérarchie d'exceptions commune.
 """
 
 import sys
@@ -9,9 +10,10 @@ from abc import ABC, abstractmethod
 class ErrorHandler(ABC):
     """Interface de base pour les handlers d'erreurs.
 
-        Chaque implémentation concrète définit une stratégie
-        de traitement des erreurs (affichage console, logging, etc.).
-        """
+    Chaque implémentation concrète définit une stratégie
+    de traitement des erreurs (affichage console, logging, etc.).
+    """
+
     @abstractmethod
     def handle(self, error: Exception) -> None:
         """Traite une erreur.
@@ -19,7 +21,7 @@ class ErrorHandler(ABC):
         Args:
             error: L'exception à traiter.
         """
-        pass  # pragma: no cover
+        ...
 
 
 class ErrorHandlerChain:

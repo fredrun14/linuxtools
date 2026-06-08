@@ -3,11 +3,11 @@ import sys
 
 from linux_python_utils.errors.base import ErrorHandler
 from linux_python_utils.errors.exceptions import (
+    AppPermissionError,
     ApplicationError,
     ConfigurationError,
-    MissingDependencyError,
     InstallationError,
-    AppPermissionError,
+    MissingDependencyError,
 )
 
 # Solutions par défaut : surchargeables à l'instanciation
@@ -76,7 +76,7 @@ class ConsoleErrorHandler(ErrorHandler):
         Args:
             error: L'exception métier à traiter.
         """
-        print(f"\n🛑 {type(error).__name__}: {str(error)}", file=sys.stderr)
+        print(f"\n🛑 {type(error).__name__}: {error}", file=sys.stderr)
         solution = next(
             (
                 msg
@@ -99,7 +99,7 @@ class ConsoleErrorHandler(ErrorHandler):
         Args:
             error: L'exception non prévue à afficher.
         """
-        print(f"\n💥 Erreur inattendue: {str(error)}", file=sys.stderr)
+        print(f"\n💥 Erreur inattendue: {error}", file=sys.stderr)
         print(f"Type: {type(error).__name__}", file=sys.stderr)
         print(
             "\n📋 Cela peut être un bug."
