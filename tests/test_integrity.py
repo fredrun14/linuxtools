@@ -1,15 +1,14 @@
 """Tests pour le module integrity."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.logging import FileLogger
 from linux_python_utils.integrity import (
-    calculate_checksum,
     SHA256IntegrityChecker,
+    calculate_checksum,
 )
+from linux_python_utils.logging import FileLogger
 
 
 class TestCalculateChecksum:
@@ -155,18 +154,6 @@ class TestSHA256IntegrityChecker:
 
         assert len(checksum) == 64
 
-    def test_calculate_checksum_static_method(self, tmp_path):
-        """Test de la méthode statique calculate_checksum."""
-        # Arrange
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Test statique")
-
-        # Act
-        checksum = SHA256IntegrityChecker.calculate_checksum(str(test_file))
-
-        # Assert
-        assert len(checksum) == 64
-
     def test_verify_file_oserror_returns_false(self, tmp_path, logger):
         """Test que verify_file retourne False en cas d'OSError."""
         # Arrange — fichier source inexistant déclenche FileNotFoundError
@@ -275,7 +262,7 @@ class TestSHA256IntegrityChecker:
         assert result is False
 
     def test_verify_exception_returns_false(self, tmp_path, logger):
-        """Test que verify retourne False en cas d'exception inattendue."""
+        """Test que verify retourne False en cas d'OSError."""
         # Arrange
         source_dir = tmp_path / "source"
         source_dir.mkdir()
@@ -284,7 +271,7 @@ class TestSHA256IntegrityChecker:
         # Act
         with patch(
             "pathlib.Path.rglob",
-            side_effect=RuntimeError("Erreur inattendue"),
+            side_effect=OSError("Erreur de lecture"),
         ):
             result = checker.verify(
                 str(source_dir), str(tmp_path / "dest")

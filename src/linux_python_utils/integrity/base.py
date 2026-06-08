@@ -36,6 +36,7 @@ class ChecksumCalculator(ABC):
             FileNotFoundError: Si le fichier n'existe pas.
             ValueError: Si l'algorithme n'est pas autorisé.
         """
+        ...
 
 
 class HashLibChecksumCalculator(ChecksumCalculator):
@@ -68,7 +69,7 @@ class HashLibChecksumCalculator(ChecksumCalculator):
                 f"Algorithme non autorisé : {algorithm!r} "
                 f"(autorisés : {', '.join(sorted(_ALGOS_AUTORISES))})"
             )
-        hash_func = getattr(hashlib, algorithm)()
+        hash_func = hashlib.new(algorithm)
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_func.update(chunk)
@@ -117,3 +118,4 @@ class IntegrityChecker(ABC):
         Returns:
             True si l'intégrité est vérifiée, False sinon.
         """
+        ...

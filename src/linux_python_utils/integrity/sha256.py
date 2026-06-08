@@ -2,13 +2,12 @@
 
 from pathlib import Path
 
-from linux_python_utils.logging.base import Logger
 from linux_python_utils.integrity.base import (
-    IntegrityChecker,
     ChecksumCalculator,
     HashLibChecksumCalculator,
-    calculate_checksum,
+    IntegrityChecker,
 )
+from linux_python_utils.logging.base import Logger
 
 
 class SHA256IntegrityChecker(IntegrityChecker):
@@ -23,7 +22,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
 
     def __init__(
         self,
-        logger: Logger,
+        logger: Logger | None = None,
         algorithm: str = "sha256",
         checksum_calculator: ChecksumCalculator | None = None,
     ) -> None:
@@ -35,25 +34,9 @@ class SHA256IntegrityChecker(IntegrityChecker):
             checksum_calculator: Instance de ChecksumCalculator (optionnel).
                 Si non fourni, utilise HashLibChecksumCalculator par défaut.
         """
-        self.logger = logger
+        self._logger = logger
         self.algorithm = algorithm
         self._calculator = checksum_calculator or HashLibChecksumCalculator()
-
-    @staticmethod
-    def calculate_checksum(
-        file_path: str,
-        algorithm: str = "sha256",
-    ) -> str:
-        """Calcule le checksum d'un fichier (méthode statique).
-
-        Args:
-            file_path: Chemin du fichier.
-            algorithm: Algorithme de hash (défaut: sha256).
-
-        Returns:
-            Checksum hexadécimal du fichier.
-        """
-        return calculate_checksum(file_path, algorithm)
 
     def _calculate(self, file_path: str | Path) -> str:
         """Calcule le checksum via l'instance injectée.
@@ -84,15 +67,11 @@ class SHA256IntegrityChecker(IntegrityChecker):
             source_checksum = self._calculate(source_file)
             dest_checksum = self._calculate(dest_file)
             if source_checksum != dest_checksum:
-                self.logger.log_error(
-                    f"Différence de checksum:\n"
-                    f"  Source: {source_checksum}\n"
-                    f"  Dest:   {dest_checksum}"
-                )
                 return False
             return True
         except OSError as e:
-            self.logger.log_error(f"Erreur de vérification: {e}")
+            if self._logger:
+                self._logger.log_error(f"Erreur de vérification: {e}")
             return False
 
     def _resolve_dest(
@@ -142,12 +121,16 @@ class SHA256IntegrityChecker(IntegrityChecker):
             rel_path = source_file.relative_to(source_path)
             dest_file = dest / rel_path
             if not dest_file.exists():
-                self.logger.log_error(f"Fichier manquant: {dest_file}")
+                if self._logger:
+                    self._logger.log_error(
+                        f"Fichier manquant: {dest_file}"
+                    )
                 return False, count
             if not self.verify_file(source_file, dest_file):
-                self.logger.log_error(
-                    f"Checksum différent pour: {rel_path}"
-                )
+                if self._logger:
+                    self._logger.log_error(
+                        f"Checksum différent pour: {rel_path}"
+                    )
                 return False, count
             count += 1
         return True, count
@@ -178,24 +161,30 @@ class SHA256IntegrityChecker(IntegrityChecker):
             dest = self._resolve_dest(
                 source_path, destination_path, dest_subdir
             )
-            self.logger.log_info(
-                f"Vérification: {source_path} -> {dest}"
-            )
+            if self._logger:
+                self._logger.log_info(
+                    f"Vérification: {source_path} -> {dest}"
+                )
             ok, count = self._verify_tree(source_path, dest)
             if not ok:
                 return False
             if count == 0:
-                self.logger.log_warning(
-                    "Aucun fichier vérifié (source vide ?)."
+                if self._logger:
+                    self._logger.log_warning(
+                        "Aucun fichier vérifié (source vide ?)."
+                    )
+            if self._logger:
+                self._logger.log_info(
+                    f"Vérification terminée : {count}"
+                    " fichier(s) vérifié(s)."
                 )
-            self.logger.log_info(
-                f"Vérification terminée : {count} fichier(s) vérifié(s)."
-            )
             return True
-        except Exception as e:
-            self.logger.log_error(
-                f"Erreur lors de la vérification d'intégrité: {e}"
-            )
+        except (OSError, ValueError) as e:
+            if self._logger:
+                self._logger.log_error(
+                    "Erreur lors de la vérification"
+                    f" d'intégrité: {e}"
+                )
             return False
 
     def get_checksum(self, file_path: str | Path) -> str:
@@ -208,5 +197,6 @@ class SHA256IntegrityChecker(IntegrityChecker):
             Checksum hexadécimal.
         """
         checksum = self._calculate(file_path)
-        self.logger.log_info(f"Checksum de {file_path}: {checksum}")
+        if self._logger:
+            self._logger.log_info(f"Checksum de {file_path}: {checksum}")
         return checksum
