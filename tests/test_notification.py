@@ -7,6 +7,16 @@ import pytest
 from linux_python_utils.notification import NotificationConfig
 
 
+@pytest.fixture
+def notif() -> NotificationConfig:
+    """NotificationConfig minimale partagée entre les tests."""
+    return NotificationConfig(
+        title="Test",
+        message_success="OK",
+        message_failure="KO",
+    )
+
+
 class TestNotificationConfig:
     """Tests pour la dataclass NotificationConfig."""
 
@@ -21,15 +31,10 @@ class TestNotificationConfig:
         assert config.message_success == "Succès"
         assert config.message_failure == "Échec"
 
-    def test_default_icons(self):
+    def test_default_icons(self, notif):
         """Vérifie les icônes par défaut."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        assert config.icon_success == "software-update-available"
-        assert config.icon_failure == "dialog-error"
+        assert notif.icon_success == "software-update-available"
+        assert notif.icon_failure == "dialog-error"
 
     def test_custom_icons(self):
         """Vérifie les icônes personnalisées."""
@@ -70,61 +75,35 @@ class TestNotificationConfig:
                 message_failure=""
             )
 
-    def test_is_frozen(self):
+    def test_is_frozen(self, notif):
         """Vérifie que la dataclass est immutable."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        with pytest.raises(AttributeError):
-            config.title = "Nouveau titre"
+        with pytest.raises(
+            AttributeError, match="cannot assign to field"
+        ):
+            notif.title = "Nouveau titre"
 
 
 class TestNotificationConfigToBashFunction:
     """Tests pour NotificationConfig.to_bash_function()."""
 
-    def test_contains_function_definition(self):
+    def test_contains_function_definition(self, notif):
         """Vérifie la présence de la définition de fonction."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        result = config.to_bash_function()
-        assert "send_notification()" in result
+        assert "send_notification()" in notif.to_bash_function()
 
-    def test_contains_local_variables(self):
+    def test_contains_local_variables(self, notif):
         """Vérifie la présence des variables locales."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        result = config.to_bash_function()
+        result = notif.to_bash_function()
         assert 'local title="$1"' in result
         assert 'local message="$2"' in result
         assert 'local icon="$3"' in result
 
-    def test_contains_loginctl_command(self):
+    def test_contains_loginctl_command(self, notif):
         """Vérifie la présence de loginctl pour lister les utilisateurs."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        result = config.to_bash_function()
-        assert "loginctl list-users" in result
+        assert "loginctl list-users" in notif.to_bash_function()
 
-    def test_contains_notify_send(self):
+    def test_contains_notify_send(self, notif):
         """Vérifie la présence de notify-send."""
-        config = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
-        )
-        result = config.to_bash_function()
-        assert "notify-send" in result
+        assert "notify-send" in notif.to_bash_function()
 
 
 class TestNotificationConfigToBashCalls:

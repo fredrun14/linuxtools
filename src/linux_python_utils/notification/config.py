@@ -13,8 +13,8 @@ class NotificationConfig:
     """Configuration pour les notifications desktop Linux.
 
     Génère du code bash via ``to_bash_function()`` et ``to_bash_call_*()``.
-    Les champs texte (title, message_*) ne doivent pas contenir de
-    caractères de contrôle (ord < 32 : ``\\n``, ``\\t``, ``\\x00``…)
+    Les champs texte (title, message_*, app_name) ne doivent pas contenir
+    de caractères de contrôle (ord < 32 : ``\\n``, ``\\t``, ``\\x00``…)
     ni être vides.
 
     Attributes:
@@ -40,17 +40,14 @@ class NotificationConfig:
             ValueError: Si un champ requis est vide ou contient un
                 caractère de contrôle (ord < 32).
         """
-        if not self.title:
-            raise ValueError("title est requis")
-        if not self.message_success:
-            raise ValueError("message_success est requis")
-        if not self.message_failure:
-            raise ValueError("message_failure est requis")
         for champ, valeur in (
             ("title", self.title),
             ("message_success", self.message_success),
             ("message_failure", self.message_failure),
+            ("app_name", self.app_name),
         ):
+            if not valeur:
+                raise ValueError(f"{champ} est requis")
             if any(ord(c) < 32 for c in valeur):
                 raise ValueError(
                     f"Caractère de contrôle interdit dans '{champ}'."
@@ -89,16 +86,28 @@ class NotificationConfig:
     sleep 1
 }}'''
 
+    def _to_bash_call(self, message: str, icon: str) -> str:
+        """Génère une ligne d'appel bash send_notification.
+
+        Args:
+            message: Message à afficher.
+            icon: Nom de l'icône.
+
+        Returns:
+            Ligne bash avec arguments échappés par shlex.quote.
+        """
+        return (
+            f"send_notification {shlex.quote(self.title)}"
+            f" {shlex.quote(message)} {shlex.quote(icon)}"
+        )
+
     def to_bash_call_success(self) -> str:
         """Génère l'appel bash pour une notification de succès.
 
         Returns:
             Ligne bash appelant send_notification avec paramètres succès.
         """
-        title = shlex.quote(self.title)
-        message = shlex.quote(self.message_success)
-        icon = shlex.quote(self.icon_success)
-        return f"send_notification {title} {message} {icon}"
+        return self._to_bash_call(self.message_success, self.icon_success)
 
     def to_bash_call_failure(self) -> str:
         """Génère l'appel bash pour une notification d'échec.
@@ -106,7 +115,4 @@ class NotificationConfig:
         Returns:
             Ligne bash appelant send_notification avec paramètres échec.
         """
-        title = shlex.quote(self.title)
-        message = shlex.quote(self.message_failure)
-        icon = shlex.quote(self.icon_failure)
-        return f"send_notification {title} {message} {icon}"
+        return self._to_bash_call(self.message_failure, self.icon_failure)
