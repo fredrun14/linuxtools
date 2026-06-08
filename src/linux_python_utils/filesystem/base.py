@@ -18,7 +18,6 @@ class FileManager(ABC):
         Returns:
             True si succès, False sinon
         """
-        pass
 
     @abstractmethod
     def file_exists(self, file_path: str) -> bool:

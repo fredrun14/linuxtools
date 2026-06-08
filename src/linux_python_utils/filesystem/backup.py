@@ -67,13 +67,13 @@ class LinuxFileBackup(FileBackup):
     Utilise O_NOFOLLOW pour éviter toute attaque par substitution de symlink.
     """
 
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """Initialise le gestionnaire de sauvegarde.
 
         Args:
             logger: Instance de Logger pour le logging.
         """
-        self.logger = logger
+        self._logger = logger
 
     def backup(self, file_path: str, backup_path: str) -> bool:
         """Sauvegarde un fichier. Retourne False si la source est absente.
@@ -89,20 +89,23 @@ class LinuxFileBackup(FileBackup):
             OSError: Si backup_path est un symlink ou erreur d'E/S.
         """
         if not Path(file_path).exists():
-            self.logger.log_warning(
-                f"Source absente, aucune sauvegarde : {file_path}"
-            )
+            if self._logger:
+                self._logger.log_warning(
+                    f"Source absente, aucune sauvegarde : {file_path}"
+                )
             return False
         try:
             _copy_secure(file_path, backup_path)
-            self.logger.log_info(
-                f"Sauvegarde de {file_path} vers {backup_path}"
-            )
+            if self._logger:
+                self._logger.log_info(
+                    f"Sauvegarde de {file_path} vers {backup_path}"
+                )
             return True
         except OSError as exc:
-            self.logger.log_error(
-                f"Erreur lors de la sauvegarde de {file_path}: {exc}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur lors de la sauvegarde de {file_path}: {exc}"
+                )
             raise
 
     def restore(self, file_path: str, backup_path: str) -> None:
@@ -118,15 +121,19 @@ class LinuxFileBackup(FileBackup):
         """
         try:
             _copy_secure(backup_path, file_path)
-            self.logger.log_info(
-                f"Restauration de {file_path} depuis {backup_path}"
-            )
-        except FileNotFoundError:
+            if self._logger:
+                self._logger.log_info(
+                    f"Restauration de {file_path} depuis {backup_path}"
+                )
+        except FileNotFoundError as exc:
             msg = f"Aucune sauvegarde disponible: {backup_path}"
-            self.logger.log_error(msg)
-            raise FileNotFoundError(msg)
+            if self._logger:
+                self._logger.log_error(msg)
+            raise FileNotFoundError(msg) from exc
         except OSError as exc:
-            self.logger.log_error(
-                f"Erreur lors de la restauration de {file_path}: {exc}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur lors de la restauration de"
+                    f" {file_path}: {exc}"
+                )
             raise

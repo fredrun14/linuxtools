@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-from linux_python_utils.logging.base import Logger
 from linux_python_utils.filesystem.base import FileManager
+from linux_python_utils.logging.base import Logger
 
 
 def write_text_secure(
@@ -48,14 +48,14 @@ class LinuxFileManager(FileManager):
     Toutes les opérations sont loggées via l'instance Logger.
     """
 
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """
         Initialise le gestionnaire de fichiers.
 
         Args:
-            logger: Instance de Logger pour le logging
+            logger: Instance de Logger pour le logging.
         """
-        self.logger = logger
+        self._logger = logger
 
     def create_file(self, file_path: str, content: str) -> bool:
         """
@@ -70,12 +70,17 @@ class LinuxFileManager(FileManager):
         """
         try:
             write_text_secure(file_path, content)
-            self.logger.log_info(f"Fichier {file_path} créé avec succès.")
+            if self._logger:
+                self._logger.log_info(
+                    f"Fichier {file_path} créé avec succès."
+                )
             return True
         except OSError as exc:
-            self.logger.log_error(
-                f"Erreur lors de la création du fichier {file_path}: {exc}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur lors de la création du fichier"
+                    f" {file_path}: {exc}"
+                )
             return False
 
     def file_exists(self, file_path: str) -> bool:
@@ -101,17 +106,26 @@ class LinuxFileManager(FileManager):
             Contenu du fichier
 
         Raises:
-            FileNotFoundError: Si le fichier n'existe pas
+            OSError: Si le fichier est inaccessible.
+
+        Note:
+            Contrairement à create_file, suit les symlinks.
+            Lecture seule — risque TOCTOU limité et accepté.
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
-            self.logger.log_info(f"Fichier {file_path} lu avec succès.")
+            if self._logger:
+                self._logger.log_info(
+                    f"Fichier {file_path} lu avec succès."
+                )
             return content
         except OSError as exc:
-            self.logger.log_error(
-                f"Erreur lors de la lecture du fichier {file_path}: {exc}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur lors de la lecture du fichier"
+                    f" {file_path}: {exc}"
+                )
             raise
 
     def delete_file(self, file_path: str) -> bool:
@@ -126,10 +140,15 @@ class LinuxFileManager(FileManager):
         """
         try:
             Path(file_path).unlink()
-            self.logger.log_info(f"Fichier {file_path} supprimé avec succès.")
+            if self._logger:
+                self._logger.log_info(
+                    f"Fichier {file_path} supprimé avec succès."
+                )
             return True
         except OSError as exc:
-            self.logger.log_error(
-                f"Erreur lors de la suppression du fichier {file_path}: {exc}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur lors de la suppression du"
+                    f" fichier {file_path}: {exc}"
+                )
             return False

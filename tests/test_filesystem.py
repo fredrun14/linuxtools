@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from linux_python_utils.filesystem.backup import LinuxFileBackup
 from linux_python_utils.filesystem.linux import LinuxFileManager
-from linux_python_utils.filesystem.backup import LinuxFileBackup, _copy_secure
 
 
 class TestLinuxFileManager:
@@ -64,7 +64,7 @@ class TestLinuxFileManager:
     def test_read_file_echec_fichier_inexistant(self):
         """Lève une exception si le fichier n'existe pas."""
         manager, logger = self._make_manager()
-        with pytest.raises(Exception):
+        with pytest.raises(OSError):
             manager.read_file("/repertoire_inexistant_xyz/fichier.txt")
         logger.log_error.assert_called_once()
 
@@ -100,7 +100,7 @@ class TestLinuxFileManager:
         assert real.read_text() == "original"
 
     def test_create_file_fixe_permissions_0644(self, tmp_path):
-        """Le fichier créé a les permissions 0o644 indépendamment de l'umask."""
+        """Fichier créé avec permissions 0o644, indépendant de l'umask."""
         file_path = str(tmp_path / "secure.txt")
         manager, _ = self._make_manager()
         manager.create_file(file_path, "contenu")
@@ -162,7 +162,7 @@ class TestLinuxFileBackup:
         source = tmp_path / "source.txt"
         source.write_text("x")
         backup, logger = self._make_backup()
-        with pytest.raises(Exception):
+        with pytest.raises(OSError):
             backup.backup(
                 str(source),
                 "/repertoire_inexistant_xyz/backup.txt"
@@ -190,7 +190,7 @@ class TestLinuxFileBackup:
         logger.log_error.assert_called_once()
 
     def test_restore_exception_oserror(self, tmp_path):
-        """Teste le chemin except OSError (non-FileNotFoundError) dans restore()."""
+        """Teste la branche except OSError dans restore()."""
         backup_path = str(tmp_path / "backup.txt")
         Path(backup_path).write_text("content")
         file_path = str(tmp_path / "restored.txt")
