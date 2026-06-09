@@ -40,7 +40,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 
 ## ✨ Fonctionnalités
 
-- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail)
+- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML)
 - **⚙️ Configuration flexible** — Support TOML/JSON avec fusion profonde et profils
 - **📁 Gestion de fichiers** — CRUD fichiers et sauvegardes préservant les métadonnées
 - **🔧 Systemd complet** — Gestion services, timers et unités de montage (système et utilisateur)
@@ -258,10 +258,14 @@ linux-python-utils/
 │   ├── __init__.py              # Exports publics
 │   ├── logging/
 │   │   ├── __init__.py
-│   │   ├── base.py              # ABC Logger
-│   │   ├── console_logger.py    # ConsoleLogger (stdout/stderr, sans fichier)
-│   │   ├── file_logger.py       # FileLogger
-│   │   └── security_logger.py   # SecurityLogger, SecurityEvent, SecurityEventType
+│   │   ├── base.py                  # ABC Logger
+│   │   ├── ansi_colors.py           # AnsiColors (StrEnum)
+│   │   ├── console_logger.py        # ConsoleLogger (stdout/stderr, sans fichier)
+│   │   ├── file_logger.py           # FileLogger (TOCTOU-safe, O_NOFOLLOW/0o600)
+│   │   ├── rotating_file_logger.py  # RotatingFileLogger (rotation par taille)
+│   │   ├── factory.py               # build_logger() — factory pilotée par config
+│   │   ├── security_logger.py       # SecurityLogger, SecurityEvent, SecurityEventType
+│   │   └── tee_stream.py            # TeeStream (duplication flux, pattern tee Unix)
 │   ├── config/
 │   │   ├── __init__.py
 │   │   ├── base.py              # ABC ConfigManager
@@ -406,7 +410,7 @@ linux-python-utils/
 
 ## 📝 Module `logging`
 
-Système de logging robuste avec trois implémentations : fichier, console légère, et journalisation structurée des événements de sécurité.
+Système de logging robuste avec quatre implémentations (`FileLogger`, `RotatingFileLogger`, `ConsoleLogger`, `SecurityLogger`), une factory pilotée par config TOML (`build_logger`) et un utilitaire de duplication de flux (`TeeStream`).
 
 ### Utilisation
 
@@ -429,6 +433,48 @@ console.log_info("Démarrage...")      # → stdout
 console.log_warning("Absent")        # → stderr : WARNING: Absent
 console.log_error("Échec")           # → stderr : ERROR: Échec
 ```
+
+#### `RotatingFileLogger` — Rotation automatique par taille
+
+Même API que `FileLogger`, avec rotation automatique quand le fichier dépasse `max_bytes`. Chaque nouveau fichier (post-rotation inclus) est ouvert via `O_NOFOLLOW | 0o600` — protection TOCTOU préservée.
+
+```python
+from linux_python_utils.logging import RotatingFileLogger
+
+logger = RotatingFileLogger(
+    "/var/log/myapp/run.log",
+    max_bytes=5_242_880,   # 5 Mo — défaut : 10 Mo
+    backup_count=3,        # archives : run.log.1, run.log.2, run.log.3
+)
+logger.log_info("démarrage")
+logger.log_success("sauvegarde terminée")
+```
+
+#### `build_logger` — Factory pilotée par config TOML
+
+Instancie le bon logger depuis la section `[logging]` d'un fichier TOML (ou un dict équivalent). Découple le code appelant des classes concrètes.
+
+```toml
+# app.toml
+[logging]
+type = "rotating"
+file = "/var/log/myapp/run.log"
+level = "WARNING"
+max_bytes = 5242880
+backup_count = 3
+console_output = true
+```
+
+```python
+from linux_python_utils.config import ConfigurationManager
+from linux_python_utils.logging import build_logger
+
+cfg = ConfigurationManager("app.toml")
+logger = build_logger(cfg.get_section("logging"))
+logger.log_info("démarrage")  # → FileLogger, RotatingFileLogger ou ConsoleLogger
+```
+
+Types supportés : `"file"` | `"console"` | `"rotating"` (défaut : `"console"`).
 
 #### `SecurityLogger` — Audit trail structuré JSON
 
@@ -543,8 +589,10 @@ finally:
 
 | ABC (Interface) | Implémentation | Description |
 |-----------------|----------------|-------------|
-| `Logger` | `FileLogger` | Logging fichier/console (UTF-8, flush immédiat) |
+| `Logger` | `FileLogger` | Logging fichier/console (UTF-8, flush immédiat, O_NOFOLLOW) |
+| `Logger` | `RotatingFileLogger` | Rotation par taille (`max_bytes`), TOCTOU-safe post-rotation |
 | `Logger` | `ConsoleLogger` | Logging stdout/stderr sans fichier (dry-run, tests) |
+| — | `build_logger` | Factory — instancie le bon Logger depuis la section `[logging]` |
 | — | `TeeStream` | Duplique stdout/stderr vers terminal ET fichier log |
 | — | `SecurityLogger` | Journalisation structurée JSON des événements de sécurité |
 | — | `SecurityEvent` | Dataclass représentant un événement de sécurité |
@@ -561,15 +609,23 @@ finally:
           │  + log_success(message: str) [→ log_info]   │
           └────────────────────┬───────────────────────┘
                                │ hérite
-               ┌───────────────┴───────────────┐
-               ▼                               ▼
-  ┌────────────────────────┐   ┌───────────────────────────┐
-  │     ConsoleLogger      │   │        FileLogger         │
-  │                        │   │  - log_file: str          │
-  │  log_info  → stdout    │   │  - config: dict | None    │
-  │  log_warn  → stderr    │   │  - console_output: bool   │
-  │  log_error → stderr    │   │  (UTF-8, flush immédiat)  │
-  └────────────────────────┘   └───────────────────────────┘
+          ┌────────────────────┼───────────────────────┐
+          ▼                    ▼                        ▼
+  ┌──────────────┐  ┌──────────────────┐  ┌────────────────────────┐
+  │ConsoleLogger │  │   FileLogger     │  │ RotatingFileLogger     │
+  │              │  │ - log_file: Path │  │ - log_file: Path       │
+  │ log_info  →  │  │ - config         │  │ - max_bytes: int       │
+  │   stdout     │  │ - console_output │  │ - backup_count: int    │
+  │ log_warn  →  │  │ O_NOFOLLOW/0o600 │  │ O_NOFOLLOW post-rotate │
+  │   stderr     │  │ flush immédiat   │  │ flush immédiat         │
+  └──────────────┘  └──────────────────┘  └────────────────────────┘
+
+  build_logger(config: dict) -> Logger    (factory — factory.py)
+  ┌────────────────────────────────────────────────┐
+  │  config["type"] == "console"  → ConsoleLogger  │
+  │  config["type"] == "file"     → FileLogger     │
+  │  config["type"] == "rotating" → RotatingFile…  │
+  └────────────────────────────────────────────────┘
 
   SecurityLogger  (composition — injecte Logger)
   ┌────────────────────────────────────────────────┐
