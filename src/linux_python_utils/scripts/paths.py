@@ -75,7 +75,7 @@ class ScriptPaths:
         """
         if self._deploy_type == "system":
             return Path("/usr/local/bin") / self._name
-        return self.data_dir.parent.parent / "bin" / self._name
+        return Path.home() / ".local" / "bin" / self._name
 
     @property
     def venv_dir(self) -> Path:

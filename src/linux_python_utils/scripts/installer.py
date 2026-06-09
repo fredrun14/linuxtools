@@ -34,10 +34,12 @@ import os
 import pwd
 import shutil
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 from linux_python_utils.filesystem import FileManager
+from linux_python_utils.filesystem.linux import _open_secure
 from linux_python_utils.logging import Logger
 from linux_python_utils.scripts.checker import ScriptChecker
 from linux_python_utils.scripts.config import BashScriptConfig, PythonCliConfig
@@ -186,7 +188,7 @@ class BashScriptInstaller(ScriptInstaller):
             True si l'opération a réussi, False sinon.
         """
         try:
-            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            fd = _open_secure(path, os.O_RDONLY, 0o000)
             try:
                 os.fchmod(fd, self._default_mode)
             finally:
@@ -409,6 +411,9 @@ class LinuxCliInstaller(CliInstaller):
         if not needs_wrapper:
             return None
 
+        if confirm_wrapper and not sys.stdin.isatty():
+            confirm_wrapper = False
+
         if confirm_wrapper:
             print(
                 "\nAucun [project.scripts] détecté.\n"
@@ -583,10 +588,9 @@ class LinuxCliInstaller(CliInstaller):
                 ou le chmod échoue.
         """
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        flags = (
-            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+        fd = _open_secure(
+            target_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644
         )
-        fd = os.open(str(target_path), flags, 0o644)
         try:
             with os.fdopen(
                 fd, "w", encoding="utf-8", closefd=False
