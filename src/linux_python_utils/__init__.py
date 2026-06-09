@@ -20,7 +20,7 @@ Modules disponibles:
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 from linux_python_utils.logging import (
     Logger,
