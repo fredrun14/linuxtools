@@ -5,12 +5,7 @@ from pathlib import Path
 
 
 class Validator(ABC):
-    """
-    Interface abstraite pour les validateurs.
-
-    Permet l'injection de dépendance et facilite les tests
-    en permettant de substituer l'implémentation réelle par un mock.
-    """
+    """Contrat commun pour tous les validateurs de préconditions système."""
 
     @abstractmethod
     def validate(self) -> None:

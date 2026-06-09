@@ -32,7 +32,7 @@ class PathCheckerWorldWritable(Validator):
         Args:
             path: Chemin vers le fichier dont vérifier les permissions.
         """
-        self.path = Path(path)
+        self._path = Path(path)
 
     def validate(self) -> None:
         """Vérifie que le fichier n'est pas world-writable.
@@ -47,14 +47,14 @@ class PathCheckerWorldWritable(Validator):
                 s'agit d'un lien symbolique (mode 0o777 sur Linux).
         """
         try:
-            st = os.lstat(self.path)
+            st = os.lstat(self._path)
         except FileNotFoundError as exc:
             raise FileNotFoundError(
-                f"Fichier introuvable : {self.path}"
+                f"Fichier introuvable : {self._path}"
             ) from exc
         if st.st_mode & stat.S_IWOTH:
             raise PermissionError(
-                f"Le fichier {self.path} est modifiable par tous "
+                f"Le fichier {self._path} est modifiable par tous "
                 f"les utilisateurs (world-writable). "
-                f"Corrigez avec : chmod o-w {self.path}"
+                f"Corrigez avec : chmod o-w {self._path}"
             )

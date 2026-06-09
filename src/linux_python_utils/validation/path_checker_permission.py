@@ -26,7 +26,7 @@ class PathCheckerPermission(Validator):
         Args:
             paths: Liste de chemins de fichiers à valider.
         """
-        self.paths = paths
+        self._paths = paths
 
     def validate(self) -> None:
         """Valide les permissions d'écriture de tous les chemins.
@@ -36,7 +36,7 @@ class PathCheckerPermission(Validator):
             PermissionError: Si un répertoire parent n'est pas accessible
                 en écriture.
         """
-        for path in self.paths:
+        for path in self._paths:
             self._validate_permission(path)
 
     def _validate_permission(self, path: str) -> None:

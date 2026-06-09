@@ -19,7 +19,7 @@ class PathChecker(Validator):
         Args:
             paths: Liste de chemins de fichiers à valider.
         """
-        self.paths = paths
+        self._paths = paths
 
     def validate(self) -> None:
         """Valide que tous les répertoires parents existent.
@@ -28,7 +28,7 @@ class PathChecker(Validator):
             ValueError: Si un répertoire parent n'existe pas ou n'est pas
                 un répertoire.
         """
-        for path in self.paths:
+        for path in self._paths:
             self._validate_path(path)
 
     def _validate_path(self, path: str) -> None:
