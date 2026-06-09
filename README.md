@@ -42,7 +42,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 
 - **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML)
 - **⚙️ Configuration flexible** — Support TOML/JSON avec fusion profonde et profils
-- **📁 Gestion de fichiers** — CRUD fichiers et sauvegardes préservant les métadonnées
+- **📁 Gestion de fichiers** — CRUD fichiers et sauvegardes TOCTOU-safe (contenu uniquement, métadonnées non préservées)
 - **🔧 Systemd complet** — Gestion services, timers et unités de montage (système et utilisateur)
 - **📄 Chargeurs de config** — Loaders typés pour créer des dataclasses depuis TOML ou JSON
 - **🔐 Vérification d'intégrité** — Checksums SHA256/SHA512/MD5 pour fichiers et répertoires
@@ -821,12 +821,42 @@ source = "~"
 destination = "/media/nas/backup/home"
 ```
 
+**Pattern recommandé — XdgAppConfig + ConfigurationManager :**
+
+```python
+from linux_python_utils import ConfigurationManager, XdgAppConfig
+
+DEFAULT_CONFIG = {
+    "logging": {"level": "INFO"},
+    "backup": {"destination": "/media/backup"},
+}
+
+xdg = XdgAppConfig("mon-appli")
+
+# Crée ~/.config/mon-appli/global.toml s'il n'existe pas
+# (tomllib = lecture seule — écriture déléguée à ConfigurationManager)
+if not xdg.find_config_file():
+    cfg_init = ConfigurationManager(default_config=DEFAULT_CONFIG)
+    cfg_init.create_default_config(xdg.config_dir / "global.toml")
+
+# Cascade XDG : ~/.config/mon-appli/global.toml → /etc/mon-appli/global.toml
+cfg = ConfigurationManager(
+    default_config=DEFAULT_CONFIG,
+    search_paths=[
+        xdg.find_config_file() or xdg.config_dir / "global.toml",
+        xdg.system_config_dir / "global.toml",
+    ],
+)
+level = cfg.get("logging.level", "INFO")
+```
+
 ### Documentation API
 
 | ABC (Interface) | Implémentation | Description |
 |-----------------|----------------|-------------|
-| `ConfigManager` | `ConfigurationManager` | Gestion de configuration |
-| `ConfigLoader` | `FileConfigLoader` | Chargement TOML/JSON |
+| `ConfigManager` | `ConfigurationManager` | Gestion de configuration, profils, `.validate()` Pydantic |
+| `ConfigLoader` | `FileConfigLoader` | Chargement TOML/JSON, validation Pydantic optionnelle |
+| — | `XdgAppConfig` | Résolution de chemins XDG Base Directory |
 
 ### Architecture des Classes
 
@@ -852,7 +882,7 @@ destination = "/media/nas/backup/home"
   │  + _get_nested_value(key)      │     │  + get_profile(name)           │
   │  + load() [abstract]           │     │  + list_profiles()             │
   └──────────┬─────────────────────┘     │  + create_default_config()     │
-             │ hérite                    │  + _deep_merge(base, override) │
+             │ hérite                    │  + validate(schema) → T        │
   ┌──────────┴──────────┬──────────────┐ └────────────────────────────────┘
   ▼                     ▼              ▼
 ServiceConfig   TimerConfig   MountConfig      ← loaders dans systemd/
@@ -1054,7 +1084,7 @@ from linux_python_utils import FileLogger, LinuxFileManager, LinuxFileBackup
 
 logger = FileLogger("/var/log/myapp.log")
 
-# Gestion de fichiers
+# Gestion de fichiers (TOCTOU-safe, str | Path accepté)
 fm = LinuxFileManager(logger)
 fm.create_file("/tmp/test.txt", "Contenu du fichier")
 
@@ -1064,11 +1094,29 @@ if fm.file_exists("/tmp/test.txt"):
 
 fm.delete_file("/tmp/test.txt")
 
-# Sauvegarde avec préservation des métadonnées
+# Sauvegarde (contenu uniquement — métadonnées non préservées)
 backup = LinuxFileBackup(logger)
 backup.backup("/etc/myapp.conf", "/etc/myapp.conf.bak")
 # ... modifications ...
 backup.restore("/etc/myapp.conf", "/etc/myapp.conf.bak")
+```
+
+Pipeline backup + vérification d'intégrité :
+
+```python
+from linux_python_utils import FileLogger, LinuxFileBackup, SHA256IntegrityChecker
+
+logger = FileLogger("/var/log/backup.log")
+backup = LinuxFileBackup(logger)
+checker = SHA256IntegrityChecker(logger)
+
+src = "/etc/myapp.conf"
+bak = "/etc/myapp.conf.bak"
+
+# Sauvegarder puis vérifier l'intégrité de la copie
+if backup.backup(src, bak):
+    if not checker.verify_file(src, bak):
+        logger.log_error("Corruption détectée après la sauvegarde !")
 ```
 
 ### Documentation API
@@ -1083,17 +1131,19 @@ backup.restore("/etc/myapp.conf", "/etc/myapp.conf.bak")
 ```
   ┌─────────────────────────────────┐    ┌──────────────────────────────────┐
   │       FileManager (ABC)         │    │        FileBackup (ABC)          │
-  │  + create_file()  [abstract]    │    │  + backup(src, dst)  [abstract]  │
-  │  + file_exists()  [abstract]    │    │  + restore(bak, dst) [abstract]  │
-  └────────────────┬────────────────┘    └─────────────────┬────────────────┘
-                   │ hérite                                 │ hérite
-                   ▼                                        ▼
+  │  + create_file(str|Path) [abst] │    │  + backup(str|Path)  [abstract]  │
+  │  + file_exists(str|Path) [abst] │    │  + restore(str|Path) [abstract]  │
+  │  + read_file(str|Path)   [abst] │    └─────────────────┬────────────────┘
+  │  + delete_file(str|Path) [abst] │                      │ hérite
+  └────────────────┬────────────────┘                      ▼
+                   │ hérite
+                   ▼
   ┌─────────────────────────────────┐    ┌──────────────────────────────────┐
   │      LinuxFileManager           │    │       LinuxFileBackup            │
   │  - logger: Logger               │    │  - logger: Logger                │
   │  + create_file(path, content)   │    │  + backup(src, dst)              │
-  │  + file_exists(path)            │    │    (shutil.copy2 — préserve      │
-  │  + read_file(path)              │    │     métadonnées)                 │
+  │  + file_exists(path)            │    │    (contenu uniquement, pas       │
+  │  + read_file(path)              │    │     les métadonnées)             │
   │  (TOCTOU-safe: O_NOFOLLOW)      │    │  + restore(bak, dst)             │
   └─────────────────────────────────┘    └──────────────────────────────────┘
 ```
@@ -1641,8 +1691,10 @@ if checker.check_python(required_version="3.11"):
         print(f"Manquant : {dep.package} {dep.required} ({dep.reason})")
 
 # Installation orchestrée : checks + wrapper bash + `uv tool install`
+# confirm_wrapper=True demande confirmation interactive si stdin est un TTY ;
+# en CI/cron (stdin non-TTY), la confirmation est automatiquement désactivée.
 installer = LinuxCliInstaller(logger, checker)
-report = installer.install(config)
+report = installer.install(config, confirm_wrapper=True)
 
 print(report.success)            # True/False
 print(report.install_path)       # Chemin d'installation (wrapper ou binaire)
@@ -2082,6 +2134,8 @@ app.run()  # parse sys.argv et dispatche
   │  + would_write(path, content) → None           │  ← no-op si dry_run=False
   │  + would_create(path) → None                   │  ← no-op si dry_run=False
   │  + would_modify(path, line) → None             │  ← no-op si dry_run=False
+  │  + would_delete(path) → None                   │  ← no-op si dry_run=False
+  │  + would_run_command(cmd) → None               │  ← no-op si dry_run=False
   └────────────────────────────────────────────────┘
 
   add_dry_run_argument(parser)
@@ -2392,6 +2446,16 @@ else:
 
 # Obtenir le checksum avec logging
 checksum = checker.get_checksum("/path/to/file")
+
+# Variante stricte (fail-fast) — lève IntegrityError au lieu de retourner False
+from linux_python_utils import IntegrityError
+
+try:
+    count = checker.verify_or_raise("/home/user/Documents", "/media/backup")
+    print(f"{count} fichiers vérifiés")
+except IntegrityError as e:
+    print(f"Intégrité compromise : {e.path}")
+    # e.expected / e.actual contiennent les checksums (None si fichier manquant)
 ```
 
 #### `IniSectionIntegrityChecker` — ABC pour fichiers INI
@@ -2448,10 +2512,13 @@ if not checker.verify(Path("/etc/myapp.conf"), my_section):
   │            SHA256IntegrityChecker                │
   │  - _calculator: ChecksumCalculator (injecté)     │
   │  + verify_file(source, dest) → bool              │
+  │  + verify_file_or_raise(source, dest) → None     │  ← lève IntegrityError
   │  + verify(source, destination,                   │
   │      dest_subdir=None) → bool                    │
   │      (compare un répertoire entier, gère le      │
   │       sous-répertoire créé par rsync)            │
+  │  + verify_or_raise(source, destination,          │
+  │      dest_subdir=None) → int                     │  ← lève IntegrityError
   │  + get_checksum(file_path) → str  (avec log)     │
   │  + calculate_checksum(file_path, algorithm)      │
   │      [staticmethod — délègue à la fonction       │
@@ -2820,9 +2887,10 @@ make all
 | Module | Tests | Description |
 |--------|-------|-------------|
 | `test_logging.py` | 8 | FileLogger, UTF-8, configuration |
-| `test_config.py` | 13 | Chargement TOML/JSON, profils, fusion |
-| `test_config_validation.py` | 11 | Validation Pydantic optionnelle |
-| `test_integrity.py` | 11 | Checksums, vérification fichiers/répertoires |
+| `test_filesystem.py` | 22 | CRUD TOCTOU-safe, backup/restore, rejet symlinks (src + dst) |
+| `test_config.py` | 24 | Chargement TOML/JSON, profils, fusion, deep_merge, cascade search_paths |
+| `test_config_validation.py` | 14 | Validation Pydantic FileConfigLoader, ConfigurationManager.validate() |
+| `test_integrity.py` | 27 | Checksums, vérification fichiers/répertoires, verify_or_raise |
 | `test_systemd_mount.py` | 36 | Génération .mount/.automount, validation, enable/disable |
 | `test_systemd_timer.py` | 23 | TimerConfig, to_unit_file(), list_timers JSON/texte |
 | `test_systemd_service.py` | 41 | ServiceConfig, validation type/restart/env, TOCTOU, LSP |
@@ -2837,16 +2905,16 @@ make all
 | `test_dotconf_toml_spec_loader.py` | 9 | TomlSpecLoader : chargement TOML, résolution `~`/`$VAR`, erreurs |
 | `test_dotconf_applier.py` | 16 | ConfigApplier : création, ajout, décommentage, section INI, chmod, idempotence, logger |
 | `test_commands.py` | 74 | CommandBuilder, formatters, exécution, streaming, dry-run, root/user |
-| `test_scripts.py` | 19 | BashScriptConfig, installation scripts |
-| `test_notification.py` | 13 | NotificationConfig, génération bash |
+| `test_scripts.py` | 123 | BashScriptConfig, installation scripts, wrapper templates, TTY detection, TOCTOU, edge cases checker/installer |
+| `test_notification.py` | 22 | NotificationConfig, génération bash, validation tous champs |
 | `test_validation.py` | 11 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
 | `test_validation_system.py` | 7 | SystemCommandValidator (validate, missing_commands) |
 | `test_validation_group_access.py` | 15 | PathCheckerGroupAccess (groupe, rwx, setgid, messages d'erreur) |
 | `test_identity_group.py` | — | LinuxGroupManager, ensure_group (create/correct/skip) |
 | `test_identity_user.py` | — | LinuxUserManager, ensure_user, ensure_user_groups |
 | `test_cli.py` | 15 | CliCommand (ABC, register, execute, sous-classes partielles), CliApplication (dispatch, flags, args, edge cases) |
-| `test_cli_dry_run.py` | 9 | DryRunContext (would_write/create/modify), add_dry_run_argument (--dry-run, -n) |
-| **Total** | **579+** | |
+| `test_cli_dry_run.py` | 16 | DryRunContext (would_write/create/modify/delete/run_command), add_dry_run_argument (--dry-run, -n) |
+| **Total** | **1312+** | |
 
 ### Tests Paramétrés
 
