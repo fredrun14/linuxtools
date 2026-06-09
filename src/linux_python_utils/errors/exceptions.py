@@ -4,6 +4,8 @@ Module contenant les exceptions communes.
 Ce module suit le principe SRP en isolant la gestion des exceptions.
 """
 
+import os
+
 
 class ApplicationError(Exception):
     """Exception de base pour toutes les erreurs applicatives."""
@@ -47,3 +49,15 @@ class IntegrityError(ApplicationError):
 
 class CommandExecutionError(ApplicationError):
     """Exception levée quand une commande système retourne un code non nul."""
+
+
+def require_root() -> None:
+    """Lève AppPermissionError si le processus courant n'est pas root.
+
+    Raises:
+        AppPermissionError: Si os.getuid() != 0.
+    """
+    if os.getuid() != 0:
+        raise AppPermissionError(
+            "Cette opération nécessite les droits root."
+        )

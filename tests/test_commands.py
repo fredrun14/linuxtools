@@ -1,6 +1,7 @@
 """Tests pour le module commands."""
 
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1201,3 +1202,31 @@ class TestLinuxCommandExecutorExecutedAsRoot:
 
         assert result.executed_as_root is True
         assert result.success is False
+
+
+# --- Tests d'intégration run_streaming (subprocess réel) ---
+
+
+class TestRunStreamingIntegration:
+    """Tests d'intégration pour run_streaming avec un subprocess réel."""
+
+    def test_merge_stderr_grand_volume_pas_de_deadlock(self):
+        """merge_stderr=True complète sans deadlock sur stderr > 64 Ko."""
+        script = "import sys; sys.stderr.write('e' * 200_000)"
+        executor = LinuxCommandExecutor()
+        result = executor.run_streaming(
+            [sys.executable, "-c", script],
+            merge_stderr=True,
+        )
+        assert result.success is True
+
+    def test_sans_merge_stderr_petit_volume_fonctionne(self):
+        """Sans merge_stderr, un stderr modeste est capturé correctement."""
+        script = "import sys; sys.stderr.write('err'); print('ok')"
+        executor = LinuxCommandExecutor()
+        result = executor.run_streaming(
+            [sys.executable, "-c", script],
+        )
+        assert result.success is True
+        assert "ok" in result.stdout
+        assert result.stderr == "err"

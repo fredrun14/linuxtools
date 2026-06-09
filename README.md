@@ -955,13 +955,9 @@ sudo mon-outil sync
 ```
 
 ```python
-from linux_python_utils.errors import AppPermissionError
+from linux_python_utils.errors import require_root
 
-def _require_root(self) -> None:
-    if os.getuid() != 0:
-        raise AppPermissionError(
-            "Cette opération nécessite les droits root."
-        )
+require_root()  # lève AppPermissionError si os.getuid() != 0
 ```
 
 C'est le pattern approprié quand **la majorité des commandes requiert root** (outils post-install, provisioning système, gestion de paquets).

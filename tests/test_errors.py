@@ -5,6 +5,8 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from linux_python_utils.errors.base import ErrorHandlerChain
 from linux_python_utils.errors.console_handler import ConsoleErrorHandler
 from linux_python_utils.errors.context import ErrorContext
@@ -16,8 +18,30 @@ from linux_python_utils.errors.exceptions import (
     MissingDependencyError,
     RollbackError,
     ValidationError,
+    require_root,
 )
 from linux_python_utils.errors.logger_handler import LoggerErrorHandler
+
+
+class TestRequireRoot:
+    """Tests pour la fonction require_root."""
+
+    @patch("linux_python_utils.errors.exceptions.os.getuid", return_value=0)
+    def test_passe_si_uid_zero(self, _mock) -> None:
+        """require_root() silencieux quand le process est root."""
+        require_root()
+
+    @patch("linux_python_utils.errors.exceptions.os.getuid", return_value=1000)
+    def test_leve_si_non_root(self, _mock) -> None:
+        """require_root() lève AppPermissionError si uid != 0."""
+        with pytest.raises(AppPermissionError):
+            require_root()
+
+    @patch("linux_python_utils.errors.exceptions.os.getuid", return_value=1000)
+    def test_message_mentionne_root(self, _mock) -> None:
+        """Le message d'erreur mentionne les droits root."""
+        with pytest.raises(AppPermissionError, match="root"):
+            require_root()
 
 
 class TestConsoleErrorHandler(unittest.TestCase):

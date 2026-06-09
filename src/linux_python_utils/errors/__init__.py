@@ -15,6 +15,7 @@ from linux_python_utils.errors.exceptions import (
     RollbackError,
     SystemRequirementError,
     ValidationError,
+    require_root,
 )
 from linux_python_utils.errors.logger_handler import LoggerErrorHandler
 
@@ -32,6 +33,7 @@ __all__ = [
     "IntegrityError",
     "LoggerErrorHandler",
     "MissingDependencyError",
+    "require_root",
     "RollbackError",
     "SystemRequirementError",
     "ValidationError",
