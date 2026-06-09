@@ -4,7 +4,9 @@
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any
+from io import TextIOWrapper
+from pathlib import Path
+from typing import Any, TextIO
 
 # local
 from linux_python_utils.logging.ansi_colors import AnsiColors
@@ -28,9 +30,9 @@ def _resolve_config(
 
     Accepte trois formes de config :
     - None : valeurs par défaut.
+    - Dict ``{"logging": {"level": ..., "format": ...}}``.
     - Objet avec ``get(key, default)`` à notation pointée
       (ex. ConfigurationManager).
-    - Dict ``{"logging": {"level": ..., "format": ...}}``.
 
     Args:
         config: Configuration optionnelle (None, dict ou objet).
@@ -40,20 +42,25 @@ def _resolve_config(
     """
     if config is None:
         return "INFO", _DEFAULT_FORMAT
-
+    if isinstance(config, dict):
+        logging_cfg = config.get("logging", {})
+        return (
+            logging_cfg.get("level", "INFO"),
+            logging_cfg.get("format", _DEFAULT_FORMAT),
+        )
     if hasattr(config, "get") and callable(config.get):
         try:
-            level_str = config.get("logging.level", "INFO")
-            fmt = config.get("logging.format", _DEFAULT_FORMAT)
-            return level_str, fmt
+            return (
+                config.get("logging.level", "INFO"),
+                config.get("logging.format", _DEFAULT_FORMAT),
+            )
         except TypeError:
-            # Dict standard : get() ne gère pas la notation pointée
+            # Objet sans support de la notation pointée → accès dict-style
             logging_cfg = config.get("logging", {})
             return (
                 logging_cfg.get("level", "INFO"),
                 logging_cfg.get("format", _DEFAULT_FORMAT),
             )
-
     return "INFO", _DEFAULT_FORMAT
 
 
@@ -95,7 +102,7 @@ class FileLogger(Logger):
 
     def __init__(
         self,
-        log_file: str,
+        log_file: str | Path,
         config: dict[str, Any] | None = None,
         console_output: bool = False,
         colored_console: bool = False,
@@ -103,7 +110,7 @@ class FileLogger(Logger):
         """Initialise le logger.
 
         Args:
-            log_file: Chemin du fichier de log.
+            log_file: Chemin du fichier de log (str ou Path).
             config: Configuration optionnelle (dict ou ConfigurationManager).
                 Clés supportées : logging.level, logging.format.
             console_output: Activer la sortie console en plus du fichier.
@@ -111,8 +118,9 @@ class FileLogger(Logger):
                 Sans effet si console_output est False.
                 Le fichier log reste toujours en plain-text.
         """
-        self.log_file = log_file
-        self._ensure_log_dir(log_file)
+        _path = Path(log_file)
+        self.log_file = str(_path)
+        self._ensure_log_dir(_path)
 
         log_level_str, log_format = _resolve_config(config)
         niveau = log_level_str.upper()
@@ -121,13 +129,13 @@ class FileLogger(Logger):
         log_level = getattr(logging, niveau)
 
         # Attribut public pour l'accès aux handlers (ex: tests, réutilisation)
-        self.logger = logging.getLogger(log_file)
+        self.logger = logging.getLogger(self.log_file)
         self.logger.setLevel(log_level)
-        self.handler: logging.Handler
+        self.handler: logging.StreamHandler[Any]
 
         if not self.logger.handlers:
             self.handler = self._make_file_handler(
-                log_file, log_level, log_format
+                self.log_file, log_level, log_format
             )
             self.logger.addHandler(self.handler)
             if console_output:
@@ -137,27 +145,25 @@ class FileLogger(Logger):
                     )
                 )
         else:
-            self.handler = self.logger.handlers[0]
+            self.handler = self.logger.handlers[0]  # type: ignore[assignment]
 
         self.logger.propagate = False
 
     @staticmethod
-    def _ensure_log_dir(log_file: str) -> None:
+    def _ensure_log_dir(log_file: Path) -> None:
         """Crée le répertoire parent du fichier log si absent.
 
         Args:
             log_file: Chemin complet du fichier de log.
         """
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _make_file_handler(
         log_file: str,
         log_level: int,
         log_format: str,
-    ) -> logging.StreamHandler[str]:
+    ) -> logging.StreamHandler[TextIOWrapper]:
         """Crée le handler fichier sécurisé (O_NOFOLLOW, 0o600).
 
         Args:
@@ -169,7 +175,7 @@ class FileLogger(Logger):
             StreamHandler configuré sur le fd sécurisé.
         """
         fd = _open_secure(log_file)
-        handler: logging.StreamHandler[str] = logging.StreamHandler(
+        handler: logging.StreamHandler[TextIOWrapper] = logging.StreamHandler(
             os.fdopen(fd, "a", encoding="utf-8")
         )
         handler.setLevel(log_level)
@@ -181,7 +187,7 @@ class FileLogger(Logger):
         log_level: int,
         log_format: str,
         colored: bool,
-    ) -> logging.StreamHandler[str]:
+    ) -> logging.StreamHandler[TextIO]:
         """Crée le handler console optionnel.
 
         Args:
@@ -192,7 +198,7 @@ class FileLogger(Logger):
         Returns:
             StreamHandler configuré pour la console.
         """
-        handler: logging.StreamHandler[str] = logging.StreamHandler()
+        handler: logging.StreamHandler[TextIO] = logging.StreamHandler()
         handler.setLevel(log_level)
         formatter = (
             _ColoredFormatter(log_format)
@@ -223,8 +229,16 @@ class FileLogger(Logger):
         """Log une erreur."""
         self._log(logging.ERROR, message)
 
+    def log_success(self, message: str) -> None:
+        """Log un message de succès (niveau INFO avec préfixe SUCCESS).
+
+        Args:
+            message: Message de succès à enregistrer.
+        """
+        self._log(logging.INFO, f"SUCCESS: {message}")
+
     def log_to_file(self, message: str) -> None:
-        """Écrit directement dans le fichier (sans passer par logging).
+        """Écrit directement dans le fichier via le handler existant.
 
         Utile pour les logs bruts sans formatage.
 
@@ -232,6 +246,5 @@ class FileLogger(Logger):
             message: Message brut à écrire dans le fichier.
         """
         timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-        fd = _open_secure(self.log_file)
-        with os.fdopen(fd, "a", encoding="utf-8") as f:
-            f.write(f"{timestamp} - {message}\n")
+        self.handler.stream.write(f"{timestamp} - {message}\n")
+        self.handler.stream.flush()

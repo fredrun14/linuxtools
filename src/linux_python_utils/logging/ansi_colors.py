@@ -1,7 +1,8 @@
 """Constantes ANSI pour la colorisation de la sortie console."""
+from enum import StrEnum
 
 
-class AnsiColors:
+class AnsiColors(StrEnum):
     """Codes ANSI de colorisation terminale.
 
     Attributes:

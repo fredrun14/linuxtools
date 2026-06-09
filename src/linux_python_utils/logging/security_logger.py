@@ -60,6 +60,14 @@ _CLES_SENSIBLES = frozenset({
     "key", "authorization", "api_key",
 })
 
+_SEVERITY_DISPATCH: dict[str, str] = {
+    "debug":    "log_info",
+    "info":     "log_info",
+    "warning":  "log_warning",
+    "error":    "log_error",
+    "critical": "log_error",
+}
+
 
 def _masquer(details: dict[str, Any]) -> dict[str, Any]:
     """Remplace la valeur des clés sensibles par '***'."""
@@ -114,9 +122,5 @@ class SecurityLogger:
 
         message = json.dumps(payload, ensure_ascii=False, default=str)
 
-        if event.severity in ("error", "critical"):
-            self._logger.log_error(message)
-        elif event.severity == "warning":
-            self._logger.log_warning(message)
-        else:
-            self._logger.log_info(message)
+        methode = _SEVERITY_DISPATCH.get(event.severity, "log_info")
+        getattr(self._logger, methode)(message)

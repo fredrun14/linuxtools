@@ -142,6 +142,22 @@ class TestFileLogger:
         with pytest.raises(ValueError, match="VERBOSE"):
             FileLogger(log_file, config=ConfigDotNotation())
 
+    def test_accepte_path_en_parametre(self, tmp_path):
+        """FileLogger accepte un Path en plus d'un str."""
+        log_file = tmp_path / "path_test.log"
+        logger = FileLogger(log_file)
+        logger.log_info("via Path")
+        assert log_file.exists()
+        assert "via Path" in log_file.read_text()
+
+    def test_log_success_prefixe_success(self, tmp_path):
+        """log_success écrit un message avec préfixe SUCCESS dans le fichier."""
+        log_file = tmp_path / "test.log"
+        logger = FileLogger(str(log_file))
+        logger.log_success("opération réussie")
+        content = log_file.read_text()
+        assert "SUCCESS: opération réussie" in content
+
 
 class TestFileLoggerConsole:
     """Tests pour FileLogger avec sortie console et handlers dupliqués."""
@@ -294,6 +310,30 @@ class TestSecurityLogger:
         call_arg = mock_logger.log_info.call_args[0][0]
         payload = json.loads(call_arg)
         assert payload["details"]["table"] == "users"
+
+    def test_log_event_debug_route_vers_log_info(self):
+        """log_event avec severity='debug' est routé vers log_info."""
+        mock_logger = MagicMock()
+        sec_logger = SecurityLogger(mock_logger)
+        event = SecurityEvent(
+            event_type=SecurityEventType.AUTH_SUCCESS,
+            severity="debug",
+        )
+        sec_logger.log_event(event)
+        mock_logger.log_info.assert_called_once()
+        mock_logger.log_warning.assert_not_called()
+        mock_logger.log_error.assert_not_called()
+
+    def test_log_event_severite_inconnue_route_vers_log_info(self):
+        """Une sévérité inconnue est routée vers log_info sans lever."""
+        mock_logger = MagicMock()
+        sec_logger = SecurityLogger(mock_logger)
+        event = SecurityEvent(
+            event_type=SecurityEventType.DATA_EXPORT,
+            severity="verbose",
+        )
+        sec_logger.log_event(event)
+        mock_logger.log_info.assert_called_once()
 
     def test_security_logger_masque_les_cles_sensibles(self):
         """Les clés sensibles dans details sont remplacées par '***'."""
