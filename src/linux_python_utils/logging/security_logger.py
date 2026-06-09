@@ -83,7 +83,8 @@ class SecurityLogger:
     Formate chaque événement en JSON structuré et le transmet
     au Logger injecté selon le niveau de sévérité.
 
-    Utilisation :
+    Utilisation basique ::
+
         sec_logger = SecurityLogger(file_logger)
         sec_logger.log_event(SecurityEvent(
             event_type=SecurityEventType.CONFIG_CHANGE,
@@ -91,6 +92,34 @@ class SecurityLogger:
             details={"section": "main", "keys": ["fastestmirror"]},
             severity="warning",
         ))
+
+    Intégration avec le module ``errors`` — journaliser un refus d'accès ::
+
+        from linux_python_utils.errors import AppPermissionError, require_root
+
+        try:
+            require_root()
+        except AppPermissionError as exc:
+            sec_logger.log_event(SecurityEvent(
+                event_type=SecurityEventType.ACCESS_DENIED,
+                resource="/etc/sudoers",
+                details={"reason": str(exc)},
+                severity="warning",
+            ))
+            raise
+
+    Intégration avec ``PermissionError`` builtin (accès fichier) ::
+
+        try:
+            chemin.chmod(0o600)
+        except PermissionError as exc:
+            sec_logger.log_event(SecurityEvent(
+                event_type=SecurityEventType.ACCESS_DENIED,
+                resource=str(chemin),
+                details={"reason": str(exc)},
+                severity="error",
+            ))
+            raise
     """
 
     def __init__(self, logger: Logger) -> None:
