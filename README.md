@@ -854,6 +854,8 @@ executor = LinuxCommandExecutor(
 
 # Streaming temps réel vers le logger
 result = executor.run_streaming(cmd)
+# Commande à fort débit stderr : merge_stderr élimine le risque de deadlock
+result = executor.run_streaming(cmd, merge_stderr=True)
 
 # Mode dry-run (simulation sans exécution)
 dry_executor = LinuxCommandExecutor(
