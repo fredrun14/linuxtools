@@ -165,12 +165,8 @@ class LinuxCommandExecutor(CommandExecutor):
         if self._logger:
             self._logger.log_error(message)
 
-    def _console(self, message: str) -> None:
-        """Affiche un message sur la console.
-
-        Doit être appelé depuis un bloc ``if self._console_formatter``
-        — la garde est à la charge du site d'appel.
-        """
+    def _print(self, message: str) -> None:
+        """Envoie un message déjà formaté vers stdout."""
         print(message)
 
     def _emit(self, method: str, command: list[str]) -> None:
@@ -183,7 +179,7 @@ class LinuxCommandExecutor(CommandExecutor):
         plain = getattr(self._plain, method)(command, self._is_root)
         self._log(plain)
         if self._console_formatter:
-            self._console(
+            self._print(
                 getattr(self._console_formatter, method)(
                     command, self._is_root
                 )
@@ -337,18 +333,23 @@ class LinuxCommandExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        merge_stderr: bool = False,
     ) -> CommandResult:
         """Exécute avec sortie en temps réel vers le logger.
 
         Utilise subprocess.Popen pour lire stdout ligne par
-        ligne et l'envoyer au logger en temps réel. Stderr
-        est capturé séparément après la fin du process.
+        ligne et l'envoyer au logger en temps réel.
 
         Args:
             command: Commande sous forme de liste.
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
             timeout: Timeout en secondes (prioritaire).
+            merge_stderr: Si True, fusionne stderr dans stdout via
+                subprocess.STDOUT — élimine le risque de deadlock
+                causé par un pipe stderr plein (> 64 Ko), au prix
+                de la séparation stdout/stderr dans le résultat
+                (result.stderr sera toujours "").
 
         Returns:
             CommandResult avec les sorties capturées et
@@ -357,14 +358,6 @@ class LinuxCommandExecutor(CommandExecutor):
         Note:
             Logue une erreur si le code retour est non-nul et qu'un
             logger est configuré.
-
-        Avertissement:
-            Risque de deadlock si la commande produit un volume
-            important sur stderr (> 64 Ko) : stderr se remplit et
-            bloque le process pendant que cette méthode attend sur
-            ``proc.wait()``. Pour éviter ce cas, fusionner les
-            sorties avec ``stderr=subprocess.STDOUT`` ou drainer
-            stderr dans un thread séparé.
         """
         if self._dry_run:
             return self._make_dry_run_result(command)
@@ -372,6 +365,9 @@ class LinuxCommandExecutor(CommandExecutor):
         effective_env = self._build_env(env)
         effective_timeout = self._resolve_timeout(timeout)
         self._emit("format_start_streaming", command)
+        stderr_target = (
+            subprocess.STDOUT if merge_stderr else subprocess.PIPE
+        )
 
         start = time.monotonic()
         stdout_lines: list[str] = []
@@ -379,13 +375,12 @@ class LinuxCommandExecutor(CommandExecutor):
             with subprocess.Popen(  # nosec B603
                 command,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=stderr_target,
                 text=True,
                 env=effective_env,
                 cwd=cwd,
             ) as proc:
                 assert proc.stdout is not None  # nosec
-                assert proc.stderr is not None  # nosec
                 for line in proc.stdout:
                     stripped = line.rstrip("\n")
                     stdout_lines.append(stripped)
@@ -395,14 +390,17 @@ class LinuxCommandExecutor(CommandExecutor):
                         )
                     )
                     if self._console_formatter:
-                        self._console(
+                        self._print(
                             self._console_formatter.format_line(
                                 stripped, self._is_root
                             )
                         )
 
                 proc.wait(timeout=effective_timeout)
-                stderr = proc.stderr.read()
+                stderr = (
+                    "" if merge_stderr or proc.stderr is None
+                    else proc.stderr.read()
+                )
 
                 duration = time.monotonic() - start
                 if proc.returncode != 0:
@@ -418,9 +416,10 @@ class LinuxCommandExecutor(CommandExecutor):
             proc.kill()
             proc.wait()
             duration = time.monotonic() - start
-            stderr = ""
-            if proc.stderr:
-                stderr = proc.stderr.read()
+            stderr = (
+                "" if merge_stderr or proc.stderr is None
+                else proc.stderr.read()
+            )
             self._log_timeout(command, effective_timeout)
             return self._result(
                 command,

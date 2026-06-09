@@ -68,6 +68,7 @@ class CommandExecutor(ABC):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        merge_stderr: bool = False,
     ) -> CommandResult:
         """Exécute une commande avec sortie en temps réel.
 
@@ -76,6 +77,10 @@ class CommandExecutor(ABC):
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
             timeout: Timeout en secondes.
+            merge_stderr: Si True, fusionne stderr dans stdout via
+                subprocess.STDOUT — élimine le risque de deadlock
+                causé par un pipe stderr plein, au prix de la
+                séparation stdout/stderr dans le résultat.
 
         Returns:
             Résultat de l'exécution.

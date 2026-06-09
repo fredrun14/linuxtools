@@ -552,6 +552,53 @@ class TestLinuxCommandExecutorRunStreaming:
         # Assert
         self.mock_logger.log_error.assert_not_called()
 
+    @patch(
+        "linux_python_utils.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_merge_stderr_passe_stdout_a_popen(
+        self, mock_popen
+    ):
+        """Avec merge_stderr=True, Popen reçoit stderr=STDOUT."""
+        mock_popen.return_value = _make_mock_proc([])
+        self.executor.run_streaming(["cmd"], merge_stderr=True)
+
+        call_kwargs = mock_popen.call_args[1]
+        assert call_kwargs["stderr"] is subprocess.STDOUT
+
+    @patch(
+        "linux_python_utils.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_sans_merge_stderr_passe_pipe_a_popen(
+        self, mock_popen
+    ):
+        """Sans merge_stderr (défaut), Popen reçoit stderr=PIPE."""
+        mock_popen.return_value = _make_mock_proc(
+            [], stderr="avert",
+        )
+        self.executor.run_streaming(["cmd"])
+
+        call_kwargs = mock_popen.call_args[1]
+        assert call_kwargs["stderr"] is subprocess.PIPE
+
+    @patch(
+        "linux_python_utils.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_merge_stderr_result_stderr_vide(
+        self, mock_popen
+    ):
+        """Avec merge_stderr=True, result.stderr est toujours vide."""
+        mock_popen.return_value = _make_mock_proc(
+            ["ligne\n"], stderr="ignoré",
+        )
+        result = self.executor.run_streaming(
+            ["cmd"], merge_stderr=True
+        )
+
+        assert result.stderr == ""
+
 
 # --- Tests LinuxCommandExecutor dry_run ---
 
