@@ -1,7 +1,5 @@
 """Validateur d'existence de répertoires parents de chemins."""
 
-from pathlib import Path
-
 from linux_python_utils.validation.base import Validator
 
 
@@ -39,12 +37,7 @@ class PathChecker(Validator):
         Args:
             path: Chemin du fichier à valider.
         """
-        parent = Path(path).resolve().parent
-
-        if not parent.exists():
-            raise ValueError(
-                f"Le répertoire {parent} n'existe pas."
-            )
+        parent = self._resolve_parent(path)
 
         if not parent.is_dir():
             raise ValueError(

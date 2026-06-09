@@ -1,7 +1,6 @@
 """Validateur des permissions d'écriture sur les répertoires parents."""
 
 import os
-from pathlib import Path
 
 from linux_python_utils.validation.base import Validator
 
@@ -46,12 +45,7 @@ class PathCheckerPermission(Validator):
         Args:
             path: Chemin du fichier à valider.
         """
-        parent = Path(path).resolve().parent
-
-        if not parent.exists():
-            raise ValueError(
-                f"Le répertoire {parent} n'existe pas."
-            )
+        parent = self._resolve_parent(path)
 
         # os.access est un check préventif (UX) : non atomique, ignore les ACL.
         # Ne pas l'utiliser comme garde de sécurité sur des chemins sensibles.

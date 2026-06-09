@@ -5,7 +5,11 @@ from unittest.mock import patch
 
 import pytest
 
-from linux_python_utils.validation import PathChecker, PathCheckerPermission
+from linux_python_utils.validation import (
+    PathChecker,
+    PathCheckerPermission,
+    PathCheckerWorldWritable,
+)
 
 
 class TestPathChecker:
@@ -75,24 +79,16 @@ class TestPathCheckerWorldWritable:
 
     def test_fichier_non_world_writable_valide(self, tmp_path):
         """validate() ne lève pas d'exception si non world-writable."""
-        from linux_python_utils.validation.path_checker_world_writable import (
-            PathCheckerWorldWritable
-        )
         f = tmp_path / "secure.conf"
         f.write_text("config")
-        import os
         os.chmod(str(f), 0o644)
         checker = PathCheckerWorldWritable(str(f))
         checker.validate()  # Ne doit pas lever d'exception
 
     def test_fichier_world_writable_leve_permission_error(self, tmp_path):
         """validate() lève PermissionError si le fichier est world-writable."""
-        from linux_python_utils.validation.path_checker_world_writable import (
-            PathCheckerWorldWritable
-        )
         f = tmp_path / "dangereux.conf"
         f.write_text("config")
-        import os
         os.chmod(str(f), 0o666)  # world-writable
         checker = PathCheckerWorldWritable(str(f))
         with pytest.raises(PermissionError, match="world-writable"):
@@ -100,9 +96,6 @@ class TestPathCheckerWorldWritable:
 
     def test_fichier_inexistant_leve_file_not_found(self, tmp_path):
         """validate() lève FileNotFoundError si le fichier n'existe pas."""
-        from linux_python_utils.validation.path_checker_world_writable import (
-            PathCheckerWorldWritable
-        )
         checker = PathCheckerWorldWritable(
             str(tmp_path / "inexistant.conf")
         )
@@ -115,9 +108,6 @@ class TestPathCheckerWorldWritable:
         Un lien symbolique a les bits 0o777 sur Linux, donc il est
         détecté comme world-writable même si la cible ne l'est pas.
         """
-        from linux_python_utils.validation.path_checker_world_writable import (
-            PathCheckerWorldWritable
-        )
         target = tmp_path / "target.conf"
         target.write_text("config")
         os.chmod(str(target), 0o600)  # non world-writable
@@ -129,12 +119,3 @@ class TestPathCheckerWorldWritable:
         # lstat voit le lien (mode 0o777 sur Linux) → world-writable
         with pytest.raises(PermissionError, match="world-writable"):
             checker.validate()
-
-
-class TestImportNouveauNom:
-    """Vérifie que le renommage PEP 8 est correct."""
-
-    def test_import_path_checker_exist_nouveau_nom(self):
-        """path_checker_exist (minuscule) est importable sans erreur."""
-        from linux_python_utils.validation.path_checker_exist import PathChecker  # noqa: F401
-        assert PathChecker is not None
