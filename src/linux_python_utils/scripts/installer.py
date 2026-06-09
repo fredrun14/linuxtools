@@ -37,12 +37,16 @@ import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from linux_python_utils.logging import Logger
 from linux_python_utils.filesystem import FileManager
-from linux_python_utils.scripts.config import BashScriptConfig, PythonCliConfig
+from linux_python_utils.logging import Logger
 from linux_python_utils.scripts.checker import ScriptChecker
+from linux_python_utils.scripts.config import BashScriptConfig, PythonCliConfig
 from linux_python_utils.scripts.paths import ScriptPaths
-from linux_python_utils.scripts.report import InstallReport
+from linux_python_utils.scripts.report import (
+    InstallReport,
+    InstalledDependency,
+    MissingDependency,
+)
 
 
 class ScriptInstaller(ABC):
@@ -63,7 +67,7 @@ class ScriptInstaller(ABC):
         Returns:
             True si l'installation a réussi, False sinon.
         """
-        pass
+        ...
 
     @abstractmethod
     def exists(self, path: str) -> bool:
@@ -75,7 +79,7 @@ class ScriptInstaller(ABC):
         Returns:
             True si le script existe, False sinon.
         """
-        pass
+        ...
 
 
 class BashScriptInstaller(ScriptInstaller):
@@ -86,9 +90,9 @@ class BashScriptInstaller(ScriptInstaller):
     permissions d'exécution.
 
     Attributes:
-        logger: Instance de Logger pour la journalisation.
-        file_manager: Gestionnaire de fichiers pour les opérations I/O.
-        default_mode: Permissions par défaut (0o755).
+        _logger: Logger optionnel pour la journalisation.
+        _file_manager: Gestionnaire de fichiers pour les opérations I/O.
+        _default_mode: Permissions par défaut (0o755).
 
     Example:
         >>> installer = BashScriptInstaller(logger, file_manager)
@@ -99,8 +103,8 @@ class BashScriptInstaller(ScriptInstaller):
 
     def __init__(
         self,
-        logger: Logger,
-        file_manager: FileManager,
+        logger: Logger | None = None,
+        file_manager: FileManager = None,  # type: ignore[assignment]
         default_mode: int = 0o755
     ) -> None:
         """Initialise l'installateur avec ses dépendances.
@@ -110,7 +114,7 @@ class BashScriptInstaller(ScriptInstaller):
             file_manager: Gestionnaire de fichiers.
             default_mode: Permissions par défaut pour les scripts.
         """
-        self._logger: Logger = logger
+        self._logger = logger
         self._file_manager: FileManager = file_manager
         self._default_mode: int = default_mode
 
@@ -133,22 +137,29 @@ class BashScriptInstaller(ScriptInstaller):
             substitution de lien symbolique.
         """
         if self.exists(path):
-            self._logger.log_info(
-                f"Le script {path} existe déjà. "
-                "Aucune modification apportée."
-            )
+            if self._logger:
+                self._logger.log_info(
+                    f"Le script {path} existe déjà. "
+                    "Aucune modification apportée."
+                )
             return True
 
         script_content: str = config.to_bash_script()
 
         if not self._file_manager.create_file(path, script_content):
-            self._logger.log_error(f"Impossible de créer le script {path}")
+            if self._logger:
+                self._logger.log_error(
+                    f"Impossible de créer le script {path}"
+                )
             return False
 
         if not self._set_executable(path):
             return False
 
-        self._logger.log_info(f"Script {path} installé avec succès.")
+        if self._logger:
+            self._logger.log_info(
+                f"Script {path} installé avec succès."
+            )
         return True
 
     def exists(self, path: str) -> bool:
@@ -182,9 +193,10 @@ class BashScriptInstaller(ScriptInstaller):
                 os.close(fd)
             return True
         except OSError as e:
-            self._logger.log_error(
-                f"Impossible de rendre le script exécutable : {e}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Impossible de rendre le script exécutable : {e}"
+                )
             return False
 
 
@@ -251,6 +263,7 @@ class CliInstaller(ABC):
         Returns:
             Rapport complet du déploiement.
         """
+        ...
 
 
 class LinuxCliInstaller(CliInstaller):
@@ -266,7 +279,7 @@ class LinuxCliInstaller(CliInstaller):
     5. Retour d'un InstallReport avec le résultat complet.
 
     Attributes:
-        _logger: Logger pour la journalisation.
+        _logger: Logger optionnel pour la journalisation.
         _checker: Implémentation de ScriptChecker.
     """
 
@@ -274,8 +287,8 @@ class LinuxCliInstaller(CliInstaller):
 
     def __init__(
         self,
-        logger: Logger,
-        checker: ScriptChecker,
+        logger: Logger | None = None,
+        checker: ScriptChecker = None,  # type: ignore[assignment]
     ) -> None:
         """Initialise avec les dépendances injectées.
 
@@ -285,6 +298,151 @@ class LinuxCliInstaller(CliInstaller):
         """
         self._logger = logger
         self._checker = checker
+
+    def _failure(
+        self,
+        config: PythonCliConfig,
+        install_path: Path,
+        *,
+        missing: list[MissingDependency] | None = None,
+        installed: list[InstalledDependency] | None = None,
+        total: int = 0,
+        install_cmd: str = "",
+        warnings: list[str] | None = None,
+    ) -> InstallReport:
+        """Construit un InstallReport d'échec avec les champs communs.
+
+        Args:
+            config: Configuration du déploiement.
+            install_path: Chemin d'installation cible.
+            missing: Dépendances manquantes.
+            installed: Dépendances installées.
+            total: Nombre total de dépendances.
+            install_cmd: Commande de remédiation.
+            warnings: Avertissements à inclure.
+
+        Returns:
+            InstallReport avec success=False.
+        """
+        return InstallReport(
+            success=False,
+            app_name=config.name,
+            deploy_type=config.deploy_type,
+            install_path=install_path,
+            missing_deps=missing or [],
+            installed_deps=installed or [],
+            total_deps=total,
+            install_command=install_cmd,
+            warnings=warnings or [],
+        )
+
+    def _check_preconditions(
+        self,
+        config: PythonCliConfig,
+        paths: ScriptPaths,
+    ) -> tuple[InstallReport | None, dict | None]:
+        """Vérifie python3 et lit pyproject.toml.
+
+        Args:
+            config: Configuration du déploiement.
+            paths: Chemins FHS résolus.
+
+        Returns:
+            Tuple (échec, données) : si échec non nul, l'installation
+            doit s'arrêter ; sinon, données contient le pyproject.
+        """
+        if not self._checker.check_python():
+            return self._failure(
+                config, paths.bin_path,
+                warnings=[
+                    "python3 indisponible ou version insuffisante"
+                ],
+            ), None
+
+        pyproject_path = config.source_dir / "pyproject.toml"
+        try:
+            pyproject_data = self._checker.read_pyproject(
+                pyproject_path
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            if self._logger:
+                self._logger.log_error(str(exc))
+            return self._failure(
+                config, paths.bin_path, warnings=[str(exc)]
+            ), None
+
+        return None, pyproject_data
+
+    def _handle_wrapper(
+        self,
+        config: PythonCliConfig,
+        paths: ScriptPaths,
+        pyproject_data: dict,
+        missing: list[MissingDependency],
+        installed: list[InstalledDependency],
+        total: int,
+        install_cmd: str,
+        warnings: list[str],
+        confirm_wrapper: bool,
+    ) -> InstallReport | None:
+        """Gère la génération conditionnelle du wrapper bash.
+
+        Args:
+            config: Configuration du déploiement.
+            paths: Chemins FHS résolus.
+            pyproject_data: Données lues depuis pyproject.toml.
+            missing: Dépendances manquantes.
+            installed: Dépendances installées.
+            total: Nombre total de dépendances.
+            install_cmd: Commande de remédiation.
+            warnings: Avertissements accumulés.
+            confirm_wrapper: Si True, demande confirmation interactive.
+
+        Returns:
+            InstallReport d'échec si le wrapper est refusé ou non
+            écrit, None si aucun wrapper ou wrapper écrit avec succès.
+        """
+        needs_wrapper = (
+            config.generate_wrapper
+            and not pyproject_data.get("scripts")
+        )
+        if not needs_wrapper:
+            return None
+
+        if confirm_wrapper:
+            print(
+                "\nAucun [project.scripts] détecté.\n"
+                "Générer un wrapper bash"
+                f" → {paths.bin_path} ? [o/N] ",
+                end="",
+                flush=True,
+            )
+            answer = input().strip().lower()
+            if answer not in ("o", "oui", "y", "yes"):
+                return self._failure(
+                    config, paths.bin_path,
+                    missing=missing, installed=installed,
+                    total=total, install_cmd=install_cmd,
+                    warnings=["Wrapper refusé par l'utilisateur"],
+                )
+
+        wrapper_content = self._generate_wrapper_content(
+            config, paths
+        )
+        try:
+            self._write_wrapper(wrapper_content, paths.bin_path)
+        except OSError as exc:
+            if self._logger:
+                self._logger.log_error(
+                    f"Échec écriture wrapper : {exc}"
+                )
+            return self._failure(
+                config, paths.bin_path,
+                missing=missing, installed=installed,
+                total=total, install_cmd=install_cmd,
+                warnings=warnings + [f"Wrapper non écrit : {exc}"],
+            )
+        return None
 
     def install(
         self,
@@ -304,30 +462,13 @@ class LinuxCliInstaller(CliInstaller):
         paths = ScriptPaths(config.name, config.deploy_type)
         warnings: list[str] = []
 
-        if not self._checker.check_python():
-            return InstallReport(
-                success=False,
-                app_name=config.name,
-                deploy_type=config.deploy_type,
-                install_path=paths.bin_path,
-                warnings=["python3 indisponible ou version insuffisante"],
-            )
+        failure, pyproject_data = self._check_preconditions(
+            config, paths
+        )
+        if failure is not None:
+            return failure
 
         pyproject_path = config.source_dir / "pyproject.toml"
-        try:
-            pyproject_data = self._checker.read_pyproject(
-                pyproject_path
-            )
-        except (FileNotFoundError, ValueError) as exc:
-            self._logger.log_error(str(exc))
-            return InstallReport(
-                success=False,
-                app_name=config.name,
-                deploy_type=config.deploy_type,
-                install_path=paths.bin_path,
-                warnings=[str(exc)],
-            )
-
         missing, installed, total, install_cmd = (
             self._checker.check_dependencies(
                 pyproject_path, config.venv_path, config.check_extras
@@ -344,74 +485,26 @@ class LinuxCliInstaller(CliInstaller):
                     f"Venv inaccessible : {config.venv_path}"
                 )
 
-        needs_wrapper = (
-            config.generate_wrapper
-            and not pyproject_data.get("scripts")
+        failure = self._handle_wrapper(
+            config, paths, pyproject_data,  # type: ignore[arg-type]
+            missing, installed, total, install_cmd,
+            warnings, confirm_wrapper,
         )
-
-        if needs_wrapper:
-            if confirm_wrapper:
-                print(
-                    f"\nAucun [project.scripts] détecté.\n"
-                    f"Générer un wrapper bash"
-                    f" → {paths.bin_path} ? [o/N] ",
-                    end="",
-                    flush=True,
-                )
-                answer = input().strip().lower()
-                if answer not in ("o", "oui", "y", "yes"):
-                    return InstallReport(
-                        success=False,
-                        app_name=config.name,
-                        deploy_type=config.deploy_type,
-                        install_path=paths.bin_path,
-                        missing_deps=missing,
-                        installed_deps=installed,
-                        total_deps=total,
-                        install_command=install_cmd,
-                        warnings=["Wrapper refusé par l'utilisateur"],
-                    )
-            wrapper_content = self._generate_wrapper_content(
-                config, paths
-            )
-            try:
-                self._write_wrapper(
-                    wrapper_content, paths.bin_path
-                )
-            except OSError as exc:
-                self._logger.log_error(
-                    f"Échec écriture wrapper : {exc}"
-                )
-                return InstallReport(
-                    success=False,
-                    app_name=config.name,
-                    deploy_type=config.deploy_type,
-                    install_path=paths.bin_path,
-                    missing_deps=missing,
-                    installed_deps=installed,
-                    total_deps=total,
-                    install_command=install_cmd,
-                    warnings=warnings + [
-                        f"Wrapper non écrit : {exc}"
-                    ],
-                )
+        if failure is not None:
+            return failure
 
         if not self._run_uv_install(config):
-            return InstallReport(
-                success=False,
-                app_name=config.name,
-                deploy_type=config.deploy_type,
-                install_path=paths.bin_path,
-                missing_deps=missing,
-                installed_deps=installed,
-                total_deps=total,
-                install_command=install_cmd,
+            return self._failure(
+                config, paths.bin_path,
+                missing=missing, installed=installed,
+                total=total, install_cmd=install_cmd,
                 warnings=warnings + ["Échec de uv tool install"],
             )
 
-        self._logger.log_info(
-            f"Déploiement réussi : {config.name} → {paths.bin_path}"
-        )
+        if self._logger:
+            self._logger.log_info(
+                f"Déploiement réussi : {config.name} → {paths.bin_path}"
+            )
         return InstallReport(
             success=True,
             app_name=config.name,
@@ -502,7 +595,8 @@ class LinuxCliInstaller(CliInstaller):
             os.fchmod(fd, 0o755)  # nosec B103
         finally:
             os.close(fd)
-        self._logger.log_info(f"Wrapper écrit : {target_path}")
+        if self._logger:
+            self._logger.log_info(f"Wrapper écrit : {target_path}")
 
     @staticmethod
     def _candidate_homes() -> list[Path]:
@@ -541,8 +635,8 @@ class LinuxCliInstaller(CliInstaller):
         if found:
             return found
         for home in self._candidate_homes():
-            for sub in ("/.local/bin/uv", "/.cargo/bin/uv"):
-                candidate = Path(str(home) + sub)
+            for sub in (".local/bin/uv", ".cargo/bin/uv"):
+                candidate = home / sub
                 if candidate.is_file() and os.access(candidate, os.X_OK):
                     return str(candidate)
         return None
@@ -558,11 +652,12 @@ class LinuxCliInstaller(CliInstaller):
         """
         uv_path = self._find_uv()
         if uv_path is None:
-            self._logger.log_error(
-                "uv introuvable (ni dans le PATH, ni dans "
-                "~/.local/bin ou ~/.cargo/bin). "
-                "Installez-le (pip install uv) ou ajoutez-le au PATH."
-            )
+            if self._logger:
+                self._logger.log_error(
+                    "uv introuvable (ni dans le PATH, ni dans "
+                    "~/.local/bin ou ~/.cargo/bin). "
+                    "Installez-le (pip install uv) ou ajoutez-le au PATH."
+                )
             return False
 
         if config.deploy_type == "system":
@@ -586,15 +681,17 @@ class LinuxCliInstaller(CliInstaller):
                 cmd, capture_output=True, text=True, timeout=120
             )
         except FileNotFoundError:
-            self._logger.log_error(
-                f"uv non trouvé à {uv_path}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"uv non trouvé à {uv_path}"
+                )
             return False
 
         if result.returncode != 0:
-            self._logger.log_error(
-                f"uv tool install a échoué : {result.stderr.strip()}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"uv tool install a échoué : {result.stderr.strip()}"
+                )
             return False
 
         return True

@@ -104,6 +104,7 @@ class BashScriptConfig:
             Script bash complet avec fonction de notification et
             envoi conditionnel selon le code de retour.
         """
+        assert self.notification is not None
         return f"""#!/bin/bash
 # Script généré automatiquement par linux_python_utils
 # Inclut la gestion des notifications KDE Plasma
@@ -175,7 +176,7 @@ class PythonCliConfig:
             or self.name in {".", ".."}
         ):
             raise ValueError(
-                f"name invalide (caractères interdits) : "
+                "name invalide (caractères interdits) : "
                 f"{self.name!r}"
             )
         if self.deploy_type not in ("system", "user"):

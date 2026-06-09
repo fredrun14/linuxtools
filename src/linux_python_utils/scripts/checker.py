@@ -10,7 +10,7 @@ Typical usage example:
     if not checker.check_python(required_version="3.11"):
         raise RuntimeError("Python 3.11+ requis")
     data = checker.read_pyproject(Path("pyproject.toml"))
-    missing, total, cmd = checker.check_dependencies(
+    missing, installed, total, cmd = checker.check_dependencies(
         Path("pyproject.toml"), venv_path=None, check_extras=[]
     )
 """
@@ -22,10 +22,10 @@ import subprocess
 import tomllib
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import cast
 
 from linux_python_utils.logging import Logger
 from linux_python_utils.scripts.report import (
-    InstallReport,
     InstalledDependency,
     MissingDependency,
 )
@@ -51,6 +51,7 @@ class ScriptChecker(ABC):
         Returns:
             True si python3 satisfait la version requise.
         """
+        ...
 
     @abstractmethod
     def check_script_syntax(self, script_path: Path) -> bool:
@@ -62,6 +63,7 @@ class ScriptChecker(ABC):
         Returns:
             True si le script existe et est syntaxiquement correct.
         """
+        ...
 
     @abstractmethod
     def check_venv(self, venv_path: Path) -> bool:
@@ -73,6 +75,7 @@ class ScriptChecker(ABC):
         Returns:
             True si le venv existe et son interpréteur répond.
         """
+        ...
 
     @abstractmethod
     def read_pyproject(
@@ -91,6 +94,7 @@ class ScriptChecker(ABC):
             FileNotFoundError: Si le fichier n'existe pas.
             ValueError: Si la section [project] est absente.
         """
+        ...
 
     @abstractmethod
     def check_dependencies(
@@ -112,6 +116,7 @@ class ScriptChecker(ABC):
             Tuple (missing_deps, installed_deps, total_count,
             install_command).
         """
+        ...
 
 
 class LinuxScriptChecker(ScriptChecker):
@@ -122,19 +127,19 @@ class LinuxScriptChecker(ScriptChecker):
     pyproject.toml.
 
     Attributes:
-        _logger: Logger pour la journalisation.
+        _logger: Logger optionnel pour la journalisation.
     """
 
     _PYTHON_EXEC: str = "/usr/bin/python3"
 
     @staticmethod
-    def _run(cmd: list[str]) -> subprocess.CompletedProcess:
+    def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         """Exécute une commande et retourne le résultat."""
         return subprocess.run(
             cmd, capture_output=True, text=True, timeout=60
         )
 
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """Initialise avec le logger.
 
         Args:
@@ -154,14 +159,18 @@ class LinuxScriptChecker(ScriptChecker):
             True si python3 satisfait la version requise.
         """
         if not Path(self._PYTHON_EXEC).exists():
-            self._logger.log_error(
-                f"Exécutable Python introuvable : {self._PYTHON_EXEC}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Exécutable Python introuvable : {self._PYTHON_EXEC}"
+                )
             return False
 
         result = self._run([self._PYTHON_EXEC, "--version"])
         if result.returncode != 0:
-            self._logger.log_error("Impossible d'interroger python3")
+            if self._logger:
+                self._logger.log_error(
+                    "Impossible d'interroger python3"
+                )
             return False
 
         if required_version is None:
@@ -175,21 +184,22 @@ class LinuxScriptChecker(ScriptChecker):
                 int(p) for p in required_version.split(".")[:2]
             )
         except (IndexError, ValueError):
-            self._logger.log_info(
-                "Version Python illisible, vérification ignorée"
-            )
+            if self._logger:
+                self._logger.log_info(
+                    "Version Python illisible, vérification ignorée"
+                )
             return True
 
         if current < required:
-            self._logger.log_error(
-                f"Python {required_version}+ requis,"
-                f" version actuelle : {version_str}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Python {required_version}+ requis,"
+                    f" version actuelle : {version_str}"
+                )
             return False
 
-        self._logger.log_info(
-            f"Python OK : {version_str}"
-        )
+        if self._logger:
+            self._logger.log_info(f"Python OK : {version_str}")
         return True
 
     def check_script_syntax(self, script_path: Path) -> bool:
@@ -202,22 +212,25 @@ class LinuxScriptChecker(ScriptChecker):
             True si le script existe et est syntaxiquement correct.
         """
         if not script_path.is_file():
-            self._logger.log_error(
-                f"Script introuvable : {script_path}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Script introuvable : {script_path}"
+                )
             return False
 
         result = self._run(
             [self._PYTHON_EXEC, "-m", "py_compile", str(script_path)]
         )
         if result.returncode != 0:
-            self._logger.log_error(
-                f"Erreur de syntaxe dans {script_path} :"
-                f" {result.stderr.strip()}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Erreur de syntaxe dans {script_path} :"
+                    f" {result.stderr.strip()}"
+                )
             return False
 
-        self._logger.log_info(f"Syntaxe OK : {script_path}")
+        if self._logger:
+            self._logger.log_info(f"Syntaxe OK : {script_path}")
         return True
 
     def check_venv(self, venv_path: Path) -> bool:
@@ -230,26 +243,30 @@ class LinuxScriptChecker(ScriptChecker):
             True si le venv existe et son interpréteur répond.
         """
         if not venv_path.is_dir():
-            self._logger.log_error(
-                f"Venv introuvable : {venv_path}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Venv introuvable : {venv_path}"
+                )
             return False
 
         python_bin = venv_path / "bin" / "python"
         if not python_bin.is_file():
-            self._logger.log_error(
-                f"Interpréteur venv absent : {python_bin}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Interpréteur venv absent : {python_bin}"
+                )
             return False
 
         result = self._run([str(python_bin), "--version"])
         if result.returncode != 0:
-            self._logger.log_error(
-                f"Interpréteur venv non fonctionnel : {python_bin}"
-            )
+            if self._logger:
+                self._logger.log_error(
+                    f"Interpréteur venv non fonctionnel : {python_bin}"
+                )
             return False
 
-        self._logger.log_info(f"Venv OK : {venv_path}")
+        if self._logger:
+            self._logger.log_info(f"Venv OK : {venv_path}")
         return True
 
     def read_pyproject(
@@ -312,18 +329,20 @@ class LinuxScriptChecker(ScriptChecker):
         """
         pyproject_data = self.read_pyproject(pyproject_path)
 
-        raw_deps = pyproject_data["dependencies"]
-        deps: list[str] = list(raw_deps)  # type: ignore[arg-type]
-        raw_opt = pyproject_data["optional_dependencies"]
-        opt: dict[str, list[str]] = raw_opt  # type: ignore[assignment]
+        deps = list(cast(list[str], pyproject_data["dependencies"]))
+        opt = cast(
+            dict[str, list[str]],
+            pyproject_data["optional_dependencies"],
+        )
         for extra in check_extras:
             if extra in opt:
-                deps.extend(opt[extra])
+                deps += opt[extra]
 
-        if venv_path is not None:
-            pip_cmd = str(venv_path / "bin" / "pip")
-        else:
-            pip_cmd = "pip3"
+        pip_cmd = (
+            str(venv_path / "bin" / "pip")
+            if venv_path is not None
+            else "pip3"
+        )
 
         missing: list[MissingDependency] = []
         installed: list[InstalledDependency] = []
@@ -412,16 +431,12 @@ class LinuxScriptChecker(ScriptChecker):
                         url = data.get("url", "")
                         if url.startswith("file://"):
                             return url[7:]
-                    return str(dist.locate_file("."))
+                    location: Path = dist.locate_file(".")
+                    return str(location)
                 except importlib.metadata.PackageNotFoundError:
                     continue
 
-        result = subprocess.run(
-            [pip_cmd, "show", pkg],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        result = LinuxScriptChecker._run([pip_cmd, "show", pkg])
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 if line.startswith("Location:"):

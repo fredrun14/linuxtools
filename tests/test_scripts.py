@@ -2,9 +2,9 @@
 
 import importlib.metadata
 import os
-import tomllib
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from linux_python_utils.notification import NotificationConfig
@@ -193,11 +193,11 @@ class TestBashScriptInstaller:
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
 
-        with patch("os.open", return_value=3) as mock_open, \
+        with patch("os.open", return_value=3) as mock_os_open, \
                 patch("os.fchmod") as mock_fchmod, \
                 patch("os.close"):
             self.installer.install("/tmp/test.sh", self.config)
-            mock_open.assert_called_once_with(
+            mock_os_open.assert_called_once_with(
                 "/tmp/test.sh", os.O_RDONLY | os.O_NOFOLLOW
             )
             mock_fchmod.assert_called_once_with(3, 0o755)
@@ -386,12 +386,12 @@ class TestInstallReport:
     """Tests pour la dataclass InstallReport."""
 
     def _make_report(self, **kwargs) -> InstallReport:
-        defaults = dict(
-            success=True,
-            app_name="app",
-            deploy_type="user",
-            install_path=Path("/home/user/.local/bin/app"),
-        )
+        defaults = {
+            "success": True,
+            "app_name": "app",
+            "deploy_type": "user",
+            "install_path": Path("/home/user/.local/bin/app"),
+        }
         defaults.update(kwargs)
         return InstallReport(**defaults)
 
