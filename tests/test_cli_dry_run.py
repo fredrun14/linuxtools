@@ -102,6 +102,50 @@ class TestDryRunContext:
         # Assert
         assert capsys.readouterr().out == ""
 
+    def test_would_delete_prints_path(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Arrange
+        ctx = DryRunContext(dry_run=True)
+        # Act
+        ctx.would_delete("/usr/local/bin/mon-outil")
+        # Assert
+        captured = capsys.readouterr()
+        assert "[DRY-RUN]" in captured.out
+        assert "/usr/local/bin/mon-outil" in captured.out
+
+    def test_would_delete_silencieux_si_dry_run_false(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Arrange
+        ctx = DryRunContext(dry_run=False)
+        # Act
+        ctx.would_delete("/usr/local/bin/mon-outil")
+        # Assert
+        assert capsys.readouterr().out == ""
+
+    def test_would_run_command_prints_cmd(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Arrange
+        ctx = DryRunContext(dry_run=True)
+        # Act
+        ctx.would_run_command("systemctl enable mon-service")
+        # Assert
+        captured = capsys.readouterr()
+        assert "[DRY-RUN]" in captured.out
+        assert "systemctl enable mon-service" in captured.out
+
+    def test_would_run_command_silencieux_si_dry_run_false(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Arrange
+        ctx = DryRunContext(dry_run=False)
+        # Act
+        ctx.would_run_command("systemctl enable mon-service")
+        # Assert
+        assert capsys.readouterr().out == ""
+
 
 class TestAddDryRunArgument:
     """Tests pour la fonction add_dry_run_argument."""

@@ -12,6 +12,11 @@ class DryRunContext:
     Centralise l'affichage des opérations qui auraient été effectuées
     lorsque le flag --dry-run est actif.
 
+    Pas d'injection de Logger : toutes les méthodes ``would_*`` sont de
+    purs effets de bord ``print()`` vers stdout. Injecter un Logger
+    ajouterait une dépendance externe sans valeur ajoutée — cette classe
+    est une couche de présentation, pas une couche applicative.
+
     Attributes:
         dry_run: True si le mode simulation est actif.
 
@@ -68,6 +73,30 @@ class DryRunContext:
         if not self.dry_run:
             return
         print(f"{_DRY_RUN_PREFIX} Modification dans {path} : {line}")
+
+    def would_delete(self, path: str) -> None:
+        """Annonce la suppression simulée d'un fichier ou répertoire.
+
+        N'affiche rien si dry_run est False.
+
+        Args:
+            path: Chemin qui aurait été supprimé.
+        """
+        if not self.dry_run:
+            return
+        print(f"{_DRY_RUN_PREFIX} Suppression de {path}")
+
+    def would_run_command(self, cmd: str) -> None:
+        """Annonce l'exécution simulée d'une commande système.
+
+        N'affiche rien si dry_run est False.
+
+        Args:
+            cmd: Commande qui aurait été exécutée.
+        """
+        if not self.dry_run:
+            return
+        print(f"{_DRY_RUN_PREFIX} Commande : {cmd}")
 
 
 def add_dry_run_argument(parser: argparse.ArgumentParser) -> None:
