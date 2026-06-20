@@ -5,6 +5,7 @@ Ce module suit le principe SRP en isolant la gestion des exceptions.
 """
 
 import os
+from pathlib import Path
 
 
 class ApplicationError(Exception):
@@ -44,20 +45,55 @@ class RollbackError(ApplicationError):
 
 
 class IntegrityError(ApplicationError):
-    """Exception levée lors d'un échec de vérification d'intégrité."""
+    """Exception levée lors d'un échec de vérification d'intégrité.
+
+    Attributes:
+        path: Chemin du fichier dont l'intégrité est compromise.
+        expected: Checksum attendu (None si fichier manquant).
+        actual: Checksum calculé (None si fichier manquant).
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        expected: str | None = None,
+        actual: str | None = None,
+    ) -> None:
+        """Initialise l'erreur d'intégrité.
+
+        Args:
+            path: Chemin du fichier concerné.
+            expected: Checksum attendu (source).
+            actual: Checksum obtenu (destination).
+        """
+        self.path = path
+        self.expected = expected
+        self.actual = actual
+        if expected and actual:
+            msg = (
+                f"Intégrité compromise : {path} "
+                f"(attendu={expected[:8]}…, obtenu={actual[:8]}…)"
+            )
+        else:
+            msg = f"Intégrité compromise : {path}"
+        super().__init__(msg)
 
 
 class CommandExecutionError(ApplicationError):
     """Exception levée quand une commande système retourne un code non nul."""
 
 
-def require_root() -> None:
+def require_root(message: str | None = None) -> None:
     """Lève AppPermissionError si le processus courant n'est pas root.
 
+    Args:
+        message: Message d'erreur personnalisé. Si None, utilise le
+            message par défaut.
+
     Raises:
-        AppPermissionError: Si os.getuid() != 0.
+        AppPermissionError: Si os.geteuid() != 0.
     """
-    if os.getuid() != 0:
+    if os.geteuid() != 0:
         raise AppPermissionError(
-            "Cette opération nécessite les droits root."
+            message or "Cette opération nécessite les droits root."
         )
