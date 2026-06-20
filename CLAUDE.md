@@ -37,3 +37,10 @@ API publique exportée depuis `src/linux_python_utils/__init__.py`.
 - **TOCTOU-safe** : `os.open(O_NOFOLLOW)` + `os.fchmod(0o644)` dans les classes de base
 - **Validation noms** : regex + anti-traversal dans `systemd/validators.py`
 - **UTF-8 explicite** partout (docstrings français)
+
+## Notes Obsidian
+
+Notes pédagogiques (public : développeur junior, apprentissage Python/SOLID/sécurité Linux).
+Une note par module + une vue d'ensemble. À mettre à jour après tout ajout/modification d'API publique.
+
+`/home/fred/Obsidian/Informatique/1-projets/package linux-python-utils/`
