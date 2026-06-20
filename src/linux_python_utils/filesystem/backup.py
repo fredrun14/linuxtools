@@ -46,13 +46,18 @@ def copytree_secure(
     *,
     dirs_exist_ok: bool = False,
     ignore: Callable[[str, list[str]], set[str]] | None = None,
+    follow_symlinks: bool = False,
 ) -> Path:
     """Copie récursive d'un répertoire avec protection symlink.
 
     Parcourt src récursivement. Les fichiers sont copiés via
     _copy_secure (O_NOFOLLOW, permissions 0o644). Les répertoires
-    sont créés avec permissions 0o755. Les symlinks sont ignorés
-    silencieusement.
+    sont créés avec permissions 0o755.
+
+    Par défaut les symlinks sont ignorés silencieusement. Avec
+    follow_symlinks=True, les symlinks sont résolus et leur cible
+    est copiée (fichier) ou parcourue récursivement (répertoire).
+    L'O_NOFOLLOW reste actif côté destination.
 
     Args:
         src: Répertoire source.
@@ -62,6 +67,8 @@ def copytree_secure(
         ignore: Callable compatible shutil.ignore_patterns.
             Reçoit (dirpath, entries) et retourne un set de
             noms à ignorer.
+        follow_symlinks: Si True, résout les symlinks source
+            et copie leur cible. Si False (défaut), les ignore.
 
     Returns:
         Path de la destination.
@@ -95,12 +102,27 @@ def copytree_secure(
         if entry.name in ignored:
             continue
         if entry.is_symlink():
+            if not follow_symlinks:
+                continue
+            resolved = entry.resolve()
+            dest_entry = dst / entry.name
+            if resolved.is_dir():
+                copytree_secure(
+                    resolved, dest_entry,
+                    dirs_exist_ok=dirs_exist_ok,
+                    ignore=ignore,
+                    follow_symlinks=follow_symlinks,
+                )
+            elif resolved.is_file():
+                _copy_secure(resolved, dest_entry)
             continue
         dest_entry = dst / entry.name
         if entry.is_dir():
             copytree_secure(
                 entry, dest_entry,
-                dirs_exist_ok=dirs_exist_ok, ignore=ignore,
+                dirs_exist_ok=dirs_exist_ok,
+                ignore=ignore,
+                follow_symlinks=follow_symlinks,
             )
         elif entry.is_file():
             _copy_secure(entry, dest_entry)

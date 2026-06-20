@@ -384,3 +384,48 @@ class TestCopytreeSecure:
         result = copytree_secure(src, dst)
         assert result == Path(dst)
         assert isinstance(result, Path)
+
+    def test_follow_symlinks_copie_fichier_cible(self, tmp_path):
+        """follow_symlinks=True copie le contenu du fichier cible."""
+        src = tmp_path / "src"
+        src.mkdir()
+        real = src / "real.txt"
+        real.write_text("contenu réel")
+        (src / "lien.txt").symlink_to(real)
+        dst = tmp_path / "dst"
+        copytree_secure(src, dst, follow_symlinks=True)
+        assert (dst / "lien.txt").read_text() == "contenu réel"
+        assert not (dst / "lien.txt").is_symlink()
+
+    def test_follow_symlinks_copie_repertoire_cible(self, tmp_path):
+        """follow_symlinks=True recurse dans le répertoire cible."""
+        src = tmp_path / "src"
+        src.mkdir()
+        real_dir = tmp_path / "real_dir"
+        real_dir.mkdir()
+        (real_dir / "inner.txt").write_text("inner")
+        (src / "lien_dir").symlink_to(real_dir)
+        dst = tmp_path / "dst"
+        copytree_secure(src, dst, follow_symlinks=True)
+        assert (dst / "lien_dir" / "inner.txt").read_text() == "inner"
+        assert not (dst / "lien_dir").is_symlink()
+
+    def test_follow_symlinks_false_ignore_symlinks(self, tmp_path):
+        """follow_symlinks=False (défaut) ignore les symlinks."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "real.txt").write_text("réel")
+        (src / "lien.txt").symlink_to(src / "real.txt")
+        dst = tmp_path / "dst"
+        copytree_secure(src, dst, follow_symlinks=False)
+        assert (dst / "real.txt").exists()
+        assert not (dst / "lien.txt").exists()
+
+    def test_follow_symlinks_symlink_mort_ignore(self, tmp_path):
+        """follow_symlinks=True ignore les symlinks morts."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "dead_link").symlink_to(tmp_path / "nexiste_pas")
+        dst = tmp_path / "dst"
+        copytree_secure(src, dst, follow_symlinks=True)
+        assert not (dst / "dead_link").exists()
