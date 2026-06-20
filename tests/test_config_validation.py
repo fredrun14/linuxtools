@@ -149,5 +149,39 @@ class TestFileConfigLoaderWithoutPydantic(unittest.TestCase):
         self.assertIn("pydantic", str(ctx.exception))
 
 
+class TestConfigurationManagerValidate(unittest.TestCase):
+    """Tests pour ConfigurationManager.validate()."""
+
+    def test_validate_retourne_instance_modele(self):
+        """validate() retourne une instance du modèle Pydantic."""
+        from linux_python_utils.config import ConfigurationManager
+        cfg = ConfigurationManager(
+            default_config={"name": "test", "count": 42}
+        )
+        result = cfg.validate(SampleConfig)
+        self.assertIsInstance(result, SampleConfig)
+        self.assertEqual(result.name, "test")
+        self.assertEqual(result.count, 42)
+
+    def test_validate_config_invalide_leve_validation_error(self):
+        """Config invalide lève pydantic.ValidationError."""
+        from pydantic import ValidationError
+        from linux_python_utils.config import ConfigurationManager
+        cfg = ConfigurationManager(
+            default_config={"name": "test", "count": "pas_un_int"}
+        )
+        with self.assertRaises(ValidationError):
+            cfg.validate(SampleConfig)
+
+    def test_validate_schema_non_basemodel_leve_type_error(self):
+        """Schema non-BaseModel lève TypeError."""
+        from linux_python_utils.config import ConfigurationManager
+        cfg = ConfigurationManager(
+            default_config={"name": "test"}
+        )
+        with self.assertRaises(TypeError):
+            cfg.validate(dict)  # type: ignore[arg-type]
+
+
 if __name__ == "__main__":
     unittest.main()

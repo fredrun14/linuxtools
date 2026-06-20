@@ -181,7 +181,6 @@ class TestConfigurationManager:
 
     def test_search_paths(self, tmp_path):
         """Test de la recherche dans plusieurs emplacements."""
-        # Créer un fichier de config dans le deuxième chemin
         config_file = tmp_path / "found.toml"
         config_file.write_text('[test]\nfound = true\n')
 
@@ -194,6 +193,51 @@ class TestConfigurationManager:
         manager = ConfigurationManager(search_paths=search_paths)
 
         assert manager.get("test.found") is True
+
+    def test_deep_merge_liste_override_ecrase_base(self, tmp_path):
+        """_deep_merge : une liste dans override écrase celle de base."""
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"tags": ["override"]}')
+
+        default = {"tags": ["base1", "base2"]}
+        manager = ConfigurationManager(config_file, default_config=default)
+
+        assert manager.get("tags") == ["override"]
+
+    def test_deep_merge_scalaire_imbrique_ecrase_base(self, tmp_path):
+        """_deep_merge : un scalaire imbriqué dans override écrase la base."""
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"app": {"level": "DEBUG"}}')
+
+        default = {"app": {"level": "INFO", "timeout": 30}}
+        manager = ConfigurationManager(config_file, default_config=default)
+
+        assert manager.get("app.level") == "DEBUG"
+        assert manager.get("app.timeout") == 30
+
+    def test_search_paths_premier_existant_gagne(self, tmp_path):
+        """search_paths : le premier chemin existant est utilisé."""
+        first = tmp_path / "first.toml"
+        second = tmp_path / "second.toml"
+        first.write_text('[app]\nname = "first"\n')
+        second.write_text('[app]\nname = "second"\n')
+
+        manager = ConfigurationManager(
+            search_paths=[first, second]
+        )
+
+        assert manager.get("app.name") == "first"
+
+    def test_search_paths_ordre_respecte_si_premier_absent(self, tmp_path):
+        """search_paths : si le premier est absent, le second est utilisé."""
+        second = tmp_path / "second.toml"
+        second.write_text('[app]\nname = "second"\n')
+
+        manager = ConfigurationManager(
+            search_paths=[tmp_path / "absent.toml", second]
+        )
+
+        assert manager.get("app.name") == "second"
 
 
 class TestConfigurationManagerLogger:

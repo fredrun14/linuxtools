@@ -4,10 +4,42 @@ import json
 import tomllib
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 # T représente une dataclass de configuration retournée par load()
 T = TypeVar("T")
+
+
+def _load_toml(path: Path) -> dict[str, Any]:
+    """Charge un fichier TOML et retourne son contenu.
+
+    Args:
+        path: Chemin vers le fichier TOML.
+
+    Returns:
+        Dictionnaire de configuration.
+    """
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    """Charge un fichier JSON et retourne son contenu.
+
+    Args:
+        path: Chemin vers le fichier JSON.
+
+    Returns:
+        Dictionnaire de configuration.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+_LOADERS: dict[str, Callable[[Path], dict[str, Any]]] = {
+    ".toml": _load_toml,
+    ".json": _load_json,
+}
 
 
 class ConfigLoader(ABC):
@@ -85,18 +117,16 @@ class FileConfigLoader(ConfigLoader):
             )
 
         suffix = path.suffix.lower()
+        loader_fn = _LOADERS.get(suffix)
 
-        if suffix == ".toml":
-            with open(path, "rb") as f:
-                raw_config = tomllib.load(f)
-        elif suffix == ".json":
-            with open(path, "r", encoding="utf-8") as f:
-                raw_config = json.load(f)
-        else:
+        if loader_fn is None:
+            supported = ", ".join(_LOADERS)
             raise ValueError(
                 f"Extension non supportée: {suffix}. "
-                "Utilisez .toml ou .json"
+                f"Utilisez {supported}"
             )
+
+        raw_config = loader_fn(path)
 
         if schema is None:
             return raw_config

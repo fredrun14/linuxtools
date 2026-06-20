@@ -3,13 +3,45 @@
 import json
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from linux_python_utils.config.base import ConfigManager
 from linux_python_utils.config.loader import ConfigLoader, FileConfigLoader
 from linux_python_utils.logging.base import Logger
 
+_T = TypeVar("_T")
 _PATH_KEYS = ("source", "destination", "path")
+
+
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    """Écrit un dictionnaire en JSON sur disque.
+
+    Args:
+        path: Chemin de sortie.
+        data: Données à sérialiser.
+    """
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _write_toml_file(path: Path, data: dict[str, Any]) -> None:
+    """Écrit un dictionnaire en TOML sur disque via ConfTomlExporter.
+
+    Args:
+        path: Chemin de sortie.
+        data: Données à sérialiser.
+    """
+    from linux_python_utils.dotconf.conf_toml_exporter import (
+        ConfTomlExporter,
+    )
+    content = ConfTomlExporter().export_mapping(data)
+    path.write_text(content + "\n", encoding="utf-8")
+
+
+_WRITERS: dict[str, Callable[[Path, dict[str, Any]], None]] = {
+    ".json": _write_json,
+    ".toml": _write_toml_file,
+}
 
 
 class ConfigurationManager(ConfigManager):
@@ -94,7 +126,6 @@ class ConfigurationManager(ConfigManager):
         if self.config_path and self.config_path.exists():
             try:
                 user_config = self._loader.load(self.config_path)
-                # Fusionner avec la config par défaut
                 base = self.default_config.copy()
                 return self._deep_merge(base, user_config)
             except (
@@ -210,6 +241,26 @@ class ConfigurationManager(ConfigManager):
         profiles: dict[str, Any] = self.get("profiles", {})
         return list(profiles.keys())
 
+    def validate(self, schema: type[_T]) -> _T:
+        """Valide la configuration chargée via un modèle Pydantic.
+
+        Args:
+            schema: Classe Pydantic BaseModel pour la validation.
+
+        Returns:
+            Instance du modèle validé.
+
+        Raises:
+            ImportError: Si pydantic n'est pas installé.
+            TypeError: Si schema n'est pas un BaseModel.
+            pydantic.ValidationError: Si la config ne respecte pas
+                le schema.
+        """
+        result: _T = FileConfigLoader._validate_with_schema(
+            self.config, schema
+        )
+        return result
+
     def create_default_config(
         self,
         output_path: Path | None = None,
@@ -228,25 +279,14 @@ class ConfigurationManager(ConfigManager):
         path.parent.mkdir(parents=True, exist_ok=True)
 
         suffix = path.suffix.lower()
-        if suffix == ".json":
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(self.default_config, f, indent=2, ensure_ascii=False)
-        elif suffix == ".toml":
-            # tomllib ne supporte pas l'écriture, on utilise un format simple
-            self._write_toml(path, self.default_config)
-        else:
-            raise ValueError(f"Extension non supportée: {suffix}")
+        writer_fn = _WRITERS.get(suffix)
 
+        if writer_fn is None:
+            supported = ", ".join(_WRITERS)
+            raise ValueError(
+                f"Extension non supportée: {suffix}. "
+                f"Utilisez {supported}"
+            )
+
+        writer_fn(path, self.default_config)
         self._log_info(f"Configuration créée : {path}")
-
-    def _write_toml(
-        self,
-        path: Path,
-        data: dict[str, Any],
-    ) -> None:
-        """Écrit un dict en TOML valide via ConfTomlExporter."""
-        from linux_python_utils.dotconf.conf_toml_exporter import (
-            ConfTomlExporter,
-        )
-        content = ConfTomlExporter().export_mapping(data)
-        path.write_text(content + "\n", encoding="utf-8")
