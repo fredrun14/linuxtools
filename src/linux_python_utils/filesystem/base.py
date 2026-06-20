@@ -1,13 +1,14 @@
 """Interface abstraite pour la gestion des fichiers."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 
 class FileManager(ABC):
     """Interface pour la gestion des fichiers."""
 
     @abstractmethod
-    def create_file(self, file_path: str, content: str) -> bool:
+    def create_file(self, file_path: str | Path, content: str) -> bool:
         """
         Crée un fichier avec le contenu spécifié.
 
@@ -20,7 +21,7 @@ class FileManager(ABC):
         """
 
     @abstractmethod
-    def file_exists(self, file_path: str) -> bool:
+    def file_exists(self, file_path: str | Path) -> bool:
         """Vérifie si un fichier existe.
 
         Args:
@@ -31,7 +32,7 @@ class FileManager(ABC):
         """
 
     @abstractmethod
-    def read_file(self, file_path: str) -> str:
+    def read_file(self, file_path: str | Path) -> str:
         """Lit le contenu d'un fichier.
 
         Args:
@@ -45,7 +46,7 @@ class FileManager(ABC):
         """
 
     @abstractmethod
-    def delete_file(self, file_path: str) -> bool:
+    def delete_file(self, file_path: str | Path) -> bool:
         """Supprime un fichier.
 
         Args:

@@ -216,3 +216,34 @@ class TestLinuxFileBackup:
         with pytest.raises(OSError):
             backup.restore(str(link_dest), str(backup_file))
         assert real_dest.read_text() == "ne pas écraser"
+
+    def test_backup_refuse_symlink_source(self, tmp_path):
+        """Lève OSError si la source est un symlink (O_NOFOLLOW sur src)."""
+        real = tmp_path / "real.txt"
+        real.write_text("données originales")
+        link_src = tmp_path / "link_src.txt"
+        link_src.symlink_to(real)
+        backup_path = tmp_path / "bak.txt"
+        backup, logger = self._make_backup()
+        with pytest.raises(OSError):
+            backup.backup(str(link_src), str(backup_path))
+        assert not backup_path.exists()
+
+    def test_backup_sans_logger(self, tmp_path):
+        """backup() fonctionne sans logger injecté."""
+        source = tmp_path / "source.txt"
+        source.write_text("contenu")
+        bak = tmp_path / "bak.txt"
+        backup = LinuxFileBackup()
+        result = backup.backup(str(source), str(bak))
+        assert result is True
+        assert bak.read_text() == "contenu"
+
+    def test_restore_sans_logger(self, tmp_path):
+        """restore() fonctionne sans logger injecté."""
+        bak = tmp_path / "bak.txt"
+        bak.write_text("sauvegardé")
+        dest = tmp_path / "dest.txt"
+        backup = LinuxFileBackup()
+        backup.restore(str(dest), str(bak))
+        assert dest.read_text() == "sauvegardé"

@@ -4,13 +4,18 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from linux_python_utils.filesystem.linux import _open_secure
 from linux_python_utils.logging.base import Logger
 
 _CHUNK = 65536  # taille de bloc pour la copie binaire (64 Ko)
 
 
-def _copy_secure(src: str, dst: str) -> None:
+def _copy_secure(src: str | Path, dst: str | Path) -> None:
     """Copie src vers dst en binaire sans suivre les symlinks.
+
+    Copie le contenu uniquement — les métadonnées (timestamps, ACL,
+    attributs étendus) ne sont pas préservées. Permissions forcées à
+    0o644 sur dst via fchmod.
 
     Args:
         src: Chemin source (ne doit pas être un symlink).
@@ -19,12 +24,10 @@ def _copy_secure(src: str, dst: str) -> None:
     Raises:
         OSError: Si src ou dst est un symlink, ou erreur d'E/S.
     """
-    src_fd = os.open(src, os.O_RDONLY | os.O_NOFOLLOW)
+    src_fd = _open_secure(src, os.O_RDONLY, 0o000)
     try:
-        dst_fd = os.open(
-            dst,
-            os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW,
-            0o644,
+        dst_fd = _open_secure(
+            dst, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644
         )
         try:
             os.fchmod(dst_fd, 0o644)
@@ -40,7 +43,7 @@ class FileBackup(ABC):
     """Interface pour la gestion des sauvegardes de fichiers."""
 
     @abstractmethod
-    def backup(self, file_path: str, backup_path: str) -> bool:
+    def backup(self, file_path: str | Path, backup_path: str | Path) -> bool:
         """Crée une sauvegarde d'un fichier.
 
         Args:
@@ -52,7 +55,9 @@ class FileBackup(ABC):
         """
 
     @abstractmethod
-    def restore(self, file_path: str, backup_path: str) -> None:
+    def restore(
+        self, file_path: str | Path, backup_path: str | Path
+    ) -> None:
         """Restaure un fichier depuis sa sauvegarde.
 
         Args:
@@ -75,8 +80,13 @@ class LinuxFileBackup(FileBackup):
         """
         self._logger = logger
 
-    def backup(self, file_path: str, backup_path: str) -> bool:
+    def backup(
+        self, file_path: str | Path, backup_path: str | Path
+    ) -> bool:
         """Sauvegarde un fichier. Retourne False si la source est absente.
+
+        Copie le contenu uniquement — les métadonnées (timestamps, ACL)
+        ne sont pas préservées.
 
         Args:
             file_path: Chemin du fichier à sauvegarder.
@@ -86,7 +96,8 @@ class LinuxFileBackup(FileBackup):
             True si la sauvegarde réussit, False si la source est absente.
 
         Raises:
-            OSError: Si backup_path est un symlink ou erreur d'E/S.
+            OSError: Si file_path ou backup_path est un symlink,
+                ou erreur d'E/S.
         """
         if not Path(file_path).exists():
             if self._logger:
@@ -108,7 +119,9 @@ class LinuxFileBackup(FileBackup):
                 )
             raise
 
-    def restore(self, file_path: str, backup_path: str) -> None:
+    def restore(
+        self, file_path: str | Path, backup_path: str | Path
+    ) -> None:
         """Restaure un fichier depuis sa sauvegarde.
 
         Args:

@@ -7,8 +7,32 @@ from linux_python_utils.filesystem.base import FileManager
 from linux_python_utils.logging.base import Logger
 
 
+def _open_secure(
+    path: str | Path,
+    flags: int,
+    mode: int = 0o644,
+) -> int:
+    """Ouvre un chemin avec O_NOFOLLOW garanti.
+
+    Primitive partagée par write_text_secure et _copy_secure pour
+    centraliser la protection anti-substitution de symlink.
+
+    Args:
+        path: Chemin cible.
+        flags: Flags os.open — O_NOFOLLOW est ajouté automatiquement.
+        mode: Permissions POSIX initiales (appliquées séparément via fchmod).
+
+    Returns:
+        Descripteur de fichier ouvert.
+
+    Raises:
+        OSError: Si la cible est un symlink ou en cas d'erreur d'E/S.
+    """
+    return os.open(str(path), flags | os.O_NOFOLLOW, mode)
+
+
 def write_text_secure(
-    path: str,
+    path: str | Path,
     content: str,
     mode: int = 0o644,
     *,
@@ -29,8 +53,7 @@ def write_text_secure(
     Raises:
         OSError: Si la cible est un symlink ou en cas d'erreur d'E/S.
     """
-    flags = os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW
-    fd = os.open(path, flags, mode)
+    fd = _open_secure(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, mode)
     try:
         os.fchmod(fd, mode)
         f = os.fdopen(fd, "w", encoding=encoding)
@@ -57,7 +80,7 @@ class LinuxFileManager(FileManager):
         """
         self._logger = logger
 
-    def create_file(self, file_path: str, content: str) -> bool:
+    def create_file(self, file_path: str | Path, content: str) -> bool:
         """
         Crée un fichier avec le contenu spécifié.
 
@@ -83,7 +106,7 @@ class LinuxFileManager(FileManager):
                 )
             return False
 
-    def file_exists(self, file_path: str) -> bool:
+    def file_exists(self, file_path: str | Path) -> bool:
         """
         Vérifie si un fichier existe.
 
@@ -95,7 +118,7 @@ class LinuxFileManager(FileManager):
         """
         return Path(file_path).exists()
 
-    def read_file(self, file_path: str) -> str:
+    def read_file(self, file_path: str | Path) -> str:
         """
         Lit le contenu d'un fichier.
 
@@ -128,7 +151,7 @@ class LinuxFileManager(FileManager):
                 )
             raise
 
-    def delete_file(self, file_path: str) -> bool:
+    def delete_file(self, file_path: str | Path) -> bool:
         """
         Supprime un fichier.
 
