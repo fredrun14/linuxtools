@@ -24,12 +24,10 @@ Example:
         options = "rw,soft"
 """
 
-from pathlib import Path
 from typing import Any
 
-from linux_python_utils.config import ConfigLoader
-from linux_python_utils.systemd import MountConfig
 from linux_python_utils.config import ConfigFileLoader
+from linux_python_utils.systemd import MountConfig
 
 
 class MountConfigLoader(ConfigFileLoader[MountConfig]):
@@ -49,24 +47,6 @@ class MountConfigLoader(ConfigFileLoader[MountConfig]):
     """
 
     DEFAULT_SECTION: str = "mount"
-
-    def __init__(
-        self,
-        config_path: str | Path,
-        config_loader: ConfigLoader | None = None
-    ) -> None:
-        """Initialise le loader pour MountConfig.
-
-        Args:
-            config_path: Chemin vers le fichier de configuration
-                (.toml ou .json).
-            config_loader: Chargeur de configuration injectable (DIP).
-
-        Raises:
-            FileNotFoundError: Si le fichier n'existe pas.
-            ValueError: Si l'extension n'est pas supportée.
-        """
-        super().__init__(config_path, config_loader)
 
     def load(self, section: str | None = None) -> MountConfig:
         """Charge et retourne un MountConfig.

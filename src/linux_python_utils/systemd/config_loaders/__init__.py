@@ -28,17 +28,17 @@ Example:
 
 """
 
-from linux_python_utils.systemd.config_loaders.service_loader import (
-    ServiceConfigLoader,
-)
-from linux_python_utils.systemd.config_loaders.timer_loader import (
-    TimerConfigLoader,
-)
 from linux_python_utils.systemd.config_loaders.mount_loader import (
     MountConfigLoader,
 )
 from linux_python_utils.systemd.config_loaders.script_loader import (
     BashScriptConfigLoader,
+)
+from linux_python_utils.systemd.config_loaders.service_loader import (
+    ServiceConfigLoader,
+)
+from linux_python_utils.systemd.config_loaders.timer_loader import (
+    TimerConfigLoader,
 )
 
 __all__ = [

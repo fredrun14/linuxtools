@@ -27,13 +27,11 @@ Example:
         message_failure = "Échec de la mise à jour."
 """
 
-from pathlib import Path
 from typing import Any
 
-from linux_python_utils.config import ConfigLoader
+from linux_python_utils.config import ConfigFileLoader
 from linux_python_utils.notification import NotificationConfig
 from linux_python_utils.scripts import BashScriptConfig
-from linux_python_utils.config import ConfigFileLoader
 
 
 class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
@@ -57,30 +55,11 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
     DEFAULT_SECTION: str = "service"
     NOTIFICATION_SECTION: str = "notification"
 
-    # Valeurs par défaut pour les notifications
     DEFAULT_NOTIFICATION_TITLE: str = "Task Update"
     DEFAULT_MESSAGE_SUCCESS: str = "Task completed successfully."
     DEFAULT_MESSAGE_FAILURE: str = "Task failed."
     DEFAULT_ICON_SUCCESS: str = "software-update-available"
     DEFAULT_ICON_FAILURE: str = "dialog-error"
-
-    def __init__(
-        self,
-        config_path: str | Path,
-        config_loader: ConfigLoader | None = None
-    ) -> None:
-        """Initialise le loader pour BashScriptConfig.
-
-        Args:
-            config_path: Chemin vers le fichier de configuration
-                (.toml ou .json).
-            config_loader: Chargeur de configuration injectable (DIP).
-
-        Raises:
-            FileNotFoundError: Si le fichier n'existe pas.
-            ValueError: Si l'extension n'est pas supportée.
-        """
-        super().__init__(config_path, config_loader)
 
     def load(self, section: str | None = None) -> BashScriptConfig:
         """Charge et retourne un BashScriptConfig.

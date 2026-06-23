@@ -22,12 +22,10 @@ Example:
         type = "simple"
 """
 
-from pathlib import Path
 from typing import Any
 
-from linux_python_utils.config import ConfigLoader
-from linux_python_utils.systemd import ServiceConfig
 from linux_python_utils.config import ConfigFileLoader
+from linux_python_utils.systemd import ServiceConfig
 
 
 class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):
@@ -47,24 +45,6 @@ class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):
     """
 
     DEFAULT_SECTION: str = "service"
-
-    def __init__(
-        self,
-        config_path: str | Path,
-        config_loader: ConfigLoader | None = None
-    ) -> None:
-        """Initialise le loader pour ServiceConfig.
-
-        Args:
-            config_path: Chemin vers le fichier de configuration
-                (.toml ou .json).
-            config_loader: Chargeur de configuration injectable (DIP).
-
-        Raises:
-            FileNotFoundError: Si le fichier n'existe pas.
-            ValueError: Si l'extension n'est pas supportée.
-        """
-        super().__init__(config_path, config_loader)
 
     def load(self, section: str | None = None) -> ServiceConfig:
         """Charge et retourne un ServiceConfig.
