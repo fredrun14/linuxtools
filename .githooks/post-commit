@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Hook post-commit — pousse automatiquement le commit vers `origin`.
+#
+# Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
+# `make hooks` (voir Makefile) après tout clone.
+#
+# `origin` est censé être configuré avec deux URLs de push (GitHub +
+# Forgejo) ; le push va alors vers les deux forges d'un coup. Sur un clone
+# neuf sans ce réglage, le push part vers l'unique origin, ce qui reste
+# le comportement attendu.
+#
+# Propriétés :
+#   - non bloquant : le push tourne en arrière-plan, le terminal rend la
+#     main immédiatement après le commit ;
+#   - non fatal : un échec (hors-ligne, non-fast-forward après amend/rebase)
+#     n'interrompt jamais le workflow ;
+#   - HEAD détaché ignoré (rebase, bisect, checkout d'un commit).
+
+# On ignore l'état HEAD détaché : pas de branche à pousser.
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
+
+# Chemin du log, calculé avant le passage en arrière-plan.
+log="$(git rev-parse --git-dir)/post-commit-push.log"
+
+# Les variables GIT_* de l'environnement du hook pourraient perturber
+# le push ; on les neutralise dans le sous-shell détaché.
+(
+    unset GIT_INDEX_FILE GIT_PREFIX
+    git push origin "$branch"
+) >>"$log" 2>&1 &
+
+exit 0

@@ -1,6 +1,6 @@
 # Makefile pour linuxtools
 
-.PHONY: help install install-dev uninstall test test-verbose test-cov lint clean build all
+.PHONY: help install install-dev uninstall test test-verbose test-cov lint clean build all hooks
 
 # Cible par défaut
 help:
@@ -14,14 +14,22 @@ help:
 	@echo "  make lint           Vérifier le style PEP8"
 	@echo "  make clean          Nettoyer les fichiers générés"
 	@echo "  make build          Construire le package"
+	@echo "  make hooks          Activer les hooks Git versionnés (.githooks)"
 	@echo "  make all            Lint + tests + build"
 
 # Installation
 install:
 	pip install -e .
 
-install-dev:
+install-dev: hooks
 	pip install -e ".[dev]"
+
+# Hooks Git versionnés : pointe core.hooksPath vers .githooks/ et rend
+# les hooks exécutables. À lancer une fois après un clone.
+hooks:
+	git config core.hooksPath .githooks
+	chmod +x .githooks/*
+	@echo "Hooks Git activés (core.hooksPath -> .githooks)"
 
 uninstall:
 	pip uninstall -y linuxtools
