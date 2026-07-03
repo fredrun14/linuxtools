@@ -1,4 +1,4 @@
-# Makefile pour linux-python-utils
+# Makefile pour linuxtools
 
 .PHONY: help install install-dev uninstall test test-verbose test-cov lint clean build all
 
@@ -24,7 +24,7 @@ install-dev:
 	pip install -e ".[dev]"
 
 uninstall:
-	pip uninstall -y linux-python-utils
+	pip uninstall -y linuxtools
 
 # Tests
 test:
@@ -34,11 +34,11 @@ test-verbose:
 	pytest tests/ -v
 
 test-cov:
-	pytest tests/ --cov=linux_python_utils --cov-report=term-missing
+	pytest tests/ --cov=linuxtools --cov-report=term-missing
 
 # Linting
 lint:
-	pycodestyle src/linux_python_utils/
+	pycodestyle src/linuxtools/
 
 # Nettoyage
 clean:

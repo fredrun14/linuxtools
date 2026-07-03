@@ -1,4 +1,4 @@
-"""Tests pour linux_python_utils.cli.dry_run."""
+"""Tests pour linuxtools.cli.dry_run."""
 
 # stdlib
 import argparse
@@ -6,7 +6,7 @@ import argparse
 # third-party
 import pytest
 
-from linux_python_utils.cli.dry_run import DryRunContext, add_dry_run_argument
+from linuxtools.cli.dry_run import DryRunContext, add_dry_run_argument
 
 
 class TestDryRunContext:

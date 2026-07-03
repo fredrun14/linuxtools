@@ -8,7 +8,7 @@ from unittest.mock import patch, PropertyMock
 import pytest
 
 # local
-from linux_python_utils.config.xdg import XdgAppConfig
+from linuxtools.config.xdg import XdgAppConfig
 
 _APP = "test-app"
 _TEMPLATE = "[log]\nlevel = 'INFO'\n"
@@ -18,7 +18,7 @@ _TEMPLATE = "[log]\nlevel = 'INFO'\n"
 def xdg(tmp_path: Path) -> XdgAppConfig:
     """XdgAppConfig avec config_dir redirigé vers tmp_path."""
     with patch(
-        "linux_python_utils.config.xdg.user_config_path",
+        "linuxtools.config.xdg.user_config_path",
         return_value=tmp_path / _APP,
     ):
         yield XdgAppConfig(_APP)

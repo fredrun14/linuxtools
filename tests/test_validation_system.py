@@ -7,15 +7,15 @@ from unittest.mock import patch
 import pytest
 
 # local
-from linux_python_utils.errors.exceptions import MissingDependencyError
-from linux_python_utils.validation.system import SystemCommandValidator
+from linuxtools.errors.exceptions import MissingDependencyError
+from linuxtools.validation.system import SystemCommandValidator
 
 
 class TestSystemCommandValidator:
     def test_validate_passe_si_toutes_presentes(self) -> None:
         """validate() silencieux si toutes les commandes existent."""
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             return_value="/usr/bin/cmd",
         ):
             validator = SystemCommandValidator(
@@ -26,7 +26,7 @@ class TestSystemCommandValidator:
     def test_validate_leve_si_commande_absente(self) -> None:
         """Lève MissingDependencyError si commande absente."""
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             return_value=None,
         ):
             validator = SystemCommandValidator(
@@ -38,7 +38,7 @@ class TestSystemCommandValidator:
     def test_message_contient_instruction_installation(self) -> None:
         """Le message d'erreur inclut l'instruction d'installation."""
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             return_value=None,
         ):
             validator = SystemCommandValidator(
@@ -54,7 +54,7 @@ class TestSystemCommandValidator:
             return "/usr/bin/borg" if cmd == "borg" else None
 
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             side_effect=which_side_effect,
         ):
             validator = SystemCommandValidator({
@@ -71,7 +71,7 @@ class TestSystemCommandValidator:
     ) -> None:
         """missing_commands() retourne [] si toutes trouvées."""
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             return_value="/usr/bin/x",
         ):
             validator = SystemCommandValidator({"x": "install x"})
@@ -82,7 +82,7 @@ class TestSystemCommandValidator:
     ) -> None:
         """missing_commands() retourne les noms manquants."""
         with patch(
-            "linux_python_utils.validation.system.shutil.which",
+            "linuxtools.validation.system.shutil.which",
             return_value=None,
         ):
             validator = SystemCommandValidator({

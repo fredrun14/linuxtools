@@ -9,14 +9,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linux_python_utils.dotconf import (
+from linuxtools.dotconf import (
     LinuxIniConfigManager,
     ValidatedSection,
     build_validators,
     parse_validator,
 )
-from linux_python_utils.dotconf.base import IniConfig
-from linux_python_utils.logging import FileLogger
+from linuxtools.dotconf.base import IniConfig
+from linuxtools.logging import FileLogger
 
 
 # Fixtures

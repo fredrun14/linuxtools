@@ -34,7 +34,7 @@ app.run()
 - **`ConsoleLogger`** — Implémentation légère de `Logger` écrivant sur stdout/stderr sans créer de fichier. Les `log_info()` vont sur stdout, `log_warning()` et `log_error()` sur stderr. Idéal pour les dry-run, scripts légers et tests.
 
 ```python
-from linux_python_utils import ConsoleLogger
+from linuxtools import ConsoleLogger
 
 logger = ConsoleLogger()
 logger.log_info("Démarrage...")      # → stdout

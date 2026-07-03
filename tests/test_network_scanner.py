@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.commands.base import (
+from linuxtools.commands.base import (
     CommandExecutor,
     CommandResult,
 )
-from linux_python_utils.network.config import NetworkConfig
-from linux_python_utils.network.scanner import (
+from linuxtools.network.config import NetworkConfig
+from linuxtools.network.scanner import (
     _detect_interface,
     LinuxArpScanner,
     LinuxNmapScanner,
@@ -101,7 +101,7 @@ class TestLinuxArpScanner:
         scanner, _ = self._make_scanner()
         config = NetworkConfig(cidr="192.168.1.0/24")
         with patch(
-            "linux_python_utils.network.scanner._detect_interface",
+            "linuxtools.network.scanner._detect_interface",
             return_value="",
         ):
             cmd = scanner._build_command(config)
@@ -229,7 +229,7 @@ class TestDetectInterface:
 
     def test_no_sys_net_returns_empty(self) -> None:
         """Retourne "" si /sys/class/net n'existe pas."""
-        with patch("linux_python_utils.network.scanner.Path") as mock_path:
+        with patch("linuxtools.network.scanner.Path") as mock_path:
             mock_net = mock_path.return_value
             mock_net.exists.return_value = False
             result = _detect_interface()
@@ -244,7 +244,7 @@ class TestDetectInterface:
         op_file.read_text.side_effect = OSError("no access")
         mock_iface.__truediv__ = lambda self, x: op_file
 
-        with patch("linux_python_utils.network.scanner.Path") as mock_path:
+        with patch("linuxtools.network.scanner.Path") as mock_path:
             mock_net = mock_path.return_value
             mock_net.exists.return_value = True
             mock_net.iterdir.return_value = [mock_iface]
@@ -260,7 +260,7 @@ class TestDetectInterface:
         op_file.read_text.return_value = "down"
         mock_iface.__truediv__ = lambda self, x: op_file
 
-        with patch("linux_python_utils.network.scanner.Path") as mock_path:
+        with patch("linuxtools.network.scanner.Path") as mock_path:
             mock_net = mock_path.return_value
             mock_net.exists.return_value = True
             mock_net.iterdir.return_value = [mock_iface]
@@ -287,7 +287,7 @@ class TestLinuxArpScannerAvecLogger:
         scanner = LinuxArpScanner()
         output = "bad-ip\t00:11:22:33:44:55\tVendor\n"
         with patch(
-            "linux_python_utils.network.scanner.NetworkDevice",
+            "linuxtools.network.scanner.NetworkDevice",
             side_effect=ValueError("bad ip")
         ):
             devices = scanner._parse_output(output)
@@ -312,7 +312,7 @@ class TestLinuxNmapScannerAvecLogger:
         """_parse_xml_output() ignore les hotes qui levent ValueError."""
         scanner = LinuxNmapScanner()
         with patch(
-            "linux_python_utils.network.scanner.NetworkDevice",
+            "linuxtools.network.scanner.NetworkDevice",
             side_effect=ValueError("bad")
         ):
             devices = scanner._parse_xml_output(NMAP_XML)

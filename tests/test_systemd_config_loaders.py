@@ -3,15 +3,15 @@
 import unittest
 from unittest.mock import Mock
 
-from linux_python_utils import (
+from linuxtools import (
     BashScriptConfig,
     MountConfig,
     NotificationConfig,
     ServiceConfig,
     TimerConfig,
 )
-from linux_python_utils.config import ConfigLoader, ConfigFileLoader
-from linux_python_utils.systemd.config_loaders import (
+from linuxtools.config import ConfigLoader, ConfigFileLoader
+from linuxtools.systemd.config_loaders import (
     BashScriptConfigLoader,
     MountConfigLoader,
     ServiceConfigLoader,
@@ -566,12 +566,12 @@ class TestConfigLoadersBaseImport:
 
     def test_import_service_loader(self) -> None:
         """ServiceConfigLoader est importable depuis config_loaders."""
-        from linux_python_utils.systemd.config_loaders import (  # noqa: F401
+        from linuxtools.systemd.config_loaders import (  # noqa: F401
             ServiceConfigLoader,
         )
 
     def test_import_mount_loader(self) -> None:
         """MountConfigLoader est importable depuis config_loaders."""
-        from linux_python_utils.systemd.config_loaders import (  # noqa: F401
+        from linuxtools.systemd.config_loaders import (  # noqa: F401
             MountConfigLoader,
         )

@@ -2,7 +2,7 @@
 
 import pytest
 
-from linux_python_utils.systemd.validators import (
+from linuxtools.systemd.validators import (
     reject_control_chars,
     validate_full_unit_name,
     validate_unit_name,

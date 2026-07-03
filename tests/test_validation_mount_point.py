@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from linux_python_utils.validation import PathCheckerMountPoint
+from linuxtools.validation import PathCheckerMountPoint
 
-_MODULE = "linux_python_utils.validation.path_checker_mount_point"
+_MODULE = "linuxtools.validation.path_checker_mount_point"
 
 
 class TestPathCheckerMountPoint:

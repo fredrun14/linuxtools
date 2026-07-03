@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from linux_python_utils.network.models import NetworkDevice
+from linuxtools.network.models import NetworkDevice
 
 
 class TestNetworkDevice:

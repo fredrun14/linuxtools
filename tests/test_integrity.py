@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.errors import IntegrityError
-from linux_python_utils.integrity import (
+from linuxtools.errors import IntegrityError
+from linuxtools.integrity import (
     SHA256IntegrityChecker,
     calculate_checksum,
 )
-from linux_python_utils.logging import FileLogger
+from linuxtools.logging import FileLogger
 
 
 class TestCalculateChecksum:

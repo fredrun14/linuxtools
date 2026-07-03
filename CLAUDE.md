@@ -2,7 +2,7 @@
 
 ## Projet
 
-**linux-python-utils** — bibliothèque utilitaire Python pour Linux (français).
+**linuxtools** — bibliothèque utilitaire Python pour Linux (français).
 
 - Python 3.11+ · stdlib uniquement · Linux only
 - Dépendances optionnelles : `pydantic>=2.0`, `python-dotenv`, `keyring`
@@ -25,12 +25,12 @@ pytest tests/test_foo.py::TestBar::test_baz -v  # test ciblé
 
 ## Architecture
 
-Voir `src/linux_python_utils/` et `README.md` (section "Modules disponibles") — un répertoire par domaine :
+Voir `src/linuxtools/` et `README.md` (section "Modules disponibles") — un répertoire par domaine :
 `logging`, `config`, `filesystem`, `systemd`, `commands`, `scripts`,
 `notification`, `integrity`, `dotconf`, `validation`, `errors`,
 `credentials`, `network`.
 
-API publique exportée depuis `src/linux_python_utils/__init__.py`.
+API publique exportée depuis `src/linuxtools/__init__.py`.
 
 ## Patterns clés
 
@@ -43,4 +43,4 @@ API publique exportée depuis `src/linux_python_utils/__init__.py`.
 Notes pédagogiques (public : développeur junior, apprentissage Python/SOLID/sécurité Linux).
 Une note par module + une vue d'ensemble. À mettre à jour après tout ajout/modification d'API publique.
 
-`/home/fred/Obsidian/Informatique/1-projets/package linux-python-utils/`
+`/home/fred/Obsidian/Informatique/1-projets/linux-python-utils/`

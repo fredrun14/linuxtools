@@ -4,8 +4,8 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 
-from linux_python_utils.network.models import NetworkDevice
-from linux_python_utils.network.repository import (
+from linuxtools.network.models import NetworkDevice
+from linuxtools.network.repository import (
     JsonDeviceRepository,
 )
 

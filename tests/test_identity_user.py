@@ -1,13 +1,13 @@
-"""Tests pour linux_python_utils.identity.user."""
+"""Tests pour linuxtools.identity.user."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.commands import LinuxCommandExecutor
-from linux_python_utils.errors import CommandExecutionError
-from linux_python_utils.identity.user import LinuxUserManager
-from linux_python_utils.logging.base import Logger
+from linuxtools.commands import LinuxCommandExecutor
+from linuxtools.errors import CommandExecutionError
+from linuxtools.identity.user import LinuxUserManager
+from linuxtools.logging.base import Logger
 
 
 def _result_ok() -> MagicMock:
@@ -56,7 +56,7 @@ class TestLinuxUserManagerEnsureUser:
 
         # Act
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             return_value=mock_pwd,
         ):
             manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
@@ -76,7 +76,7 @@ class TestLinuxUserManagerEnsureUser:
 
         # Act
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             return_value=mock_pwd,
         ):
             manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
@@ -97,7 +97,7 @@ class TestLinuxUserManagerEnsureUser:
         """Utilisateur absent → useradd."""
         # Act
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
             manager.ensure_user(
@@ -124,7 +124,7 @@ class TestLinuxUserManagerEnsureUser:
         """create_home=True → --create-home présent dans useradd."""
         # Act
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
             manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
@@ -149,7 +149,7 @@ class TestLinuxUserManagerEnsureUserGroups:
 
         # Act
         with patch(
-            "linux_python_utils.identity.user.grp.getgrnam",
+            "linuxtools.identity.user.grp.getgrnam",
             return_value=mock_grp,
         ):
             manager.ensure_user_groups("frederic", ["partage-lan"])
@@ -169,7 +169,7 @@ class TestLinuxUserManagerEnsureUserGroups:
 
         # Act
         with patch(
-            "linux_python_utils.identity.user.grp.getgrnam",
+            "linuxtools.identity.user.grp.getgrnam",
             return_value=mock_grp,
         ):
             manager.ensure_user_groups("frederic", ["partage-lan", "audio"])
@@ -195,7 +195,7 @@ class TestLinuxUserManagerEnsureUserGroups:
         pas d'appel executor."""
         # Act
         with patch(
-            "linux_python_utils.identity.user.grp.getgrnam",
+            "linuxtools.identity.user.grp.getgrnam",
             side_effect=KeyError("unknown-group"),
         ):
             manager.ensure_user_groups("frederic", ["unknown-group"])
@@ -212,7 +212,7 @@ class TestLinuxUserManagerEnsureUserGroups:
         """Tous les groupes absents → aucun appel executor (best-effort)."""
         # Act
         with patch(
-            "linux_python_utils.identity.user.grp.getgrnam",
+            "linuxtools.identity.user.grp.getgrnam",
             side_effect=KeyError("group"),
         ):
             manager.ensure_user_groups("frederic", ["absent1", "absent2"])
@@ -279,7 +279,7 @@ class TestLinuxUserManagerEchecCommande:
 
         # Act / Assert
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             return_value=mock_pwd,
         ):
             with pytest.raises(CommandExecutionError, match="usermod"):
@@ -296,7 +296,7 @@ class TestLinuxUserManagerEchecCommande:
 
         # Act / Assert
         with patch(
-            "linux_python_utils.identity.user.pwd.getpwnam",
+            "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
             with pytest.raises(CommandExecutionError, match="useradd"):
@@ -315,7 +315,7 @@ class TestLinuxUserManagerEchecCommande:
 
         # Act / Assert
         with patch(
-            "linux_python_utils.identity.user.grp.getgrnam",
+            "linuxtools.identity.user.grp.getgrnam",
             return_value=mock_grp,
         ):
             with pytest.raises(CommandExecutionError, match="usermod"):

@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from linux_python_utils.network.config import (
+from linuxtools.network.config import (
     DhcpRange,
     DnsConfig,
     NetworkConfig,

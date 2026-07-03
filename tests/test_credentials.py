@@ -10,28 +10,28 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.credentials.base import (
+from linuxtools.credentials.base import (
     CredentialProvider,
     CredentialStore,
 )
-from linux_python_utils.credentials.chain import CredentialChain
-from linux_python_utils.credentials.exceptions import (
+from linuxtools.credentials.chain import CredentialChain
+from linuxtools.credentials.exceptions import (
     CredentialNotFoundError,
     CredentialProviderUnavailableError,
     CredentialStoreError,
 )
-from linux_python_utils.credentials.manager import CredentialManager
-from linux_python_utils.credentials.models import (
+from linuxtools.credentials.manager import CredentialManager
+from linuxtools.credentials.models import (
     Credential,
     CredentialKey,
 )
-from linux_python_utils.credentials.providers.dotenv import (
+from linuxtools.credentials.providers.dotenv import (
     DotEnvCredentialProvider,
 )
-from linux_python_utils.credentials.providers.env import (
+from linuxtools.credentials.providers.env import (
     EnvCredentialProvider,
 )
-from linux_python_utils.credentials.providers.keyring import (
+from linuxtools.credentials.providers.keyring import (
     KeyringCredentialProvider,
 )
 

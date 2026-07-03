@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from linux_python_utils.validation import (
+from linuxtools.validation import (
     PathChecker,
     PathCheckerPermission,
     PathCheckerWorldWritable,
@@ -64,7 +64,7 @@ class TestPathCheckerPermission:
         """Vérifie PermissionError si l'écriture est impossible."""
         checker = PathCheckerPermission([str(tmp_path / "file.log")])
         with patch(
-            "linux_python_utils.validation.path_checker_permission"
+            "linuxtools.validation.path_checker_permission"
             ".os.access",
             return_value=False,
         ):

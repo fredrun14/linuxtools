@@ -2,18 +2,18 @@
 
 import pytest
 
-from linux_python_utils.network.config import (
+from linuxtools.network.config import (
     DhcpRange,
     NetworkConfig,
 )
-from linux_python_utils.network.dhcp import (
+from linuxtools.network.dhcp import (
     LinuxDhcpReservationManager,
 )
-from linux_python_utils.network.ip_utils import (
+from linuxtools.network.ip_utils import (
     _int_to_ip,
     _ip_to_int,
 )
-from linux_python_utils.network.models import NetworkDevice
+from linuxtools.network.models import NetworkDevice
 
 
 def _config(

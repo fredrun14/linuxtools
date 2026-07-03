@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.filesystem.backup import (
+from linuxtools.filesystem.backup import (
     LinuxFileBackup,
     copytree_secure,
 )
-from linux_python_utils.filesystem.linux import LinuxFileManager
+from linuxtools.filesystem.linux import LinuxFileManager
 
 
 class TestLinuxFileManager:
@@ -201,7 +201,7 @@ class TestLinuxFileBackup:
         logger = MagicMock()
         backup = LinuxFileBackup(logger)
         with patch(
-            "linux_python_utils.filesystem.backup._copy_secure",
+            "linuxtools.filesystem.backup._copy_secure",
             side_effect=OSError("disk error"),
         ):
             with pytest.raises(OSError):

@@ -4,7 +4,7 @@ import shlex
 
 import pytest
 
-from linux_python_utils.notification import NotificationConfig
+from linuxtools.notification import NotificationConfig
 
 
 @pytest.fixture

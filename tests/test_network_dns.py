@@ -1,14 +1,14 @@
 """Tests pour la gestion DNS locale."""
 
-from linux_python_utils.network.config import (
+from linuxtools.network.config import (
     DnsConfig,
     NetworkConfig,
 )
-from linux_python_utils.network.dns import (
+from linuxtools.network.dns import (
     LinuxDnsmasqConfigGenerator,
     LinuxHostsFileManager,
 )
-from linux_python_utils.network.models import NetworkDevice
+from linuxtools.network.models import NetworkDevice
 
 
 def _config(domain: str = "maison.local") -> NetworkConfig:

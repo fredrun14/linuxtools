@@ -12,12 +12,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from linux_python_utils.systemd import (
+from linuxtools.systemd import (
     MountConfig,
     AutomountConfig,
     LinuxMountUnitManager
 )
-from linux_python_utils.logging import Logger
+from linuxtools.logging import Logger
 
 
 class MockLogger(Logger):
@@ -678,7 +678,7 @@ class TestMountUnitManagerErrorPaths:
         executor.enable_unit.return_value = True
         executor.disable_unit.return_value = True
         executor.get_status.return_value = "inactive"
-        from linux_python_utils.systemd import LinuxMountUnitManager
+        from linuxtools.systemd import LinuxMountUnitManager
         manager = LinuxMountUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         return manager, logger, executor
@@ -688,7 +688,7 @@ class TestMountUnitManagerErrorPaths:
         from unittest.mock import patch
         manager, logger, _ = self._make_manager(tmp_path)
         with patch(
-            "linux_python_utils.systemd.mount.Path.mkdir",
+            "linuxtools.systemd.mount.Path.mkdir",
             side_effect=OSError("device busy")
         ):
             result = manager._ensure_mount_point("/mnt/test")
@@ -706,7 +706,7 @@ class TestMountUnitManagerErrorPaths:
             type="nfs"
         )
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("no write")
         ):
             result = manager.install_mount_unit(config)
@@ -732,7 +732,7 @@ class TestMountUnitManagerErrorPaths:
         mount_file = tmp_path / "mnt-test.mount"
         mount_file.write_text("[Unit]\n")
         with patch(
-            "linux_python_utils.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.remove",
             side_effect=PermissionError("no remove")
         ):
             result = manager.remove_mount_unit("/mnt/test")
@@ -745,7 +745,7 @@ class TestRemoveMountLogWarning:
     def _make_manager(self, tmp_path):
         """Crée un manager avec mocks."""
         from unittest.mock import MagicMock
-        from linux_python_utils.systemd import LinuxMountUnitManager
+        from linuxtools.systemd import LinuxMountUnitManager
         logger = MagicMock()
         executor = MagicMock()
         executor.reload_systemd.return_value = True

@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linux_python_utils.systemd.base import ServiceConfig
-from linux_python_utils.systemd.service import LinuxServiceUnitManager
-from linux_python_utils.systemd.user_service import LinuxUserServiceUnitManager
+from linuxtools.systemd.base import ServiceConfig
+from linuxtools.systemd.service import LinuxServiceUnitManager
+from linuxtools.systemd.user_service import LinuxUserServiceUnitManager
 
 
 class TestServiceConfig:
@@ -718,7 +718,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("Permission refusée")
         ):
             result = manager._write_unit_file("test.service", "[Unit]\n")
@@ -737,7 +737,7 @@ class TestUnitManagerErrorPaths:
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=err
         ):
             result = manager._write_unit_file("test.service", "[Unit]\n")
@@ -752,7 +752,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
-            "linux_python_utils.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.remove",
             side_effect=PermissionError("Permission refusée")
         ):
             result = manager._remove_unit_file("test.service")
@@ -769,7 +769,7 @@ class TestUnitManagerErrorPaths:
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
         with patch(
-            "linux_python_utils.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.remove",
             side_effect=err
         ):
             result = manager._remove_unit_file("test.service")
@@ -809,7 +809,7 @@ class TestUnitFileWriteErrorPaths:
             exec_start="/usr/bin/test-daemon"
         )
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit(config)
@@ -824,7 +824,7 @@ class TestUnitFileWriteErrorPaths:
             exec_start="/usr/bin/test-daemon"
         )
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit_with_name("my-service", config)
@@ -839,7 +839,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "my-service.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linux_python_utils.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.remove",
             side_effect=PermissionError("no remove")
         ):
             result = manager.remove_service_unit("my-service")
@@ -854,7 +854,7 @@ class TestUnitFileWriteErrorPaths:
             exec_start="/usr/bin/test-app"
         )
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit(config)
@@ -880,7 +880,7 @@ class TestUnitFileWriteErrorPaths:
             exec_start="/usr/bin/test-app"
         )
         with patch(
-            "linux_python_utils.systemd.base.os.open",
+            "linuxtools.systemd.base.os.open",
             side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit_with_name("user-svc", config)
@@ -895,7 +895,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "user-svc.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linux_python_utils.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.remove",
             side_effect=PermissionError("no remove")
         ):
             result = manager.remove_service_unit("user-svc")
@@ -986,7 +986,7 @@ class TestServiceToUnitFileSecurite:
 
     def test_rejette_newline_dans_description(self):
         """to_unit_file lève ValueError si description contient \\n."""
-        from linux_python_utils.systemd.base import ServiceConfig
+        from linuxtools.systemd.base import ServiceConfig
         config = ServiceConfig(
             description="desc\nExecStart=/bin/evil",
             exec_start="/usr/bin/foo",
@@ -996,7 +996,7 @@ class TestServiceToUnitFileSecurite:
 
     def test_rejette_newline_dans_exec_start(self):
         """to_unit_file lève ValueError si exec_start contient \\n."""
-        from linux_python_utils.systemd.base import ServiceConfig
+        from linuxtools.systemd.base import ServiceConfig
         config = ServiceConfig(
             description="service légitime",
             exec_start="/usr/bin/foo\nExecStart=/bin/evil",
@@ -1006,7 +1006,7 @@ class TestServiceToUnitFileSecurite:
 
     def test_rejette_newline_dans_user(self):
         """to_unit_file lève ValueError si user contient \\n."""
-        from linux_python_utils.systemd.base import ServiceConfig
+        from linuxtools.systemd.base import ServiceConfig
         config = ServiceConfig(
             description="svc",
             exec_start="/usr/bin/foo",

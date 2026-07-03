@@ -2,7 +2,7 @@
 
 import pytest
 
-from linux_python_utils.network.validators import (
+from linuxtools.network.validators import (
     validate_cidr,
     validate_hostname,
     validate_ipv4,

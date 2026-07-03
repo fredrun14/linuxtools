@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linux_python_utils.systemd.base import TimerConfig
-from linux_python_utils.systemd.timer import LinuxTimerUnitManager
-from linux_python_utils.systemd.user_timer import LinuxUserTimerUnitManager
+from linuxtools.systemd.base import TimerConfig
+from linuxtools.systemd.timer import LinuxTimerUnitManager
+from linuxtools.systemd.user_timer import LinuxUserTimerUnitManager
 
 
 class TestTimerConfig:
@@ -661,7 +661,7 @@ class TestTimerToUnitFileSecurite:
 
     def test_rejette_newline_dans_description(self):
         """to_unit_file lève ValueError si description contient \\n."""
-        from linux_python_utils.systemd.base import TimerConfig
+        from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(
             description="timer\nExecStart=/bin/evil",
             unit="backup.service",
@@ -672,7 +672,7 @@ class TestTimerToUnitFileSecurite:
 
     def test_rejette_newline_dans_on_calendar(self):
         """to_unit_file lève ValueError si on_calendar contient \\n."""
-        from linux_python_utils.systemd.base import TimerConfig
+        from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(
             description="timer",
             unit="backup.service",
@@ -683,7 +683,7 @@ class TestTimerToUnitFileSecurite:
 
     def test_rejette_newline_dans_unit(self):
         """to_unit_file lève ValueError si unit contient \\n."""
-        from linux_python_utils.systemd.base import TimerConfig
+        from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(
             description="timer",
             unit="backup.service\nExecStart=/bin/evil",

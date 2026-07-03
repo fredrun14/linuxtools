@@ -3,12 +3,12 @@
 import unittest
 from unittest.mock import Mock
 
-from linux_python_utils import (
+from linuxtools import (
     BashScriptConfig,
     Logger,
     SystemdScheduledTaskInstaller,
 )
-from linux_python_utils.systemd import ServiceConfig, TimerConfig
+from linuxtools.systemd import ServiceConfig, TimerConfig
 
 
 class TestSystemdScheduledTaskInstaller(unittest.TestCase):

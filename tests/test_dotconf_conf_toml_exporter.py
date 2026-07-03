@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from linux_python_utils.dotconf import ConfTomlExporter
-from linux_python_utils.dotconf.toml_spec_loader import TomlSpecLoader
+from linuxtools.dotconf import ConfTomlExporter
+from linuxtools.dotconf.toml_spec_loader import TomlSpecLoader
 
 
 @pytest.fixture

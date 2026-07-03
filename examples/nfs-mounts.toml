@@ -1,6 +1,6 @@
 # Configuration des montages réseau
 # Exemple de fichier de configuration pour les montages NFS, CIFS, etc.
-# À utiliser avec un script externe qui importe linux_python_utils
+# À utiliser avec un script externe qui importe linuxtools
 
 # Options par défaut pour les différents types de montages
 [nfs]
@@ -54,7 +54,7 @@ options = "allow_other,default_permissions,IdentityFile=/home/user/.ssh/id_rsa"
 
 # Exemple de script Python utilisant cette configuration:
 #
-# from linux_python_utils import (
+# from linuxtools import (
 #     FileLogger,
 #     ConfigurationManager,
 #     LinuxSystemdServiceManager,

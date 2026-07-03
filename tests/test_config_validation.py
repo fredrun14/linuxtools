@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from pydantic import BaseModel, field_validator
 
-from linux_python_utils.config import FileConfigLoader
+from linuxtools.config import FileConfigLoader
 
 
 class SampleConfig(BaseModel):
@@ -154,7 +154,7 @@ class TestConfigurationManagerValidate(unittest.TestCase):
 
     def test_validate_retourne_instance_modele(self):
         """validate() retourne une instance du modèle Pydantic."""
-        from linux_python_utils.config import ConfigurationManager
+        from linuxtools.config import ConfigurationManager
         cfg = ConfigurationManager(
             default_config={"name": "test", "count": 42}
         )
@@ -166,7 +166,7 @@ class TestConfigurationManagerValidate(unittest.TestCase):
     def test_validate_config_invalide_leve_validation_error(self):
         """Config invalide lève pydantic.ValidationError."""
         from pydantic import ValidationError
-        from linux_python_utils.config import ConfigurationManager
+        from linuxtools.config import ConfigurationManager
         cfg = ConfigurationManager(
             default_config={"name": "test", "count": "pas_un_int"}
         )
@@ -175,7 +175,7 @@ class TestConfigurationManagerValidate(unittest.TestCase):
 
     def test_validate_schema_non_basemodel_leve_type_error(self):
         """Schema non-BaseModel lève TypeError."""
-        from linux_python_utils.config import ConfigurationManager
+        from linuxtools.config import ConfigurationManager
         cfg = ConfigurationManager(
             default_config={"name": "test"}
         )

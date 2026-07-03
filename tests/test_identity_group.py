@@ -1,13 +1,13 @@
-"""Tests pour linux_python_utils.identity.group."""
+"""Tests pour linuxtools.identity.group."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.commands import LinuxCommandExecutor
-from linux_python_utils.errors import CommandExecutionError
-from linux_python_utils.identity.group import LinuxGroupManager
-from linux_python_utils.logging.base import Logger
+from linuxtools.commands import LinuxCommandExecutor
+from linuxtools.errors import CommandExecutionError
+from linuxtools.identity.group import LinuxGroupManager
+from linuxtools.logging.base import Logger
 
 
 def _result_ok() -> MagicMock:
@@ -56,7 +56,7 @@ class TestLinuxGroupManagerEnsureGroup:
 
         # Act
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             return_value=mock_grp,
         ):
             manager.ensure_group("partage-lan", 1042)
@@ -76,7 +76,7 @@ class TestLinuxGroupManagerEnsureGroup:
 
         # Act
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             return_value=mock_grp,
         ):
             manager.ensure_group("partage-lan", 1042)
@@ -97,7 +97,7 @@ class TestLinuxGroupManagerEnsureGroup:
         """Groupe absent → groupadd --gid."""
         # Act
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             side_effect=KeyError("partage-lan"),
         ):
             manager.ensure_group("partage-lan", 1042)
@@ -123,7 +123,7 @@ class TestLinuxGroupManagerEnsureGroup:
 
         # Act / Assert
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             return_value=mock_grp,
         ):
             with pytest.raises(CommandExecutionError, match="groupmod"):
@@ -140,7 +140,7 @@ class TestLinuxGroupManagerEnsureGroup:
 
         # Act / Assert
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             side_effect=KeyError("partage-lan"),
         ):
             with pytest.raises(CommandExecutionError, match="groupadd"):
@@ -181,7 +181,7 @@ class TestLinuxGroupManagerValidation:
     ) -> None:
         """Nom Unix valide (tiret interne, underscore) passe la validation."""
         with patch(
-            "linux_python_utils.identity.group.grp.getgrnam",
+            "linuxtools.identity.group.grp.getgrnam",
             side_effect=KeyError("partage-lan"),
         ):
             manager.ensure_group("partage-lan_2", 1042)

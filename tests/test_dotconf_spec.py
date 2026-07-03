@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from linux_python_utils.dotconf.spec import ConfigBlock, ConfigSpec
+from linuxtools.dotconf.spec import ConfigBlock, ConfigSpec
 
 
 class TestConfigBlock:

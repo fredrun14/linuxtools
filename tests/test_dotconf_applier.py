@@ -3,8 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from linux_python_utils.dotconf.applier import ConfigApplier
-from linux_python_utils.dotconf.spec import ConfigBlock, ConfigSpec
+from linuxtools.dotconf.applier import ConfigApplier
+from linuxtools.dotconf.spec import ConfigBlock, ConfigSpec
 
 
 def _make_spec(

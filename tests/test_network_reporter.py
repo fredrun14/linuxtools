@@ -4,8 +4,8 @@ import csv
 import io
 import json
 
-from linux_python_utils.network.models import NetworkDevice
-from linux_python_utils.network.reporter import (
+from linuxtools.network.models import NetworkDevice
+from linuxtools.network.reporter import (
     ConsoleTableReporter,
     CsvReporter,
     DiffReporter,

@@ -1,1 +1,1 @@
-"""Tests pour linux_python_utils."""
+"""Tests pour linuxtools."""

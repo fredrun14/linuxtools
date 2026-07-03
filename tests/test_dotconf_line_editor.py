@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from linux_python_utils.dotconf import SectionAwareEditor
+from linuxtools.dotconf import SectionAwareEditor
 
 
 # ---------------------------------------------------------------------------

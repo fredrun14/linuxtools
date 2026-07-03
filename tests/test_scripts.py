@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.notification import NotificationConfig
-from linux_python_utils.scripts import (
+from linuxtools.notification import NotificationConfig
+from linuxtools.scripts import (
     BashScriptConfig,
     BashScriptInstaller,
     PythonCliConfig,
@@ -454,7 +454,7 @@ class TestScriptPaths:
     def test_user_data_dir_ends_with_app_name(self):
         """Vérifie que data_dir se termine par le nom de l'app (user)."""
         with patch(
-            "linux_python_utils.scripts.paths.user_data_dir",
+            "linuxtools.scripts.paths.user_data_dir",
             return_value="/home/user/.local/share/mon-app",
         ):
             paths = ScriptPaths("mon-app", "user")
@@ -463,7 +463,7 @@ class TestScriptPaths:
     def test_system_data_dir_returns_usr_local_share(self):
         """Vérifie que data_dir pointe vers /usr/local/share (system)."""
         with patch(
-            "linux_python_utils.scripts.paths.site_data_dir",
+            "linuxtools.scripts.paths.site_data_dir",
             return_value="/usr/local/share/mon-app",
         ):
             paths = ScriptPaths("mon-app", "system")
@@ -472,7 +472,7 @@ class TestScriptPaths:
     def test_user_bin_path_returns_local_bin(self):
         """Vérifie que bin_path est dans ~/.local/bin (user)."""
         with patch(
-            "linux_python_utils.scripts.paths.Path.home",
+            "linuxtools.scripts.paths.Path.home",
             return_value=Path("/home/user"),
         ):
             paths = ScriptPaths("mon-app", "user")
@@ -481,7 +481,7 @@ class TestScriptPaths:
     def test_system_bin_path_returns_usr_local_bin(self):
         """Vérifie que bin_path est dans /usr/local/bin (system)."""
         with patch(
-            "linux_python_utils.scripts.paths.site_data_dir",
+            "linuxtools.scripts.paths.site_data_dir",
             return_value="/usr/local/share/mon-app",
         ):
             paths = ScriptPaths("mon-app", "system")
@@ -490,7 +490,7 @@ class TestScriptPaths:
     def test_venv_dir_is_inside_data_dir(self):
         """Vérifie que venv_dir est un sous-répertoire de data_dir."""
         with patch(
-            "linux_python_utils.scripts.paths.user_data_dir",
+            "linuxtools.scripts.paths.user_data_dir",
             return_value="/home/user/.local/share/app",
         ):
             paths = ScriptPaths("app", "user")
@@ -499,7 +499,7 @@ class TestScriptPaths:
     def test_wrapper_path_equals_bin_path(self):
         """Vérifie que wrapper_path est un alias de bin_path."""
         with patch(
-            "linux_python_utils.scripts.paths.user_data_dir",
+            "linuxtools.scripts.paths.user_data_dir",
             return_value="/home/user/.local/share/app",
         ):
             paths = ScriptPaths("app", "user")
@@ -508,7 +508,7 @@ class TestScriptPaths:
     def test_user_config_dir_returns_dot_config(self):
         """Vérifie config_dir pour user."""
         with patch(
-            "linux_python_utils.scripts.paths.user_data_dir",
+            "linuxtools.scripts.paths.user_data_dir",
             return_value="/home/user/.local/share/app",
         ):
             paths = ScriptPaths("app", "user")
@@ -518,7 +518,7 @@ class TestScriptPaths:
     def test_system_config_dir_returns_etc(self):
         """Vérifie config_dir pour system."""
         with patch(
-            "linux_python_utils.scripts.paths.site_data_dir",
+            "linuxtools.scripts.paths.site_data_dir",
             return_value="/usr/local/share/app",
         ):
             paths = ScriptPaths("app", "system")
@@ -802,7 +802,7 @@ class TestLinuxCliInstaller:
         self.checker.check_python.return_value = False
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
@@ -816,7 +816,7 @@ class TestLinuxCliInstaller:
         )
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
@@ -833,7 +833,7 @@ class TestLinuxCliInstaller:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, \
              patch("subprocess.run") as mock_run:
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -854,7 +854,7 @@ class TestLinuxCliInstaller:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, \
              patch("subprocess.run") as mock_run, \
              patch.object(
@@ -876,7 +876,7 @@ class TestLinuxCliInstaller:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, \
              patch("subprocess.run") as mock_run, \
              patch.object(
@@ -908,15 +908,15 @@ class TestLinuxCliInstaller:
             name="app", deploy_type="system", source_dir=tmp_path
         )
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, \
              patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ), \
              patch(
-                 "linux_python_utils.scripts.installer.os.geteuid",
+                 "linuxtools.scripts.installer.os.geteuid",
                  return_value=euid,
              ):
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -949,7 +949,7 @@ class TestLinuxCliInstaller:
         )
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, \
              patch("subprocess.run") as mock_run:
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -961,7 +961,7 @@ class TestLinuxCliInstaller:
     def test_find_uv_prefere_le_path(self, tmp_path):
         """_find_uv retourne le résultat de shutil.which en priorité."""
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value="/usr/bin/uv",
         ):
             assert self.installer._find_uv() == "/usr/bin/uv"
@@ -973,13 +973,13 @@ class TestLinuxCliInstaller:
         fake_uv.write_text("#!/bin/sh\n")
         fake_uv.chmod(0o755)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value=None,
         ), patch(
-            "linux_python_utils.scripts.installer.Path.home",
+            "linuxtools.scripts.installer.Path.home",
             return_value=tmp_path,
         ), patch.dict(
-            "linux_python_utils.scripts.installer.os.environ", {}, clear=True
+            "linuxtools.scripts.installer.os.environ", {}, clear=True
         ):
             assert self.installer._find_uv() == str(fake_uv)
 
@@ -993,17 +993,17 @@ class TestLinuxCliInstaller:
         pw = MagicMock()
         pw.pw_dir = str(sudo_home)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value=None,
         ), patch(
-            "linux_python_utils.scripts.installer.Path.home",
+            "linuxtools.scripts.installer.Path.home",
             return_value=tmp_path / "roothome",
         ), patch.dict(
-            "linux_python_utils.scripts.installer.os.environ",
+            "linuxtools.scripts.installer.os.environ",
             {"SUDO_USER": "fred"},
             clear=True,
         ), patch(
-            "linux_python_utils.scripts.installer.pwd.getpwnam",
+            "linuxtools.scripts.installer.pwd.getpwnam",
             return_value=pw,
         ):
             assert self.installer._find_uv() == str(fake_uv)
@@ -1011,13 +1011,13 @@ class TestLinuxCliInstaller:
     def test_find_uv_introuvable_retourne_none(self, tmp_path):
         """_find_uv retourne None si uv n'est nulle part."""
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value=None,
         ), patch(
-            "linux_python_utils.scripts.installer.Path.home",
+            "linuxtools.scripts.installer.Path.home",
             return_value=tmp_path / "empty",
         ), patch.dict(
-            "linux_python_utils.scripts.installer.os.environ", {}, clear=True
+            "linuxtools.scripts.installer.os.environ", {}, clear=True
         ):
             assert self.installer._find_uv() is None
 
@@ -1084,7 +1084,7 @@ class TestLinuxCliInstallerWrapper:
             name="app", deploy_type="user", source_dir=tmp_path
         )
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch.object(
             self.installer,
             "_write_wrapper",
@@ -1415,10 +1415,10 @@ class TestLinuxCliInstallerEdgeCases:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ):
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -1442,10 +1442,10 @@ class TestLinuxCliInstallerEdgeCases:
             source_dir=tmp_path, venv_path=venv,
         )
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ):
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -1464,13 +1464,13 @@ class TestLinuxCliInstallerEdgeCases:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ), patch(
-                 "linux_python_utils.scripts.installer.sys.stdin.isatty",
+                 "linuxtools.scripts.installer.sys.stdin.isatty",
                  return_value=False,
              ), patch.object(
                  self.installer, "_write_wrapper"
@@ -1492,9 +1492,9 @@ class TestLinuxCliInstallerEdgeCases:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch(
-            "linux_python_utils.scripts.installer.sys.stdin.isatty",
+            "linuxtools.scripts.installer.sys.stdin.isatty",
             return_value=True,
         ), patch("builtins.input", return_value="n"), \
              patch("builtins.print"):
@@ -1506,10 +1506,10 @@ class TestLinuxCliInstallerEdgeCases:
     def test_candidate_homes_sudo_user_keyerror(self):
         """_candidate_homes ignore KeyError si SUDO_USER est invalide."""
         with patch.dict(
-            "linux_python_utils.scripts.installer.os.environ",
+            "linuxtools.scripts.installer.os.environ",
             {"SUDO_USER": "ghost"},
         ), patch(
-            "linux_python_utils.scripts.installer.pwd.getpwnam",
+            "linuxtools.scripts.installer.pwd.getpwnam",
             side_effect=KeyError("ghost"),
         ):
             homes = self.installer._candidate_homes()
@@ -1519,7 +1519,7 @@ class TestLinuxCliInstallerEdgeCases:
         """_run_uv_install retourne False si uv binaire non trouvé."""
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value="/fake/uv",
         ), patch(
             "subprocess.run", side_effect=FileNotFoundError
@@ -1532,7 +1532,7 @@ class TestLinuxCliInstallerEdgeCases:
         """_run_uv_install retourne False sur returncode != 0 sans logger."""
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value="/usr/bin/uv",
         ), patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
@@ -1544,13 +1544,13 @@ class TestLinuxCliInstallerEdgeCases:
         """_run_uv_install retourne False si uv introuvable sans logger."""
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value=None,
         ), patch(
-            "linux_python_utils.scripts.installer.Path.home",
+            "linuxtools.scripts.installer.Path.home",
             return_value=tmp_path / "empty",
         ), patch.dict(
-            "linux_python_utils.scripts.installer.os.environ", {}, clear=True
+            "linuxtools.scripts.installer.os.environ", {}, clear=True
         ):
             assert self.installer._run_uv_install(config) is False
 
@@ -1569,7 +1569,7 @@ class TestLinuxCliInstallerEdgeCases:
         )
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
@@ -1591,10 +1591,10 @@ class TestLinuxCliInstallerEdgeCases:
             source_dir=tmp_path, venv_path=venv,
         )
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ):
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -1616,16 +1616,16 @@ class TestLinuxCliInstallerEdgeCases:
         checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch(
-            "linux_python_utils.scripts.installer.sys.stdin.isatty",
+            "linuxtools.scripts.installer.sys.stdin.isatty",
             return_value=True,
         ), patch("builtins.input", return_value="o"), \
              patch("builtins.print"), patch.object(
                  installer, "_write_wrapper"
              ) as mock_write, patch("subprocess.run") as mock_run, \
              patch(
-                 "linux_python_utils.scripts.installer.shutil.which",
+                 "linuxtools.scripts.installer.shutil.which",
                  return_value="/usr/bin/uv",
              ):
             mock_cls.return_value = self._patch_paths(tmp_path)
@@ -1645,7 +1645,7 @@ class TestLinuxCliInstallerEdgeCases:
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.ScriptPaths"
+            "linuxtools.scripts.installer.ScriptPaths"
         ) as mock_cls, patch.object(
             self.installer,
             "_write_wrapper",
@@ -1663,13 +1663,13 @@ class TestLinuxCliInstallerEdgeCases:
         installer = LinuxCliInstaller(logger, MagicMock())
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value=None,
         ), patch(
-            "linux_python_utils.scripts.installer.Path.home",
+            "linuxtools.scripts.installer.Path.home",
             return_value=tmp_path / "empty",
         ), patch.dict(
-            "linux_python_utils.scripts.installer.os.environ", {}, clear=True
+            "linuxtools.scripts.installer.os.environ", {}, clear=True
         ):
             assert installer._run_uv_install(config) is False
         logger.log_error.assert_called()
@@ -1680,7 +1680,7 @@ class TestLinuxCliInstallerEdgeCases:
         installer = LinuxCliInstaller(logger, MagicMock())
         config = self._user_config(tmp_path)
         with patch(
-            "linux_python_utils.scripts.installer.shutil.which",
+            "linuxtools.scripts.installer.shutil.which",
             return_value="/fake/uv",
         ), patch("subprocess.run", side_effect=FileNotFoundError):
             assert installer._run_uv_install(config) is False

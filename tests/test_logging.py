@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linux_python_utils.logging import (
+from linuxtools.logging import (
     AnsiColors,
     build_logger,
     ConsoleLogger,
@@ -19,8 +19,8 @@ from linux_python_utils.logging import (
     RotatingFileLogger,
     TeeStream,
 )
-from linux_python_utils.logging.file_logger import _BaseFileLogger
-from linux_python_utils.logging.security_logger import (
+from linuxtools.logging.file_logger import _BaseFileLogger
+from linuxtools.logging.security_logger import (
     SecurityEvent,
     SecurityEventType,
     SecurityLogger,

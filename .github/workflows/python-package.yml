@@ -25,7 +25,7 @@ jobs:
           pip install pycodestyle
 
       - name: Check PEP8 compliance
-        run: pycodestyle linux_python_utils/
+        run: pycodestyle linuxtools/
 
   test:
     runs-on: ubuntu-latest

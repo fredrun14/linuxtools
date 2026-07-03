@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.config import FileConfigLoader, ConfigurationManager
+from linuxtools.config import FileConfigLoader, ConfigurationManager
 
 
 class TestLoadConfig:

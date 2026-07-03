@@ -11,23 +11,23 @@ import socket
 
 import pytest
 
-from linux_python_utils.network.models import NetworkDevice
-from linux_python_utils.network.vendors import _infer_type_from_vendor
+from linuxtools.network.models import NetworkDevice
+from linuxtools.network.vendors import _infer_type_from_vendor
 
-from linux_python_utils.network.config import NetworkConfig, DhcpRange
-from linux_python_utils.network.ip_utils import (
+from linuxtools.network.config import NetworkConfig, DhcpRange
+from linuxtools.network.ip_utils import (
     _int_to_ip,
     _ip_to_int,
     _next_available_ip,
 )
-from linux_python_utils.network.router import (
+from linuxtools.network.router import (
     AsusRouterClient,
     AsusRouterDhcpManager,
     AsusRouterScanner,
     RouterAuthError,
     RouterConfig,
 )
-from linux_python_utils.network.router._nvram import _parse_custom_clientlist
+from linuxtools.network.router._nvram import _parse_custom_clientlist
 
 
 # ---------------------------------------------------------------------------
@@ -1123,7 +1123,7 @@ class TestAsusRouterClientHook:
         mock_resp.__exit__ = MagicMock(return_value=False)
 
         with patch(
-            "linux_python_utils.network.router.client.urllib.request.urlopen",
+            "linuxtools.network.router.client.urllib.request.urlopen",
             return_value=mock_resp
         ):
             result = client._hook("get_clientlist(appobj)")
@@ -1137,7 +1137,7 @@ class TestAsusRouterClientHook:
         client._token = "fake-token"
 
         with patch(
-            "linux_python_utils.network.router.client.urllib.request.urlopen",
+            "linuxtools.network.router.client.urllib.request.urlopen",
             side_effect=Exception("network error")
         ):
             with pytest.raises(RuntimeError, match="hook"):
@@ -1194,7 +1194,7 @@ class TestAsusRouterDhcpManagerEdgeCases:
 
         mgr = AsusRouterDhcpManager(network_config, router_config)
         with patch(
-            "linux_python_utils.network.router.dhcp.NetworkDevice",
+            "linuxtools.network.router.dhcp.NetworkDevice",
             side_effect=ValueError("bad mac")
         ):
             result = mgr._parse_nvram_staticlist(

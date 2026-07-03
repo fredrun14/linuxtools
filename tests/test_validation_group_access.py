@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linux_python_utils.validation.path_checker_group_access import (
+from linuxtools.validation.path_checker_group_access import (
     PathCheckerGroupAccess,
 )
 
@@ -40,7 +40,7 @@ def _grp_entry(gid: int) -> MagicMock:
 def mock_getgrnam():
     """Patch grp.getgrnam → GID 1001 pour 'ff_home'."""
     with patch(
-        "linux_python_utils.validation"
+        "linuxtools.validation"
         ".path_checker_group_access.grp.getgrnam",
         return_value=_grp_entry(GID_FF_HOME),
     ) as m:
@@ -54,7 +54,7 @@ class TestPathCheckerGroupAccess:
         """validate() silencieux si groupe, rwx et setgid corrects."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, MODE_SETGID_RWX),
         ):
@@ -64,7 +64,7 @@ class TestPathCheckerGroupAccess:
         """FileNotFoundError si le répertoire n'existe pas."""
         checker = PathCheckerGroupAccess("/inexistant", "ff_home")
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             side_effect=FileNotFoundError,
         ):
@@ -74,7 +74,7 @@ class TestPathCheckerGroupAccess:
     def test_validate_groupe_inconnu_leve_key_error(self) -> None:
         """KeyError si le groupe n'existe pas sur le système."""
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.grp.getgrnam",
             side_effect=KeyError("ff_home"),
         ):
@@ -86,7 +86,7 @@ class TestPathCheckerGroupAccess:
         """PermissionError si le répertoire n'appartient pas au groupe."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(9999, MODE_SETGID_RWX),
         ):
@@ -99,12 +99,12 @@ class TestPathCheckerGroupAccess:
         """Le message indique le groupe réel et le groupe attendu."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(9999, MODE_SETGID_RWX),
         ):
             with patch(
-                "linux_python_utils.validation"
+                "linuxtools.validation"
                 ".path_checker_group_access.grp.getgrgid",
                 return_value=_grp_entry(9999),
             ):
@@ -119,7 +119,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
@@ -133,7 +133,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
@@ -150,7 +150,7 @@ class TestPathCheckerGroupAccess:
         )
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP  # sans setgid
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
@@ -166,7 +166,7 @@ class TestPathCheckerGroupAccess:
         )
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP  # sans setgid
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
@@ -179,7 +179,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
         with patch(
-            "linux_python_utils.validation"
+            "linuxtools.validation"
             ".path_checker_group_access.os.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):

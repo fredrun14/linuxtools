@@ -78,8 +78,8 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 
 ```bash
 # 1. Cloner le repository
-git clone https://github.com/user/linux-python-utils.git
-cd linux-python-utils
+git clone https://github.com/user/linuxtools.git
+cd linuxtools
 
 # 2. Créer un environnement virtuel
 python -m venv venv
@@ -99,21 +99,21 @@ pip install -e ".[dev]"          # tous les outils de développement
 
 ```bash
 # Depuis GitHub
-pip install git+https://github.com/user/linux-python-utils.git
+pip install git+https://github.com/user/linuxtools.git
 
 # Avec extras
-pip install "git+https://github.com/user/linux-python-utils.git[credentials]"
-pip install "git+https://github.com/user/linux-python-utils.git[validation,credentials]"
+pip install "git+https://github.com/user/linuxtools.git[credentials]"
+pip install "git+https://github.com/user/linuxtools.git[validation,credentials]"
 ```
 
 ### Installation sans accès Git (copie directe)
 
 ```bash
 # Sur la machine source : copier le répertoire du projet
-scp -r linux-python-utils/ user@autrepc:~/
+scp -r linuxtools/ user@autrepc:~/
 
 # Sur l'autre machine
-cd linux-python-utils
+cd linuxtools
 python -m venv venv
 source venv/bin/activate
 pip install -e .
@@ -128,30 +128,30 @@ Fedora protège le Python système — `sudo pip install` est à éviter. Trois 
 cd mon-projet/
 python -m venv .venv
 source .venv/bin/activate
-pip install git+https://github.com/user/linux-python-utils.git
+pip install git+https://github.com/user/linuxtools.git
 ```
 
 **Niveau utilisateur** (disponible dans tous tes scripts sans activation de venv) :
 ```bash
-pip install --user git+https://github.com/user/linux-python-utils.git
+pip install --user git+https://github.com/user/linuxtools.git
 # Installé dans ~/.local/lib/python3.x/site-packages/
 ```
 
 **venv dédié** (si la bibliothèque est partagée entre plusieurs scripts perso) :
 ```bash
-python -m venv ~/.local/venvs/linux-python-utils
-~/.local/venvs/linux-python-utils/bin/pip install git+https://github.com/user/linux-python-utils.git
+python -m venv ~/.local/venvs/linuxtools
+~/.local/venvs/linuxtools/bin/pip install git+https://github.com/user/linuxtools.git
 ```
 Puis dans chaque script :
 ```python
-#!/usr/bin/env ~/.local/venvs/linux-python-utils/bin/python
+#!/usr/bin/env ~/.local/venvs/linuxtools/bin/python
 ```
 
 ### Vérification de l'Installation
 
 ```python
-import linux_python_utils
-print(linux_python_utils.__version__)  # 1.6.0
+import linuxtools
+print(linuxtools.__version__)  # 1.6.0
 ```
 
 ## 🏗️ Architecture Globale
@@ -160,7 +160,7 @@ print(linux_python_utils.__version__)  # 1.6.0
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                              linux-python-utils  v1.5                            │
+│                              linuxtools  v1.5                            │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │  MODULES                                                                         │
 │                                                                                  │
@@ -253,8 +253,8 @@ mount_mgr = LinuxMountUnitManager(MockLogger(), MockExecutor(MockLogger()))
 ## 🗂️ Structure du Projet
 
 ```
-linux-python-utils/
-├── src/linux_python_utils/
+linuxtools/
+├── src/linuxtools/
 │   ├── __init__.py              # Exports publics
 │   ├── logging/
 │   │   ├── __init__.py
@@ -415,7 +415,7 @@ Système de logging robuste avec quatre implémentations (`FileLogger`, `Rotatin
 ### Utilisation
 
 ```python
-from linux_python_utils import FileLogger, ConsoleLogger
+from linuxtools import FileLogger, ConsoleLogger
 
 # Logger fichier (UTF-8, flush immédiat)
 logger = FileLogger("/var/log/myapp.log")
@@ -439,7 +439,7 @@ console.log_error("Échec")           # → stderr : ERROR: Échec
 Même API que `FileLogger`, avec rotation automatique quand le fichier dépasse `max_bytes`. Chaque nouveau fichier (post-rotation inclus) est ouvert via `O_NOFOLLOW | 0o600` — protection TOCTOU préservée.
 
 ```python
-from linux_python_utils.logging import RotatingFileLogger
+from linuxtools.logging import RotatingFileLogger
 
 logger = RotatingFileLogger(
     "/var/log/myapp/run.log",
@@ -466,8 +466,8 @@ console_output = true
 ```
 
 ```python
-from linux_python_utils.config import ConfigurationManager
-from linux_python_utils.logging import build_logger
+from linuxtools.config import ConfigurationManager
+from linuxtools.logging import build_logger
 
 cfg = ConfigurationManager("app.toml")
 logger = build_logger(cfg.get_section("logging"))
@@ -481,7 +481,7 @@ Types supportés : `"file"` | `"console"` | `"rotating"` (défaut : `"console"`)
 Journalise les événements de sécurité en JSON structuré (SIEM-ready). Respecte le DIP : dépend de l'abstraction `Logger`, pas d'une implémentation concrète.
 
 ```python
-from linux_python_utils.logging import (
+from linuxtools.logging import (
     SecurityLogger,
     SecurityEvent,
     SecurityEventType,
@@ -567,7 +567,7 @@ sys.stdout.write("hello")
 
 ```python
 import sys
-from linux_python_utils.logging import TeeStream
+from linuxtools.logging import TeeStream
 
 log_fh = open("/var/log/myapp.log", "a", encoding="utf-8")
 original_stdout, original_stderr = sys.stdout, sys.stderr
@@ -656,7 +656,7 @@ Gestion centralisée des erreurs via une hiérarchie d'exceptions et une chaîne
 ### Utilisation
 
 ```python
-from linux_python_utils.errors import (
+from linuxtools.errors import (
     ApplicationError,
     ConfigurationError,
     ErrorHandlerChain,
@@ -664,7 +664,7 @@ from linux_python_utils.errors import (
     LoggerErrorHandler,
     ErrorContext,
 )
-from linux_python_utils import FileLogger
+from linuxtools import FileLogger
 
 # Construire une chaîne de handlers
 logger = FileLogger("/var/log/myapp.log")
@@ -763,7 +763,7 @@ Chargement et gestion de configuration TOML et JSON.
 #### Classe `FileConfigLoader`
 
 ```python
-from linux_python_utils import FileConfigLoader
+from linuxtools import FileConfigLoader
 
 # Chargement TOML ou JSON (détection automatique)
 loader = FileConfigLoader()
@@ -774,7 +774,7 @@ print(config["section"]["key"])
 #### Classe `ConfigurationManager`
 
 ```python
-from linux_python_utils import ConfigurationManager
+from linuxtools import ConfigurationManager
 
 # Configuration par défaut avec profils
 DEFAULT_CONFIG = {
@@ -824,7 +824,7 @@ destination = "/media/nas/backup/home"
 **Pattern recommandé — XdgAppConfig + ConfigurationManager :**
 
 ```python
-from linux_python_utils import ConfigurationManager, XdgAppConfig
+from linuxtools import ConfigurationManager, XdgAppConfig
 
 DEFAULT_CONFIG = {
     "logging": {"level": "INFO"},
@@ -899,7 +899,7 @@ Construction fluent et exécution de commandes système. Les commandes root et u
 ### Utilisation
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     CommandBuilder,
     LinuxCommandExecutor,
@@ -1041,7 +1041,7 @@ sudo mon-outil sync
 ```
 
 ```python
-from linux_python_utils.errors import require_root
+from linuxtools.errors import require_root
 
 require_root()  # lève AppPermissionError si os.getuid() != 0
 ```
@@ -1080,7 +1080,7 @@ Opérations sur les fichiers et sauvegardes.
 ### Utilisation
 
 ```python
-from linux_python_utils import FileLogger, LinuxFileManager, LinuxFileBackup
+from linuxtools import FileLogger, LinuxFileManager, LinuxFileBackup
 
 logger = FileLogger("/var/log/myapp.log")
 
@@ -1104,7 +1104,7 @@ backup.restore("/etc/myapp.conf", "/etc/myapp.conf.bak")
 Copie récursive sécurisée (alternative TOCTOU-safe à `shutil.copytree`) :
 
 ```python
-from linux_python_utils.filesystem import copytree_secure
+from linuxtools.filesystem import copytree_secure
 from shutil import ignore_patterns
 
 # Copie récursive — O_NOFOLLOW sur chaque fichier destination,
@@ -1122,7 +1122,7 @@ copytree_secure(
 Pipeline backup + vérification d'intégrité :
 
 ```python
-from linux_python_utils import FileLogger, LinuxFileBackup, SHA256IntegrityChecker
+from linuxtools import FileLogger, LinuxFileBackup, SHA256IntegrityChecker
 
 logger = FileLogger("/var/log/backup.log")
 backup = LinuxFileBackup(logger)
@@ -1199,7 +1199,7 @@ Gestion complète des unités systemd : services, timers et montages, en mode sy
 ##### Unités de Montage (.mount / .automount)
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     SystemdExecutor,
     LinuxMountUnitManager,
@@ -1237,7 +1237,7 @@ mount_mgr.remove_mount_unit("/media/nas/backup")
 ##### Timers Système
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     SystemdExecutor,
     LinuxTimerUnitManager,
@@ -1270,7 +1270,7 @@ for t in timers:
 ##### Services Système
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     SystemdExecutor,
     LinuxServiceUnitManager,
@@ -1314,7 +1314,7 @@ Les unités utilisateur sont stockées dans `~/.config/systemd/user/` et ne néc
 ##### Timers Utilisateur
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     UserSystemdExecutor,
     LinuxUserTimerUnitManager,
@@ -1340,7 +1340,7 @@ timer_mgr.enable_timer("sync")
 ##### Services Utilisateur
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     UserSystemdExecutor,
     LinuxUserServiceUnitManager,
@@ -1375,8 +1375,8 @@ Le fichier TOML produit suit la convention de nommage `{nom}-{type}.toml`
 
 ```python
 from pathlib import Path
-from linux_python_utils import FileLogger
-from linux_python_utils.systemd import (
+from linuxtools import FileLogger
+from linuxtools.systemd import (
     SystemdExecutor,
     SystemdUnitExporter,
     SystemdUnitRestorer,
@@ -1415,7 +1415,7 @@ ok, unit_name = restorer.restore(
 # → écrit le fichier INI, systemctl enable si enabled=true, daemon-reload
 
 # Restauration d'unités utilisateur (sans root) :
-from linux_python_utils.systemd import UserSystemdExecutor
+from linuxtools.systemd import UserSystemdExecutor
 user_executor = UserSystemdExecutor(logger)
 user_restorer = SystemdUnitRestorer(executor=user_executor, logger=logger)
 ok, name = user_restorer.restore(
@@ -1460,7 +1460,7 @@ Chargeurs de configuration pour créer des dataclasses systemd depuis TOML ou JS
 Le format est automatiquement détecté par l'extension du fichier.
 
 ```python
-from linux_python_utils.systemd.config_loaders import (
+from linuxtools.systemd.config_loaders import (
     ServiceConfigLoader,
     TimerConfigLoader,
     MountConfigLoader,
@@ -1658,7 +1658,7 @@ Génération de scripts bash et déploiement de scripts Python CLI sur le systè
 #### Scripts bash
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     BashScriptConfig, BashScriptInstaller, LinuxFileManager,
 )
 
@@ -1677,10 +1677,10 @@ installer.install("/usr/local/bin/backup.sh", config)
 
 #### Déploiement de scripts Python CLI
 
-Nécessite `pip install linux-python-utils[deploy]` (platformdirs) et `uv` installé sur le système.
+Nécessite `pip install linuxtools[deploy]` (platformdirs) et `uv` installé sur le système.
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     PythonCliConfig,
     LinuxCliInstaller,
@@ -1817,7 +1817,7 @@ Scan, inventaire et gestion des périphériques d'un réseau local.
 ### Utilisation
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     LinuxArpScanner,
     JsonDeviceRepository,
     ConsoleTableReporter,
@@ -1989,7 +1989,7 @@ Gestion idempotente des groupes et utilisateurs Unix. Les opérations sont sans 
 ### Utilisation
 
 ```python
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     LinuxCommandExecutor,
     LinuxGroupManager,
@@ -2080,7 +2080,7 @@ Inclut également un support dry-run réutilisable : `add_dry_run_argument` enre
 ```python
 import argparse
 from typing import Any
-from linux_python_utils.cli import (
+from linuxtools.cli import (
     CliCommand,
     CliApplication,
     DryRunContext,
@@ -2176,7 +2176,7 @@ Gestion de fichiers de configuration INI (.conf) avec validation externe, et app
 ```python
 from dataclasses import dataclass
 from pathlib import Path
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     ValidatedSection,
     LinuxIniConfigManager,
@@ -2225,7 +2225,7 @@ print(f"Modifié: {updated}")
 Permet d'insérer ou décommenter des blocs dans un fichier `.conf` sans toucher aux commentaires ni à la mise en forme existante.
 
 ```python
-from linux_python_utils import SectionAwareEditor
+from linuxtools import SectionAwareEditor
 
 editor = SectionAwareEditor(Path("/etc/myapp.conf"))
 
@@ -2278,7 +2278,7 @@ content = "fastestmirror = True"
 from pathlib import Path
 # Non ré-exportés au niveau racine (cf. Corrections du module dotconf) —
 # import direct depuis le sous-module
-from linux_python_utils.dotconf import TomlSpecLoader, ConfigApplier
+from linuxtools.dotconf import TomlSpecLoader, ConfigApplier
 
 # Charger la spec TOML → ConfigSpec
 loader = TomlSpecLoader()
@@ -2296,7 +2296,7 @@ for action in actions:
 # Uncommented: key = value
 
 # Avec logger injectable
-from linux_python_utils import FileLogger
+from linuxtools import FileLogger
 logger = FileLogger("/var/log/myapp.log")
 applier = ConfigApplier(logger=logger)
 actions = applier.apply(spec)  # chaque action est aussi loggée
@@ -2319,7 +2319,7 @@ Sens inverse de `TomlSpecLoader`/`ConfigApplier` : lit un fichier `.conf` (plat 
 ```python
 from pathlib import Path
 # Non ré-exporté au niveau racine — import direct depuis le sous-module
-from linux_python_utils.dotconf import ConfTomlExporter
+from linuxtools.dotconf import ConfTomlExporter
 
 exporter = ConfTomlExporter()
 exporter.export(
@@ -2446,7 +2446,7 @@ Vérification d'intégrité par checksums, et ABC pour la vérification de secti
 ### Utilisation
 
 ```python
-from linux_python_utils import FileLogger, SHA256IntegrityChecker, calculate_checksum
+from linuxtools import FileLogger, SHA256IntegrityChecker, calculate_checksum
 
 # Fonction utilitaire rapide — whitelist d'algorithmes : sha256, sha384,
 # sha512, blake2b uniquement (MD5/SHA1 rejetés : ValueError, faibles)
@@ -2471,7 +2471,7 @@ else:
 checksum = checker.get_checksum("/path/to/file")
 
 # Variante stricte (fail-fast) — lève IntegrityError au lieu de retourner False
-from linux_python_utils import IntegrityError
+from linuxtools import IntegrityError
 
 try:
     count = checker.verify_or_raise("/home/user/Documents", "/media/backup")
@@ -2487,7 +2487,7 @@ Contrat abstrait pour implémenter la vérification d'intégrité d'une section 
 
 ```python
 from pathlib import Path
-from linux_python_utils.integrity import IniSectionIntegrityChecker
+from linuxtools.integrity import IniSectionIntegrityChecker
 
 class MyIniChecker(IniSectionIntegrityChecker):
     def verify(self, file_path: Path, section: object) -> bool:
@@ -2567,7 +2567,7 @@ Gestion des secrets via une chaîne de priorité : variables d'environnement →
 ### Utilisation
 
 ```python
-from linux_python_utils import CredentialManager, CredentialNotFoundError
+from linuxtools import CredentialManager, CredentialNotFoundError
 from pathlib import Path
 
 # Chaîne complète : env → .env → keyring
@@ -2670,7 +2670,7 @@ Cinq validateurs couvrent des besoins distincts :
 ### Utilisation
 
 ```python
-from linux_python_utils import PathChecker, PathCheckerPermission, PathCheckerWorldWritable
+from linuxtools import PathChecker, PathCheckerPermission, PathCheckerWorldWritable
 
 # Vérifie que les répertoires parents existent
 checker = PathChecker([
@@ -2694,7 +2694,7 @@ ww_checker.validate()  # Lève PermissionError (bit S_IWOTH ou symlink)
 # Vérifie la présence de commandes système requises (un quatrième
 # validateur, distinct des trois ci-dessus : il ne porte pas sur des
 # chemins mais sur la disponibilité d'exécutables dans le PATH)
-from linux_python_utils import SystemCommandValidator
+from linuxtools import SystemCommandValidator
 
 sys_checker = SystemCommandValidator({
     "borg": "sudo dnf install borgbackup",
@@ -2705,7 +2705,7 @@ sys_checker.validate()  # Lève MissingDependencyError si absentes,
 manquantes = sys_checker.missing_commands()  # → list[str], sans lever
 
 # Vérifie l'appartenance groupe + rwx + setgid (typique : montage NFS)
-from linux_python_utils import PathCheckerGroupAccess
+from linuxtools import PathCheckerGroupAccess
 
 nfs_checker = PathCheckerGroupAccess(
     "/media/nas/keepass",
@@ -2721,9 +2721,9 @@ nfs_checker.validate()
 #   - le bit setgid est absent
 
 # Validation de configuration avec Pydantic (optionnel)
-# pip install linux-python-utils[validation]
+# pip install linuxtools[validation]
 from pydantic import BaseModel
-from linux_python_utils import FileConfigLoader
+from linuxtools import FileConfigLoader
 
 class AppConfig(BaseModel):
     name: str
@@ -2793,7 +2793,7 @@ respectant la spécification freedesktop.org Desktop Notifications
 ### Utilisation
 
 ```python
-from linux_python_utils import NotificationConfig
+from linuxtools import NotificationConfig
 
 # Configuration de notification (champs texte validés : non vides,
 # sans caractère de contrôle — voir __post_init__)
@@ -2824,7 +2824,7 @@ Script de sauvegarde utilisant plusieurs modules ensemble :
 
 ```python
 #!/usr/bin/env python3
-from linux_python_utils import (
+from linuxtools import (
     FileLogger,
     ConfigurationManager,
     LinuxFileBackup,
@@ -2954,7 +2954,7 @@ def test_path_conversion(path, expected):
 ## 🐛 Troubleshooting
 
 <details>
-<summary><b>❌ ModuleNotFoundError: No module named 'linux_python_utils'</b></summary>
+<summary><b>❌ ModuleNotFoundError: No module named 'linuxtools'</b></summary>
 
 **Cause :** Package non installé ou environnement virtuel non activé.
 
@@ -2998,7 +2998,7 @@ sudo dnf install python3.11
 sudo python mon_script.py
 
 # Ou utiliser les classes User* pour les unités utilisateur (sans root)
-from linux_python_utils import UserSystemdExecutor, LinuxUserTimerUnitManager
+from linuxtools import UserSystemdExecutor, LinuxUserTimerUnitManager
 ```
 </details>
 
@@ -3117,5 +3117,5 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 ---
 
 <p align="center">
-  <b>linux-python-utils</b> — Conçu avec les principes SOLID pour une extensibilité maximale
+  <b>linuxtools</b> — Conçu avec les principes SOLID pour une extensibilité maximale
 </p>

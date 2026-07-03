@@ -1,4 +1,4 @@
-"""Tests pour linux_python_utils.cli.base."""
+"""Tests pour linuxtools.cli.base."""
 
 # stdlib
 import argparse
@@ -6,7 +6,7 @@ import argparse
 # third-party
 import pytest
 
-from linux_python_utils.cli.base import CliApplication, CliCommand
+from linuxtools.cli.base import CliApplication, CliCommand
 
 
 class ConcreteCommand(CliCommand):
