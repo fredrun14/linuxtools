@@ -43,4 +43,4 @@ API publique exportée depuis `src/linuxtools/__init__.py`.
 Notes pédagogiques (public : développeur junior, apprentissage Python/SOLID/sécurité Linux).
 Une note par module + une vue d'ensemble. À mettre à jour après tout ajout/modification d'API publique.
 
-`/home/fred/Obsidian/Informatique/1-projets/linux-python-utils/`
+> Documentation tenue dans un vault Obsidian personnel, **hors dépôt**.
