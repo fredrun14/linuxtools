@@ -5,6 +5,7 @@
 [![Tests](https://img.shields.io/badge/Tests-passing-brightgreen.svg)]()
 [![Code Style](https://img.shields.io/badge/Code%20Style-PEP8-black.svg)]()
 [![SOLID](https://img.shields.io/badge/Architecture-SOLID-purple.svg)]()
+[![Forgejo](https://img.shields.io/badge/Forgejo-self--hosted-FB923C.svg?logo=forgejo&logoColor=white)](https://git.ricfasohel.fr/fred/linuxtools)
 
 > Bibliothèque utilitaire Python pour systèmes Linux, conçue avec les principes SOLID.
 
