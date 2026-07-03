@@ -78,11 +78,11 @@ test = [
 # =============================================================================
 
 [project.urls]
-Homepage      = "https://github.com/fredrun14/linux_python_utils"
-Documentation = "https://github.com/fredrun14/linux_python_utils#readme"
-Repository    = "https://github.com/fredrun14/linux_python_utils.git"
-Issues        = "https://github.com/fredrun14/linux_python_utils/issues"
-Changelog     = "https://github.com/fredrun14/linux_python_utils/blob/master/CHANGELOG.md"
+Homepage      = "https://github.com/fredrun14/linuxtools"
+Documentation = "https://github.com/fredrun14/linuxtools#readme"
+Repository    = "https://github.com/fredrun14/linuxtools.git"
+Issues        = "https://github.com/fredrun14/linuxtools/issues"
+Changelog     = "https://github.com/fredrun14/linuxtools/blob/master/CHANGELOG.md"
 
 # =============================================================================
 # CONFIGURATION SETUPTOOLS — src-layout
