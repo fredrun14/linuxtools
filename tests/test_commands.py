@@ -600,6 +600,52 @@ class TestLinuxCommandExecutorRunStreaming:
 
         assert result.stderr == ""
 
+    @patch(
+        "linuxtools.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_ne_fuite_jamais_le_dict_env(
+        self, mock_popen, capsys
+    ):
+        """Vérifie qu'aucun secret du dict env n'atteint les sorties.
+
+        Verrou anti-régression : les credentials passés via `env`
+        ne doivent apparaître ni dans les messages loggés (fichier)
+        ni sur la console. Sinon un FileLogger les persisterait en
+        clair sur disque.
+        """
+        # Arrange — valeurs sentinelles improbables dans une sortie
+        secrets = {
+            "RESTIC_PASSWORD": "s3ntinel-password-zzz",
+            "AWS_ACCESS_KEY_ID": "s3ntinel-access-zzz",
+            "AWS_SECRET_ACCESS_KEY": "s3ntinel-secret-zzz",
+        }
+        logger = MagicMock(spec=Logger)
+        executor = LinuxCommandExecutor(
+            logger=logger,
+            console_formatter=PlainCommandFormatter(),
+        )
+        mock_popen.return_value = _make_mock_proc(
+            ["restic check: OK\n", "no errors were found\n"],
+            returncode=0,
+        )
+
+        # Act
+        executor.run_streaming(["restic", "check"], env=secrets)
+
+        # Assert — ni dans le logger, ni sur la console
+        logged = " ".join(
+            str(call.args[0])
+            for call in (
+                logger.log_info.call_args_list
+                + logger.log_error.call_args_list
+            )
+        )
+        console = capsys.readouterr().out
+        for value in secrets.values():
+            assert value not in logged
+            assert value not in console
+
 
 # --- Tests LinuxCommandExecutor dry_run ---
 
