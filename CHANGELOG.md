@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.7.0] - 2026-07-08
+
+### Nouvelles fonctionnalités
+
+#### Module `notification` — Notifications multi-canaux et comptes rendus
+
+Extension du module `notification` (jusqu'ici limité au générateur bash
+`NotificationConfig`) avec une API Python d'envoi de notifications multi-canaux et
+de comptes rendus de fin d'exécution de scripts (backup, post-install…). **stdlib
+uniquement**, injection de dépendances systématique, `NotifierChain` best-effort
+calquée sur `ErrorHandlerChain`.
+
+- **`Notifier` (ABC)** — Interface d'un canal de diffusion : `send(notification)`.
+- **`NotifierChain`** — Diffuse une notification/un rapport à tous les notifiers
+  enregistrés en best-effort : l'échec d'un canal n'empêche pas les suivants.
+- **Modèles** — `Notification` (immuable, validée), `Urgency` (`LOW`/`NORMAL`/
+  `CRITICAL`), `StepResult`, et `ExecutionReport` (accumulation d'étapes + résumé,
+  `to_notification()`, context manager `step()` qui chronomètre et absorbe les
+  exceptions par défaut).
+- **Notifiers concrets** :
+  - `DesktopNotifier` — `notify-send`, mode session courante ou `all_users=True`
+    (portage Python de la boucle `loginctl`/`runuser` pour timers systemd en root).
+  - `GotifyNotifier` — push vers un serveur Gotify auto-hébergé (`urllib`).
+  - `SmtpEmailNotifier` — email SMTP avec STARTTLS par défaut (`smtplib`).
+  - `JournaldNotifier` — écriture sur le socket natif journald (multiligne géré) ;
+    consultation via `journalctl -t <app_name>`.
+- **Exceptions** — `NotificationError` / `NotificationSendError`, rattachées à
+  `ApplicationError`.
+
+Le token Gotify et le mot de passe SMTP se chargent via `CredentialChain` — jamais
+en dur.
+
+```python
+report = ExecutionReport(script_name="backup-nas")
+with report.step("rsync documents"):
+    executor.run([...])
+report.finish()
+
+chain = NotifierChain(logger=logger)
+chain.add_notifier(GotifyNotifier(base_url="https://gotify.lan", token=token))
+chain.add_notifier(JournaldNotifier(app_name="backup-nas"))
+chain.send_report(report)
+```
+
 ## [1.4.0] - 2026-04-05
 
 ### Nouvelles fonctionnalités

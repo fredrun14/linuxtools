@@ -52,7 +52,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - **📝 Application déclarative de config** — `TomlSpecLoader` + `ConfigApplier` : décrire les blocs à appliquer dans un TOML `[target]`, les appliquer sur n'importe quel `.conf` (ajout, décommentage, idempotence garantie)
 - **📜 Scripts bash et CLI** — Génération de scripts bash + déploiement de scripts Python CLI (FHS, uv, scope système/utilisateur, rapport d'installation)
 - **👤 Gestion d'identités Unix** — Création idempotente de groupes (`groupadd`/`groupmod`) et utilisateurs (`useradd`/`usermod`) avec vérification GID/UID
-- **🔔 Notifications** — Configuration de notifications desktop via `notify-send` (spec freedesktop.org — GNOME, KDE Plasma, XFCE...)
+- **🔔 Notifications** — API Python multi-canaux (desktop, Gotify, email SMTP, journald) avec comptes rendus d'exécution et chaîne best-effort, plus le générateur bash `notify-send` (spec freedesktop.org — GNOME, KDE Plasma, XFCE...)
 - **✅ Validation** — Validation de chemins (existence, permissions, world-writable) et données avec support optionnel Pydantic
 - **🚨 Gestion d'erreurs** — Hiérarchie d'exceptions applicatives + chaîne de handlers (Chain of Responsibility)
 - **🔑 Secrets** — `CredentialChain` : env → `.env` → keyring système (KWallet, KeePassXC, GNOME Keyring)
@@ -329,7 +329,15 @@ linuxtools/
 │   │   └── user.py              # LinuxUserManager (useradd/usermod)
 │   ├── notification/
 │   │   ├── __init__.py
-│   │   └── config.py            # NotificationConfig (dataclass)
+│   │   ├── base.py              # ABC Notifier
+│   │   ├── models.py            # Notification, Urgency, StepResult, ExecutionReport
+│   │   ├── exceptions.py        # NotificationError, NotificationSendError
+│   │   ├── chain.py             # NotifierChain (best-effort)
+│   │   ├── desktop.py           # DesktopNotifier (notify-send)
+│   │   ├── gotify.py            # GotifyNotifier (push)
+│   │   ├── email_notifier.py    # SmtpEmailNotifier (SMTP)
+│   │   ├── journal.py           # JournaldNotifier (socket journald)
+│   │   └── config.py            # NotificationConfig (dataclass, bash)
 │   ├── validation/
 │   │   ├── __init__.py
 │   │   ├── base.py                        # ABC Validator
@@ -394,6 +402,9 @@ linuxtools/
 │   ├── test_commands.py
 │   ├── test_scripts.py
 │   ├── test_notification.py
+│   ├── test_notification_models.py
+│   ├── test_notification_chain.py
+│   ├── test_notification_notifiers.py
 │   ├── test_validation.py
 │   ├── test_identity_group.py
 │   ├── test_identity_user.py
@@ -2785,13 +2796,44 @@ print(config.name)  # Instance AppConfig validée
 
 ## 🔔 Module `notification`
 
-Configuration de notifications desktop via `notify-send`, diffusées à
-tous les utilisateurs ayant une session graphique active (bus D-Bus de
-session détecté via `loginctl`) — compatible avec tout environnement
-respectant la spécification freedesktop.org Desktop Notifications
-(GNOME, KDE Plasma, XFCE...).
+Deux volets complémentaires :
 
-### Utilisation
+1. **API Python multi-canaux** — envoi de notifications et de comptes rendus de
+   fin d'exécution de scripts (backup, post-install…) via desktop (`notify-send`),
+   Gotify (push), email (SMTP) et journald. **stdlib uniquement**, injection de
+   dépendances systématique, chaîne `NotifierChain` best-effort.
+2. **Générateur bash `NotificationConfig`** — génère la fonction `send_notification`
+   diffusée à tous les utilisateurs ayant une session graphique active (bus D-Bus
+   détecté via `loginctl`), compatible freedesktop.org (GNOME, KDE Plasma, XFCE...).
+
+### Utilisation — API Python multi-canaux
+
+```python
+from linuxtools import (
+    ExecutionReport,
+    GotifyNotifier,
+    JournaldNotifier,
+    NotifierChain,
+)
+
+# Compte rendu : step() chronomètre et absorbe les exceptions par défaut
+report = ExecutionReport(script_name="backup-nas")
+with report.step("rsync documents"):
+    executor.run([...])
+report.finish()
+
+# Diffusion best-effort : l'échec d'un canal n'empêche pas les suivants
+chain = NotifierChain(logger=logger)
+chain.add_notifier(GotifyNotifier(
+    base_url="https://gotify.lan", token=token))  # token via CredentialChain
+chain.add_notifier(JournaldNotifier(app_name="backup-nas"))
+chain.send_report(report)
+```
+
+> Le token Gotify et le mot de passe SMTP se chargent via `CredentialChain`
+> (module `credentials`) — jamais en dur.
+
+### Utilisation — générateur bash
 
 ```python
 from linuxtools import NotificationConfig
@@ -2815,6 +2857,17 @@ appel_echec = notif.to_bash_call_failure()    # appel en cas d'échec
 
 | Classe | Description |
 |--------|-------------|
+| `Notifier` (ABC) | Interface d'un canal de diffusion : `send(notification)` |
+| `NotifierChain` | Diffuse une notification/un rapport à tous les notifiers en best-effort (`add_notifier`, `send`, `send_report`) |
+| `Notification` | Message immuable validé (`title`, `message`, `urgency`, `icon`) |
+| `Urgency` | Énumération `LOW` / `NORMAL` / `CRITICAL` |
+| `StepResult` | Résultat d'une étape (`name`, `success`, `duration`, `message`) |
+| `ExecutionReport` | Compte rendu : accumulation d'étapes, context manager `step()`, `format_summary()`, `to_notification()` |
+| `DesktopNotifier` | `notify-send`, session courante ou `all_users=True` (root, timers systemd) |
+| `GotifyNotifier` | Push vers un serveur Gotify auto-hébergé (`urllib`) |
+| `SmtpEmailNotifier` | Email SMTP avec STARTTLS par défaut (`smtplib`) |
+| `JournaldNotifier` | Écriture sur le socket natif journald (`journalctl -t <app_name>`) |
+| `NotificationError` / `NotificationSendError` | Exceptions, rattachées à `ApplicationError` |
 | `NotificationConfig` | Dataclass de configuration des notifications desktop, génère du code bash (`to_bash_function`/`to_bash_call_success`/`to_bash_call_failure`) |
 
 ---
@@ -2931,6 +2984,9 @@ make all
 | `test_commands.py` | 74 | CommandBuilder, formatters, exécution, streaming, dry-run, root/user |
 | `test_scripts.py` | 123 | BashScriptConfig, installation scripts, wrapper templates, TTY detection, TOCTOU, edge cases checker/installer |
 | `test_notification.py` | 22 | NotificationConfig, génération bash, validation tous champs |
+| `test_notification_models.py` | 20 | Notification, ExecutionReport, step(), format_summary, to_notification |
+| `test_notification_chain.py` | 5 | NotifierChain best-effort, send_report |
+| `test_notification_notifiers.py` | 21 | DesktopNotifier, GotifyNotifier, SmtpEmailNotifier, JournaldNotifier |
 | `test_validation.py` | 11 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
 | `test_validation_system.py` | 7 | SystemCommandValidator (validate, missing_commands) |
 | `test_validation_group_access.py` | 15 | PathCheckerGroupAccess (groupe, rwx, setgid, messages d'erreur) |

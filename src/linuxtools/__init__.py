@@ -8,7 +8,8 @@ Modules disponibles:
 - systemd: Gestion des services systemd
 - integrity: Vérification d'intégrité (checksums)
 - dotconf: Gestion de fichiers de configuration INI (.conf)
-- notification: Configuration des notifications desktop (NotificationConfig)
+- notification: Notifications multi-canaux et comptes rendus d'exécution
+  (Notifier, NotifierChain, ExecutionReport, NotificationConfig)
 - scripts: Génération de scripts bash (BashScriptConfig)
 - commands: Exécution de commandes système (CommandBuilder,
   LinuxCommandExecutor)
@@ -20,7 +21,7 @@ Modules disponibles:
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 from linuxtools.logging import (
     Logger,
@@ -99,7 +100,21 @@ from linuxtools.dotconf import (
     parse_validator,
     build_validators,
 )
-from linuxtools.notification import NotificationConfig
+from linuxtools.notification import (
+    DesktopNotifier,
+    ExecutionReport,
+    GotifyNotifier,
+    JournaldNotifier,
+    Notification,
+    NotificationConfig,
+    NotificationError,
+    NotificationSendError,
+    Notifier,
+    NotifierChain,
+    SmtpEmailNotifier,
+    StepResult,
+    Urgency,
+)
 from linuxtools.scripts import (
     BashScriptConfig,
     PythonCliConfig,
@@ -265,7 +280,19 @@ __all__ = [
     "parse_validator",
     "build_validators",
     # Notification
+    "DesktopNotifier",
+    "ExecutionReport",
+    "GotifyNotifier",
+    "JournaldNotifier",
+    "Notification",
     "NotificationConfig",
+    "NotificationError",
+    "NotificationSendError",
+    "Notifier",
+    "NotifierChain",
+    "SmtpEmailNotifier",
+    "StepResult",
+    "Urgency",
     # Scripts
     "BashScriptConfig",
     "PythonCliConfig",
