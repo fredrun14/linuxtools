@@ -21,7 +21,7 @@ Modules disponibles:
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 from linuxtools.logging import (
     Logger,

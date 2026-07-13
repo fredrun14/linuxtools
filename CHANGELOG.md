@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.0] - 2026-07-13
+
+### Nouvelles fonctionnalités
+
+#### Module `systemd` — Directives de durcissement sur `ServiceConfig`
+
+`ServiceConfig` expose désormais cinq champs optionnels de durcissement, rendus
+dans `to_unit_file()` uniquement s'ils sont activés (rétro-compatible : sans
+surcharge, le fichier `.service` produit est identique aux versions ≤ 1.7.0) :
+
+- `no_new_privileges: bool` → `NoNewPrivileges=true`
+- `protect_system: str` (`""` | `true` | `full` | `strict`, validé) → `ProtectSystem=`
+- `protect_home: bool` → `ProtectHome=true`
+- `private_tmp: bool` → `PrivateTmp=true`
+- `read_write_paths: tuple[str, ...]` → `ReadWritePaths=` (chemins espacés,
+  filtrés contre l'injection de caractères de contrôle)
+
 ## [1.7.0] - 2026-07-08
 
 ### Nouvelles fonctionnalités

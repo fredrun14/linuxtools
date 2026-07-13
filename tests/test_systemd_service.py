@@ -1014,3 +1014,75 @@ class TestServiceToUnitFileSecurite:
         )
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
+
+
+class TestServiceConfigHardening:
+    """Tests pour les directives de durcissement systemd."""
+
+    def _config(self, **kwargs):
+        """Construit un ServiceConfig minimal avec surcharges."""
+        return ServiceConfig(
+            description="svc durci",
+            exec_start="/usr/bin/foo",
+            **kwargs,
+        )
+
+    def test_sans_durcissement_rend_fichier_inchange(self):
+        """Sans champ durci, aucune directive de durcissement n'est rendue."""
+        result = self._config().to_unit_file()
+
+        assert "NoNewPrivileges" not in result
+        assert "ProtectSystem" not in result
+        assert "ProtectHome" not in result
+        assert "PrivateTmp" not in result
+        assert "ReadWritePaths" not in result
+
+    def test_no_new_privileges_rend_directive(self):
+        """no_new_privileges=True ajoute NoNewPrivileges=true."""
+        result = self._config(no_new_privileges=True).to_unit_file()
+
+        assert "NoNewPrivileges=true" in result
+
+    def test_protect_system_full_rend_directive(self):
+        """protect_system='full' ajoute ProtectSystem=full."""
+        result = self._config(protect_system="full").to_unit_file()
+
+        assert "ProtectSystem=full" in result
+
+    def test_protect_home_et_private_tmp_rendent_directives(self):
+        """protect_home et private_tmp ajoutent leurs directives."""
+        result = self._config(
+            protect_home=True,
+            private_tmp=True,
+        ).to_unit_file()
+
+        assert "ProtectHome=true" in result
+        assert "PrivateTmp=true" in result
+
+    def test_read_write_paths_multiples_joints_par_espace(self):
+        """read_write_paths rend un ReadWritePaths espacé."""
+        result = self._config(
+            read_write_paths=("/var/lib/app", "/var/cache/app"),
+        ).to_unit_file()
+
+        assert "ReadWritePaths=/var/lib/app /var/cache/app" in result
+
+    def test_durcissement_rendu_entre_service_et_install(self):
+        """Les directives se placent dans [Service], avant [Install]."""
+        result = self._config(no_new_privileges=True).to_unit_file()
+
+        assert result.index("NoNewPrivileges") < result.index("[Install]")
+        assert result.index("[Service]") < result.index("NoNewPrivileges")
+
+    def test_protect_system_invalide_leve_value_error(self):
+        """Une valeur protect_system inconnue lève ValueError."""
+        with pytest.raises(ValueError, match="protect_system invalide"):
+            self._config(protect_system="bogus")
+
+    def test_read_write_paths_caractere_controle_leve_value_error(self):
+        """Un chemin RW avec \\n est rejeté au rendu."""
+        config = self._config(
+            read_write_paths=("/var/lib/app\nReadWritePaths=/etc",),
+        )
+        with pytest.raises(ValueError, match="contrôle"):
+            config.to_unit_file()

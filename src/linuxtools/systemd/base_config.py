@@ -301,6 +301,13 @@ class ServiceConfig(BaseSystemdConfig):
         restart: Politique de redémarrage (no, always, on-failure, etc.).
         restart_sec: Délai avant redémarrage en secondes.
         wanted_by: Cible d'installation (défaut: multi-user.target).
+        no_new_privileges: Ajoute ``NoNewPrivileges=true`` si True.
+        protect_system: Valeur de ``ProtectSystem`` ("", true, full,
+            strict) ; non rendu si vide.
+        protect_home: Ajoute ``ProtectHome=true`` si True.
+        private_tmp: Ajoute ``PrivateTmp=true`` si True.
+        read_write_paths: Chemins inscriptibles (``ReadWritePaths``) ;
+            non rendu si vide.
     """
 
     _VALID_TYPES: ClassVar[tuple[str, ...]] = (
@@ -310,6 +317,9 @@ class ServiceConfig(BaseSystemdConfig):
     _VALID_RESTART: ClassVar[tuple[str, ...]] = (
         "no", "always", "on-success", "on-failure",
         "on-abnormal", "on-abort", "on-watchdog",
+    )
+    _VALID_PROTECT_SYSTEM: ClassVar[tuple[str, ...]] = (
+        "", "true", "full", "strict",
     )
 
     exec_start: str
@@ -321,6 +331,12 @@ class ServiceConfig(BaseSystemdConfig):
     restart: str = "no"
     restart_sec: int = 0
     wanted_by: str = "multi-user.target"
+    # Durcissement systemd (tous optionnels, off par défaut = rendu inchangé)
+    no_new_privileges: bool = False
+    protect_system: str = ""
+    protect_home: bool = False
+    private_tmp: bool = False
+    read_write_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Valide que les champs requis sont présents et cohérents."""
@@ -338,6 +354,19 @@ class ServiceConfig(BaseSystemdConfig):
                 f"{', '.join(self._VALID_RESTART)})"
             )
         self._validate_environment()
+        self._validate_protect_system()
+
+    def _validate_protect_system(self) -> None:
+        """Valide que ``protect_system`` est une valeur systemd connue.
+
+        Raises:
+            ValueError: Si la valeur n'est pas dans la liste blanche.
+        """
+        if self.protect_system not in self._VALID_PROTECT_SYSTEM:
+            raise ValueError(
+                f"protect_system invalide : {self.protect_system!r} "
+                f"(valeurs : {', '.join(self._VALID_PROTECT_SYSTEM)})"
+            )
 
     def _validate_environment(self) -> None:
         """Valide les variables d'environnement contre l'injection."""
@@ -389,6 +418,22 @@ class ServiceConfig(BaseSystemdConfig):
             lines.append(f"Restart={self.restart}")
             if self.restart_sec > 0:
                 lines.append(f"RestartSec={self.restart_sec}")
+
+        # Durcissement : ne rend que les directives activées
+        if self.no_new_privileges:
+            lines.append("NoNewPrivileges=true")
+        if self.protect_system:
+            lines.append(f"ProtectSystem={self.protect_system}")
+        if self.protect_home:
+            lines.append("ProtectHome=true")
+        if self.private_tmp:
+            lines.append("PrivateTmp=true")
+        if self.read_write_paths:
+            joined = " ".join(
+                reject_control_chars(path, "read_write_paths")
+                for path in self.read_write_paths
+            )
+            lines.append(f"ReadWritePaths={joined}")
 
         lines.extend([
             "",
