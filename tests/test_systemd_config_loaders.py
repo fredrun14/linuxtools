@@ -153,6 +153,70 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.description, "JSON Service")
 
+    def test_load_reads_hardening_fields_from_toml(self):
+        """Vérifie que load lit les champs de durcissement."""
+        config = {
+            "service": {
+                "description": "Service durci",
+                "exec_start": "/usr/local/bin/app report",
+                "type": "oneshot",
+                "no_new_privileges": True,
+                "protect_system": "full",
+                "protect_home": True,
+                "private_tmp": True,
+                "read_write_paths": ["/var/lib/app"],
+            }
+        }
+        mock_loader = MockConfigLoader(config)
+        loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
+
+        result = loader.load()
+
+        self.assertTrue(result.no_new_privileges)
+        self.assertEqual(result.protect_system, "full")
+        self.assertTrue(result.protect_home)
+        self.assertTrue(result.private_tmp)
+        self.assertEqual(result.read_write_paths, ("/var/lib/app",))
+
+    def test_load_defaults_hardening_fields_when_absent(self):
+        """Vérifie les valeurs par défaut du durcissement."""
+        config = {
+            "service": {
+                "description": "Service simple",
+                "exec_start": "/usr/bin/app",
+            }
+        }
+        mock_loader = MockConfigLoader(config)
+        loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
+
+        result = loader.load()
+
+        self.assertFalse(result.no_new_privileges)
+        self.assertEqual(result.protect_system, "")
+        self.assertFalse(result.protect_home)
+        self.assertFalse(result.private_tmp)
+        self.assertEqual(result.read_write_paths, ())
+
+    def test_load_with_exec_override_also_reads_hardening_fields(self):
+        """Vérifie que l'override exec_start lit aussi le durcissement."""
+        config = {
+            "service": {
+                "description": "Service durci",
+                "exec_start": "/ignoré",
+                "type": "oneshot",
+                "no_new_privileges": True,
+                "read_write_paths": ["/var/lib/app"],
+            }
+        }
+        mock_loader = MockConfigLoader(config)
+        loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
+
+        result = loader.load_with_exec_override("/usr/local/bin/app run")
+
+        self.assertEqual(result.exec_start, "/usr/local/bin/app run")
+        self.assertTrue(result.no_new_privileges)
+        self.assertEqual(result.read_write_paths, ("/var/lib/app",))
+
 
 class TestTimerConfigLoader(unittest.TestCase):
     """Tests pour TimerConfigLoader."""
@@ -348,6 +412,47 @@ class TestMountConfigLoader(unittest.TestCase):
             loader.load_multiple(section="custom_mounts")
 
         self.assertIn("custom_mounts", str(context.exception))
+
+    def test_load_with_automount_returns_settings_from_toml(self):
+        """Vérifie que load_with_automount lit config et réglages."""
+        config = {
+            "mount": {
+                "description": "NAS Share",
+                "what": "192.168.1.10:/share",
+                "where": "/media/nas",
+                "type": "nfs",
+                "options": "rw,soft",
+                "with_automount": True,
+                "automount_timeout_sec": 600,
+            }
+        }
+        mock_loader = MockConfigLoader(config)
+        loader = MountConfigLoader("/fake/path.toml", mock_loader)
+
+        settings = loader.load_with_automount()
+
+        self.assertIsInstance(settings.config, MountConfig)
+        self.assertEqual(settings.config.where, "/media/nas")
+        self.assertTrue(settings.with_automount)
+        self.assertEqual(settings.timeout_sec, 600)
+
+    def test_load_with_automount_defaults_false_and_zero_when_absent(self):
+        """Vérifie les défauts automount quand les clés sont absentes."""
+        config = {
+            "mount": {
+                "description": "NAS",
+                "what": "192.168.1.10:/share",
+                "where": "/media/nas",
+                "type": "nfs",
+            }
+        }
+        mock_loader = MockConfigLoader(config)
+        loader = MountConfigLoader("/fake/path.toml", mock_loader)
+
+        settings = loader.load_with_automount()
+
+        self.assertFalse(settings.with_automount)
+        self.assertEqual(settings.timeout_sec, 0)
 
 
 class TestBashScriptConfigLoader(unittest.TestCase):

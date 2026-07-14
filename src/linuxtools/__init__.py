@@ -72,10 +72,17 @@ from linuxtools.systemd import (
     # Installateur de tâches planifiées
     ScheduledTaskInstaller,
     SystemdScheduledTaskInstaller,
+    # Installateur service + timer (sans script)
+    ServiceTimerInstaller,
+    SystemdServiceTimerInstaller,
+    # Installateur mount + automount
+    AutomountInstaller,
+    SystemdAutomountInstaller,
     # Chargeurs de configuration
     ServiceConfigLoader,
     TimerConfigLoader,
     MountConfigLoader,
+    AutomountSettings,
     BashScriptConfigLoader,
     # Export / restauration génériques
     SystemdUnitExporter,
@@ -252,10 +259,17 @@ __all__ = [
     # Systemd - Installateur de tâches planifiées
     "ScheduledTaskInstaller",
     "SystemdScheduledTaskInstaller",
+    # Systemd - Installateur service + timer (sans script)
+    "ServiceTimerInstaller",
+    "SystemdServiceTimerInstaller",
+    # Systemd - Installateur mount + automount
+    "AutomountInstaller",
+    "SystemdAutomountInstaller",
     # Systemd - Chargeurs de configuration
     "ServiceConfigLoader",
     "TimerConfigLoader",
     "MountConfigLoader",
+    "AutomountSettings",
     "BashScriptConfigLoader",
     # Systemd - Export / restauration génériques
     "SystemdUnitExporter",

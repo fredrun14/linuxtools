@@ -29,6 +29,7 @@ Example:
 """
 
 from linuxtools.systemd.config_loaders.mount_loader import (
+    AutomountSettings,
     MountConfigLoader,
 )
 from linuxtools.systemd.config_loaders.script_loader import (
@@ -45,5 +46,6 @@ __all__ = [
     "ServiceConfigLoader",
     "TimerConfigLoader",
     "MountConfigLoader",
+    "AutomountSettings",
     "BashScriptConfigLoader",
 ]

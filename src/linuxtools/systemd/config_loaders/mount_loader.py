@@ -24,10 +24,24 @@ Example:
         options = "rw,soft"
 """
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from linuxtools.config import ConfigFileLoader
 from linuxtools.systemd import MountConfig
+
+
+class AutomountSettings(NamedTuple):
+    """Résultat de MountConfigLoader.load_with_automount().
+
+    Attributes:
+        config: Configuration du montage.
+        with_automount: True si une unité .automount doit être créée.
+        timeout_sec: Délai d'inactivité avant démontage (secondes).
+    """
+
+    config: MountConfig
+    with_automount: bool
+    timeout_sec: int
 
 
 class MountConfigLoader(ConfigFileLoader[MountConfig]):
@@ -78,6 +92,42 @@ class MountConfigLoader(ConfigFileLoader[MountConfig]):
             where=data["where"],
             type=data["type"],
             options=data.get("options", ""),
+        )
+
+    def load_with_automount(
+        self,
+        section: str | None = None
+    ) -> AutomountSettings:
+        """Charge un MountConfig et les réglages automount associés.
+
+        Lit les champs optionnels 'with_automount' (bool) et
+        'automount_timeout_sec' (int) dans la même section que le
+        MountConfig, en plus des champs déjà gérés par load().
+
+        Args:
+            section: Nom de la section à charger. Par défaut "mount".
+
+        Returns:
+            AutomountSettings (config, with_automount, timeout_sec).
+
+        Raises:
+            KeyError: Si la section n'existe pas.
+            TypeError: Si les champs requis du MountConfig sont manquants.
+
+        Example:
+            >>> loader = MountConfigLoader("config/nas.toml")
+            >>> settings = loader.load_with_automount()
+            >>> settings.with_automount
+            True
+        """
+        section_name = section or self.DEFAULT_SECTION
+        mount_config = self.load(section_name)
+        data: dict[str, Any] = self._get_section(section_name)
+
+        return AutomountSettings(
+            config=mount_config,
+            with_automount=bool(data.get("with_automount", False)),
+            timeout_sec=int(data.get("automount_timeout_sec", 0)),
         )
 
     def load_multiple(self, section: str | None = None) -> list[MountConfig]:

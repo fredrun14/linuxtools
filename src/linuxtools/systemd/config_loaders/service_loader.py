@@ -80,6 +80,12 @@ class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):
             restart=data.get("restart", "no"),
             restart_sec=data.get("restart_sec", 0),
             wanted_by=data.get("wanted_by", "multi-user.target"),
+            # Durcissement systemd (off par défaut = rendu inchangé)
+            no_new_privileges=data.get("no_new_privileges", False),
+            protect_system=data.get("protect_system", ""),
+            protect_home=data.get("protect_home", False),
+            private_tmp=data.get("private_tmp", False),
+            read_write_paths=tuple(data.get("read_write_paths", ())),
         )
 
     def load_with_exec_override(
@@ -119,4 +125,10 @@ class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):
             restart=data.get("restart", "no"),
             restart_sec=data.get("restart_sec", 0),
             wanted_by=data.get("wanted_by", "multi-user.target"),
+            # Durcissement systemd (off par défaut = rendu inchangé)
+            no_new_privileges=data.get("no_new_privileges", False),
+            protect_system=data.get("protect_system", ""),
+            protect_home=data.get("protect_home", False),
+            private_tmp=data.get("private_tmp", False),
+            read_write_paths=tuple(data.get("read_write_paths", ())),
         )

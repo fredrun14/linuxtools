@@ -17,6 +17,8 @@ Unités utilisateur (sans root, ~/.config/systemd/user):
 
 Orchestration:
 - SystemdScheduledTaskInstaller: Installation complète script + service + timer
+- SystemdServiceTimerInstaller: Installation service + timer (sans script)
+- SystemdAutomountInstaller: Installation mount + automount (NFS, etc.)
 
 Export / restauration portables:
 - SystemdUnitExporter: Exporte un fichier unit existant vers TOML (verbatim)
@@ -107,11 +109,24 @@ from linuxtools.systemd.scheduled_task import (
     SystemdScheduledTaskInstaller,
 )
 
+# Installateur service + timer (sans script)
+from linuxtools.systemd.service_timer_installer import (
+    ServiceTimerInstaller,
+    SystemdServiceTimerInstaller,
+)
+
+# Installateur mount + automount
+from linuxtools.systemd.automount_installer import (
+    AutomountInstaller,
+    SystemdAutomountInstaller,
+)
+
 # Chargeurs de configuration TOML
 from linuxtools.systemd.config_loaders import (
     ServiceConfigLoader,
     TimerConfigLoader,
     MountConfigLoader,
+    AutomountSettings,
     BashScriptConfigLoader,
 )
 
@@ -153,10 +168,17 @@ __all__ = [
     # Installateur de tâches planifiées
     "ScheduledTaskInstaller",
     "SystemdScheduledTaskInstaller",
+    # Installateur service + timer (sans script)
+    "ServiceTimerInstaller",
+    "SystemdServiceTimerInstaller",
+    # Installateur mount + automount
+    "AutomountInstaller",
+    "SystemdAutomountInstaller",
     # Chargeurs de configuration
     "ServiceConfigLoader",
     "TimerConfigLoader",
     "MountConfigLoader",
+    "AutomountSettings",
     "BashScriptConfigLoader",
     # Rétrocompatibilité
     "LinuxSystemdServiceManager",
