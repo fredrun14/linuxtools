@@ -19,6 +19,8 @@ Modules disponibles:
 - credentials: Gestion des secrets (env, .env, keyring systeme)
 - cli: Framework CLI Command Pattern (CliCommand, CliApplication)
 - identity: Gestion idempotente des groupes et utilisateurs Unix
+- deploy: Déployeur/updateur d'outil Python sur hôte, local ou
+  distant via SSH (Deployer, DeployConfig, DeployCommand)
 """
 
 __version__ = "1.8.0"
@@ -172,6 +174,23 @@ from linuxtools.credentials import (
     CredentialManager,
 )
 from linuxtools.cli import CliCommand, CliApplication
+from linuxtools.deploy import (
+    CheckResult,
+    DeployCommand,
+    DeployConfig,
+    Deployer,
+    DeployPhase,
+    DeployReport,
+    DeployTarget,
+    InstallVerifier,
+    RsyncTransport,
+    SshCommandExecutor,
+    Transport,
+    VenvInstaller,
+    VerificationSpec,
+    find_editable_source,
+    find_project_source,
+)
 from linuxtools.identity import (
     GroupManagerBase,
     UserManagerBase,
@@ -390,4 +409,24 @@ __all__ = [
     # CLI - Framework Command Pattern
     "CliCommand",
     "CliApplication",
+    # Deploy - Orchestrateur et configuration
+    "Deployer",
+    "DeployConfig",
+    "DeployTarget",
+    "VerificationSpec",
+    "DeployReport",
+    "DeployPhase",
+    "CheckResult",
+    # Deploy - Exécution et transport
+    "SshCommandExecutor",
+    "Transport",
+    "RsyncTransport",
+    # Deploy - Installation et vérification
+    "VenvInstaller",
+    "InstallVerifier",
+    # Deploy - CLI
+    "DeployCommand",
+    # Deploy - Auto-détection
+    "find_project_source",
+    "find_editable_source",
 ]

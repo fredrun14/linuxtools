@@ -1,5 +1,61 @@
 # Changelog
 
+## [1.10.0] - 2026-07-19
+
+### Nouvelles fonctionnalités
+
+#### Module `deploy` — Déploiement/mise à jour d'un outil Python sur hôte
+
+Nouveau module factorisant le rituel de déploiement d'un outil Python maison sur un
+hôte (poste ou serveur), en local ou à distance via SSH. Orchestre **4 phases** —
+transport → (ré)installation venv → vérification post-install → **rollback
+automatique** — auparavant réécrites à la main projet par projet. **stdlib
+uniquement**, injection de dépendances systématique, exposé en API Python et en
+`CliCommand`. Le déployeur gère le **code**, pas la config runtime ni les secrets.
+
+- **`Deployer`** — Orchestrateur des 4 phases. `Deployer.for_target(target)` fabrique
+  les collaborateurs standards ; `deploy(config)` retourne un `DeployReport`. Rollback
+  automatique du venv si l'installation ou une vérification échoue et qu'un backup
+  existe.
+- **`SshCommandExecutor` (`CommandExecutor`)** — Exécute à distance en enveloppant
+  chaque commande dans `ssh [opts] user@host -- <cmd>` (interpolation `shlex`-safe),
+  déléguant l'exécution locale du binaire `ssh` à un `LinuxCommandExecutor`. Rend
+  `Deployer`, `VenvInstaller` et `InstallVerifier` agnostiques local/distant.
+- **`Transport` (ABC) + `RsyncTransport`** — Acheminement du source via `rsync`
+  (local → local ou local → `user@host:`), toujours lancé en local.
+- **`VenvInstaller`** — Sauvegarde du venv (`.bak-<horodatage>`), (ré)installation via
+  le `pip` du venv (`--force-reinstall`), restauration et purge. Le backup est pris
+  **avant** toute installation ; son échec lève `DeployError` (pas d'install sans filet).
+- **`InstallVerifier` + `VerificationSpec`** — Vérifications déclaratives : imports à
+  tester, sous-commandes attendues (`<cli_bin> <sub> --help`), commande de
+  non-régression optionnelle rejouée sur l'hôte.
+- **`DeployCommand` (`CliCommand`)** — Sous-commande `deploy` prête à enregistrer dans
+  le `CliApplication` d'un projet consommateur, avec mode `--dry-run`.
+- **Auto-détection du source** — `find_project_source()` (remontée robuste vers
+  `pyproject.toml`) et `find_editable_source()` (`direct_url.json` d'une install
+  éditable) ; `DeployConfig.source_dir` est optionnel.
+- **Modèles** — `DeployConfig`, `DeployTarget`, `DeployReport` (`format_summary()`),
+  `CheckResult`, enum `DeployPhase`, exception `DeployError`.
+
+Sécurité : interpolation `ssh`/`rsync` via `shlex.quote`/`shlex.join` ; jamais de
+`pip` système (pas de heurt PEP 668 sur Fedora 41+) ; mypy `--strict` et Bandit sans
+alerte. Couverture du module ≥ 99 % (110 tests dédiés).
+
+## [1.9.0] - 2026-07-14
+
+### Nouvelles fonctionnalités
+
+#### Module `systemd` — Installateurs TOML service+timer et mount+automount
+
+- **`SystemdServiceTimerInstaller`** — Installe un couple service + timer sans script
+  wrapper, avec `install()` et `install_from_toml()`.
+- **`SystemdAutomountInstaller`** — Installe un couple mount + automount (NFS/CIFS)
+  avec `install()` et `install_from_toml()`.
+- **`ServiceConfigLoader`** lit désormais les directives de durcissement
+  (`no_new_privileges`, `protect_system`, …) depuis le TOML.
+- **`MountConfigLoader.load_with_automount()`** + `AutomountSettings` pour piloter le
+  montage automatique.
+
 ## [1.8.0] - 2026-07-13
 
 ### Nouvelles fonctionnalités

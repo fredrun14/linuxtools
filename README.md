@@ -25,6 +25,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - [Module filesystem](#-module-filesystem)
 - [Module systemd](#-module-systemd)
 - [Module scripts](#-module-scripts)
+- [Module deploy](#-module-deploy)
 - [Module network](#-module-network)
 - [Module identity](#-module-identity)
 - [Module cli](#-module-cli)
@@ -51,6 +52,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - **📋 Fichiers INI (.conf)** — Lecture, écriture et validation de fichiers de configuration INI ; `SectionAwareEditor` pour l'édition ligne-à-ligne préservant les commentaires
 - **📝 Application déclarative de config** — `TomlSpecLoader` + `ConfigApplier` : décrire les blocs à appliquer dans un TOML `[target]`, les appliquer sur n'importe quel `.conf` (ajout, décommentage, idempotence garantie)
 - **📜 Scripts bash et CLI** — Génération de scripts bash + déploiement de scripts Python CLI (FHS, uv, scope système/utilisateur, rapport d'installation)
+- **🚀 Déploiement/màj d'outil Python** — `Deployer` : transport (rsync) → (ré)install venv → vérification déclarative (imports, sous-commandes, non-régression) → rollback automatique ; en local ou distant (SSH), API Python + `CliCommand`, mode dry-run
 - **👤 Gestion d'identités Unix** — Création idempotente de groupes (`groupadd`/`groupmod`) et utilisateurs (`useradd`/`usermod`) avec vérification GID/UID
 - **🔔 Notifications** — API Python multi-canaux (desktop, Gotify, email SMTP, journald) avec comptes rendus d'exécution et chaîne best-effort, plus le générateur bash `notify-send` (spec freedesktop.org — GNOME, KDE Plasma, XFCE...)
 - **✅ Validation** — Validation de chemins (existence, permissions, world-writable) et données avec support optionnel Pydantic
@@ -322,6 +324,17 @@ linuxtools/
 │   │   ├── paths.py             # ScriptPaths — chemins FHS via platformdirs
 │   │   ├── checker.py           # ScriptChecker (ABC) + LinuxScriptChecker
 │   │   └── report.py            # InstallReport + MissingDependency
+│   ├── deploy/
+│   │   ├── __init__.py
+│   │   ├── models.py            # DeployConfig, DeployTarget, VerificationSpec, DeployReport, DeployPhase
+│   │   ├── exceptions.py        # DeployError
+│   │   ├── discovery.py         # find_project_source, find_editable_source
+│   │   ├── ssh_executor.py      # SshCommandExecutor (CommandExecutor via ssh)
+│   │   ├── transport.py         # Transport (ABC) + RsyncTransport
+│   │   ├── venv_installer.py    # VenvInstaller (backup/install/restore/prune)
+│   │   ├── verifier.py          # InstallVerifier (imports/subcmds/régression)
+│   │   ├── deployer.py          # Deployer (orchestrateur 4 phases + rollback)
+│   │   └── cli.py               # DeployCommand (CliCommand)
 │   ├── identity/
 │   │   ├── __init__.py
 │   │   ├── base.py              # ABCs GroupManagerBase, UserManagerBase
@@ -401,6 +414,14 @@ linuxtools/
 │   ├── test_dotconf_applier.py
 │   ├── test_commands.py
 │   ├── test_scripts.py
+│   ├── test_deploy_models.py
+│   ├── test_deploy_discovery.py
+│   ├── test_deploy_ssh_executor.py
+│   ├── test_deploy_transport.py
+│   ├── test_deploy_venv_installer.py
+│   ├── test_deploy_verifier.py
+│   ├── test_deploy_deployer.py
+│   ├── test_deploy_cli.py
 │   ├── test_notification.py
 │   ├── test_notification_models.py
 │   ├── test_notification_chain.py
@@ -1819,6 +1840,138 @@ print(report.format_summary())   # Résumé lisible (deps, avertissements...)
   (rapport d'installation — voir report.py)
   ScriptPaths   (utilitaires de chemins FHS, via platformdirs)
 ```
+
+---
+
+## 🚀 Module `deploy`
+
+Déploiement/mise à jour d'un outil Python maison sur un hôte (poste ou serveur), en local ou à distance via SSH. Orchestre **4 phases** — transport du source → (ré)installation dans le venv cible → vérification post-install déclarative → **rollback automatique** si une vérification échoue. Le déployeur gère le **code**, pas la config runtime ni les secrets.
+
+### Utilisation
+
+#### API Python — déploiement local
+
+```python
+from pathlib import Path
+from linuxtools import (
+    Deployer, DeployConfig, DeployTarget, VerificationSpec,
+)
+
+# Vérifications déclaratives : imports, sous-commandes, non-régression
+verification = VerificationSpec(
+    imports=("mon_outil", "mon_outil.core"),
+    subcommands=("list", "run"),          # testées via `<cli_bin> <sub> --help`
+    regression_command=("mon-outil", "list"),
+)
+
+config = DeployConfig(
+    source_dir=None,                       # None → auto-détection (pyproject.toml)
+    venv_path=Path("/opt/mon-outil/venv"),
+    remote_source_dir=Path("/opt/mon-outil/src"),
+    verification=verification,
+    cli_bin="mon-outil",
+)
+
+# Fabrique tous les collaborateurs (executor local, rsync, installer, verifier)
+deployer = Deployer.for_target(DeployTarget())   # cible locale
+report = deployer.deploy(config)
+print(report.format_summary())
+```
+
+#### API Python — déploiement distant (SSH)
+
+```python
+from linuxtools import Deployer, DeployTarget
+
+target = DeployTarget(
+    host="pve",                # hôte distant
+    user="root",
+    ssh_options=("-p", "2222"),
+)
+
+# En distant : rsync pousse le source, puis backup/pip/vérifs tournent
+# sur l'hôte via SSH — le même code, cible transparente.
+deployer = Deployer.for_target(target)
+report = deployer.deploy(config)          # même DeployConfig que ci-dessus
+if not report.success:
+    print("Rollback effectué" if report.rolled_back else "Échec sans rollback")
+```
+
+#### En CLI — `DeployCommand` enregistrable
+
+`linuxtools` n'expose pas de binaire propre : `DeployCommand` est une `CliCommand` prête à enregistrer dans le `CliApplication` d'un projet consommateur.
+
+```python
+from linuxtools import CliApplication, DeployCommand
+
+app = CliApplication(
+    prog="mon-outil",
+    description="Mon outil CLI",
+    commands=[DeployCommand()],           # ajoute la sous-commande `deploy`
+)
+app.run()
+```
+
+```bash
+# Simulation (dry-run) d'une mise à jour distante
+mon-outil deploy --host pve --user root --ssh-option -p --ssh-option 2222 \
+    --venv /opt/mon-outil/venv --dest /opt/mon-outil/src \
+    --cli-bin mon-outil --import mon_outil --subcommand list --dry-run
+```
+
+### Documentation API
+
+| ABC (Interface) | Implémentation | Description |
+|-----------------|----------------|-------------|
+| `CommandExecutor` | `SshCommandExecutor` | Exécute à distance via `ssh` (wrap `shlex`-safe), délègue au `LinuxCommandExecutor` local |
+| `Transport` | `RsyncTransport` | Achemine le source vers la cible via `rsync` (local ou `user@host:`) |
+| `CliCommand` | `DeployCommand` | Sous-commande `deploy` enregistrable dans un `CliApplication` |
+| — | `VenvInstaller` | Backup, (ré)install `pip`, restauration et purge du venv cible |
+| — | `InstallVerifier` | Exécute les vérifications déclaratives (imports, sous-commandes, non-régression) |
+| — | `Deployer` | Orchestrateur des 4 phases + rollback (`Deployer.for_target(...)`) |
+
+**Fonctions de découverte** (`source_dir` optionnel) :
+
+| Fonction | Description |
+|----------|-------------|
+| `find_project_source(start=None)` | Remonte jusqu'au premier `pyproject.toml` (boucle robuste, sans profondeur fixe) |
+| `find_editable_source(distribution)` | Localise le source d'une distribution installée en mode éditable (`direct_url.json`) |
+
+**Dataclasses / enum** :
+
+| Classe | Description |
+|--------|-------------|
+| `DeployConfig` | Configuration complète (`source_dir` optionnel → auto-détection) |
+| `DeployTarget` | Cible locale ou distante (`host`, `user`, `ssh_options`) |
+| `VerificationSpec` | Vérifs déclaratives (imports, sous-commandes, commande de non-régression) |
+| `DeployReport` | Compte rendu (`success`, `phase_reached`, `checks`, `rolled_back`, `format_summary()`) |
+| `CheckResult` | Résultat d'une vérification unitaire (`label`, `ok`, `detail`) |
+| `DeployPhase` | Enum des phases : `TRANSPORT`, `BACKUP`, `INSTALL`, `VERIFY`, `ROLLBACK`, `DONE` |
+| `DeployError` | Exception levée si le backup obligatoire échoue (pas d'install sans filet) |
+
+### Architecture des Classes
+
+```
+  Deployer.for_target(target)  ─── fabrique ──────────────────────────┐
+                                                                       │
+  ┌────────────────────────────────────────────────────────────────┐  │
+  │                          Deployer                              │◄─┘
+  │  deploy(config) → DeployReport                                 │
+  │  transport → backup → install → verify → [rollback auto]       │
+  └───────┬───────────────┬────────────────────┬──────────────────┘
+          │               │                    │  (collaborateurs injectés)
+          ▼               ▼                    ▼
+  ┌──────────────┐ ┌────────────────┐ ┌────────────────────┐
+  │  Transport   │ │ VenvInstaller  │ │  InstallVerifier   │
+  │  (ABC)       │ │  backup/install│ │  imports/subcmds/  │
+  │  RsyncTrans. │ │  restore/prune │ │  régression        │
+  └──────┬───────┘ └───────┬────────┘ └─────────┬──────────┘
+         │ local exec       │ target exec         │ target exec
+         ▼                  ▼                     ▼
+   LinuxCommandExecutor   CommandExecutor cible (local OU SshCommandExecutor)
+```
+
+> **Sécurité** : toute valeur interpolée dans une commande `ssh`/`rsync` passe par `shlex.quote`/`shlex.join` ; l'installation n'utilise QUE le `pip` du venv cible (jamais `python3 -m pip` système → pas de heurt PEP 668) ; un backup du venv est pris **avant** toute installation, et restauré automatiquement si l'install ou une vérification échoue.
 
 ---
 
