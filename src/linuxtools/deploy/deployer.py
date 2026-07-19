@@ -90,6 +90,11 @@ class Deployer:
     ) -> tuple[Path | None, str | None]:
         """Résout le répertoire source, avec auto-détection (V1).
 
+        Valide l'existence du répertoire dans les deux cas
+        (explicite ou auto-détecté) : un source_dir explicite
+        inexistant ne doit jamais laisser `transfer()` lever
+        FileNotFoundError, mais produire un échec de rapport normal.
+
         Args:
             config: Configuration du déploiement.
 
@@ -98,17 +103,22 @@ class Deployer:
             message contient la raison de l'échec.
         """
         if config.source_dir is not None:
-            return config.source_dir, None
+            source_dir = config.source_dir
+            if not source_dir.is_dir():
+                return None, f"source_dir inexistant : {source_dir}"
+            return source_dir, None
 
-        source_dir = find_project_source()
-        if source_dir is None:
+        detected = find_project_source()
+        if detected is None:
             return None, (
                 "source_dir introuvable : aucun pyproject.toml "
                 "en remontant depuis le cwd"
             )
+        if not detected.is_dir():
+            return None, f"source_dir inexistant : {detected}"
 
-        self._log(f"Source auto-détecté : {source_dir}")
-        return source_dir, f"Source auto-détecté : {source_dir}"
+        self._log(f"Source auto-détecté : {detected}")
+        return detected, f"Source auto-détecté : {detected}"
 
     def _deploy_dry_run(
         self,
@@ -133,6 +143,11 @@ class Deployer:
         ctx.would_run_command(
             f"backup du venv {config.venv_path}"
         )
+        if config.recreate_venv:
+            ctx.would_run_command(f"rm -rf {config.venv_path}")
+            ctx.would_run_command(
+                f"python3 -m venv {config.venv_path}"
+            )
         ctx.would_run_command(
             f"{config.venv_path}/bin/pip install --force-reinstall "
             f"{config.remote_source_dir}"
@@ -164,6 +179,33 @@ class Deployer:
         return self._installer.restore_venv(
             config.venv_path, backup_path
         )
+
+    @staticmethod
+    def _rollback_failure_messages(
+        backup_path: Path | None, rolled_back: bool
+    ) -> tuple[str, ...]:
+        """Message d'alerte si un rollback attendu a échoué.
+
+        Un rapport honnête ne doit jamais taire un rollback tenté et
+        raté : le backup reste alors sur disque mais le venv en
+        place peut être dans un état non fonctionnel.
+
+        Args:
+            backup_path: Chemin du backup, ou None si aucun
+                rollback n'a été tenté.
+            rolled_back: True si le rollback a réussi.
+
+        Returns:
+            Tuple à un élément avec le message d'alerte si un
+            rollback a été tenté (backup_path non None) et a
+            échoué, tuple vide sinon.
+        """
+        if backup_path is not None and not rolled_back:
+            return (
+                "⚠ Rollback ÉCHOUÉ — venv laissé en l'état, "
+                f"backup conservé : {backup_path}",
+            )
+        return ()
 
     def deploy(self, config: DeployConfig) -> DeployReport:
         """Exécute le déploiement complet selon config.
@@ -232,6 +274,8 @@ class Deployer:
                 backup_path=backup_path,
                 messages=messages + (
                     f"Installation échouée : {install_result.stderr}",
+                ) + self._rollback_failure_messages(
+                    backup_path, rolled_back
                 ),
             )
 
@@ -257,6 +301,8 @@ class Deployer:
                 backup_path=backup_path,
                 messages=messages + (
                     "Vérification post-install échouée",
+                ) + self._rollback_failure_messages(
+                    backup_path, rolled_back
                 ),
             )
 

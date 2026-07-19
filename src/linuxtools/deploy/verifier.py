@@ -151,10 +151,22 @@ class InstallVerifier:
 
         results += self._check_imports(venv_path, spec.imports)
 
-        if cli_bin and spec.subcommands:
-            results += self._check_subcommands(
-                venv_path, spec.subcommands, cli_bin
-            )
+        if spec.subcommands:
+            if cli_bin:
+                results += self._check_subcommands(
+                    venv_path, spec.subcommands, cli_bin
+                )
+            else:
+                check = CheckResult(
+                    label="sous-commandes",
+                    ok=False,
+                    detail=(
+                        "cli_bin requis pour vérifier les "
+                        "sous-commandes"
+                    ),
+                )
+                results.append(check)
+                self._log_check(check)
 
         if spec.regression_command:
             results.append(

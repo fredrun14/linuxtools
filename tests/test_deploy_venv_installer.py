@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import re
+
 import pytest
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
@@ -97,6 +99,23 @@ class TestVenvInstallerBackupVenv:
             installer.backup_venv(Path("/opt/app/venv"))
 
         logger.log_error.assert_called_once()
+
+    def test_horodatage_contient_les_microsecondes(self):
+        """Le suffixe de backup inclut les microsecondes (correctif
+        #5) pour éviter une collision entre deux backups à la même
+        seconde."""
+        executor = _make_executor()
+        executor.run.side_effect = [
+            _result(success=True),  # test -d
+            _result(success=True),  # cp -a
+        ]
+        installer = VenvInstaller(executor)
+
+        backup = installer.backup_venv(Path("/opt/app/venv"))
+
+        assert backup is not None
+        suffix = backup.name.removeprefix("venv.bak-")
+        assert re.fullmatch(r"\d{8}-\d{6}-\d{6}", suffix)
 
 
 class TestVenvInstallerInstall:
@@ -222,14 +241,22 @@ class TestVenvInstallerInstall:
 
 
 class TestVenvInstallerRestoreVenv:
-    """Tests pour VenvInstaller.restore_venv()."""
+    """Tests pour VenvInstaller.restore_venv() (correctif #2).
+
+    La nouvelle séquence ne détruit jamais le venv avant d'avoir
+    confirmé la restauration : test -d, puis mv vers un garde-fou,
+    puis cp -a du backup, puis rm -rf du garde-fou en cas de succès.
+    """
 
     def test_restaure_avec_succes(self):
-        """rm -rf puis mv réussissent : restore_venv retourne True."""
+        """test -d, mv garde-fou, cp -a puis rm -rf garde-fou :
+        restore_venv retourne True."""
         executor = _make_executor()
         executor.run.side_effect = [
-            _result(success=True),  # rm -rf
-            _result(success=True),  # mv
+            _result(success=True),  # test -d
+            _result(success=True),  # mv venv -> garde-fou
+            _result(success=True),  # cp -a backup -> venv
+            _result(success=True),  # rm -rf garde-fou
         ]
         installer = VenvInstaller(executor)
 
@@ -239,27 +266,22 @@ class TestVenvInstallerRestoreVenv:
         )
 
         assert ok is True
+        calls = [c.args[0] for c in executor.run.call_args_list]
+        assert calls[0] == ["test", "-d", "/opt/app/venv"]
+        assert calls[1][0] == "mv"
+        assert calls[1][1] == "/opt/app/venv"
+        assert calls[2] == [
+            "cp", "-a", "/opt/app/venv.bak-20260719", "/opt/app/venv",
+        ]
+        assert calls[3][0] == "rm"
 
-    def test_retourne_false_si_rm_echoue(self):
-        """rm -rf échoue : restore_venv retourne False sans mv."""
-        executor = _make_executor()
-        executor.run.return_value = _result(success=False)
-        installer = VenvInstaller(executor)
-
-        ok = installer.restore_venv(
-            Path("/opt/app/venv"),
-            Path("/opt/app/venv.bak-20260719"),
-        )
-
-        assert ok is False
-        assert executor.run.call_count == 1
-
-    def test_retourne_false_si_mv_echoue(self):
-        """mv échoue après un rm -rf réussi : retourne False."""
+    def test_retourne_false_si_mv_garde_fou_echoue(self):
+        """Le venv existe mais le mv vers le garde-fou échoue :
+        retourne False sans jamais toucher au venv (pas de cp)."""
         executor = _make_executor()
         executor.run.side_effect = [
-            _result(success=True),
-            _result(success=False, stderr="mv error"),
+            _result(success=True),  # test -d
+            _result(success=False, stderr="mv error"),  # mv échoue
         ]
         installer = VenvInstaller(executor)
 
@@ -269,6 +291,73 @@ class TestVenvInstallerRestoreVenv:
         )
 
         assert ok is False
+        assert executor.run.call_count == 2
+
+    def test_cp_echoue_remet_le_garde_fou_et_retourne_false(self):
+        """Le cp -a échoue : le garde-fou est remis à la place du
+        venv (rien n'est perdu) et restore_venv retourne False."""
+        executor = _make_executor()
+        executor.run.side_effect = [
+            _result(success=True),  # test -d
+            _result(success=True),  # mv venv -> garde-fou
+            _result(success=False, stderr="cp error"),  # cp -a
+            _result(success=True),  # mv garde-fou -> venv (retour)
+        ]
+        installer = VenvInstaller(executor)
+
+        ok = installer.restore_venv(
+            Path("/opt/app/venv"),
+            Path("/opt/app/venv.bak-20260719"),
+        )
+
+        assert ok is False
+        calls = [c.args[0] for c in executor.run.call_args_list]
+        assert len(calls) == 4
+        # Le venv d'origine est remis en place (garde-fou -> venv).
+        assert calls[3][0] == "mv"
+        assert calls[3][2] == "/opt/app/venv"
+
+    def test_cp_et_remise_du_garde_fou_echouent_toutes_deux(self):
+        """cp -a échoue ET la remise en place du garde-fou échoue
+        aussi : restore_venv retourne quand même False (double
+        échec loggué, ne lève pas d'exception)."""
+        executor = _make_executor()
+        executor.run.side_effect = [
+            _result(success=True),  # test -d
+            _result(success=True),  # mv venv -> garde-fou
+            _result(success=False, stderr="cp error"),  # cp -a
+            _result(
+                success=False, stderr="mv error"
+            ),  # remise garde-fou échoue aussi
+        ]
+        logger = MagicMock(spec=Logger)
+        installer = VenvInstaller(executor, logger=logger)
+
+        ok = installer.restore_venv(
+            Path("/opt/app/venv"),
+            Path("/opt/app/venv.bak-20260719"),
+        )
+
+        assert ok is False
+        assert logger.log_error.call_count == 2
+
+    def test_venv_absent_copie_directement_sans_garde_fou(self):
+        """Si le venv n'existe pas déjà, aucune étape de garde-fou :
+        seul un cp -a est tenté."""
+        executor = _make_executor()
+        executor.run.side_effect = [
+            _result(success=False),  # test -d : absent
+            _result(success=True),  # cp -a
+        ]
+        installer = VenvInstaller(executor)
+
+        ok = installer.restore_venv(
+            Path("/opt/app/venv"),
+            Path("/opt/app/venv.bak-20260719"),
+        )
+
+        assert ok is True
+        assert executor.run.call_count == 2
 
 
 class TestVenvInstallerPruneBackup:

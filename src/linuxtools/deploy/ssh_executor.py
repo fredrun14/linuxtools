@@ -73,6 +73,10 @@ class SshCommandExecutor(CommandExecutor):
         qui lance ssh — sinon ils s'appliqueraient au binaire ssh
         lui-même et non à la commande distante.
 
+        Tous les segments (cd, export, commande) sont chaînés avec
+        `&&`, jamais `;` : si le `cd` échoue (répertoire absent), la
+        commande ne doit pas s'exécuter dans le mauvais répertoire.
+
         Args:
             command: Commande à exécuter côté distant.
             cwd: Répertoire de travail distant, ou None.
@@ -82,18 +86,18 @@ class SshCommandExecutor(CommandExecutor):
             Commande ssh complète, prête pour un CommandExecutor
             local.
         """
-        prefix = ""
+        segments: list[str] = []
         if cwd:
-            prefix += f"cd {shlex.quote(cwd)} && "
+            segments.append(f"cd {shlex.quote(cwd)}")
         if env:
-            exports = "".join(
-                f"export {key}={shlex.quote(value)}; "
+            exports = " ".join(
+                f"{key}={shlex.quote(value)}"
                 for key, value in env.items()
             )
-            prefix += exports
+            segments.append(f"export {exports}")
+        segments.append(shlex.join(command))
 
-        remote = shlex.join(command)
-        remote_command = f"{prefix}{remote}"
+        remote_command = " && ".join(segments)
 
         return [
             "ssh",

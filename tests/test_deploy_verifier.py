@@ -96,8 +96,9 @@ class TestInstallVerifierImports:
 class TestInstallVerifierSubcommands:
     """Tests pour la vérification des sous-commandes."""
 
-    def test_ignore_les_subcommands_sans_cli_bin(self):
-        """Sans cli_bin, les subcommands déclarées sont ignorées."""
+    def test_echoue_les_subcommands_sans_cli_bin(self):
+        """Sans cli_bin, les subcommands déclarées échouent (pas de
+        faux succès silencieux — plan correctif #1, BLOQUANT)."""
         executor = _make_executor()
         verifier = InstallVerifier(executor)
 
@@ -107,8 +108,26 @@ class TestInstallVerifierSubcommands:
             cli_bin=None,
         )
 
-        assert results == []
+        assert len(results) == 1
+        assert results[0].ok is False
+        assert results[0].label == "sous-commandes"
         executor.run.assert_not_called()
+
+    def test_echoue_les_subcommands_sans_cli_bin_bloque_le_all_ok(
+        self,
+    ):
+        """Le CheckResult d'échec fait basculer all(c.ok) à False,
+        ce qui déclenche le rollback côté Deployer."""
+        executor = _make_executor()
+        verifier = InstallVerifier(executor)
+
+        results = verifier.verify(
+            Path("/opt/app/venv"),
+            VerificationSpec(subcommands=("list",)),
+            cli_bin=None,
+        )
+
+        assert all(check.ok for check in results) is False
 
     def test_subcommand_ok_via_help(self):
         """Une sous-commande valide répond --help en code 0."""

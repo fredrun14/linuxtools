@@ -30,10 +30,18 @@ def _result(success: bool = True, stderr: str = "") -> CommandResult:
     )
 
 
+_EXISTING_DIR = Path(__file__).resolve().parent
+
+
 def _make_config(
-    source_dir: Path | None = Path("/home/user/app"),
+    source_dir: Path | None = _EXISTING_DIR,
 ) -> DeployConfig:
-    """Construit une DeployConfig minimale pour les tests."""
+    """Construit une DeployConfig minimale pour les tests.
+
+    source_dir par défaut pointe vers un répertoire réel (le
+    répertoire des tests) car _resolve_source_dir valide désormais
+    son existence (correctif #3) — même en dry-run.
+    """
     return DeployConfig(
         source_dir=source_dir,
         venv_path=Path("/opt/app/venv"),
@@ -172,6 +180,31 @@ class TestDeployerDeployEchecInstall:
         assert report.phase_reached is DeployPhase.INSTALL
         installer.restore_venv.assert_not_called()
 
+    def test_echec_install_et_rollback_ko_ajoute_un_message(self):
+        """Backup dispo, install échoue ET restore_venv échoue :
+        le rapport contient un message explicite d'alerte
+        (correctif #2 — un rapport honnête ne tait pas l'échec du
+        rollback)."""
+        transport, installer, verifier = _make_collaborators()
+        transport.transfer.return_value = _result(success=True)
+        backup_path = Path("/opt/app/venv.bak-1")
+        installer.backup_venv.return_value = backup_path
+        installer.install.return_value = _result(
+            success=False, stderr="pip error"
+        )
+        installer.restore_venv.return_value = False
+        deployer = Deployer(transport, installer, verifier)
+
+        report = deployer.deploy(_make_config())
+
+        assert report.success is False
+        assert report.rolled_back is False
+        assert report.phase_reached is DeployPhase.INSTALL
+        assert any(
+            "Rollback ÉCHOUÉ" in m and str(backup_path) in m
+            for m in report.messages
+        )
+
 
 class TestDeployerDeployEchecVerify:
     """Ligne 6 de la table rollback : échec vérification."""
@@ -214,6 +247,30 @@ class TestDeployerDeployEchecVerify:
         assert report.rolled_back is False
         assert report.phase_reached is DeployPhase.VERIFY
         installer.restore_venv.assert_not_called()
+
+    def test_echec_verify_et_rollback_ko_ajoute_un_message(self):
+        """Backup dispo, vérif échoue ET restore_venv échoue : le
+        rapport contient un message explicite d'alerte (correctif
+        #2)."""
+        transport, installer, verifier = _make_collaborators()
+        transport.transfer.return_value = _result(success=True)
+        backup_path = Path("/opt/app/venv.bak-1")
+        installer.backup_venv.return_value = backup_path
+        installer.install.return_value = _result(success=True)
+        verifier.verify.return_value = [
+            CheckResult(label="import app", ok=False, detail="boom")
+        ]
+        installer.restore_venv.return_value = False
+        deployer = Deployer(transport, installer, verifier)
+
+        report = deployer.deploy(_make_config())
+
+        assert report.success is False
+        assert report.rolled_back is False
+        assert any(
+            "Rollback ÉCHOUÉ" in m and str(backup_path) in m
+            for m in report.messages
+        )
 
 
 class TestDeployerDeployDryRun:
@@ -272,6 +329,36 @@ class TestDeployerDeployDryRun:
         out = capsys.readouterr().out
         assert "deploy@srv01:/opt/app/src" in out
 
+    def test_dry_run_recreate_venv_affiche_rm_et_venv(
+        self, capsys, tmp_path
+    ):
+        """recreate_venv=True : le dry-run montre rm -rf puis
+        python3 -m venv avant le pip install (correctif #6)."""
+        transport, installer, verifier = _make_collaborators()
+        deployer = Deployer(
+            transport, installer, verifier, dry_run=True
+        )
+        base = _make_config(source_dir=tmp_path)
+        config = DeployConfig(
+            source_dir=base.source_dir,
+            venv_path=base.venv_path,
+            remote_source_dir=base.remote_source_dir,
+            target=base.target,
+            verification=base.verification,
+            cli_bin=base.cli_bin,
+            recreate_venv=True,
+        )
+
+        deployer.deploy(config)
+
+        out = capsys.readouterr().out
+        assert f"rm -rf {base.venv_path}" in out
+        assert f"python3 -m venv {base.venv_path}" in out
+        rm_index = out.index(f"rm -rf {base.venv_path}")
+        venv_index = out.index(f"python3 -m venv {base.venv_path}")
+        pip_index = out.index("pip install")
+        assert rm_index < venv_index < pip_index
+
 
 class TestDeployerResolveSourceDir:
     """Tests de la résolution auto (V1) de source_dir."""
@@ -302,7 +389,7 @@ class TestDeployerResolveSourceDir:
         logger = MagicMock()
         deployer = Deployer(transport, installer, verifier, logger)
 
-        detected = Path("/home/user/mon-projet")
+        detected = _EXISTING_DIR
         with patch(
             "linuxtools.deploy.deployer.find_project_source",
             return_value=detected,
@@ -318,6 +405,42 @@ class TestDeployerResolveSourceDir:
         logger.log_info.assert_called_once_with(
             f"Source auto-détecté : {detected}"
         )
+
+    def test_source_dir_auto_detecte_inexistant(self):
+        """source_dir auto-détecté mais inexistant sur disque : échec
+        phase TRANSPORT, pas d'exception (correctif #3)."""
+        transport, installer, verifier = _make_collaborators()
+        deployer = Deployer(transport, installer, verifier)
+
+        detected = Path("/home/user/mon-projet-disparu")
+        with patch(
+            "linuxtools.deploy.deployer.find_project_source",
+            return_value=detected,
+        ):
+            report = deployer.deploy(_make_config(source_dir=None))
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.TRANSPORT
+        assert "inexistant" in report.messages[0]
+        transport.transfer.assert_not_called()
+
+    def test_source_dir_explicite_inexistant(self):
+        """source_dir explicite inexistant : DeployReport en échec
+        phase TRANSPORT, pas de FileNotFoundError levée (correctif
+        #3, contrat de l'API)."""
+        transport, installer, verifier = _make_collaborators()
+        deployer = Deployer(transport, installer, verifier)
+
+        config = _make_config(
+            source_dir=Path("/inexistant/source-dir")
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.TRANSPORT
+        assert "inexistant" in report.messages[0]
+        transport.transfer.assert_not_called()
 
 
 class TestDeployerForTarget:

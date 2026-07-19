@@ -103,7 +103,9 @@ class TestSshCommandExecutorRun:
         assert "'/opt/mon app'" in called_cmd[-1]
 
     def test_env_injecte_dans_la_commande_distante(self):
-        """env devient des `export K=V;` préfixés côté distant."""
+        """env devient un `export K=V` chaîné à la commande par
+        `&&` (correctif #4 : jamais `;`, pour ne pas exécuter la
+        commande si l'export échoue)."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
             DeployTarget(host="srv01"), local_executor=local
@@ -111,7 +113,23 @@ class TestSshCommandExecutorRun:
         executor.run(["ls"], env={"MY_VAR": "42"})
 
         called_cmd = local.run.call_args.args[0]
-        assert "export MY_VAR=42; ls" in called_cmd[-1]
+        assert "export MY_VAR=42 && ls" in called_cmd[-1]
+
+    def test_cwd_et_env_sont_chaines_par_et_et(self):
+        """cwd+env : tous les segments (cd, export, commande) sont
+        chaînés par `&&`, jamais `;` — si le cd échoue, la commande
+        ne doit pas s'exécuter (correctif #4, BLOQUANT sécurité)."""
+        local = _make_local_mock()
+        executor = SshCommandExecutor(
+            DeployTarget(host="srv01"), local_executor=local
+        )
+        executor.run(["ls"], cwd="/opt/app", env={"MY_VAR": "42"})
+
+        called_cmd = local.run.call_args.args[0]
+        assert called_cmd[-1] == (
+            "cd /opt/app && export MY_VAR=42 && ls"
+        )
+        assert ";" not in called_cmd[-1]
 
     def test_env_avec_injection_shell_est_neutralisee(self):
         """Une valeur env malicieuse est neutralisée par shlex.quote."""

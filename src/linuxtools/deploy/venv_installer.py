@@ -75,7 +75,7 @@ class VenvInstaller:
             )
             return None
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         backup_path = venv_path.parent / (
             f"{venv_path.name}.bak-{timestamp}"
         )
@@ -169,6 +169,15 @@ class VenvInstaller:
     ) -> bool:
         """Restaure le venv depuis une sauvegarde (rollback).
 
+        Ne détruit jamais le venv en place avant d'avoir confirmé la
+        restauration : s'il existe, il est d'abord *renommé* en
+        garde-fou (`<venv>.rollback-tmp-<horodatage>`), puis le
+        backup est *copié* (jamais déplacé — le backup original
+        reste disponible pour un nouvel essai) vers venv_path. Si la
+        copie échoue, le garde-fou est remis en place : le venv
+        n'est jamais laissé dans un état « supprimé sans
+        remplaçant ».
+
         Args:
             venv_path: Chemin du venv à restaurer.
             backup_path: Chemin du backup à réinjecter.
@@ -176,25 +185,47 @@ class VenvInstaller:
         Returns:
             True si la restauration a réussi, False sinon.
         """
-        rm_result = self._executor.run(
-            ["rm", "-rf", str(venv_path)]
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        guard_path = venv_path.parent / (
+            f"{venv_path.name}.rollback-tmp-{timestamp}"
         )
-        if not rm_result.success:
-            self._log_error(
-                f"Échec de suppression de {venv_path} pendant le "
-                f"rollback : {rm_result.stderr}"
-            )
-            return False
 
-        mv_result = self._executor.run(
-            ["mv", str(backup_path), str(venv_path)]
+        exists = self._executor.run(
+            ["test", "-d", str(venv_path)]
         )
-        if not mv_result.success:
+        if exists.success:
+            mv_result = self._executor.run(
+                ["mv", str(venv_path), str(guard_path)]
+            )
+            if not mv_result.success:
+                self._log_error(
+                    f"Échec de la mise à l'écart de {venv_path} "
+                    f"pendant le rollback : {mv_result.stderr}"
+                )
+                return False
+
+        cp_result = self._executor.run(
+            ["cp", "-a", str(backup_path), str(venv_path)]
+        )
+        if not cp_result.success:
             self._log_error(
                 f"Échec de restauration du backup {backup_path} "
-                f"vers {venv_path} : {mv_result.stderr}"
+                f"vers {venv_path} : {cp_result.stderr}"
             )
+            if exists.success:
+                restore_result = self._executor.run(
+                    ["mv", str(guard_path), str(venv_path)]
+                )
+                if not restore_result.success:
+                    self._log_error(
+                        "Échec de la remise en place du "
+                        f"garde-fou {guard_path} : "
+                        f"{restore_result.stderr}"
+                    )
             return False
+
+        if exists.success:
+            self._executor.run(["rm", "-rf", str(guard_path)])
 
         self._log(f"Venv restauré depuis {backup_path}.")
         return True
