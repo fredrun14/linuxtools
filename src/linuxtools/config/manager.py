@@ -228,7 +228,7 @@ class ConfigurationManager(ConfigManager):
                 f"Profil '{profile_name}' non trouvé. {detail}"
             )
 
-        profile = profiles[profile_name].copy()
+        profile: dict[str, Any] = profiles[profile_name].copy()
 
         for key in _PATH_KEYS:
             if key in profile:

@@ -7,6 +7,7 @@ import socket
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 from linuxtools.logging.base import Logger
 from linuxtools.network.router._nvram import (
@@ -250,7 +251,7 @@ class AsusRouterClient:
             )
         return self._token
 
-    def _hook(self, hook: str) -> dict:
+    def _hook(self, hook: str) -> dict[str, Any]:
         """Envoie une requete hook vers /appGet.cgi.
 
         Args:
@@ -280,15 +281,16 @@ class AsusRouterClient:
             with urllib.request.urlopen(
                 req, timeout=self._config.timeout  # nosec B310
             ) as resp:
-                return json.loads(
+                result: dict[str, Any] = json.loads(
                     resp.read().decode("utf-8")
                 )
+                return result
         except Exception as exc:
             raise RuntimeError(
                 f"Echec requete hook '{hook}' : {exc}"
             ) from exc
 
-    def get_clients(self) -> list[dict]:
+    def get_clients(self) -> list[dict[str, Any]]:
         """Retourne tous les clients connus du routeur.
 
         Inclut les appareils actuellement connectes

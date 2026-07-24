@@ -304,7 +304,7 @@ class SystemdUnitRestorer:
 
     def _parse_meta(
         self, toml_path: Path
-    ) -> "tuple[dict, str, bool, str] | None":
+    ) -> "tuple[dict[str, object], str, bool, str] | None":
         """Parse le fichier TOML et extrait les métadonnées.
 
         Args:

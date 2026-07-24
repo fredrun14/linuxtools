@@ -11,7 +11,7 @@ help:
 	@echo "  make test           Lancer les tests"
 	@echo "  make test-verbose   Lancer les tests en mode verbose"
 	@echo "  make test-cov       Lancer les tests avec couverture"
-	@echo "  make lint           Vérifier le style PEP8"
+	@echo "  make lint           Vérifier le style PEP8 et le typage (mypy)"
 	@echo "  make clean          Nettoyer les fichiers générés"
 	@echo "  make build          Construire le package"
 	@echo "  make hooks          Activer les hooks Git versionnés (.githooks)"
@@ -47,6 +47,7 @@ test-cov:
 # Linting
 lint:
 	pycodestyle src/linuxtools/
+	mypy src/linuxtools/
 
 # Nettoyage
 clean:
