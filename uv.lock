@@ -682,7 +682,7 @@ wheels = [
 
 [[package]]
 name = "linuxtools"
-version = "1.6.0"
+version = "1.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "platformdirs" },

@@ -116,10 +116,10 @@ class InstallReport:
                 lines.append(
                     f"    ✓ {dep.package}  ({dep.location})"
                 )
-            for dep in self.missing_deps:
+            for missing in self.missing_deps:
                 lines.append(
-                    f"    ✗ {dep.package} {dep.required}"
-                    f" ({dep.reason})"
+                    f"    ✗ {missing.package} {missing.required}"
+                    f" ({missing.reason})"
                 )
             if self.install_command:
                 lines.append(

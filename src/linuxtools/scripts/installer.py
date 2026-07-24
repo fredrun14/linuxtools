@@ -342,7 +342,7 @@ class LinuxCliInstaller(CliInstaller):
         self,
         config: PythonCliConfig,
         paths: ScriptPaths,
-    ) -> tuple[InstallReport | None, dict | None]:
+    ) -> tuple[InstallReport | None, dict[str, object] | None]:
         """Vérifie python3 et lit pyproject.toml.
 
         Args:
@@ -379,7 +379,7 @@ class LinuxCliInstaller(CliInstaller):
         self,
         config: PythonCliConfig,
         paths: ScriptPaths,
-        pyproject_data: dict,
+        pyproject_data: dict[str, object],
         missing: list[MissingDependency],
         installed: list[InstalledDependency],
         total: int,

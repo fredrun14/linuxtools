@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.11.0] - 2026-07-24
+
+### Outillage
+
+#### Typage exposé (PEP 561) et zéro dette mypy
+
+`linuxtools` était entièrement typé (PEP 484) mais ce typage restait invisible
+et non vérifié en amont. Ce chantier l'expose et le verrouille :
+
+- **`py.typed`** — Ajout du marqueur PEP 561 à la racine du paquet. Les
+  consommateurs (`backup-py-manager`, `obsidian-vault-tools`,
+  `fedora_post_install`, `nas-diy-tools`) bénéficient désormais de la
+  vérification mypy sur `linuxtools`.
+- **Zéro dette `mypy --strict`** — Correction des 33 erreurs strictes
+  latentes (générique non paramétré, retour `Any`, gardes de nullabilité
+  manquantes) réparties sur 13 fichiers. Aucun `# type: ignore` ni `cast()`
+  ajouté : chaque cause a été corrigée à la source.
+- **`credentials.chain.CredentialChain`** — `get()` et `get_with_source()`
+  gardent désormais explicitement `provider is not None` en complément de
+  `value is not None` (comportement inchangé, type prouvé par mypy).
+- **Verrouillage CI** — `mypy src/linuxtools/` intégré à `make lint` et à un
+  nouveau step « Type check (mypy strict) » du job `test` de la CI, pour
+  empêcher toute régression future du typage.
+
 ## [1.10.0] - 2026-07-19
 
 ### Nouvelles fonctionnalités

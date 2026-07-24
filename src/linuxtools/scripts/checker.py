@@ -428,10 +428,10 @@ class LinuxScriptChecker(ScriptChecker):
                     direct_url = dist.read_text("direct_url.json")
                     if direct_url:
                         data = json.loads(direct_url)
-                        url = data.get("url", "")
+                        url: str = data.get("url", "")
                         if url.startswith("file://"):
                             return url[7:]
-                    location: Path = dist.locate_file(".")
+                    location = dist.locate_file(".")
                     return str(location)
                 except importlib.metadata.PackageNotFoundError:
                     continue

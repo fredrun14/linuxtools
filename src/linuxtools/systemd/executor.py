@@ -32,7 +32,7 @@ class SystemdExecutor:
         self,
         args: list[str],
         check: bool = True
-    ) -> subprocess.CompletedProcess:
+    ) -> subprocess.CompletedProcess[str]:
         """
         Exécute une commande systemctl.
 
@@ -348,7 +348,7 @@ class UserSystemdExecutor(SystemdExecutor):
         self,
         args: list[str],
         check: bool = True
-    ) -> subprocess.CompletedProcess:
+    ) -> subprocess.CompletedProcess[str]:
         """
         Exécute une commande systemctl --user.
 

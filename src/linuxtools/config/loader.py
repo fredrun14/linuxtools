@@ -33,7 +33,8 @@ def _load_json(path: Path) -> dict[str, Any]:
         Dictionnaire de configuration.
     """
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data: dict[str, Any] = json.load(f)
+        return data
 
 
 _LOADERS: dict[str, Callable[[Path], dict[str, Any]]] = {

@@ -170,4 +170,4 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
             ...     print("Notifications activées")
         """
         notif_data = self._config.get(self.NOTIFICATION_SECTION, {})
-        return notif_data.get("enabled", False)
+        return bool(notif_data.get("enabled", False))

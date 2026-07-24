@@ -1,5 +1,6 @@
 """Scanner reseau via l'API locale du routeur ASUS."""
 
+from typing import Any
 
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import NetworkScanner
@@ -19,7 +20,7 @@ from linuxtools.network.vendors import (
 
 
 def _resolve_ip(
-    client: dict,
+    client: dict[str, Any],
     mac: str,
     leases: dict[str, str],
     reservations: dict[str, tuple[str, str]],
@@ -35,7 +36,7 @@ def _resolve_ip(
     Returns:
         Adresse IP ou chaine vide.
     """
-    ip = client.get("ip", "")
+    ip: str = client.get("ip", "")
     if not ip or ip == "0.0.0.0":  # nosec B104
         ip = leases.get(mac, "")
     if not ip:
@@ -46,7 +47,7 @@ def _resolve_ip(
     return ip
 
 
-def _resolve_hostname(client: dict) -> str:
+def _resolve_hostname(client: dict[str, Any]) -> str:
     """Resout le hostname depuis nickName ou name DHCP.
 
     nickName = nom personnalise dans l'UI routeur ;
@@ -58,13 +59,13 @@ def _resolve_hostname(client: dict) -> str:
     Returns:
         Hostname ou chaine vide.
     """
-    return (
-        client.get("nickName", "").strip()
-        or client.get("name", "").strip()
-    )
+    nickname: str = client.get("nickName", "").strip()
+    return nickname or str(client.get("name", "")).strip()
 
 
-def _resolve_device_type(client: dict, vendor: str) -> str:
+def _resolve_device_type(
+    client: dict[str, Any], vendor: str
+) -> str:
     """Resout le type de peripherique depuis dpiDevice ou vendor.
 
     Args:
@@ -166,11 +167,11 @@ class AsusRouterScanner(NetworkScanner):
 
     def _merge_offline_clients(
         self,
-        raw_clients: list[dict],
+        raw_clients: list[dict[str, Any]],
         custom_clients: dict[str, str],
         leases: dict[str, str],
         reservations: dict[str, tuple[str, str]],
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Ajoute les clients offline depuis custom_clientlist.
 
         Les clients deja presents dans raw_clients (online)
@@ -224,7 +225,7 @@ class AsusRouterScanner(NetworkScanner):
 
     def _parse_clients(
         self,
-        raw: list[dict],
+        raw: list[dict[str, Any]],
         leases: dict[str, str],
         reservations: dict[str, tuple[str, str]] | None = None,
     ) -> list[NetworkDevice]:

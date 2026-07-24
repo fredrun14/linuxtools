@@ -5,6 +5,7 @@ import ipaddress
 from collections.abc import Iterator
 
 from linuxtools.network.config import DhcpRange
+from linuxtools.network.models import NetworkDevice
 
 
 def _ip_to_int(ip: str) -> int:
@@ -81,9 +82,9 @@ def _next_available_ip(
 
 
 def _allocate_fixed_ips(
-    devices: list,
+    devices: list[NetworkDevice],
     dhcp_range: DhcpRange,
-) -> list:
+) -> list[NetworkDevice]:
     """Alloue des IP fixes aux peripheriques sans reservation.
 
     Args:

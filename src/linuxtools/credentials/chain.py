@@ -100,7 +100,7 @@ class CredentialChain(CredentialProvider):
             providers.
         """
         provider, value = self._find(service, key)
-        if value is not None:
+        if provider is not None and value is not None:
             if self._logger:
                 self._logger.log_info(
                     f"Credential trouvé via {provider.source_name!r} : "
@@ -125,7 +125,7 @@ class CredentialChain(CredentialProvider):
             ou None si absent de tous les providers.
         """
         provider, value = self._find(service, key)
-        if value is None:
+        if provider is None or value is None:
             return None
         return Credential(
             service=service,

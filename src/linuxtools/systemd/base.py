@@ -620,7 +620,7 @@ class _TimerOperationsMixin:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
         try:
-            result = self.executor._run_systemctl(  # type: ignore
+            result = self.executor._run_systemctl(
                 ["list-timers", "--no-pager", "--output=json"],
                 check=False,
             )
@@ -664,7 +664,7 @@ class _TimerOperationsMixin:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
         try:
-            result = self.executor._run_systemctl(  # type: ignore
+            result = self.executor._run_systemctl(
                 ["list-timers", "--no-pager", "--plain"],
                 check=False,
             )
