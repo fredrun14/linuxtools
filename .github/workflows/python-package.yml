@@ -61,9 +61,12 @@ jobs:
   # actions d'un job au démarrage, même les steps sautés. On sépare donc en deux
   # JOBS gardés au niveau job : un job sauté n'est jamais initialisé, donc son
   # action (forgejo/upload-artifact) n'est jamais résolue sur l'autre forge.
-  # L'aiguillage se fait sur l'URL du runner (variable de contexte, sans réseau).
+  # Aiguillage ancré sur github.com : le runner Forgejo rapporte son URL INTERNE
+  # (ex. http://192.168.50.102:3300), pas le nom externe — donc on ne peut pas
+  # « détecter Forgejo » par son URL. On détecte GitHub (URL stable) et tout le
+  # reste est traité comme Forgejo. Variable de contexte, aucun appel réseau.
   build-github:
-    if: ${{ !contains(github.server_url, 'git.ricfasohel.fr') }}
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
@@ -89,7 +92,7 @@ jobs:
           path: dist/
 
   build-forgejo:
-    if: ${{ contains(github.server_url, 'git.ricfasohel.fr') }}
+    if: ${{ github.server_url != 'https://github.com' }}
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
