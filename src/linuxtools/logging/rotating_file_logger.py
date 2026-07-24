@@ -12,6 +12,7 @@ from linuxtools.logging.file_logger import (
     _ColoredFormatter,
     _NIVEAUX,
     _resolve_config,
+    _SupportsGet,
 )
 
 _FLAGS_SECURE = os.O_CREAT | os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
@@ -58,7 +59,7 @@ class RotatingFileLogger(_BaseFileLogger):
         log_file: str | Path,
         max_bytes: int = 10_485_760,
         backup_count: int = 5,
-        config: dict[str, Any] | None = None,
+        config: dict[str, Any] | _SupportsGet | None = None,
         console_output: bool = False,
         colored_console: bool = False,
     ) -> None:
