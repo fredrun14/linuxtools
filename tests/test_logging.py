@@ -27,6 +27,24 @@ from linuxtools.logging.security_logger import (
 )
 
 
+class _ConfigANotationPointee:
+    """Double type ConfigurationManager : ``get(key_path, default)``.
+
+    Simule un objet de configuration exposant ``get()`` en notation
+    pointée, sans être un ``dict`` — utilisé pour vérifier que
+    ``FileLogger``/``RotatingFileLogger`` acceptent tout objet
+    structurellement compatible avec ``_SupportsGet``.
+    """
+
+    def __init__(self, valeurs: dict) -> None:
+        """Stocke les valeurs simulées, indexées par clé pointée."""
+        self._valeurs = valeurs
+
+    def get(self, key_path, default=None):
+        """Retourne la valeur associée à ``key_path``, ou ``default``."""
+        return self._valeurs.get(key_path, default)
+
+
 class TestBaseFileLogger:
     """Tests pour _BaseFileLogger."""
 
@@ -182,6 +200,44 @@ class TestFileLogger:
         logger.log_success("opération réussie")
         content = log_file.read_text()
         assert "SUCCESS: opération réussie" in content
+
+    def test_file_logger_accepte_un_objet_a_notation_pointee(
+        self, tmp_path,
+    ):
+        """FileLogger accepte un objet get(key_path, default)."""
+        log_file = tmp_path / "test.log"
+        config = _ConfigANotationPointee({"logging.level": "WARNING"})
+
+        logger = FileLogger(str(log_file), config=config)
+        logger.log_info("ne doit pas apparaître")
+        logger.log_warning("doit apparaître")
+
+        content = log_file.read_text()
+        assert "ne doit pas apparaître" not in content
+        assert "doit apparaître" in content
+
+    def test_file_logger_accepte_toujours_un_dict(self, tmp_path):
+        """Non-régression : un dict reste accepté pour config."""
+        log_file = tmp_path / "test.log"
+        config = {"logging": {"level": "WARNING"}}
+
+        logger = FileLogger(str(log_file), config=config)
+        logger.log_info("ne doit pas apparaître")
+        logger.log_warning("doit apparaître")
+
+        content = log_file.read_text()
+        assert "ne doit pas apparaître" not in content
+        assert "doit apparaître" in content
+
+    def test_file_logger_accepte_toujours_none(self, tmp_path):
+        """Non-régression : None reste accepté (niveau INFO par défaut)."""
+        log_file = tmp_path / "test.log"
+
+        logger = FileLogger(str(log_file), config=None)
+        logger.log_info("visible par défaut")
+
+        content = log_file.read_text()
+        assert "visible par défaut" in content
 
 
 class TestFileLoggerConsole:
@@ -655,6 +711,21 @@ class TestRotatingFileLogger:
         )
         logger.log_info("ne doit pas apparaître")
         logger.log_warning("doit apparaître")
+        content = log_file.read_text(encoding="utf-8")
+        assert "ne doit pas apparaître" not in content
+        assert "doit apparaître" in content
+
+    def test_rotating_file_logger_accepte_un_objet_a_notation_pointee(
+        self, tmp_path: Path,
+    ) -> None:
+        """RotatingFileLogger accepte un objet get(key_path, default)."""
+        log_file = tmp_path / "run.log"
+        config = _ConfigANotationPointee({"logging.level": "WARNING"})
+
+        logger = RotatingFileLogger(log_file, config=config)
+        logger.log_info("ne doit pas apparaître")
+        logger.log_warning("doit apparaître")
+
         content = log_file.read_text(encoding="utf-8")
         assert "ne doit pas apparaître" not in content
         assert "doit apparaître" in content
