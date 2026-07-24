@@ -1,0 +1,40 @@
+# Release — exécutée par GitHub sur un tag `v*` : build + GitHub Release avec
+# les artefacts (wheel + sdist) attachés. Pas de publication PyPI.
+# La CI (lint/test/build) vit dans .forgejo/workflows/ci.yml (Forgejo gardien).
+# Le garde `if: github.com` rend le job inerte si Forgejo lit aussi ce fichier
+# sur un tag (le runner Forgejo ne rapporte pas github.com comme server_url).
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+
+      - name: Create GitHub Release with artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${GITHUB_REF_NAME}" dist/*
+          --title "${GITHUB_REF_NAME}"
+          --generate-notes
