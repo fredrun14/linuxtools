@@ -54,7 +54,16 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
-  build:
+  # L'upload d'artefact diffère selon la forge : le backend d'artefacts de
+  # Forgejo refuse actions/upload-artifact@v4 (« not supported on GHES »), et
+  # cette action est requise sur GitHub. Aucune version unique ne marche sur les
+  # deux. Un STEP sauté par `if:` ne suffit pas — GitHub résout TOUTES les
+  # actions d'un job au démarrage, même les steps sautés. On sépare donc en deux
+  # JOBS gardés au niveau job : un job sauté n'est jamais initialisé, donc son
+  # action (forgejo/upload-artifact) n'est jamais résolue sur l'autre forge.
+  # L'aiguillage se fait sur l'URL du runner (variable de contexte, sans réseau).
+  build-github:
+    if: ${{ !contains(github.server_url, 'git.ricfasohel.fr') }}
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
@@ -75,6 +84,32 @@ jobs:
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  build-forgejo:
+    if: ${{ contains(github.server_url, 'git.ricfasohel.fr') }}
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Upload artifacts
+        uses: forgejo/upload-artifact@v4
         with:
           name: dist
           path: dist/
