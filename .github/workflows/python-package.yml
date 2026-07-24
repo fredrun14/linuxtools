@@ -73,7 +73,20 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Upload artifacts
+      # L'upload d'artefact diffère selon la forge : le backend d'artefacts de
+      # Forgejo refuse actions/upload-artifact@v4 (« not supported on GHES »).
+      # On aiguille sur l'URL du runner (variable de contexte, aucun appel
+      # réseau). Sur Forgejo, tout est résolu localement — y compris l'action
+      # forgejo/upload-artifact ; le step GitHub est sauté, donc jamais résolu.
+      - name: Upload artifacts (Forgejo)
+        if: ${{ contains(github.server_url, 'git.ricfasohel.fr') }}
+        uses: forgejo/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Upload artifacts (GitHub)
+        if: ${{ !contains(github.server_url, 'git.ricfasohel.fr') }}
         uses: actions/upload-artifact@v4
         with:
           name: dist
