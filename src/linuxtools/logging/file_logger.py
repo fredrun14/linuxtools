@@ -6,7 +6,7 @@ import os
 from datetime import UTC, datetime
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Protocol, TextIO
 
 # local
 from linuxtools.logging.ansi_colors import AnsiColors
@@ -21,6 +21,22 @@ def _open_secure(path: str) -> int:
     """Ouvre le log avec O_NOFOLLOW/0o600 (anti-symlink, anti-lecture)."""
     flags = os.O_CREAT | os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
     return os.open(path, flags, 0o600)
+
+
+class _SupportsGet(Protocol):
+    """Objet de configuration exposant ``get(clé, défaut)``.
+
+    Décrit la capacité minimale attendue par :func:`_resolve_config` pour une
+    config qui n'est pas un ``dict`` — typiquement un ``ConfigurationManager``
+    du module :mod:`linuxtools.config`.
+
+    Les paramètres sont **positionnels uniquement** (``/``) : cela rend la
+    correspondance structurelle indépendante du nom des paramètres.
+    """
+
+    def get(self, key: str, default: Any = None, /) -> Any:
+        """Retourne la valeur associée à la clé, ou ``default``."""
+        ...
 
 
 def _resolve_config(
@@ -163,7 +179,7 @@ class FileLogger(_BaseFileLogger):
     def __init__(
         self,
         log_file: str | Path,
-        config: dict[str, Any] | None = None,
+        config: dict[str, Any] | _SupportsGet | None = None,
         console_output: bool = False,
         colored_console: bool = False,
     ) -> None:
