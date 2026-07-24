@@ -1,10 +1,12 @@
-name: Python Package
+# CI complète — exécutée UNIQUEMENT par Forgejo (GitHub ne lit pas .forgejo/).
+# Forgejo est le gardien : lint + type-check + tests + build avec artefacts,
+# entièrement en local. GitHub, lui, ne fait que la release sur tag
+# (voir .github/workflows/release.yml).
+name: CI
 
 on:
   push:
     branches: [master, main]
-    tags:
-      - 'v*'
   pull_request:
     branches: [master, main]
 
@@ -54,19 +56,7 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
-  # L'upload d'artefact diffère selon la forge : le backend d'artefacts de
-  # Forgejo refuse actions/upload-artifact@v4 (« not supported on GHES »), et
-  # cette action est requise sur GitHub. Aucune version unique ne marche sur les
-  # deux. Un STEP sauté par `if:` ne suffit pas — GitHub résout TOUTES les
-  # actions d'un job au démarrage, même les steps sautés. On sépare donc en deux
-  # JOBS gardés au niveau job : un job sauté n'est jamais initialisé, donc son
-  # action (forgejo/upload-artifact) n'est jamais résolue sur l'autre forge.
-  # Aiguillage ancré sur github.com : le runner Forgejo rapporte son URL INTERNE
-  # (ex. http://192.168.50.102:3300), pas le nom externe — donc on ne peut pas
-  # « détecter Forgejo » par son URL. On détecte GitHub (URL stable) et tout le
-  # reste est traité comme Forgejo. Variable de contexte, aucun appel réseau.
-  build-github:
-    if: ${{ github.server_url == 'https://github.com' }}
+  build:
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
@@ -85,32 +75,8 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-  build-forgejo:
-    if: ${{ github.server_url != 'https://github.com' }}
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
-
-      - name: Build package
-        run: python -m build
-
+      # Action d'artefact locale Forgejo (le backend refuse
+      # actions/upload-artifact@v4 — « not supported on GHES »).
       - name: Upload artifacts
         uses: forgejo/upload-artifact@v4
         with:
