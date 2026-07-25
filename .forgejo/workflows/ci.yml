@@ -7,6 +7,7 @@ name: CI
 on:
   push:
     branches: [master, main]
+    tags: ['v*']
   pull_request:
     branches: [master, main]
 
@@ -83,15 +84,22 @@ jobs:
           name: dist
           path: dist/
 
-  # Promotion — propage vers GitHub le commit qui a passé TOUTE la CI.
+  # Promotion — propage vers GitHub le commit/tag qui a passé TOUTE la CI.
   # Ne tourne QUE sur Forgejo (GitHub ne lit pas .forgejo/) et seulement sur
-  # un push master validé. Déclenche la synchro du miroir de push Forgejo→GitHub
-  # via l'API : le PAT GitHub vit dans la config du miroir, pas ici — on n'a
-  # besoin que d'un jeton Forgejo.
+  # un push master ou un tag v* validé. Déclenche la synchro du miroir de
+  # push Forgejo→GitHub via l'API : le PAT GitHub vit dans la config du
+  # miroir, pas ici — on n'a besoin que d'un jeton Forgejo. Sans ce
+  # déclencheur sur tag, un tag poussé sur Forgejo n'atteint jamais GitHub
+  # tout seul (le push de tag ne matche pas `on.push.branches`), et
+  # .github/workflows/release.yml (déclenché par tag côté GitHub) ne se
+  # lance donc jamais.
   promote:
     runs-on: ubuntu-latest
     needs: [lint, test, build]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    if: >
+      ${{ github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' ||
+      startsWith(github.ref, 'refs/tags/v')) }}
     steps:
       - name: Déclencher la synchro du miroir de push vers GitHub
         env:
