@@ -3311,6 +3311,23 @@ make test
 make all
 ```
 
+### Flux CI / Forges
+
+Le dépôt est poussé sur deux forges avec des rôles distincts (modèle **Forgejo-first**) :
+
+- **[Forgejo](https://git.ricfasohel.fr/fred/linuxtools)** est la forge de référence :
+  `origin` y pointe (fetch + push), le hook `post-commit` (`make hooks`) y pousse chaque
+  commit, et `.forgejo/workflows/ci.yml` y exécute la CI complète — lint (PEP 8), mypy
+  strict, tests (matrice Python 3.11-3.14), build + artefacts.
+- **[GitHub](https://github.com/fredrun14/linuxtools)** est un miroir : il ne reçoit un
+  commit que si la CI Forgejo est **verte**. Un job `promote` déclenche alors la synchro
+  d'un miroir de push Forgejo→GitHub. Côté GitHub, `.github/workflows/release.yml` ne fait
+  que publier une **GitHub Release** (wheel + sdist) sur un tag `v*` — pas de publication
+  PyPI.
+
+Conséquence pratique : les **Pull Requests se créent et se mergent sur Forgejo**, pas sur
+GitHub — c'est le passage par sa CI qui conditionne la promotion.
+
 ## 🔧 Améliorations connues
 
 | # | Description | Impact |
