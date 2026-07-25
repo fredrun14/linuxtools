@@ -57,14 +57,14 @@ options = "allow_other,default_permissions,IdentityFile=/home/user/.ssh/id_rsa"
 # from linuxtools import (
 #     FileLogger,
 #     ConfigurationManager,
-#     LinuxSystemdServiceManager,
+#     SystemdExecutor,
 #     LinuxMountUnitManager,
 #     MountConfig
 # )
 #
 # # Initialisation
 # logger = FileLogger("/var/log/mounts.log", console_output=True)
-# systemd = LinuxSystemdServiceManager(logger)
+# systemd = SystemdExecutor(logger)
 # mount_manager = LinuxMountUnitManager(logger, systemd)
 #
 # # Charger la configuration
