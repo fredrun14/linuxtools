@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.12.0] - 2026-07-25
+
+### Outillage
+
+#### Annotation `config` des loggers fichier
+
+- **`FileLogger`/`RotatingFileLogger`** — Annotation `config` élargie via un
+  `Protocol _SupportsGet` (`get()` positionnel-only), alignée sur la
+  docstring et `_resolve_config` : `dict[str, Any] | _SupportsGet | None`.
+  Un `ConfigurationManager` passe désormais la vérification de types chez
+  le consommateur (utile grâce à `py.typed`).
+
+#### CI Forgejo-first et promotion GitHub sur vert
+
+- **Forgejo** devient la forge de référence : `.forgejo/workflows/ci.yml`
+  exécute la CI complète (lint, mypy strict, tests, build) ; le hook
+  `post-commit` n'y pousse plus qu'elle.
+- **GitHub** devient un miroir promu : un job `promote` déclenche la
+  synchro d'un miroir de push Forgejo→GitHub une fois la CI verte
+  (`lint`/`test`/`build`), et `.github/workflows/release.yml` publie une
+  GitHub Release (wheel + sdist) sur tag `v*` — sans publication PyPI.
+
 ## [1.11.0] - 2026-07-24
 
 ### Outillage

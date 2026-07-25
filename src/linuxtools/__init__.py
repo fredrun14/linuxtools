@@ -23,7 +23,7 @@ Modules disponibles:
   distant via SSH (Deployer, DeployConfig, DeployCommand)
 """
 
-__version__ = "1.8.0"
+__version__ = "1.12.0"
 
 from linuxtools.logging import (
     Logger,
