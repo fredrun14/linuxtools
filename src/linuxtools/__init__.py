@@ -89,8 +89,6 @@ from linuxtools.systemd import (
     # Export / restauration génériques
     SystemdUnitExporter,
     SystemdUnitRestorer,
-    # Rétrocompatibilité
-    LinuxSystemdServiceManager,
 )
 from linuxtools.integrity import (
     ChecksumCalculator,
@@ -293,8 +291,6 @@ __all__ = [
     # Systemd - Export / restauration génériques
     "SystemdUnitExporter",
     "SystemdUnitRestorer",
-    # Systemd - Rétrocompatibilité
-    "LinuxSystemdServiceManager",
     # Integrity
     "ChecksumCalculator",
     "HashLibChecksumCalculator",

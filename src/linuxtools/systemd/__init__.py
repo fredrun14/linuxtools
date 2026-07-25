@@ -136,10 +136,6 @@ from linuxtools.systemd.unit_porter import (
     SystemdUnitRestorer,
 )
 
-# Rétrocompatibilité avec l'ancienne API
-# (LinuxSystemdServiceManager est remplacé par SystemdExecutor)
-LinuxSystemdServiceManager = SystemdExecutor
-
 __all__ = [
     # Classes abstraites système
     "UnitManager",
@@ -180,8 +176,6 @@ __all__ = [
     "MountConfigLoader",
     "AutomountSettings",
     "BashScriptConfigLoader",
-    # Rétrocompatibilité
-    "LinuxSystemdServiceManager",
     # Export / restauration génériques
     "SystemdUnitExporter",
     "SystemdUnitRestorer",
