@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Hook post-commit — pousse automatiquement le commit vers `origin`.
+# Hook post-commit — pousse automatiquement le commit vers `origin` (= Forgejo).
 #
 # Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
 # `make hooks` (voir Makefile) après tout clone.
 #
-# `origin` est censé être configuré avec deux URLs de push (GitHub +
-# Forgejo) ; le push va alors vers les deux forges d'un coup. Sur un clone
-# neuf sans ce réglage, le push part vers l'unique origin, ce qui reste
-# le comportement attendu.
+# Modèle Forgejo-first : `origin` pointe vers Forgejo uniquement. Le commit
+# part vers Forgejo, la CI complète (.forgejo/workflows/ci.yml) s'exécute, et
+# seulement sur CI verte le job `promote` propage le commit vers GitHub (via
+# la synchro du miroir de push). GitHub ne reçoit donc que du code validé.
 #
 # Propriétés :
 #   - non bloquant : le push tourne en arrière-plan, le terminal rend la
