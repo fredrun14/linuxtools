@@ -162,7 +162,70 @@ jobs:
             -H "Authorization: token ${FORGEJO_TOKEN}" \
             "${API}/repos/${GITHUB_REPOSITORY}/push_mirrors-sync")
           echo "push_mirrors-sync => HTTP ${code}"
+          # Deux authentifications distinctes peuvent échouer ici, et Forgejo
+          # les rend par des codes différents — d'où ce diagnostic explicite.
           case "${code}" in
-            2*) echo "Miroir synchronisé : promotion GitHub déclenchée." ;;
-            *)  echo "Échec de la synchro du miroir (HTTP ${code})" >&2; exit 1 ;;
+            2*)
+              echo "Miroir synchronisé : promotion GitHub déclenchée."
+              ;;
+            401|403)
+              echo "AUTH FORGEJO REFUSÉE (HTTP ${code})." >&2
+              echo "Le secret du dépôt FORGEJO_TOKEN est invalide, expiré ou a" >&2
+              echo "perdu la portée write:repository. Le régénérer dans" >&2
+              echo "Settings > Applications, puis Settings > Actions > Secrets." >&2
+              exit 1
+              ;;
+            404)
+              echo "MIROIR INTROUVABLE (HTTP ${code})." >&2
+              echo "Aucun miroir de push configuré sur ${GITHUB_REPOSITORY}," >&2
+              echo "ou le jeton n'a pas accès au dépôt." >&2
+              exit 1
+              ;;
+            500)
+              echo "SYNCHRO FORGEJO -> GITHUB EN ÉCHEC (HTTP ${code})." >&2
+              echo "Le jeton Forgejo est valide : c'est le push vers GitHub qui" >&2
+              echo "a échoué. Causes par ordre de fréquence :" >&2
+              echo "  1. PAT GitHub du miroir expiré ou révoqué -> le renouveler" >&2
+              echo "     dans Settings > Mirror Settings (puis retirer le refspec" >&2
+              echo "     fetch que l'UI réintroduit)." >&2
+              echo "  2. Un commit poussé modifie .github/workflows/ alors que le" >&2
+              echo "     PAT n'a pas la permission Workflows." >&2
+              echo "  3. Une branche obsolète côté Forgejo casse le refspec." >&2
+              echo "Détail exact : docker logs forgejo | grep mirror_push" >&2
+              exit 1
+              ;;
+            *)
+              echo "Échec inattendu de la synchro (HTTP ${code})" >&2
+              exit 1
+              ;;
           esac
+
+      # La réponse 2xx signifie « synchro lancée », pas « GitHub à jour » : on
+      # vérifie l'effet réel plutôt que la promesse de l'API (cf. les 405 et 500
+      # trompeurs déjà rencontrés sur cette instance).
+      - name: Vérifier que GitHub a bien reçu la ref
+        env:
+          MIRROR_URL: https://github.com/fredrun14/linuxtools.git
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF}" in
+            refs/tags/*) ref="${GITHUB_REF}"; expected="" ;;
+            *)           ref='refs/heads/master'; expected="${GITHUB_SHA}" ;;
+          esac
+          got=""
+          for _ in $(seq 1 12); do
+            # `|| true` : une erreur réseau transitoire ne doit pas court-circuiter
+            # les tentatives restantes (set -e + pipefail sont actifs).
+            got=$(git ls-remote "${MIRROR_URL}" "${ref}" 2>/dev/null | cut -f1 || true)
+            if [ -n "${got}" ] && { [ -z "${expected}" ] || \
+               [ "${got}" = "${expected}" ]; }; then
+              echo "GitHub ${ref} = ${got} : promotion confirmée."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "GITHUB N'A PAS REÇU LA RÉF ${ref} après 60 s." >&2
+          echo "Attendu : ${expected:-<ref présente>} — obtenu : ${got:-<absente>}" >&2
+          echo "La synchro a répondu 2xx mais n'a rien propagé : vérifier le" >&2
+          echo "miroir (PAT, refspecs) avant de considérer master comme promu." >&2
+          exit 1
