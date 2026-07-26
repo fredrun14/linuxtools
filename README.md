@@ -3329,12 +3329,21 @@ Conséquence pratique : les **Pull Requests se créent et se mergent sur Forgejo
 GitHub — c'est le passage par sa CI qui conditionne la promotion.
 
 La branche `master` a une règle de protection Forgejo exigeant 6 status checks
-(`lint`, `test` × 4 versions Python, `build`) — `promote` en est volontairement exclu
-(son `if:` ne matche jamais un événement `pull_request`, il resterait bloqué en attente
-indéfiniment). Le merge reste **manuel** : le bouton *Auto Merge* (merge programmé,
-exécuté dès que les checks passent) s'est révélé bugué sur cette instance — la PR
-finit marquée *merged* et sa branche source supprimée sans que `master` avance
-réellement. Cliquer merge une fois les checks déjà verts fonctionne correctement.
+(`lint`, `test` × 4 versions Python, `build`). Ni `automerge` ni `promote` n'y figurent :
+leur statut est encore `pending` (ou absent) au moment où la protection est évaluée, les
+y inclure bloquerait tout merge définitivement.
+
+Le cycle est **entièrement automatique** : ouvrir une PR sur Forgejo suffit. Le job
+`automerge` merge la PR et supprime la branche source dès que les trois jobs gardiens
+sont verts ; le push sur `master` relance la CI, et `promote` propage vers GitHub.
+Échappatoire : un titre de PR contenant `WIP` désactive le merge automatique.
+
+⚠ Les gardes `if:` de ces deux jobs doivent rester sur **une seule ligne**. Enveloppée
+dans un bloc replié (`if: >`), une expression `${{ … }}` est lue comme une chaîne
+littérale non vide — donc toujours vraie. Une régression de ce type a fait tourner
+`promote` sur les PR : sa synchro de miroir, concurrente d'un merge, a rembobiné
+`master` (le remote du miroir a un refspec `fetch = +refs/*:refs/*`, si bien qu'un push
+sortant réécrit la branche locale). Chaque job porte donc aussi un garde-fou runtime.
 
 ## 🔧 Améliorations connues
 
