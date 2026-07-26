@@ -3331,9 +3331,10 @@ GitHub — c'est le passage par sa CI qui conditionne la promotion.
 La branche `master` a une règle de protection Forgejo exigeant 6 status checks
 (`lint`, `test` × 4 versions Python, `build`) — `promote` en est volontairement exclu
 (son `if:` ne matche jamais un événement `pull_request`, il resterait bloqué en attente
-indéfiniment). Cela active le bouton **Auto Merge** sur une PR : cliquer merge pendant
-que la CI tourne encore programme le merge, qui s'exécute dès que les checks passent,
-sans revenir cliquer une seconde fois.
+indéfiniment). Le merge reste **manuel** : le bouton *Auto Merge* (merge programmé,
+exécuté dès que les checks passent) s'est révélé bugué sur cette instance — la PR
+finit marquée *merged* et sa branche source supprimée sans que `master` avance
+réellement. Cliquer merge une fois les checks déjà verts fonctionne correctement.
 
 ## 🔧 Améliorations connues
 
