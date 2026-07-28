@@ -256,6 +256,7 @@ class LinuxCommandExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        probe: bool = False,
     ) -> CommandResult:
         """Exécute une commande et retourne le résultat.
 
@@ -271,6 +272,11 @@ class LinuxCommandExecutor(CommandExecutor):
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
             timeout: Timeout en secondes (prioritaire).
+            probe: Si True, la commande est une sonde en lecture seule
+                et s'exécute même en mode dry-run. Réservé aux
+                commandes sans effet de bord (``rpm -q``,
+                ``repolist``, ``flatpak info``) : le mode dry-run
+                s'appuie sur leur résultat pour décider quoi faire.
 
         Returns:
             CommandResult avec les sorties capturées et
@@ -280,7 +286,10 @@ class LinuxCommandExecutor(CommandExecutor):
             Logue une erreur si le code retour est non-nul et qu'un
             logger est configuré.
         """
-        if self._dry_run:
+        # Une sonde en lecture doit s'exécuter même en dry-run : le
+        # mode simulation s'appuie sur son résultat pour décider quoi
+        # faire.
+        if self._dry_run and not probe:
             return self._make_dry_run_result(command)
 
         effective_env = self._build_env(env)

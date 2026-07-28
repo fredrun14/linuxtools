@@ -113,6 +113,7 @@ class SshCommandExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        probe: bool = False,
     ) -> CommandResult:
         """Exécute une commande sur l'hôte distant et attend le résultat.
 
@@ -121,13 +122,18 @@ class SshCommandExecutor(CommandExecutor):
             env: Variables d'environnement distantes.
             cwd: Répertoire de travail distant.
             timeout: Timeout en secondes pour l'appel ssh local.
+            probe: Si True, la commande est une sonde en lecture seule
+                et s'exécute même en mode dry-run de l'exécuteur
+                local. Propagé tel quel.
 
         Returns:
             CommandResult de l'appel ssh (le code retour reflète
             celui de la commande distante).
         """
         return self._local.run(
-            self._wrap(command, cwd, env), timeout=timeout
+            self._wrap(command, cwd, env),
+            timeout=timeout,
+            probe=probe,
         )
 
     def run_streaming(

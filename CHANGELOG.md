@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.13.0] - 2026-07-28
+
+### Nouvelles fonctionnalités
+
+#### Module `commands` — Sondes en lecture traversant le dry-run
+
+- **`CommandExecutor.run()` / `LinuxCommandExecutor.run()`** — Nouveau
+  paramètre `probe: bool = False` (dernière position, rétrocompatible).
+  Quand `probe=True`, la commande s'exécute réellement même en mode
+  `dry_run` : réservé aux sondes en lecture seule sans effet de bord
+  (`rpm -q`, `dnf5 repolist`, `flatpak info`), sur lesquelles le mode
+  simulation s'appuie pour décider quoi faire. `run_streaming()` n'est
+  pas concerné (réservé aux opérations mutantes).
+- **`SshCommandExecutor.run()`** — `probe` propagé tel quel à
+  l'exécuteur local sous-jacent, pour rester substituable à
+  `LinuxCommandExecutor` (LSP).
+
 ## [1.12.0] - 2026-07-25
 
 ### Outillage
