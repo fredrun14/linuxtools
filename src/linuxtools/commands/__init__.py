@@ -33,12 +33,14 @@ Exemple d'utilisation:
 
 Exemple en mode simulation (dry-run):
     # Les commandes mutantes sont simulées, mais une sonde en
-    # lecture seule (probe=True) s'exécute réellement : le mode
+    # lecture seule (probe()) s'exécute réellement : le mode
     # dry-run s'appuie sur son résultat pour décider quoi faire.
+    # probe() est une façade de run(..., probe=True) : une seule
+    # façon d'écrire une sonde, sans risquer d'oublier le drapeau.
     executor = LinuxCommandExecutor(logger=logger, dry_run=True)
 
     check = CommandBuilder("rpm").with_args(["-q", "vim"]).build()
-    installed = executor.run(check, probe=True).return_code == 0
+    installed = executor.probe(check).return_code == 0
 
     if not installed:
         # Simulée : rien n'est installé pour de vrai.

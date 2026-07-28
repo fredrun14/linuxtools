@@ -9,6 +9,7 @@ import pytest
 from linuxtools.commands import (
     AnsiCommandFormatter,
     CommandBuilder,
+    CommandExecutor,
     CommandFormatter,
     CommandResult,
     LinuxCommandExecutor,
@@ -792,6 +793,124 @@ class TestLinuxCommandExecutorDryRun:
         assert result.return_code == 1
         assert result.success is False
         assert result.stderr == "paquet non installé"
+
+
+# --- Tests CommandExecutor.probe() (façade) ---
+
+
+class _FakeExecutor(CommandExecutor):
+    """Sous-classe minimale de CommandExecutor pour isoler probe().
+
+    Ne redéfinit ni probe() ni run_streaming() : seule run() est
+    fournie, en enregistrant ses appels, pour vérifier que probe()
+    délègue bien à run() avec probe=True sans dépendre de subprocess.
+
+    run() doit rester une méthode concrète définie au niveau de la
+    classe (et non assignée dans __init__) : sinon Python refuse
+    l'instanciation, run() restant abstraite sur l'ABC.
+    """
+
+    def __init__(self) -> None:
+        """Initialise l'historique des appels à run()."""
+        self.calls: list[tuple] = []
+
+    def run(
+        self, command, env=None, cwd=None, timeout=None,
+        probe=False,
+    ):
+        """Enregistre l'appel et retourne un CommandResult fixe."""
+        self.calls.append((command, env, cwd, timeout, probe))
+        return CommandResult(
+            command=tuple(command),
+            return_code=0,
+            stdout="vim-9.0",
+            stderr="",
+            success=True,
+            duration=0.0,
+        )
+
+    def run_streaming(
+        self, command, env=None, cwd=None, timeout=None,
+        merge_stderr=False,
+    ):
+        """Non utilisé par ces tests, présent pour satisfaire l'ABC."""
+        raise NotImplementedError
+
+
+class TestCommandExecutorProbeFacade:
+    """Tests pour la méthode concrète CommandExecutor.probe()."""
+
+    def test_probe_delegue_a_run_avec_probe_true(self):
+        """probe() appelle run(command, env, cwd, timeout, probe=True)."""
+        # Arrange
+        executor = _FakeExecutor()
+
+        # Act
+        executor.probe(["rpm", "-q", "vim"], cwd="/tmp", timeout=5)
+
+        # Assert
+        assert executor.calls == [
+            (["rpm", "-q", "vim"], None, "/tmp", 5, True)
+        ]
+
+    def test_probe_retourne_le_resultat_de_run(self):
+        """probe() retourne tel quel le CommandResult de run()."""
+        # Arrange
+        executor = _FakeExecutor()
+
+        # Act
+        result = executor.probe(["rpm", "-q", "vim"])
+
+        # Assert
+        assert result.stdout == "vim-9.0"
+        assert result.return_code == 0
+
+
+class TestLinuxCommandExecutorProbe:
+    """Tests d'intégration de probe() sur LinuxCommandExecutor."""
+
+    @patch("linuxtools.commands.runner.subprocess.Popen")
+    def test_probe_execute_subprocess_en_dry_run(self, mock_popen):
+        """En dry-run, probe() exécute réellement subprocess."""
+        # Arrange
+        _setup_popen(mock_popen, returncode=0, stdout="vim-9.0")
+        executor = LinuxCommandExecutor(dry_run=True)
+
+        # Act
+        result = executor.probe(["rpm", "-q", "vim"])
+
+        # Assert
+        mock_popen.assert_called_once()
+        assert result.stdout == "vim-9.0"
+        assert result.return_code == 0
+
+    @patch("linuxtools.commands.runner.subprocess.Popen")
+    def test_probe_fonctionne_hors_dry_run(self, mock_popen):
+        """Hors dry-run, probe() se comporte comme un run() normal."""
+        # Arrange
+        _setup_popen(mock_popen, returncode=0, stdout="ok")
+        executor = LinuxCommandExecutor(dry_run=False)
+
+        # Act
+        result = executor.probe(["rpm", "-q", "vim"])
+
+        # Assert
+        mock_popen.assert_called_once()
+        assert result.stdout == "ok"
+
+    @patch("linuxtools.commands.runner.subprocess.Popen")
+    def test_probe_propage_le_code_retour_non_nul(self, mock_popen):
+        """probe() propage un code retour non nul sans le masquer."""
+        # Arrange
+        _setup_popen(mock_popen, returncode=1, stderr="absent")
+        executor = LinuxCommandExecutor(dry_run=True)
+
+        # Act
+        result = executor.probe(["rpm", "-q", "inconnu"])
+
+        # Assert
+        assert result.return_code == 1
+        assert result.success is False
 
 
 # --- Tests LinuxCommandExecutor environnement ---

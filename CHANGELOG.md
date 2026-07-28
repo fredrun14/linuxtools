@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.14.0] - 2026-07-28
+
+### Nouvelles fonctionnalités
+
+#### Module `commands` — façade `probe()`
+
+- **`CommandExecutor.probe()`** — Nouvelle méthode concrète sur l'ABC
+  (pas `@abstractmethod`) : pure façade de `run(..., probe=True)`.
+  `self._executor.probe(cmd)` remplace `run(cmd, probe=True)` au point
+  d'appel — une seule façon évidente d'exprimer une sonde en lecture
+  seule, le nom de la méthode porte le contrat, et un drapeau qu'on
+  n'écrit plus est un drapeau qu'on ne peut plus apposer par erreur
+  sur une commande mutante. `run(probe=...)` reste inchangé, aucune
+  rupture.
+- **`LinuxCommandExecutor`** et **`SshCommandExecutor`** héritent de
+  `probe()` sans redéfinition : la méthode s'exprime entièrement via
+  `run()`, qui reste abstraite. Pour `SshCommandExecutor`, l'héritage
+  passe par sa propre surcharge de `run()`, qui propage `probe` à
+  l'exécuteur local sous-jacent — la substituabilité (LSP) est donc
+  préservée.
+
+#### Nouveau module `distro`
+
+- **`linuxtools.distro.fedora_version(executor)`** — Déduplication de
+  l'implémentation identique présente jusqu'ici dans
+  `package_manager.py` et `repo_manager.py` côté `fedora_post_install`.
+  Entorse assumée à l'agnosticisme de la bibliothèque (« pour systèmes
+  Linux ») : contenue volontairement dans un module isolé et
+  documenté comme tel, extractible d'un bloc si une distribution
+  non-RPM entre un jour dans le parc.
+  ⚠ **Changement de comportement** par rapport à
+  `package_manager._fedora_version` : la version lib retient la
+  variante défensive (déjà en place dans `repo_manager._fedora_version`)
+  et renvoie `""` sur code retour non nul, là où
+  `package_manager._fedora_version` renvoyait la sortie brute de
+  `rpm --eval %fedora` sans tester le code retour. Comportement
+  strictement identique à `repo_manager`, différent pour
+  `package_manager` — voulu, à vérifier chez les appelants qui
+  résolvent `${FEDORA_VERSION}`.
+
 ## [1.13.0] - 2026-07-28
 
 ### Nouvelles fonctionnalités

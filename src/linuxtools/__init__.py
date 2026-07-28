@@ -21,9 +21,11 @@ Modules disponibles:
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 - deploy: Déployeur/updateur d'outil Python sur hôte, local ou
   distant via SSH (Deployer, DeployConfig, DeployCommand)
+- distro: Helpers spécifiques à une distribution (fedora_version) —
+  seul module lié à une distribution, isolé volontairement
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 from linuxtools.logging import (
     Logger,
@@ -194,6 +196,9 @@ from linuxtools.identity import (
     UserManagerBase,
     LinuxGroupManager,
     LinuxUserManager,
+)
+from linuxtools.distro import (
+    fedora_version,
 )
 from linuxtools.network import (
     # Modeles
@@ -425,4 +430,6 @@ __all__ = [
     # Deploy - Auto-détection
     "find_project_source",
     "find_editable_source",
+    # Distro - Helpers Fedora / RPM
+    "fedora_version",
 ]

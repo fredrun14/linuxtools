@@ -67,6 +67,32 @@ class CommandExecutor(ABC):
         """
         pass
 
+    def probe(
+        self,
+        command: list[str],
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
+        timeout: int | None = None,
+    ) -> CommandResult:
+        """Exécute une sonde en lecture seule, même en dry-run.
+
+        Façade de ``run(..., probe=True)``. À réserver aux commandes
+        sans effet de bord (``rpm -q``, ``repolist``, ``getent``) :
+        le mode dry-run s'appuie sur leur résultat pour décider quoi
+        faire, et une commande mutante passée ici s'exécuterait
+        réellement pendant une simulation.
+
+        Args:
+            command: Commande sous forme de liste.
+            env: Variables d'environnement supplémentaires.
+            cwd: Répertoire de travail.
+            timeout: Timeout en secondes.
+
+        Returns:
+            Résultat de l'exécution.
+        """
+        return self.run(command, env, cwd, timeout, probe=True)
+
     @abstractmethod
     def run_streaming(
         self,
