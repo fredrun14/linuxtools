@@ -47,6 +47,7 @@ class CommandExecutor(ABC):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        probe: bool = False,
     ) -> CommandResult:
         """Exécute une commande et retourne le résultat.
 
@@ -55,6 +56,11 @@ class CommandExecutor(ABC):
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
             timeout: Timeout en secondes.
+            probe: Si True, la commande est une sonde en lecture seule
+                et s'exécute même en mode dry-run. Réservé aux
+                commandes sans effet de bord (``rpm -q``,
+                ``repolist``, ``flatpak info``) : le mode dry-run
+                s'appuie sur leur résultat pour décider quoi faire.
 
         Returns:
             Résultat de l'exécution.

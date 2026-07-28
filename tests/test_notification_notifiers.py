@@ -37,7 +37,9 @@ class FakeExecutor(CommandExecutor):
         self.calls.append(command)
         return self._results.pop(0)
 
-    def run(self, command, env=None, cwd=None, timeout=None):
+    def run(
+        self, command, env=None, cwd=None, timeout=None, probe=False
+    ):
         """Simule l'exécution d'une commande."""
         return self._next(command)
 

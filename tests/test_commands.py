@@ -700,6 +700,99 @@ class TestLinuxCommandExecutorDryRun:
         assert result.success is True
         mock_popen.assert_not_called()
 
+    @patch(
+        "linuxtools.commands.runner.subprocess.Popen"
+    )
+    def test_dry_run_avec_probe_execute_la_commande(
+        self, mock_popen
+    ):
+        """Une sonde (probe=True) s'exécute même en dry-run."""
+        # Arrange
+        _setup_popen(
+            mock_popen, returncode=0, stdout="paquet installé"
+        )
+
+        # Act
+        result = self.executor.run(
+            ["rpm", "-q", "vim"], probe=True
+        )
+
+        # Assert
+        mock_popen.assert_called_once()
+        assert result.stdout == "paquet installé"
+        assert result.return_code == 0
+
+    @patch(
+        "linuxtools.commands.runner.subprocess.Popen"
+    )
+    def test_dry_run_sans_probe_ne_execute_pas(
+        self, mock_popen
+    ):
+        """Sans probe, le comportement dry-run actuel est inchangé."""
+        # Arrange (self.executor déjà en dry_run=True)
+
+        # Act
+        result = self.executor.run(["rpm", "-q", "vim"])
+
+        # Assert
+        mock_popen.assert_not_called()
+        assert result.return_code == 0
+
+    @patch(
+        "linuxtools.commands.runner.subprocess.Popen"
+    )
+    def test_probe_hors_dry_run_execute_normalement(
+        self, mock_popen
+    ):
+        """probe=True hors dry-run se comporte comme un run() normal."""
+        # Arrange
+        executor = LinuxCommandExecutor(
+            logger=self.mock_logger, dry_run=False
+        )
+        _setup_popen(mock_popen, returncode=0, stdout="ok")
+
+        # Act
+        result = executor.run(["rpm", "-q", "vim"], probe=True)
+
+        # Assert
+        mock_popen.assert_called_once()
+        assert result.stdout == "ok"
+
+    def test_probe_defaut_est_false(self):
+        """Un appel sans probe reste simulé (rétrocompatibilité)."""
+        # Arrange (self.executor déjà en dry_run=True)
+
+        # Act
+        result = self.executor.run(["echo", "test"])
+
+        # Assert
+        assert result.success is True
+        assert result.duration == 0.0
+
+    @patch(
+        "linuxtools.commands.runner.subprocess.Popen"
+    )
+    def test_probe_propage_le_code_retour_non_nul(
+        self, mock_popen
+    ):
+        """Une sonde en échec (RC != 0) propage le vrai code retour."""
+        # Arrange
+        _setup_popen(
+            mock_popen,
+            returncode=1,
+            stderr="paquet non installé",
+        )
+
+        # Act
+        result = self.executor.run(
+            ["rpm", "-q", "inconnu"], probe=True
+        )
+
+        # Assert
+        assert result.return_code == 1
+        assert result.success is False
+        assert result.stderr == "paquet non installé"
+
 
 # --- Tests LinuxCommandExecutor environnement ---
 
