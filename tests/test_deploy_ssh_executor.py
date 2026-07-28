@@ -175,6 +175,45 @@ class TestSshCommandExecutorRun:
         assert result.stderr == "échec ssh"
 
 
+class TestSshCommandExecutorProbe:
+    """Tests pour l'héritage de probe() par SshCommandExecutor."""
+
+    def test_probe_est_herite_sans_redefinition(self):
+        """probe() n'est pas redéfinie : héritée de CommandExecutor."""
+        assert (
+            "probe" not in SshCommandExecutor.__dict__
+        )
+
+    def test_probe_delegue_a_run_avec_probe_true(self):
+        """probe() appelle self.run(..., probe=True), donc _wrap()
+        puis le local executor avec probe=True."""
+        local = _make_local_mock(stdout="paquet installé")
+        executor = SshCommandExecutor(
+            DeployTarget(host="srv01"), local_executor=local
+        )
+
+        result = executor.probe(["rpm", "-q", "vim"])
+
+        local.run.assert_called_once()
+        call_kwargs = local.run.call_args.kwargs
+        assert call_kwargs["probe"] is True
+        called_cmd = local.run.call_args.args[0]
+        assert called_cmd[-1] == "rpm -q vim"
+        assert result.stdout == "paquet installé"
+
+    def test_probe_propage_le_resultat_du_local_executor(self):
+        """probe() retourne tel quel le CommandResult du local."""
+        local = _make_local_mock(return_code=1, stderr="absent")
+        executor = SshCommandExecutor(
+            DeployTarget(host="srv01"), local_executor=local
+        )
+
+        result = executor.probe(["rpm", "-q", "inconnu"])
+
+        assert result.return_code == 1
+        assert result.success is False
+
+
 class TestSshCommandExecutorRunStreaming:
     """Tests pour SshCommandExecutor.run_streaming()."""
 
