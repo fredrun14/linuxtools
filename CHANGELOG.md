@@ -1,5 +1,18 @@
 # Changelog
 
+## [Non publié]
+
+### Métadonnées
+
+- **`[project.urls]` désignent Forgejo** — les cinq URLs pointaient
+  `github.com/fredrun14/linuxtools`, c'est-à-dire la sauvegarde. Or elles
+  sont embarquées dans le wheel publié : `Issues` routait les rapports de
+  bug vers une forge que personne ne surveille. Elles désignent désormais
+  `git.ricfasohel.fr/fred/linuxtools`, la forge de référence. `Changelog`
+  a été transposé en `/src/branch/master/CHANGELOG.md` — la syntaxe de
+  permalien de Forgejo, `/blob/master/…` y renvoyant un 404. Aucune
+  incidence sur l'API : pas de bump de version.
+
 ## [1.14.0] - 2026-07-28
 
 ### Nouvelles fonctionnalités

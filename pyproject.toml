@@ -78,11 +78,16 @@ test = [
 # =============================================================================
 
 [project.urls]
-Homepage      = "https://github.com/fredrun14/linuxtools"
-Documentation = "https://github.com/fredrun14/linuxtools#readme"
-Repository    = "https://github.com/fredrun14/linuxtools.git"
-Issues        = "https://github.com/fredrun14/linuxtools/issues"
-Changelog     = "https://github.com/fredrun14/linuxtools/blob/master/CHANGELOG.md"
+# Forgejo est la forge de référence ; GitHub n'est qu'une sauvegarde
+# alimentée après CI verte. Ces URLs partent dans le wheel publié :
+# elles doivent désigner la forge où les tickets sont réellement suivis.
+# Attention, un permalien Forgejo s'écrit /src/branch/<branche>/<chemin>
+# et non /blob/<branche>/<chemin> comme chez GitHub.
+Homepage      = "https://git.ricfasohel.fr/fred/linuxtools"
+Documentation = "https://git.ricfasohel.fr/fred/linuxtools#readme"
+Repository    = "https://git.ricfasohel.fr/fred/linuxtools.git"
+Issues        = "https://git.ricfasohel.fr/fred/linuxtools/issues"
+Changelog     = "https://git.ricfasohel.fr/fred/linuxtools/src/branch/master/CHANGELOG.md"
 
 # =============================================================================
 # CONFIGURATION SETUPTOOLS — src-layout
