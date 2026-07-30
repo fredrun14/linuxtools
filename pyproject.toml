@@ -157,6 +157,25 @@ disallow_untyped_defs   = true
 disallow_any_unimported = true
 no_implicit_optional    = true
 
+# `--strict` est un préréglage, pas un maximum. Les réglages ci-dessous n'y
+# sont pas inclus et couvrent ses deux angles morts les plus coûteux :
+#   - warn_unreachable    : du code mort issu d'un narrowing faux passait
+#     muet. Jamais exécuté, donc jamais testé, il trahit presque toujours
+#     un raisonnement faux sur les types.
+#   - ignore-without-code : un `# type: ignore` nu taisait une vraie erreur
+#     sans laisser de trace (`x: int = "hello"  # type: ignore` rendait
+#     *Success*). Il doit désormais nommer ce qu'il tait, ce qui le rend
+#     relisible et le périme automatiquement via `warn_unused_ignores`.
+# `redundant-expr` et `possibly-undefined` complètent le geste : ils
+# signalent respectivement une garde toujours vraie/fausse et une variable
+# potentiellement non liée sur un chemin d'exécution.
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "possibly-undefined",
+]
+
 [[tool.mypy.overrides]]
 module = [
     "keyring.*",
