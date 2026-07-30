@@ -168,7 +168,12 @@ class MountConfigLoader(ConfigFileLoader[MountConfig]):
             2
         """
         section_name = section or "mounts"
-        data = self._get_section(section_name)
+        # `_get_raw_section` et non `_get_section` : ici la section est un
+        # tableau de tables TOML (`[[mounts]]`), donc une liste. Le typage
+        # dict de `_get_section` faisait passer la garde ci-dessous pour du
+        # code inatteignable, alors qu'elle attrape le cas réel où
+        # l'utilisateur a écrit `[mounts]` au lieu de `[[mounts]]`.
+        data = self._get_raw_section(section_name)
 
         if not isinstance(data, list):
             raise TypeError(

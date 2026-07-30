@@ -13,6 +13,12 @@
 - **PEP 257** : docstrings en **français** — modules, classes, fonctions publiques
 - **PEP 484** : type hints obligatoires sur toutes les signatures
 - **SOLID** : ABCs + injection de dépendances · toutes les classes acceptent un `Logger` optionnel
+- 🚨 **`mypy --strict` = 0 erreur, BLOQUANT** (`make lint` + CI). Obligatoire dans
+  tous les projets Python (cf. `../CLAUDE.md`) ; ici c'est **acquis** depuis la
+  v1.11.0 — 0 sur 132 fichiers, après un passage de 33 → 0 sur 13 fichiers.
+  Toute régression ici ne casse pas que ce dépôt : elle redonne aux 8
+  consommateurs le prétexte « la lib n'est pas typée » pour relâcher leur propre
+  configuration. `py.typed` (PEP 561) est exposé — ce prétexte doit rester mort.
 
 ## Commandes
 

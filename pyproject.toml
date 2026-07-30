@@ -157,6 +157,29 @@ disallow_untyped_defs   = true
 disallow_any_unimported = true
 no_implicit_optional    = true
 
+# `--strict` est un préréglage, pas un maximum. Les réglages ci-dessous n'y
+# sont pas inclus et couvrent ses deux angles morts les plus coûteux :
+#   - warn_unreachable    : du code mort issu d'un narrowing faux passait
+#     muet. Jamais exécuté, donc jamais testé, il trahit presque toujours
+#     un raisonnement faux sur les types.
+#   - ignore-without-code : un `# type: ignore` nu taisait une vraie erreur
+#     sans laisser de trace (`x: int = "hello"  # type: ignore` rendait
+#     *Success*). Il doit désormais nommer ce qu'il tait, ce qui le rend
+#     relisible et le périme automatiquement via `warn_unused_ignores`.
+# `redundant-expr` complète le geste : il signale une garde toujours
+# vraie/fausse. `possibly-undefined` (variable potentiellement non liée
+# sur un chemin d'exécution) est délibérément absent d'ici : il fait
+# remonter 4 erreurs sur `commands/runner.py`, traitées dans la PR
+# isolée fix/typage-runner-possibly-undefined (cf. plan
+# TODO-20260730-0020, Lot A.2 — "le cas runner.py dans une PR isolée").
+# Cette branche doit rester verte seule : merger celle-ci EN PREMIER,
+# la PR runner.py complète la liste à son tour.
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+]
+
 [[tool.mypy.overrides]]
 module = [
     "keyring.*",

@@ -178,7 +178,12 @@ class ConfigurationManager(ConfigManager):
             La valeur trouvée ou la valeur par défaut
         """
         keys = key_path.split(".")
-        value = self.config
+        # `value` descend l'arborescence : dict au départ, puis la valeur
+        # de la clé, qui peut être un scalaire. Annoté `Any` pour que le
+        # `isinstance` reste une vraie garde aux yeux de mypy (sinon il le
+        # croit dict pour toujours et signale une garde morte,
+        # redundant-expr).
+        value: Any = self.config
 
         for key in keys:
             if isinstance(value, dict) and key in value:
