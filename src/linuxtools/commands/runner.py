@@ -422,12 +422,23 @@ class LinuxCommandExecutor(CommandExecutor):
                     duration,
                 )
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
+            # Faux positif de `possibly-undefined`, et non une faiblesse
+            # du code : `proc` est lié par le `with Popen(...) as proc`
+            # avant toute instruction du bloc, et seul
+            # `proc.wait(timeout=...)` peut lever TimeoutExpired ici.
+            # Atteindre ce `except` implique donc que `proc` existe. mypy
+            # est insensible au flux sur l'origine d'une exception : il
+            # suppose que le `try` a pu échouer dès sa première ligne.
+            # Le try n'est pas resserré autour du seul `wait()` : ce
+            # fichier est critique pour tous les consommateurs de la lib,
+            # le remaniement fera l'objet d'un changement isolé.
+            proc.kill()  # type: ignore[possibly-undefined]
+            proc.wait()  # type: ignore[possibly-undefined]
             duration = time.monotonic() - start
+            proc_stderr = proc.stderr  # type: ignore[possibly-undefined]
             stderr = (
-                "" if merge_stderr or proc.stderr is None
-                else proc.stderr.read()
+                "" if merge_stderr or proc_stderr is None
+                else proc_stderr.read()
             )
             self._log_timeout(command, effective_timeout)
             return self._result(
