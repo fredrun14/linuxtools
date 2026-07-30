@@ -157,18 +157,24 @@ disallow_untyped_defs   = true
 disallow_any_unimported = true
 no_implicit_optional    = true
 
-# `possibly-undefined` seul, et non le bloc complet du Lot A
-# (`warn_unreachable` + `ignore-without-code` + `redundant-expr`) : les
-# deux autres codes font remonter 6 erreurs mypy sur des fichiers non
-# concernés par cette PR isolée (config/loader.py, config/manager.py,
-# systemd/config_loaders/mount_loader.py, systemd/unit_porter.py), déjà
-# traitées dans la branche chore/typage-mypy-lot-a. Ce réglage partiel
-# active uniquement ce qu'il faut pour que les
-# `# type: ignore[possibly-undefined]` ci-dessous soient valides (sans
-# lui, `warn_unused_ignores` les signalerait comme superflus). La fusion
-# de chore/typage-mypy-lot-a portera le bloc complet ; un petit conflit
-# sur cette liste est probable et se résout en gardant l'union des codes.
+# `--strict` est un préréglage, pas un maximum. Les réglages ci-dessous n'y
+# sont pas inclus et couvrent trois angles morts coûteux :
+#   - warn_unreachable    : du code mort issu d'un narrowing faux passait
+#     muet. Jamais exécuté, donc jamais testé, il trahit presque toujours
+#     un raisonnement faux sur les types.
+#   - ignore-without-code : un `# type: ignore` nu taisait une vraie erreur
+#     sans laisser de trace (`x: int = "hello"  # type: ignore` rendait
+#     *Success*). Il doit désormais nommer ce qu'il tait, ce qui le rend
+#     relisible et le périme automatiquement via `warn_unused_ignores`.
+#   - redundant-expr      : signale une garde toujours vraie/fausse.
+#   - possibly-undefined  : variable potentiellement non liée sur un
+#     chemin d'exécution. Couvre notamment les faux positifs mypy de
+#     `commands/runner.py` (cf. `# type: ignore[possibly-undefined]`
+#     ci-dessous).
+warn_unreachable = true
 enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
     "possibly-undefined",
 ]
 
@@ -224,7 +230,7 @@ line-length    = 79
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "C4"]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "TC"]
 ignore = [
     "E501",  # Longueur de ligne gérée par black
     "B008",  # Ne pas appeler de fonctions dans les arguments par défaut

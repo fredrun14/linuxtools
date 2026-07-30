@@ -136,13 +136,21 @@ class FileConfigLoader(ConfigLoader):
 
     @staticmethod
     def _validate_with_schema(
-        data: dict[str, Any], schema: type
+        data: dict[str, Any], schema: object
     ) -> Any:
         """Valide un dict via un modèle Pydantic.
 
+        `schema` est typé `object` et non `type` : c'est une frontière
+        d'exécution. L'API publique annonce `type | None`, mais un
+        appelant non typé peut passer n'importe quoi (une chaîne, une
+        instance) et la garde ci-dessous doit rester vivante pour lever
+        TypeError. Annoncer `type` rendrait le `isinstance` mort aux yeux
+        de mypy (redundant-expr) alors qu'il protège réellement.
+
         Args:
             data: Dictionnaire brut à valider.
-            schema: Classe Pydantic BaseModel.
+            schema: Classe Pydantic BaseModel attendue, non vérifiée
+                par le typage statique.
 
         Returns:
             Instance du modèle validé.
@@ -224,6 +232,33 @@ class ConfigFileLoader(ABC, Generic[T]):
         """
         return self._config
 
+    def _get_raw_section(self, section: str) -> Any:
+        """Extrait une section sans présumer de sa forme.
+
+        `_get_section` annonce un dict, ce qui est faux pour un tableau
+        de tables TOML (`[[section]]`) : celui-ci produit une liste. Les
+        chargeurs qui acceptent les deux formes passent par ici et
+        vérifient eux-mêmes ce qu'ils ont reçu (sinon le typage dict de
+        `_get_section` fait passer leur garde `isinstance` pour du code
+        inatteignable aux yeux de mypy).
+
+        Args:
+            section: Nom de la section à extraire.
+
+        Returns:
+            Contenu brut de la section (table, tableau de tables…).
+
+        Raises:
+            KeyError: Si la section n'existe pas dans le fichier.
+        """
+        if section not in self._config:
+            available = list(self._config.keys())
+            raise KeyError(
+                f"Section '{section}' non trouvée dans le fichier. "
+                f"Sections disponibles: {available}"
+            )
+        return self._config[section]
+
     def _get_section(self, section: str) -> dict[str, Any]:
         """Extrait une section du fichier de configuration.
 
@@ -236,13 +271,7 @@ class ConfigFileLoader(ABC, Generic[T]):
         Raises:
             KeyError: Si la section n'existe pas dans le fichier.
         """
-        if section not in self._config:
-            available = list(self._config.keys())
-            raise KeyError(
-                f"Section '{section}' non trouvée dans le fichier. "
-                f"Sections disponibles: {available}"
-            )
-        result: dict[str, Any] = self._config[section]
+        result: dict[str, Any] = self._get_raw_section(section)
         return result
 
     def _get_nested_value(
@@ -262,7 +291,13 @@ class ConfigFileLoader(ABC, Generic[T]):
         Example:
             >>> loader._get_nested_value("paths", "log_file")
         """
-        current = self._config
+        # `current` change de nature à chaque itération : il part d'un
+        # dict puis prend la valeur de la clé, qui peut être un scalaire.
+        # Sans l'annotation `Any`, mypy le croit dict pour toujours et
+        # juge la garde `isinstance` inférieure morte (redundant-expr) —
+        # alors qu'elle empêche `key not in current` de dégénérer en
+        # recherche de sous-chaîne sur une str.
+        current: Any = self._config
         for key in keys:
             if not isinstance(current, dict) or key not in current:
                 return default
