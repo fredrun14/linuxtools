@@ -7,11 +7,15 @@ l'exécuteur injecté.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from linuxtools.commands.base import CommandExecutor
 from linuxtools.deploy.models import CheckResult, VerificationSpec
-from linuxtools.logging.base import Logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from linuxtools.commands.base import CommandExecutor
+    from linuxtools.logging.base import Logger
 
 _DETAIL_MAX_LEN = 200
 

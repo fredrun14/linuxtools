@@ -1,12 +1,14 @@
 """Factory de création de Logger depuis la configuration."""
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from linuxtools.logging.base import Logger
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.file_logger import FileLogger
 from linuxtools.logging.rotating_file_logger import RotatingFileLogger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _TYPES_VALIDES = frozenset({"file", "console", "rotating"})
 

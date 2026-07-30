@@ -10,10 +10,9 @@ VenvInstaller, InstallVerifier).
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from linuxtools.cli.dry_run import DryRunContext
-from linuxtools.commands.base import CommandExecutor
 from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.deploy.discovery import find_project_source
 from linuxtools.deploy.exceptions import DeployError
@@ -27,7 +26,12 @@ from linuxtools.deploy.ssh_executor import SshCommandExecutor
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
-from linuxtools.logging.base import Logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from linuxtools.commands.base import CommandExecutor
+    from linuxtools.logging.base import Logger
 
 
 class Deployer:
