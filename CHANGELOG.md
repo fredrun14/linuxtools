@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+### Documentation
+
+- **Docstrings de package harmonisées** — `config`, `errors`,
+  `filesystem`, `identity`, `integrity`, `logging`, `scripts` et
+  `validation` avaient un docstring de package réduit à une ligne
+  (`"""Module de configuration."""` etc.), en retrait du gabarit
+  posé par `cli`/`commands`/`dotconf`/`systemd` (résumé, catégories
+  d'exports, exemple d'utilisation). Alignées sur ce gabarit. Aucun
+  changement de comportement, `make lint`/`make test` inchangés
+  (1561 tests, couverture 96.68%).
+
 ### Métadonnées
 
 - **`[project.urls]` désignent Forgejo** — les cinq URLs pointaient
