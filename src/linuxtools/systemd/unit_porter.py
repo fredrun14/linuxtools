@@ -29,7 +29,7 @@ import shutil
 import subprocess  # nosec B404
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 # local
 from linuxtools.filesystem.linux import write_text_secure
@@ -387,7 +387,12 @@ class SystemdUnitRestorer:
             if section not in data:
                 continue
             lines.append(f"[{section}]")
-            for key, value in data[section].items():  # type: ignore
+            # `data` vient de tomllib : ses valeurs sont des `object`, or
+            # une section INI est toujours une table TOML, donc un dict.
+            # Le cast nomme cet invariant là où traînait un `type: ignore`
+            # nu qui, lui, taisait aussi bien une vraie erreur.
+            section_data = cast("dict[str, object]", data[section])
+            for key, value in section_data.items():
                 if isinstance(value, list):
                     for v in value:
                         lines.append(

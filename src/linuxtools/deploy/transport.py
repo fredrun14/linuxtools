@@ -11,13 +11,17 @@ from __future__ import annotations
 
 import shlex
 from abc import ABC, abstractmethod
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.commands.builder import CommandBuilder
 from linuxtools.commands.runner import LinuxCommandExecutor
-from linuxtools.deploy.models import DeployTarget
-from linuxtools.logging.base import Logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from linuxtools.commands.base import CommandExecutor, CommandResult
+    from linuxtools.deploy.models import DeployTarget
+    from linuxtools.logging.base import Logger
 
 
 class Transport(ABC):
