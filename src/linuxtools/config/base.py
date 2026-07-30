@@ -14,8 +14,13 @@ class ConfigManager(ABC):
     service distant, etc.) tout en respectant le principe DIP.
     """
 
+    # ANN401 assumé : accès dynamique par chemin pointé. Le type de
+    # retour dépend de la clé demandée à l'exécution ; aucun TypedDict ne
+    # peut le décrire puisque le chemin est une chaîne quelconque. Les
+    # appelants qui veulent un type ferme passent par un schéma Pydantic
+    # (`ConfigLoader.load(..., schema=...)`).
     @abstractmethod
-    def get(self, key_path: str, default: Any = None) -> Any:
+    def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
         """
         Récupère une valeur par chemin pointé.
 

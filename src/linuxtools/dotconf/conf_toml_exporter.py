@@ -187,8 +187,12 @@ class ConfTomlExporter:
                 scalars.append(f"{key} = {self._toml_scalar(value)}")
         return "\n".join(scalars + subtables)
 
-    def _toml_scalar(self, value: Any) -> str:
+    def _toml_scalar(self, value: object) -> str:
         """Sérialise une valeur scalaire Python en littéral TOML.
+
+        `object` et non `Any` : la fonction ne présume rien de la valeur
+        mais elle la teste par `isinstance` avant chaque usage, donc le
+        typage n'a aucune raison d'être désactivé ici.
 
         Args:
             value: Valeur à sérialiser (str, bool, int, float, list).

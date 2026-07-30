@@ -51,12 +51,17 @@ class ConfigLoader(ABC):
     en permettant de substituer l'implémentation réelle par un mock.
     """
 
+    # ANN401 assumé pour l'instant : le retour dépend de l'argument
+    # `schema` (dict brut si None, instance du modèle sinon). Une paire
+    # d'`@overload` avec TypeVar le rendrait exprimable, mais c'est un
+    # changement de l'API de typage publique, consommée par 8 projets :
+    # à traiter dans un changement dédié, pas dans un durcissement.
     @abstractmethod
     def load(
         self,
         config_path: str | Path,
         schema: type | None = None
-    ) -> dict[str, Any] | Any:
+    ) -> dict[str, Any] | Any:  # noqa: ANN401
         """Charge un fichier de configuration.
 
         Args:
@@ -86,11 +91,13 @@ class FileConfigLoader(ConfigLoader):
     validation via un modèle Pydantic BaseModel.
     """
 
+    # ANN401 assumé : même raison que dans `ConfigLoader.load` ci-dessus
+    # (le retour dépend de `schema`), signature imposée par le contrat.
     def load(
         self,
         config_path: str | Path,
         schema: type | None = None
-    ) -> dict[str, Any] | Any:
+    ) -> dict[str, Any] | Any:  # noqa: ANN401
         """Charge un fichier de configuration TOML ou JSON.
 
         Le format est détecté automatiquement par l'extension
@@ -134,10 +141,13 @@ class FileConfigLoader(ConfigLoader):
 
         return self._validate_with_schema(raw_config, schema)
 
+    # ANN401 assumé : retourne une instance du modèle Pydantic fourni par
+    # l'appelant. Pydantic est un extra optionnel, donc `BaseModel` ne
+    # peut pas être importé au niveau module pour borner un TypeVar.
     @staticmethod
     def _validate_with_schema(
         data: dict[str, Any], schema: type
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """Valide un dict via un modèle Pydantic.
 
         Args:
@@ -245,11 +255,14 @@ class ConfigFileLoader(ABC, Generic[T]):
         result: dict[str, Any] = self._config[section]
         return result
 
+    # ANN401 assumé : navigation dynamique dans l'arborescence de
+    # configuration. Le type dépend des clés passées à l'exécution, comme
+    # pour `ConfigManager.get` — voir `linuxtools/config/base.py`.
     def _get_nested_value(
         self,
         *keys: str,
-        default: Any = None
-    ) -> Any:
+        default: Any = None,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
         """Extrait une valeur imbriquée du fichier de configuration.
 
         Args:
