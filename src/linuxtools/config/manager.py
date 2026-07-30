@@ -166,7 +166,10 @@ class ConfigurationManager(ConfigManager):
                 result[key] = value
         return result
 
-    def get(self, key_path: str, default: Any = None) -> Any:
+    # ANN401 assumé : implémentation du contrat `ConfigManager.get`, accès
+    # dynamique par chemin pointé. Justification complète dans
+    # `linuxtools/config/base.py`.
+    def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
         """
         Récupère une valeur par chemin pointé.
 

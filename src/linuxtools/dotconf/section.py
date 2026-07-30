@@ -13,9 +13,13 @@ from linuxtools.dotconf.base import IniSection
 
 
 def parse_validator(
-    value: Any,
+    value: object,
 ) -> list[str]:
     """Convertit une valeur de validateur en liste de valeurs autorisées.
+
+    `object` et non `Any` : la valeur vient d'un TOML donc sa forme n'est
+    pas garantie, mais le `isinstance` ci-dessous la vérifie avant tout
+    usage — le typage reste donc actif.
 
     Args:
         value: Liste de valeurs autorisées (ex: ["yes", "no"]).

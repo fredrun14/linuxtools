@@ -39,8 +39,12 @@ class CliCommand(ABC):
         """Retourne le nom de la sous-commande (ex: 'sync')."""
         ...
 
+    # ANN401 assumé : le type exact est `argparse._SubParsersAction`, un
+    # nom privé de la stdlib qu'aucune API publique n'expose. L'écrire
+    # lierait les 8 consommateurs de la lib à un détail interne de
+    # typeshed, susceptible de changer sans préavis.
     @abstractmethod
-    def register(self, subparsers: Any) -> None:
+    def register(self, subparsers: Any) -> None:  # noqa: ANN401
         """Enregistre la commande et ses arguments dans argparse.
 
         Args:

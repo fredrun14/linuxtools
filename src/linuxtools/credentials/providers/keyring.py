@@ -31,10 +31,15 @@ class KeyringCredentialProvider(CredentialStore):
         _backend: Backend keyring injecte (pour tests unitaires).
     """
 
+    # ANN401 assumé : `keyring` est une dépendance optionnelle non typée
+    # (déclarée `ignore_missing_imports`). Le backend injecté est soit ce
+    # module, soit un double de test : aucun type commun n'existe côté
+    # lib, et importer keyring pour l'annoter contredirait le caractère
+    # optionnel de l'extra.
     def __init__(
         self,
         logger: Logger | None = None,
-        keyring_backend: Any | None = None,
+        keyring_backend: Any | None = None,  # noqa: ANN401
     ) -> None:
         """Initialise le provider keyring.
 
@@ -60,7 +65,10 @@ class KeyringCredentialProvider(CredentialStore):
         except ImportError:
             return False
 
-    def _get_keyring(self) -> Any:
+    # ANN401 assumé : retourne le module `keyring` (non typé, extra
+    # optionnel) ou le backend injecté. Même frontière que dans
+    # `__init__` ci-dessus.
+    def _get_keyring(self) -> Any:  # noqa: ANN401
         """Retourne le module keyring ou le backend injecté.
 
         Returns:

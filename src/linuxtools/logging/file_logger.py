@@ -34,13 +34,17 @@ class _SupportsGet(Protocol):
     correspondance structurelle indépendante du nom des paramètres.
     """
 
-    def get(self, key: str, default: Any = None, /) -> Any:
+    # ANN401 assumé : ce Protocol décrit la capacité minimale d'un objet
+    # de configuration tiers (un `ConfigurationManager`, par exemple). Le
+    # type de retour dépend de la clé lue à l'exécution ; le resserrer
+    # exclurait des implémentations parfaitement valides.
+    def get(self, key: str, default: Any = None, /) -> Any:  # noqa: ANN401
         """Retourne la valeur associée à la clé, ou ``default``."""
         ...
 
 
 def _resolve_config(
-    config: Any,
+    config: dict[str, Any] | _SupportsGet | None,
 ) -> tuple[str, str]:
     """Extrait le niveau et le format depuis une config dict ou objet.
 

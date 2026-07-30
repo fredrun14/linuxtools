@@ -54,7 +54,10 @@ class DeployCommand(CliCommand):
         """Retourne le nom de la sous-commande."""
         return "deploy"
 
-    def register(self, subparsers: Any) -> None:
+    # ANN401 assumé : signature imposée par `CliCommand.register`, dont
+    # le paramètre est un `argparse._SubParsersAction` (nom privé de la
+    # stdlib). Voir la justification dans `linuxtools/cli/base.py`.
+    def register(self, subparsers: Any) -> None:  # noqa: ANN401
         """Enregistre la commande deploy et ses arguments.
 
         Args:
