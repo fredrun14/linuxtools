@@ -329,9 +329,9 @@ class LinuxScriptChecker(ScriptChecker):
         """
         pyproject_data = self.read_pyproject(pyproject_path)
 
-        deps = list(cast(list[str], pyproject_data["dependencies"]))
+        deps = list(cast("list[str]", pyproject_data["dependencies"]))
         opt = cast(
-            dict[str, list[str]],
+            "dict[str, list[str]]",
             pyproject_data["optional_dependencies"],
         )
         for extra in check_extras:

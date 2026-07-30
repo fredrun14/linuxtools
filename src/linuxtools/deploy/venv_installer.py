@@ -9,11 +9,15 @@ jamais s'il opère en local ou à distance.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.exceptions import DeployError
-from linuxtools.logging.base import Logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from linuxtools.commands.base import CommandExecutor, CommandResult
+    from linuxtools.logging.base import Logger
 
 
 class VenvInstaller:
