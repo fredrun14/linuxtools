@@ -45,8 +45,8 @@ from linuxtools.scripts.checker import ScriptChecker
 from linuxtools.scripts.config import BashScriptConfig, PythonCliConfig
 from linuxtools.scripts.paths import ScriptPaths
 from linuxtools.scripts.report import (
-    InstallReport,
     InstalledDependency,
+    InstallReport,
     MissingDependency,
 )
 

@@ -2,7 +2,6 @@
 
 import re
 
-
 # Nom d'unité systemd : lettres, chiffres, points, tirets, underscores, ':'
 _UNIT_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9:._-]*$')
 

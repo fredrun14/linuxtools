@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from linuxtools.logging.file_logger import (
+    _NIVEAUX,
     _BaseFileLogger,
     _ColoredFormatter,
-    _NIVEAUX,
     _resolve_config,
     _SupportsGet,
 )

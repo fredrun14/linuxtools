@@ -25,7 +25,7 @@ Example:
 from typing import Any
 
 from linuxtools.config import ConfigFileLoader
-from linuxtools.systemd import ServiceConfig
+from linuxtools.systemd.base import ServiceConfig
 
 
 class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):

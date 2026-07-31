@@ -1,7 +1,5 @@
 """Gestionnaire DHCP avec push direct vers le routeur ASUS."""
 
-import dataclasses
-
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import RouterDhcpManager
 from linuxtools.network.config import NetworkConfig

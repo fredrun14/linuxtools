@@ -25,10 +25,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pycodestyle
+          pip install pycodestyle ruff==0.15.22
 
       - name: Check PEP8 compliance
         run: pycodestyle src/linuxtools/
+
+      - name: Ruff (lint + typage des signatures)
+        run: ruff check src/
 
   test:
     runs-on: ubuntu-latest

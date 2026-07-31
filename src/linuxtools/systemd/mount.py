@@ -4,9 +4,9 @@ from pathlib import Path
 
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.base import (
-    MountUnitManager,
+    AutomountConfig,
     MountConfig,
-    AutomountConfig
+    MountUnitManager,
 )
 from linuxtools.systemd.executor import SystemdExecutor
 

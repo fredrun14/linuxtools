@@ -6,6 +6,8 @@ from typing import ClassVar
 
 from linuxtools.systemd.validators import (
     path_to_unit_name as _path_to_unit_name,
+)
+from linuxtools.systemd.validators import (
     reject_control_chars,
 )
 

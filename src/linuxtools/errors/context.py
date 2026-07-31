@@ -2,8 +2,8 @@
 
 from collections.abc import Callable
 
-from linuxtools import Logger
 from linuxtools.errors.exceptions import RollbackError
+from linuxtools.logging import Logger
 
 
 class ErrorContext:

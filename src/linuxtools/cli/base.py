@@ -7,6 +7,7 @@ CliApplication pour structurer les CLIs argparse selon SOLID.
 # stdlib
 import argparse
 from abc import ABC, abstractmethod
+
 # Any est inévitable : argparse._SubParsersAction est une API privée stdlib
 from typing import Any
 

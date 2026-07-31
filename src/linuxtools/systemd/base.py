@@ -17,6 +17,8 @@ from linuxtools.systemd.base_config import (
 )
 from linuxtools.systemd.validators import (
     path_to_unit_name as _path_to_unit_name,
+)
+from linuxtools.systemd.validators import (
     validate_service_name,
     validate_unit_name,
 )

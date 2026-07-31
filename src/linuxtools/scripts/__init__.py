@@ -52,8 +52,8 @@ from linuxtools.scripts.installer import (
 )
 from linuxtools.scripts.paths import ScriptPaths
 from linuxtools.scripts.report import (
-    InstallReport,
     InstalledDependency,
+    InstallReport,
     MissingDependency,
 )
 

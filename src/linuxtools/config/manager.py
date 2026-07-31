@@ -2,8 +2,9 @@
 
 import json
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from linuxtools.config.base import ConfigManager
 from linuxtools.config.loader import ConfigLoader, FileConfigLoader

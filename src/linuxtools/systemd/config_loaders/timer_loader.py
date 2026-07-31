@@ -26,7 +26,7 @@ Example:
 from typing import Any
 
 from linuxtools.config import ConfigFileLoader
-from linuxtools.systemd import TimerConfig
+from linuxtools.systemd.base import TimerConfig
 
 
 class TimerConfigLoader(ConfigFileLoader[TimerConfig]):

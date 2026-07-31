@@ -21,7 +21,7 @@ Example:
 from abc import ABC, abstractmethod
 
 from linuxtools.logging import Logger
-from linuxtools.scripts import BashScriptInstaller, BashScriptConfig
+from linuxtools.scripts import BashScriptConfig, BashScriptInstaller
 from linuxtools.systemd.base import (
     ServiceConfig,
     ServiceUnitManager,

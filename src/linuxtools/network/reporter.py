@@ -296,10 +296,6 @@ class DiffReporter(DeviceReporter):
             lines.append("Aucun changement detecte.")
             return "\n".join(lines) + "\n"
 
-        total_changes = (
-            len(self._new_devices)
-            + len(self._disappeared)
-        )
         lines.append(
             f"Resume : {len(self._new_devices)} "
             f"nouveau(x), "
