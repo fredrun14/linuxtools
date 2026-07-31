@@ -4,6 +4,7 @@ Valide en particulier que les appareils offline (isOnline==0)
 sont bien inclus dans les resultats du scan.
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import json
@@ -221,8 +222,8 @@ class TestMergeOfflineClients:
             }
         ]
         custom = {"48:b0:2d:03:1e:ea": "Shield"}
-        leases: dict = {}
-        reservations: dict = {}
+        leases: dict[str, str] = {}
+        reservations: dict[str, tuple[str, str]] = {}
         result = scanner._merge_offline_clients(
             raw, custom, leases, reservations
         )
@@ -232,10 +233,10 @@ class TestMergeOfflineClients:
         self, scanner: AsusRouterScanner
     ) -> None:
         """Client offline avec bail DHCP actif est ajoute."""
-        raw: list = []
+        raw: list[dict[str, Any]] = []
         custom = {"58:16:d7:f1:77:6e": "Thermomix"}
         leases = {"58:16:d7:f1:77:6e": "192.168.50.7"}
-        reservations: dict = {}
+        reservations: dict[str, tuple[str, str]] = {}
         result = scanner._merge_offline_clients(
             raw, custom, leases, reservations
         )
@@ -249,9 +250,9 @@ class TestMergeOfflineClients:
         self, scanner: AsusRouterScanner
     ) -> None:
         """Client offline avec reservation DHCP est ajoute."""
-        raw: list = []
+        raw: list[dict[str, Any]] = []
         custom = {"7c:4d:8f:4c:a4:66": "print"}
-        leases: dict = {}
+        leases: dict[str, str] = {}
         reservations = {
             "7c:4d:8f:4c:a4:66": ("192.168.50.20", ""),
         }
@@ -266,10 +267,10 @@ class TestMergeOfflineClients:
         self, scanner: AsusRouterScanner
     ) -> None:
         """Client offline sans IP est inclus avec ip=''."""
-        raw: list = []
+        raw: list[dict[str, Any]] = []
         custom = {"aa:bb:cc:dd:ee:ff": "Inconnu"}
-        leases: dict = {}
-        reservations: dict = {}
+        leases: dict[str, str] = {}
+        reservations: dict[str, tuple[str, str]] = {}
         result = scanner._merge_offline_clients(
             raw, custom, leases, reservations
         )
@@ -294,7 +295,7 @@ class TestMergeOfflineClients:
             "58:16:d7:f1:77:6e": "Thermomix",
         }
         leases = {"58:16:d7:f1:77:6e": "192.168.50.7"}
-        reservations: dict = {}
+        reservations: dict[str, tuple[str, str]] = {}
         result = scanner._merge_offline_clients(
             raw, custom, leases, reservations
         )
@@ -309,12 +310,16 @@ class TestAsusRouterClientGetClients:
     """Tests pour get_clients() sans filtre isOnline."""
 
     def _make_client(
-        self, router_config: RouterConfig, raw_data: dict
+        self,
+        router_config: RouterConfig,
+        raw_data: dict[str, Any],
     ) -> AsusRouterClient:
         """Cree un client avec _hook mocke."""
         client = AsusRouterClient(router_config)
         client._token = "fake-token"
-        client._hook = MagicMock(
+        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
+        # le test de l'appel HTTP, cf. doctrine mypy du projet.
+        client._hook = MagicMock(  # type: ignore[method-assign]
             return_value={"get_clientlist": raw_data}
         )
         return client
@@ -388,7 +393,9 @@ class TestAsusRouterClientGetClients:
         """Si le hook retourne une valeur invalide, liste vide."""
         client = AsusRouterClient(router_config)
         client._token = "fake-token"
-        client._hook = MagicMock(
+        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
+        # le test de l'appel HTTP, cf. doctrine mypy du projet.
+        client._hook = MagicMock(  # type: ignore[method-assign]
             return_value={"get_clientlist": "invalid"}
         )
         result = client.get_clients()
@@ -880,7 +887,9 @@ class TestAsusRouterClientMocked:
             "1234567890 48:b0:2d:03:1e:ea 192.168.50.3 Shield *\n"
             "1234567891 58:16:d7:f1:77:6e 192.168.50.7 Thermomix *\n"
         )
-        client._hook = MagicMock(
+        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
+        # le test de l'appel HTTP, cf. doctrine mypy du projet.
+        client._hook = MagicMock(  # type: ignore[method-assign]
             return_value={"dhcpLeaseMacList": leases_str}
         )
         result = client.get_dhcp_leases()
@@ -894,7 +903,9 @@ class TestAsusRouterClientMocked:
         client = AsusRouterClient(router_config)
         client._token = "fake-token"
         leases_str = "123 48:b0:2d:03:1e:ea * Shield *\n"
-        client._hook = MagicMock(
+        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
+        # le test de l'appel HTTP, cf. doctrine mypy du projet.
+        client._hook = MagicMock(  # type: ignore[method-assign]
             return_value={"dhcpLeaseMacList": leases_str}
         )
         result = client.get_dhcp_leases()
@@ -906,7 +917,9 @@ class TestAsusRouterClientMocked:
         """get_nvram() retourne le dictionnaire de variables NVRAM."""
         client = AsusRouterClient(router_config)
         client._token = "fake-token"
-        client._hook = MagicMock(
+        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
+        # le test de l'appel HTTP, cf. doctrine mypy du projet.
+        client._hook = MagicMock(  # type: ignore[method-assign]
             return_value={
                 "dhcp_staticlist": "<AA:BB:CC:DD:EE:FF>192.168.50.10",
                 "dhcp_hostnames": ""

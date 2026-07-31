@@ -323,11 +323,13 @@ class TestKeyringCredentialProvider:
 
     def _make_backend(
         self,
-        stored: dict | None = None,
+        stored: dict[tuple[str, str], str] | None = None,
     ) -> MagicMock:
         """Cree un backend keyring mocke."""
         backend = MagicMock()
-        _store: dict = stored if stored is not None else {}
+        _store: dict[tuple[str, str], str] = (
+            stored if stored is not None else {}
+        )
         backend.get_password.side_effect = (
             lambda svc, key: _store.get((svc, key))
         )
@@ -353,7 +355,7 @@ class TestKeyringCredentialProvider:
 
     def test_set_stocke_le_credential(self) -> None:
         """set() stocke le credential via le backend."""
-        store: dict = {}
+        store: dict[tuple[str, str], str] = {}
         backend = self._make_backend(store)
         provider = KeyringCredentialProvider(keyring_backend=backend)
         provider.set("monapp", "user", "nouveau_mdp")
@@ -461,7 +463,7 @@ class TestKeyringCredentialProvider:
     def test_set_log_info_avec_logger(self) -> None:
         """set() log un message info si logger fourni et stockage reussi."""
         mock_logger = MagicMock()
-        store: dict = {}
+        store: dict[tuple[str, str], str] = {}
         backend = self._make_backend(store)
         provider = KeyringCredentialProvider(
             keyring_backend=backend, logger=mock_logger

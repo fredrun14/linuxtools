@@ -37,7 +37,7 @@ class _ConfigANotationPointee:
     structurellement compatible avec ``_SupportsGet``.
     """
 
-    def __init__(self, valeurs: dict) -> None:
+    def __init__(self, valeurs: dict[str, str]) -> None:
         """Stocke les valeurs simulées, indexées par clé pointée."""
         self._valeurs = valeurs
 
@@ -297,7 +297,12 @@ class TestFileLoggerConsole:
             """Config sans methode get()."""
             pass
 
-        logger = FileLogger(log_file, config=ConfigSansGet())
+        # Passage volontaire d'un objet ne respectant ni dict ni
+        # _SupportsGet : vérifie le repli défensif (hasattr) de
+        # _resolve_config face à un appelant non typé.
+        logger = FileLogger(
+            log_file, config=ConfigSansGet()  # type: ignore[arg-type]
+        )
         logger.log_info("Test sans get")
         content = (tmp_path / "test.log").read_text(encoding="utf-8")
         assert "Test sans get" in content
@@ -454,14 +459,14 @@ class TestConsoleLogger:
         assert isinstance(ConsoleLogger(), Logger)
 
     def test_log_info_ecrit_sur_stdout(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_info écrit sur stdout."""
         ConsoleLogger().log_info("message info")
         assert "message info" in capsys.readouterr().out
 
     def test_log_warning_ecrit_sur_stderr(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_warning écrit sur stderr avec préfixe WARNING."""
         ConsoleLogger().log_warning("alerte")
@@ -470,7 +475,7 @@ class TestConsoleLogger:
         assert "alerte" in captured.err
 
     def test_log_error_ecrit_sur_stderr(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_error écrit sur stderr avec préfixe ERROR."""
         ConsoleLogger().log_error("erreur critique")
@@ -479,28 +484,28 @@ class TestConsoleLogger:
         assert "erreur critique" in captured.err
 
     def test_log_info_contient_code_bleu(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_info entoure le message du code ANSI bleu."""
         ConsoleLogger().log_info("info colorée")
         assert AnsiColors.BLUE in capsys.readouterr().out
 
     def test_log_warning_contient_code_orange(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_warning entoure le message du code ANSI orange."""
         ConsoleLogger().log_warning("alerte colorée")
         assert AnsiColors.ORANGE in capsys.readouterr().err
 
     def test_log_error_contient_code_rouge(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_error entoure le message du code ANSI rouge."""
         ConsoleLogger().log_error("erreur colorée")
         assert AnsiColors.RED in capsys.readouterr().err
 
     def test_log_success_contient_code_vert(
-        self, capsys: pytest.CaptureFixture
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """log_success entoure le message du code ANSI vert."""
         ConsoleLogger().log_success("succès coloré")
@@ -511,7 +516,7 @@ class TestFileLoggerColored:
     """Tests pour FileLogger avec colored_console."""
 
     def test_colored_console_ajoute_code_ansi(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """FileLogger(colored_console=True) colore la sortie console."""
         log_file = str(tmp_path / "colored.log")
@@ -534,7 +539,7 @@ class TestFileLoggerColored:
         assert "contenu fichier" in content
 
     def test_colored_console_false_pas_de_codes_ansi(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """Par défaut colored_console=False : pas de codes ANSI en console."""
         log_file = str(tmp_path / "plain_console.log")
@@ -647,7 +652,10 @@ class TestRotatingFileLogger:
 
     def test_accepte_str_et_path(self, tmp_path: Path) -> None:
         """RotatingFileLogger accepte str et Path pour log_file."""
-        for arg in [str(tmp_path / "a.log"), tmp_path / "b.log"]:
+        args: list[str | Path] = [
+            str(tmp_path / "a.log"), tmp_path / "b.log"
+        ]
+        for arg in args:
             logger = RotatingFileLogger(arg)
             logger.log_info("ok")
 

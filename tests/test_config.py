@@ -3,6 +3,7 @@
 import json
 import tomllib
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -114,7 +115,7 @@ class TestConfigurationManager:
     def test_list_profiles(self, tmp_path: Path) -> None:
         """Test de la liste des profils."""
         config_file = tmp_path / "config.json"
-        config_data = {
+        config_data: dict[str, Any] = {
             "profiles": {
                 "profile1": {},
                 "profile2": {}
@@ -185,7 +186,7 @@ class TestConfigurationManager:
         config_file = tmp_path / "found.toml"
         config_file.write_text('[test]\nfound = true\n')
 
-        search_paths = [
+        search_paths: list[str | Path] = [
             tmp_path / "nonexistent.toml",
             config_file,
             tmp_path / "another.toml"

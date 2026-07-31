@@ -16,7 +16,7 @@ from linuxtools.config import ConfigLoader
 class MockConfigLoader(ConfigLoader):
     """Mock du ConfigLoader retournant un dictionnaire fixe."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict[str, Any]):
         self._config = config
 
     def load(

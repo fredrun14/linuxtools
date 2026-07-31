@@ -18,6 +18,7 @@ from linuxtools.systemd import (
     AutomountConfig,
     LinuxMountUnitManager
 )
+from linuxtools.systemd.executor import SystemdExecutor
 from linuxtools.logging import Logger
 
 
@@ -45,8 +46,12 @@ class MockLogger(Logger):
         self.messages.append(("ERROR", message))
 
 
-class MockSystemdManager:
+class MockSystemdManager(SystemdExecutor):
     """Mock du gestionnaire systemd pour les tests.
+
+    Hérite de SystemdExecutor (même pattern que MockLogger(Logger)
+    ci-dessus) afin d'être un substitut typé valide pour le paramètre
+    ``executor: SystemdExecutor`` de LinuxMountUnitManager.
 
     Attributes:
         reload_called: Indique si reload_systemd a été appelé.
@@ -55,7 +60,8 @@ class MockSystemdManager:
     """
 
     def __init__(self) -> None:
-        """Initialise le mock systemd."""
+        """Initialise le mock systemd (pas d'appel réel à systemctl)."""
+        super().__init__(MockLogger())
         self.reload_called: bool = False
         self.enabled_units: list[str] = []
         self.disabled_units: list[str] = []
@@ -65,19 +71,22 @@ class MockSystemdManager:
         self.reload_called = True
         return True
 
-    def enable_unit(self, unit_name: str) -> bool:
+    def enable_unit(self, unit_name: str, now: bool = True) -> bool:
         """Simule l'activation d'une unité."""
         self.enabled_units.append(unit_name)
         return True
 
     def disable_unit(
-        self, unit_name: str, ignore_errors: bool = False
+        self,
+        unit_name: str,
+        now: bool = True,
+        ignore_errors: bool = False,
     ) -> bool:
         """Simule la désactivation d'une unité."""
         self.disabled_units.append(unit_name)
         return True
 
-    def get_status(self, unit_name: str) -> str:
+    def get_status(self, unit_name: str) -> str | None:
         """Retourne un statut simulé."""
         return "inactive"
 
@@ -482,7 +491,11 @@ class TestMountStatus:
     ) -> None:
         """Vérifie que get_mount_status retourne le statut de l'unité."""
         # Arrange
-        mock_systemd.get_status = Mock(return_value="active")
+        # Monkey-patch intentionnel de get_status (méthode réelle
+        # depuis SystemdExecutor) pour isoler le test.
+        mock_systemd.get_status = (  # type: ignore[method-assign]
+            Mock(return_value="active")
+        )
 
         # Act
         result = mount_manager.get_mount_status("/media/nas")
@@ -498,7 +511,11 @@ class TestMountStatus:
     ) -> None:
         """Vérifie que is_mounted retourne True quand l'unité est active."""
         # Arrange
-        mock_systemd.get_status = Mock(return_value="active")
+        # Monkey-patch intentionnel de get_status (méthode réelle
+        # depuis SystemdExecutor) pour isoler le test.
+        mock_systemd.get_status = (  # type: ignore[method-assign]
+            Mock(return_value="active")
+        )
 
         # Act & Assert
         assert mount_manager.is_mounted("/media/nas") is True
@@ -510,7 +527,11 @@ class TestMountStatus:
     ) -> None:
         """Vérifie que is_mounted retourne False quand l'unité est inactive."""
         # Arrange
-        mock_systemd.get_status = Mock(return_value="inactive")
+        # Monkey-patch intentionnel de get_status (méthode réelle
+        # depuis SystemdExecutor) pour isoler le test.
+        mock_systemd.get_status = (  # type: ignore[method-assign]
+            Mock(return_value="inactive")
+        )
 
         # Act & Assert
         assert mount_manager.is_mounted("/media/nas") is False

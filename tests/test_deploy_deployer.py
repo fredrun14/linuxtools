@@ -15,7 +15,7 @@ from linuxtools.deploy.models import (
     DeployTarget,
     VerificationSpec,
 )
-from linuxtools.deploy.transport import Transport
+from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
 
@@ -455,6 +455,11 @@ class TestDeployerForTarget:
         même LinuxCommandExecutor (pas de SshCommandExecutor)."""
         deployer = Deployer.for_target(DeployTarget())
 
+        # Deployer._transport est typé Transport (ABC) ; for_target()
+        # construit toujours un RsyncTransport concret, seul à exposer
+        # _local. L'isinstance narrowe pour mypy sans changer le
+        # comportement runtime du test.
+        assert isinstance(deployer._transport, RsyncTransport)
         assert deployer._transport._local is (
             deployer._installer._executor
         )

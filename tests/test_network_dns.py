@@ -67,6 +67,7 @@ class TestLinuxHostsFileManager:
             )
         ]
         result = mgr.generate_dns_names(devices)
+        assert result[0].dns_name is not None
         assert "asustek-42" in result[0].dns_name
 
     def test_generer_dns_name_sans_rien(self) -> None:
@@ -74,6 +75,7 @@ class TestLinuxHostsFileManager:
         mgr = LinuxHostsFileManager(_config())
         devices = [_device(ip="192.168.1.42")]
         result = mgr.generate_dns_names(devices)
+        assert result[0].dns_name is not None
         assert "unknown-42" in result[0].dns_name
 
     def test_hosts_entries_format(self) -> None:

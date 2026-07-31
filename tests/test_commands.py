@@ -72,7 +72,7 @@ class TestCommandResult:
     def test_creation_avec_tous_les_champs(self) -> None:
         """Test de la création avec tous les champs."""
         result = CommandResult(
-            command=["ls", "-la"],
+            command=("ls", "-la"),
             return_code=0,
             stdout="fichier.txt",
             stderr="",
@@ -89,7 +89,7 @@ class TestCommandResult:
     def test_frozen(self) -> None:
         """Test que la dataclass est immuable."""
         result = CommandResult(
-            command=["ls"],
+            command=("ls",),
             return_code=0,
             stdout="",
             stderr="",
@@ -97,12 +97,14 @@ class TestCommandResult:
             duration=0.0,
         )
         with pytest.raises(AttributeError):
-            result.return_code = 1
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            result.return_code = 1  # type: ignore[misc]
 
     def test_success_true_quand_code_zero(self) -> None:
         """Test success=True quand return_code est 0."""
         result = CommandResult(
-            command=["echo"],
+            command=("echo",),
             return_code=0,
             stdout="",
             stderr="",
@@ -114,7 +116,7 @@ class TestCommandResult:
     def test_success_false_quand_code_non_zero(self) -> None:
         """Test success=False quand return_code est non-zéro."""
         result = CommandResult(
-            command=["false"],
+            command=("false",),
             return_code=1,
             stdout="",
             stderr="erreur",
@@ -817,7 +819,15 @@ class _FakeExecutor(CommandExecutor):
 
     def __init__(self) -> None:
         """Initialise l'historique des appels à run()."""
-        self.calls: list[tuple] = []
+        self.calls: list[
+            tuple[
+                list[str],
+                dict[str, str] | None,
+                str | None,
+                int | None,
+                bool,
+            ]
+        ] = []
 
     def run(
         self,
@@ -987,7 +997,7 @@ class TestCommandResultExecutedAsRoot:
     def test_executed_as_root_defaut_faux(self) -> None:
         """Vérifie que executed_as_root vaut False par défaut."""
         result = CommandResult(
-            command=["ls"],
+            command=("ls",),
             return_code=0,
             stdout="",
             stderr="",
@@ -999,7 +1009,7 @@ class TestCommandResultExecutedAsRoot:
     def test_executed_as_root_vrai_quand_specifie(self) -> None:
         """Vérifie que executed_as_root peut être True."""
         result = CommandResult(
-            command=["id"],
+            command=("id",),
             return_code=0,
             stdout="uid=0",
             stderr="",
@@ -1012,7 +1022,7 @@ class TestCommandResultExecutedAsRoot:
     def test_executed_as_root_immutable(self) -> None:
         """Vérifie que executed_as_root ne peut pas être modifié."""
         result = CommandResult(
-            command=["ls"],
+            command=("ls",),
             return_code=0,
             stdout="",
             stderr="",
@@ -1021,7 +1031,9 @@ class TestCommandResultExecutedAsRoot:
             executed_as_root=False,
         )
         with pytest.raises(AttributeError):
-            result.executed_as_root = True
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            result.executed_as_root = True  # type: ignore[misc]
 
 
 # --- Tests PlainCommandFormatter ---

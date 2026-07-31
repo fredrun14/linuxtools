@@ -159,11 +159,19 @@ class TestTimerConfigToUnitFile:
 class TestLinuxTimerListTimers:
     """Tests pour LinuxTimerUnitManager.list_timers."""
 
-    def _make_manager(self) -> LinuxTimerUnitManager:
-        """Crée un manager avec des mocks."""
+    def _make_manager(
+        self,
+    ) -> tuple[LinuxTimerUnitManager, MagicMock]:
+        """Crée un manager avec des mocks.
+
+        Retourne aussi l'executor mocké séparément (typé MagicMock) :
+        accéder à ``manager.executor._run_systemctl`` fait perdre à
+        mypy le type runtime injecté (il retombe sur la méthode réelle
+        de SystemdExecutor, sans .return_value/.side_effect).
+        """
         logger = MagicMock()
         executor = MagicMock()
-        return LinuxTimerUnitManager(logger, executor)
+        return LinuxTimerUnitManager(logger, executor), executor
 
     def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
@@ -172,8 +180,8 @@ class TestLinuxTimerListTimers:
              "next": "Mon 2026-01-01", "left": "1h",
              "last": "Sun 2025-12-31", "passed": "23h"}
         ]
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=0, stdout=json.dumps(data), stderr=""
         )
         result = manager.list_timers()
@@ -183,8 +191,8 @@ class TestLinuxTimerListTimers:
 
     def test_list_timers_json_vide(self) -> None:
         """Vérifie le parsing d'une liste JSON vide."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=0, stdout="[]", stderr=""
         )
         result = manager.list_timers()
@@ -201,8 +209,8 @@ class TestLinuxTimerListTimers:
             "Mon 2026-01-01 1h ago Sun backup.timer backup.service\n"
         )
         text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = [
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = [
             fail_result, text_result
         ]
         result = manager.list_timers()
@@ -211,8 +219,8 @@ class TestLinuxTimerListTimers:
 
     def test_list_timers_erreur_subprocess(self) -> None:
         """Vérifie que RuntimeError est levée sur erreur."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=1, stdout="", stderr="Failed to connect to bus"
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
@@ -220,8 +228,8 @@ class TestLinuxTimerListTimers:
 
     def test_list_timers_systemctl_introuvable(self) -> None:
         """Vérifie RuntimeError si systemctl n'existe pas."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = FileNotFoundError(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = FileNotFoundError(
             "systemctl"
         )
         with pytest.raises(RuntimeError, match="Impossible"):
@@ -229,8 +237,8 @@ class TestLinuxTimerListTimers:
 
     def test_list_timers_os_error(self) -> None:
         """Vérifie RuntimeError sur OSError."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = OSError(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = OSError(
             "permission denied"
         )
         with pytest.raises(RuntimeError, match="Impossible"):
@@ -240,11 +248,17 @@ class TestLinuxTimerListTimers:
 class TestLinuxUserTimerListTimers:
     """Tests pour LinuxUserTimerUnitManager.list_timers."""
 
-    def _make_manager(self) -> LinuxUserTimerUnitManager:
-        """Crée un manager utilisateur avec des mocks."""
+    def _make_manager(
+        self,
+    ) -> tuple[LinuxUserTimerUnitManager, MagicMock]:
+        """Crée un manager utilisateur avec des mocks.
+
+        Retourne aussi l'executor mocké séparément (typé MagicMock),
+        même pattern que TestLinuxTimerListTimers._make_manager ci-dessus.
+        """
         logger = MagicMock()
         executor = MagicMock()
-        return LinuxUserTimerUnitManager(logger, executor)
+        return LinuxUserTimerUnitManager(logger, executor), executor
 
     def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
@@ -252,8 +266,8 @@ class TestLinuxUserTimerListTimers:
             {"unit": "backup.timer", "activates": "backup.service",
              "next": "", "left": "", "last": "", "passed": ""}
         ]
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=0, stdout=json.dumps(data), stderr=""
         )
         result = manager.list_timers()
@@ -262,8 +276,8 @@ class TestLinuxUserTimerListTimers:
 
     def test_list_timers_json_vide(self) -> None:
         """Vérifie le parsing d'une liste JSON vide."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=0, stdout="[]", stderr=""
         )
         result = manager.list_timers()
@@ -280,8 +294,8 @@ class TestLinuxUserTimerListTimers:
             "Mon 2026-01-01 1h ago Sun user.timer user.service\n"
         )
         text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = [
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = [
             fail_result, text_result
         ]
         result = manager.list_timers()
@@ -290,8 +304,8 @@ class TestLinuxUserTimerListTimers:
 
     def test_list_timers_erreur_subprocess(self) -> None:
         """Vérifie que RuntimeError est levée sur erreur."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.return_value = MagicMock(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.return_value = MagicMock(
             returncode=1, stdout="", stderr="Failed to connect to bus"
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
@@ -299,8 +313,8 @@ class TestLinuxUserTimerListTimers:
 
     def test_list_timers_systemctl_introuvable(self) -> None:
         """Vérifie RuntimeError si systemctl n'existe pas."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = FileNotFoundError(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = FileNotFoundError(
             "systemctl"
         )
         with pytest.raises(RuntimeError, match="Impossible"):
@@ -308,8 +322,8 @@ class TestLinuxUserTimerListTimers:
 
     def test_list_timers_os_error(self) -> None:
         """Vérifie RuntimeError sur OSError."""
-        manager = self._make_manager()
-        manager.executor._run_systemctl.side_effect = OSError(
+        manager, executor = self._make_manager()
+        executor._run_systemctl.side_effect = OSError(
             "permission denied"
         )
         with pytest.raises(RuntimeError, match="Impossible"):

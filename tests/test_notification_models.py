@@ -42,7 +42,9 @@ class TestNotification:
         """Vérifie l'immutabilité de la notification."""
         notif = Notification(title="Titre", message="Corps")
         with pytest.raises(AttributeError):
-            notif.title = "Autre"
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            notif.title = "Autre"  # type: ignore[misc]
 
 
 class TestExecutionReport:
@@ -107,7 +109,11 @@ class TestExecutionReportStep:
         report = ExecutionReport(script_name="demo")
         with report.step("rsync"):
             raise RuntimeError("échec rsync")
-        assert report.steps[0].success is False
+        # Faux positif mypy connu sur @contextmanager : step() absorbe
+        # conditionnellement l'exception selon reraise (cf. son corps),
+        # invisible à l'analyse statique d'un générateur décoré, qui
+        # marque donc à tort la suite comme inatteignable.
+        assert report.steps[0].success is False  # type: ignore[unreachable]
         assert "échec rsync" in report.steps[0].message
 
     def test_etape_en_echec_reraise(self) -> None:

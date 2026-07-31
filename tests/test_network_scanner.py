@@ -64,7 +64,7 @@ def _make_result(
 ) -> CommandResult:
     """Cree un CommandResult pour les tests."""
     return CommandResult(
-        command=["test"],
+        command=("test",),
         return_code=0 if success else 1,
         stdout=stdout,
         stderr=stderr,

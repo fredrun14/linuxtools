@@ -102,7 +102,7 @@ class TestDeployCommandExecute:
 
     def _base_args(self, **overrides: Any) -> argparse.Namespace:
         """Construit un Namespace minimal valide, avec overrides."""
-        base = {
+        base: dict[str, Any] = {
             "source": None,
             "venv": Path("/opt/app/venv"),
             "dest": Path("/opt/app/src"),
