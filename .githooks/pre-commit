@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Hook pre-commit — bloque le commit si pycodestyle, ruff, mypy ou pytest
+# échouent.
+#
+# Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
+# `make hooks` (voir Makefile) après tout clone.
+#
+# Périmètre identique à `make lint` + `make test` (donc à la CI Forgejo) :
+# lance la suite complète plutôt que les seuls fichiers indexés, pour que
+# « ça passe en local » garantisse « ça passe en CI ». Contournement
+# volontaire : `git commit --no-verify`.
+
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+echo "→ pycodestyle"
+uv run pycodestyle src/linuxtools/
+
+echo "→ ruff check"
+uv run ruff check src/
+
+echo "→ mypy (src + tests)"
+uv run mypy src/linuxtools/ tests/
+
+echo "→ pytest"
+uv run pytest tests/ -q
+
+echo "OK — commit autorisé."
