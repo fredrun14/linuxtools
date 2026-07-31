@@ -27,7 +27,7 @@ Example:
 from typing import Any, NamedTuple
 
 from linuxtools.config import ConfigFileLoader
-from linuxtools.systemd import MountConfig
+from linuxtools.systemd.base import MountConfig
 
 
 class AutomountSettings(NamedTuple):

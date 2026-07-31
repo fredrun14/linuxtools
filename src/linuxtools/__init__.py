@@ -27,87 +27,132 @@ Modules disponibles:
 
 __version__ = "1.14.0"
 
-from linuxtools.logging import (
-    Logger,
-    ConsoleLogger,
-    FileLogger,
-    SecurityEvent,
-    SecurityEventType,
-    SecurityLogger,
+from linuxtools.cli import CliApplication, CliCommand
+from linuxtools.commands import (
+    AnsiCommandFormatter,
+    CommandBuilder,
+    CommandExecutor,
+    CommandFormatter,
+    CommandResult,
+    LinuxCommandExecutor,
+    PlainCommandFormatter,
 )
 from linuxtools.config import (
-    ConfigManager,
     ConfigLoader,
-    FileConfigLoader,
+    ConfigManager,
     ConfigurationManager,
+    FileConfigLoader,
     XdgAppConfig,
 )
-from linuxtools.filesystem import (
-    FileManager,
-    LinuxFileManager,
-    FileBackup,
-    LinuxFileBackup
+from linuxtools.credentials import (
+    # Modeles
+    Credential,
+    # Chaine et facade
+    CredentialChain,
+    CredentialKey,
+    CredentialManager,
+    # Exceptions
+    CredentialNotFoundError,
+    # ABCs
+    CredentialProvider,
+    CredentialProviderUnavailableError,
+    CredentialStore,
+    CredentialStoreError,
+    DotEnvCredentialProvider,
+    # Providers
+    EnvCredentialProvider,
+    KeyringCredentialProvider,
 )
-from linuxtools.systemd import (
-    # Exécuteurs systemctl
-    SystemdExecutor,
-    UserSystemdExecutor,
-    # Classes abstraites système
-    UnitManager,
-    MountUnitManager,
-    TimerUnitManager,
-    ServiceUnitManager,
-    # Classes abstraites utilisateur
-    UserUnitManager,
-    UserTimerUnitManager,
-    UserServiceUnitManager,
-    # Configurations
-    MountConfig,
-    AutomountConfig,
-    TimerConfig,
-    ServiceConfig,
-    # Implémentations système
-    LinuxMountUnitManager,
-    LinuxTimerUnitManager,
-    LinuxServiceUnitManager,
-    # Implémentations utilisateur
-    LinuxUserTimerUnitManager,
-    LinuxUserServiceUnitManager,
-    # Installateur de tâches planifiées
-    ScheduledTaskInstaller,
-    SystemdScheduledTaskInstaller,
-    # Installateur service + timer (sans script)
-    ServiceTimerInstaller,
-    SystemdServiceTimerInstaller,
-    # Installateur mount + automount
-    AutomountInstaller,
-    SystemdAutomountInstaller,
-    # Chargeurs de configuration
-    ServiceConfigLoader,
-    TimerConfigLoader,
-    MountConfigLoader,
-    AutomountSettings,
-    BashScriptConfigLoader,
-    # Export / restauration génériques
-    SystemdUnitExporter,
-    SystemdUnitRestorer,
+from linuxtools.deploy import (
+    CheckResult,
+    DeployCommand,
+    DeployConfig,
+    Deployer,
+    DeployPhase,
+    DeployReport,
+    DeployTarget,
+    InstallVerifier,
+    RsyncTransport,
+    SshCommandExecutor,
+    Transport,
+    VenvInstaller,
+    VerificationSpec,
+    find_editable_source,
+    find_project_source,
+)
+from linuxtools.distro import (
+    fedora_version,
+)
+from linuxtools.dotconf import (
+    IniConfig,
+    IniConfigManager,
+    IniSection,
+    LinuxIniConfigManager,
+    SectionAwareEditor,
+    ValidatedSection,
+    build_validators,
+    parse_validator,
+)
+from linuxtools.filesystem import (
+    FileBackup,
+    FileManager,
+    LinuxFileBackup,
+    LinuxFileManager,
+)
+from linuxtools.identity import (
+    GroupManagerBase,
+    LinuxGroupManager,
+    LinuxUserManager,
+    UserManagerBase,
 )
 from linuxtools.integrity import (
     ChecksumCalculator,
     HashLibChecksumCalculator,
     IntegrityChecker,
     SHA256IntegrityChecker,
-    calculate_checksum
+    calculate_checksum,
 )
-from linuxtools.dotconf import (
-    IniSection,
-    IniConfig,
-    IniConfigManager,
-    ValidatedSection,
-    LinuxIniConfigManager,
-    SectionAwareEditor,
-    parse_validator,
-    build_validators,
+from linuxtools.logging import (
+    ConsoleLogger,
+    FileLogger,
+    Logger,
+    SecurityEvent,
+    SecurityEventType,
+    SecurityLogger,
+)
+from linuxtools.network import (
+    # Rapports
+    ConsoleTableReporter,
+    CsvReporter,
+    DeviceReporter,
+    DeviceRepository,
+    DhcpRange,
+    DhcpReservationManager,
+    DiffReporter,
+    DnsConfig,
+    DnsManager,
+    # Repository
+    JsonDeviceRepository,
+    JsonReporter,
+    # Scanners
+    LinuxArpScanner,
+    # DHCP
+    LinuxDhcpReservationManager,
+    LinuxDnsmasqConfigGenerator,
+    # DNS
+    LinuxHostsFileManager,
+    LinuxNmapScanner,
+    # Configuration
+    NetworkConfig,
+    # Modeles
+    NetworkDevice,
+    # ABCs
+    NetworkScanner,
+    validate_cidr,
+    validate_hostname,
+    # Validateurs
+    validate_ipv4,
+    validate_mac,
 )
 from linuxtools.notification import (
     DesktopNotifier,
@@ -126,113 +171,68 @@ from linuxtools.notification import (
 )
 from linuxtools.scripts import (
     BashScriptConfig,
-    PythonCliConfig,
-    ScriptInstaller,
     BashScriptInstaller,
     CliInstaller,
-    LinuxCliInstaller,
-    ScriptPaths,
-    ScriptChecker,
-    LinuxScriptChecker,
     InstallReport,
+    LinuxCliInstaller,
+    LinuxScriptChecker,
     MissingDependency,
+    PythonCliConfig,
+    ScriptChecker,
+    ScriptInstaller,
+    ScriptPaths,
 )
-from linuxtools.commands import (
-    CommandResult,
-    CommandExecutor,
-    CommandBuilder,
-    CommandFormatter,
-    PlainCommandFormatter,
-    AnsiCommandFormatter,
-    LinuxCommandExecutor,
+from linuxtools.systemd import (
+    AutomountConfig,
+    # Installateur mount + automount
+    AutomountInstaller,
+    AutomountSettings,
+    BashScriptConfigLoader,
+    # Implémentations système
+    LinuxMountUnitManager,
+    LinuxServiceUnitManager,
+    LinuxTimerUnitManager,
+    LinuxUserServiceUnitManager,
+    # Implémentations utilisateur
+    LinuxUserTimerUnitManager,
+    # Configurations
+    MountConfig,
+    MountConfigLoader,
+    MountUnitManager,
+    # Installateur de tâches planifiées
+    ScheduledTaskInstaller,
+    ServiceConfig,
+    # Chargeurs de configuration
+    ServiceConfigLoader,
+    # Installateur service + timer (sans script)
+    ServiceTimerInstaller,
+    ServiceUnitManager,
+    SystemdAutomountInstaller,
+    # Exécuteurs systemctl
+    SystemdExecutor,
+    SystemdScheduledTaskInstaller,
+    SystemdServiceTimerInstaller,
+    # Export / restauration génériques
+    SystemdUnitExporter,
+    SystemdUnitRestorer,
+    TimerConfig,
+    TimerConfigLoader,
+    TimerUnitManager,
+    # Classes abstraites système
+    UnitManager,
+    UserServiceUnitManager,
+    UserSystemdExecutor,
+    UserTimerUnitManager,
+    # Classes abstraites utilisateur
+    UserUnitManager,
 )
 from linuxtools.validation import (
-    Validator,
     PathChecker,
+    PathCheckerGroupAccess,
     PathCheckerPermission,
     PathCheckerWorldWritable,
-    PathCheckerGroupAccess,
     SystemCommandValidator,
-)
-from linuxtools.credentials import (
-    # ABCs
-    CredentialProvider,
-    CredentialStore,
-    # Modeles
-    Credential,
-    CredentialKey,
-    # Exceptions
-    CredentialNotFoundError,
-    CredentialProviderUnavailableError,
-    CredentialStoreError,
-    # Providers
-    EnvCredentialProvider,
-    DotEnvCredentialProvider,
-    KeyringCredentialProvider,
-    # Chaine et facade
-    CredentialChain,
-    CredentialManager,
-)
-from linuxtools.cli import CliCommand, CliApplication
-from linuxtools.deploy import (
-    CheckResult,
-    DeployCommand,
-    DeployConfig,
-    Deployer,
-    DeployPhase,
-    DeployReport,
-    DeployTarget,
-    InstallVerifier,
-    RsyncTransport,
-    SshCommandExecutor,
-    Transport,
-    VenvInstaller,
-    VerificationSpec,
-    find_editable_source,
-    find_project_source,
-)
-from linuxtools.identity import (
-    GroupManagerBase,
-    UserManagerBase,
-    LinuxGroupManager,
-    LinuxUserManager,
-)
-from linuxtools.distro import (
-    fedora_version,
-)
-from linuxtools.network import (
-    # Modeles
-    NetworkDevice,
-    # Configuration
-    NetworkConfig,
-    DhcpRange,
-    DnsConfig,
-    # ABCs
-    NetworkScanner,
-    DeviceRepository,
-    DhcpReservationManager,
-    DnsManager,
-    DeviceReporter,
-    # Scanners
-    LinuxArpScanner,
-    LinuxNmapScanner,
-    # Repository
-    JsonDeviceRepository,
-    # DHCP
-    LinuxDhcpReservationManager,
-    # DNS
-    LinuxHostsFileManager,
-    LinuxDnsmasqConfigGenerator,
-    # Rapports
-    ConsoleTableReporter,
-    CsvReporter,
-    JsonReporter,
-    DiffReporter,
-    # Validateurs
-    validate_ipv4,
-    validate_mac,
-    validate_cidr,
-    validate_hostname,
+    Validator,
 )
 
 __all__ = [
@@ -430,6 +430,11 @@ __all__ = [
     # Deploy - Auto-détection
     "find_project_source",
     "find_editable_source",
+    # Identity
+    "GroupManagerBase",
+    "UserManagerBase",
+    "LinuxGroupManager",
+    "LinuxUserManager",
     # Distro - Helpers Fedora / RPM
     "fedora_version",
 ]

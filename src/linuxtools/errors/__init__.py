@@ -59,8 +59,8 @@ from linuxtools.errors.base import ErrorHandler, ErrorHandlerChain
 from linuxtools.errors.console_handler import ConsoleErrorHandler
 from linuxtools.errors.context import ErrorContext
 from linuxtools.errors.exceptions import (
-    AppPermissionError,
     ApplicationError,
+    AppPermissionError,
     CommandExecutionError,
     ConfigurationError,
     FileConfigurationError,

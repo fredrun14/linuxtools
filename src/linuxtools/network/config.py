@@ -5,7 +5,6 @@ du reseau, de la plage DHCP et du DNS local.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from linuxtools.network.validators import (
     validate_cidr,

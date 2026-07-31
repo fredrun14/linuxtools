@@ -6,7 +6,7 @@ represente un peripherique decouvert sur le reseau local.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from linuxtools.network.validators import (
     validate_ipv4,

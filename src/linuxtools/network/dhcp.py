@@ -10,10 +10,7 @@ from linuxtools.logging.base import Logger
 from linuxtools.network.base import (
     DhcpReservationManager,
 )
-from linuxtools.network.config import (
-    DhcpRange,
-    NetworkConfig,
-)
+from linuxtools.network.config import NetworkConfig
 from linuxtools.network.ip_utils import _allocate_fixed_ips
 from linuxtools.network.models import NetworkDevice
 

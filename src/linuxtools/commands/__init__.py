@@ -52,14 +52,12 @@ Exemple en mode simulation (dry-run):
 """
 
 # Construction
-from linuxtools.commands.builder import CommandBuilder
-
 # Exécution
 from linuxtools.commands.base import (
     CommandExecutor,
     CommandResult,
 )
-from linuxtools.commands.runner import LinuxCommandExecutor
+from linuxtools.commands.builder import CommandBuilder
 
 # Formatage
 from linuxtools.commands.formatter import (
@@ -67,6 +65,7 @@ from linuxtools.commands.formatter import (
     CommandFormatter,
     PlainCommandFormatter,
 )
+from linuxtools.commands.runner import LinuxCommandExecutor
 
 __all__ = [
     # Construction

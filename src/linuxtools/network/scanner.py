@@ -23,7 +23,6 @@ from linuxtools.network.vendors import (
     _infer_type_from_vendor,
 )
 
-
 _SKIP_PREFIXES: tuple[str, ...] = (
     "lo", "docker", "br-", "virbr",
     "veth", "tun", "tap",

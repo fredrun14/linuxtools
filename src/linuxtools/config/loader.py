@@ -3,8 +3,9 @@
 import json
 import tomllib
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 # T représente une dataclass de configuration retournée par load()
 T = TypeVar("T")
@@ -32,7 +33,7 @@ def _load_json(path: Path) -> dict[str, Any]:
     Returns:
         Dictionnaire de configuration.
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
         return data
 
@@ -171,12 +172,12 @@ class FileConfigLoader(ConfigLoader):
         """
         try:
             from pydantic import BaseModel
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "pydantic est requis pour la validation "
                 "de schema. Installez-le avec: "
                 "pip install linuxtools[validation]"
-            )
+            ) from err
 
         if not (
             isinstance(schema, type)

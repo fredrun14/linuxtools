@@ -2,8 +2,8 @@
 
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.base import (
-    _TimerOperationsMixin,
     UserTimerUnitManager,
+    _TimerOperationsMixin,
 )
 from linuxtools.systemd.executor import UserSystemdExecutor
 

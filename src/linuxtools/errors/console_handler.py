@@ -3,8 +3,8 @@ import sys
 
 from linuxtools.errors.base import ErrorHandler
 from linuxtools.errors.exceptions import (
-    AppPermissionError,
     ApplicationError,
+    AppPermissionError,
     ConfigurationError,
     InstallationError,
     MissingDependencyError,
