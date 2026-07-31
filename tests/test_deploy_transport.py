@@ -27,7 +27,7 @@ def _make_local_mock(return_code: int = 0) -> MagicMock:
 class TestTransportAbc:
     """Tests pour l'interface abstraite Transport."""
 
-    def test_ne_peut_pas_etre_instanciee(self):
+    def test_ne_peut_pas_etre_instanciee(self) -> None:
         """Transport est une ABC, non instanciable directement."""
         with pytest.raises(TypeError):
             Transport()  # type: ignore[abstract]
@@ -36,7 +36,7 @@ class TestTransportAbc:
 class TestRsyncTransportTransfer:
     """Tests pour RsyncTransport.transfer()."""
 
-    def test_leve_erreur_si_source_absente(self, tmp_path):
+    def test_leve_erreur_si_source_absente(self, tmp_path: Path) -> None:
         """FileNotFoundError si source_dir n'existe pas."""
         transport = RsyncTransport(local_executor=_make_local_mock())
         with pytest.raises(FileNotFoundError):
@@ -46,7 +46,9 @@ class TestRsyncTransportTransfer:
                 DeployTarget(),
             )
 
-    def test_commande_locale_utilise_chemins_bruts(self, tmp_path):
+    def test_commande_locale_utilise_chemins_bruts(
+        self, tmp_path: Path
+    ) -> None:
         """Cible locale : destination = chemin brut, pas de -e ssh."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
@@ -60,7 +62,9 @@ class TestRsyncTransportTransfer:
         assert command[-1] == "/opt/app/src"
         assert "-e" not in command
 
-    def test_commande_distante_prefixe_destination(self, tmp_path):
+    def test_commande_distante_prefixe_destination(
+        self, tmp_path: Path
+    ) -> None:
         """Cible distante : destination préfixée par user@host:."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
@@ -74,8 +78,8 @@ class TestRsyncTransportTransfer:
         assert command[-1] == "deploy@srv01:/opt/app/src"
 
     def test_commande_distante_avec_ssh_options_ajoute_dash_e(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """Des ssh_options ajoutent -e 'ssh ...' à la commande rsync."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
@@ -90,7 +94,7 @@ class TestRsyncTransportTransfer:
         idx = command.index("-e")
         assert command[idx + 1] == "ssh -p 2222"
 
-    def test_options_par_defaut_incluses(self, tmp_path):
+    def test_options_par_defaut_incluses(self, tmp_path: Path) -> None:
         """Les options par défaut (-a --delete) sont présentes."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
@@ -100,7 +104,7 @@ class TestRsyncTransportTransfer:
         assert "-a" in command
         assert "--delete" in command
 
-    def test_extra_options_personnalisees(self, tmp_path):
+    def test_extra_options_personnalisees(self, tmp_path: Path) -> None:
         """extra_options remplace les options par défaut."""
         local = _make_local_mock()
         transport = RsyncTransport(
@@ -112,7 +116,9 @@ class TestRsyncTransportTransfer:
         assert "-avz" in command
         assert "--delete" not in command
 
-    def test_execute_via_local_executor_avec_timeout(self, tmp_path):
+    def test_execute_via_local_executor_avec_timeout(
+        self, tmp_path: Path
+    ) -> None:
         """rsync est exécuté via l'exécuteur local avec un timeout."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local, timeout=120)
@@ -120,7 +126,9 @@ class TestRsyncTransportTransfer:
 
         assert local.run.call_args.kwargs["timeout"] == 120
 
-    def test_retourne_le_resultat_de_l_executeur_local(self, tmp_path):
+    def test_retourne_le_resultat_de_l_executeur_local(
+        self, tmp_path: Path
+    ) -> None:
         """transfer() retourne tel quel le CommandResult de rsync."""
         local = _make_local_mock(return_code=1)
         transport = RsyncTransport(local_executor=local)
@@ -131,7 +139,7 @@ class TestRsyncTransportTransfer:
         assert result.success is False
         assert result.stderr == "rsync error"
 
-    def test_logue_le_succes_si_logger_fourni(self, tmp_path):
+    def test_logue_le_succes_si_logger_fourni(self, tmp_path: Path) -> None:
         """Le logger reçoit un message de succès quand rsync réussit."""
         local = _make_local_mock(return_code=0)
         logger = MagicMock()

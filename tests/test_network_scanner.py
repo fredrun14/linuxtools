@@ -1,5 +1,6 @@
 """Tests pour les scanners reseau."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -235,7 +236,7 @@ class TestDetectInterface:
             result = _detect_interface()
         assert result == ""
 
-    def test_oserror_reading_operstate(self, tmp_path) -> None:
+    def test_oserror_reading_operstate(self, tmp_path: Path) -> None:
         """Ignore les interfaces dont operstate leve OSError."""
 
         mock_iface = MagicMock()
@@ -251,7 +252,7 @@ class TestDetectInterface:
             result = _detect_interface()
         assert result == ""
 
-    def test_state_not_up_ignored(self, tmp_path) -> None:
+    def test_state_not_up_ignored(self, tmp_path: Path) -> None:
         """Ignore les interfaces dont l'etat n'est pas 'up'."""
 
         mock_iface = MagicMock()

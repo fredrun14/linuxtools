@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from linuxtools.commands.base import CommandResult
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.exceptions import DeployError
@@ -63,7 +65,7 @@ def _make_collaborators() -> tuple[MagicMock, MagicMock, MagicMock]:
 class TestDeployerDeploySucces:
     """Ligne 1 de la table rollback : succès complet."""
 
-    def test_deploy_succes_complet(self):
+    def test_deploy_succes_complet(self) -> None:
         """Toutes les phases réussissent : succès, phase DONE, prune."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -85,7 +87,7 @@ class TestDeployerDeploySucces:
             Path("/opt/app/venv.bak-1")
         )
 
-    def test_deploy_succes_venv_neuf_pas_de_prune(self):
+    def test_deploy_succes_venv_neuf_pas_de_prune(self) -> None:
         """Sans backup (venv neuf), prune_backup n'est pas appelé."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -103,7 +105,7 @@ class TestDeployerDeploySucces:
 class TestDeployerDeployEchecTransport:
     """Ligne 2 de la table rollback : échec transport."""
 
-    def test_echec_transport_arrete_avant_backup(self):
+    def test_echec_transport_arrete_avant_backup(self) -> None:
         """Un échec de transport arrête avant tout backup/install."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(
@@ -121,7 +123,7 @@ class TestDeployerDeployEchecTransport:
 class TestDeployerDeployEchecBackup:
     """Ligne 3 de la table rollback : échec backup."""
 
-    def test_echec_backup_arrete_avant_install(self):
+    def test_echec_backup_arrete_avant_install(self) -> None:
         """DeployError de backup_venv arrête avant l'installation."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -140,7 +142,7 @@ class TestDeployerDeployEchecBackup:
 class TestDeployerDeployEchecInstall:
     """Lignes 4 et 5 de la table rollback : échec install."""
 
-    def test_echec_install_avec_backup_declenche_rollback(self):
+    def test_echec_install_avec_backup_declenche_rollback(self) -> None:
         """Backup dispo : install échoue -> restore_venv appelé."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -163,7 +165,7 @@ class TestDeployerDeployEchecInstall:
         )
         verifier.verify.assert_not_called()
 
-    def test_echec_install_sans_backup_pas_de_rollback(self):
+    def test_echec_install_sans_backup_pas_de_rollback(self) -> None:
         """Venv neuf (pas de backup) : install échoue -> pas de restore."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -180,7 +182,7 @@ class TestDeployerDeployEchecInstall:
         assert report.phase_reached is DeployPhase.INSTALL
         installer.restore_venv.assert_not_called()
 
-    def test_echec_install_et_rollback_ko_ajoute_un_message(self):
+    def test_echec_install_et_rollback_ko_ajoute_un_message(self) -> None:
         """Backup dispo, install échoue ET restore_venv échoue :
         le rapport contient un message explicite d'alerte
         (correctif #2 — un rapport honnête ne tait pas l'échec du
@@ -209,7 +211,7 @@ class TestDeployerDeployEchecInstall:
 class TestDeployerDeployEchecVerify:
     """Ligne 6 de la table rollback : échec vérification."""
 
-    def test_echec_verify_avec_backup_declenche_rollback(self):
+    def test_echec_verify_avec_backup_declenche_rollback(self) -> None:
         """Backup dispo : vérif échoue -> restore_venv appelé."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -230,7 +232,7 @@ class TestDeployerDeployEchecVerify:
         assert report.phase_reached is DeployPhase.ROLLBACK
         installer.prune_backup.assert_not_called()
 
-    def test_echec_verify_sans_backup_pas_de_rollback(self):
+    def test_echec_verify_sans_backup_pas_de_rollback(self) -> None:
         """Venv neuf : vérif échoue -> pas de restore, phase VERIFY."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -248,7 +250,7 @@ class TestDeployerDeployEchecVerify:
         assert report.phase_reached is DeployPhase.VERIFY
         installer.restore_venv.assert_not_called()
 
-    def test_echec_verify_et_rollback_ko_ajoute_un_message(self):
+    def test_echec_verify_et_rollback_ko_ajoute_un_message(self) -> None:
         """Backup dispo, vérif échoue ET restore_venv échoue : le
         rapport contient un message explicite d'alerte (correctif
         #2)."""
@@ -276,7 +278,7 @@ class TestDeployerDeployEchecVerify:
 class TestDeployerDeployDryRun:
     """Tests du mode dry-run (F-11) : simulation sans effet de bord."""
 
-    def test_dry_run_ne_touche_aucun_collaborateur(self):
+    def test_dry_run_ne_touche_aucun_collaborateur(self) -> None:
         """dry_run=True : aucun appel réel à transport/installer/verifier."""
         transport, installer, verifier = _make_collaborators()
         deployer = Deployer(
@@ -292,7 +294,9 @@ class TestDeployerDeployDryRun:
         installer.install.assert_not_called()
         verifier.verify.assert_not_called()
 
-    def test_dry_run_affiche_les_operations_simulees(self, capsys):
+    def test_dry_run_affiche_les_operations_simulees(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Le dry-run affiche les opérations simulées via DryRunContext."""
         transport, installer, verifier = _make_collaborators()
         deployer = Deployer(
@@ -307,8 +311,8 @@ class TestDeployerDeployDryRun:
         assert "pip install" in out
 
     def test_dry_run_cible_distante_affiche_destination_ssh(
-        self, capsys
-    ):
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Dry-run avec cible distante : destination user@host:dest."""
         transport, installer, verifier = _make_collaborators()
         deployer = Deployer(
@@ -330,8 +334,8 @@ class TestDeployerDeployDryRun:
         assert "deploy@srv01:/opt/app/src" in out
 
     def test_dry_run_recreate_venv_affiche_rm_et_venv(
-        self, capsys, tmp_path
-    ):
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
         """recreate_venv=True : le dry-run montre rm -rf puis
         python3 -m venv avant le pip install (correctif #6)."""
         transport, installer, verifier = _make_collaborators()
@@ -363,7 +367,7 @@ class TestDeployerDeployDryRun:
 class TestDeployerResolveSourceDir:
     """Tests de la résolution auto (V1) de source_dir."""
 
-    def test_source_dir_none_introuvable(self):
+    def test_source_dir_none_introuvable(self) -> None:
         """Aucun pyproject.toml trouvé : échec dès la phase TRANSPORT."""
         transport, installer, verifier = _make_collaborators()
         deployer = Deployer(transport, installer, verifier)
@@ -379,7 +383,7 @@ class TestDeployerResolveSourceDir:
         assert "introuvable" in report.messages[0]
         transport.transfer.assert_not_called()
 
-    def test_source_dir_none_auto_detecte(self):
+    def test_source_dir_none_auto_detecte(self) -> None:
         """source_dir auto-détecté est utilisé et loggué."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
@@ -406,7 +410,7 @@ class TestDeployerResolveSourceDir:
             f"Source auto-détecté : {detected}"
         )
 
-    def test_source_dir_auto_detecte_inexistant(self):
+    def test_source_dir_auto_detecte_inexistant(self) -> None:
         """source_dir auto-détecté mais inexistant sur disque : échec
         phase TRANSPORT, pas d'exception (correctif #3)."""
         transport, installer, verifier = _make_collaborators()
@@ -424,7 +428,7 @@ class TestDeployerResolveSourceDir:
         assert "inexistant" in report.messages[0]
         transport.transfer.assert_not_called()
 
-    def test_source_dir_explicite_inexistant(self):
+    def test_source_dir_explicite_inexistant(self) -> None:
         """source_dir explicite inexistant : DeployReport en échec
         phase TRANSPORT, pas de FileNotFoundError levée (correctif
         #3, contrat de l'API)."""
@@ -446,7 +450,7 @@ class TestDeployerResolveSourceDir:
 class TestDeployerForTarget:
     """Tests pour la fabrique Deployer.for_target()."""
 
-    def test_for_target_local_utilise_le_meme_executeur(self):
+    def test_for_target_local_utilise_le_meme_executeur(self) -> None:
         """Cible locale : transport/installer/verifier partagent le
         même LinuxCommandExecutor (pas de SshCommandExecutor)."""
         deployer = Deployer.for_target(DeployTarget())
@@ -458,7 +462,7 @@ class TestDeployerForTarget:
             deployer._verifier._executor
         )
 
-    def test_for_target_remote_utilise_ssh_command_executor(self):
+    def test_for_target_remote_utilise_ssh_command_executor(self) -> None:
         """Cible distante : installer/verifier reçoivent un
         SshCommandExecutor."""
         from linuxtools.deploy.ssh_executor import SshCommandExecutor
@@ -472,7 +476,7 @@ class TestDeployerForTarget:
             deployer._verifier._executor, SshCommandExecutor
         )
 
-    def test_for_target_propage_dry_run(self):
+    def test_for_target_propage_dry_run(self) -> None:
         """dry_run est propagé au Deployer construit."""
         deployer = Deployer.for_target(DeployTarget(), dry_run=True)
         assert deployer._dry_run is True

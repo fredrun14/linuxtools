@@ -1,5 +1,6 @@
 """Tests pour le module integrity."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from linuxtools.logging import FileLogger
 class TestCalculateChecksum:
     """Tests pour la fonction calculate_checksum."""
 
-    def test_sha256(self, tmp_path):
+    def test_sha256(self, tmp_path: Path) -> None:
         """Test du calcul SHA256."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
@@ -25,7 +26,7 @@ class TestCalculateChecksum:
         # SHA256 de "Hello, World!"
         assert len(checksum) == 64  # SHA256 = 64 caractères hex
 
-    def test_different_content_different_checksum(self, tmp_path):
+    def test_different_content_different_checksum(self, tmp_path: Path) -> None:
         """Test que des contenus différents donnent des checksums différents."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -37,7 +38,7 @@ class TestCalculateChecksum:
 
         assert checksum1 != checksum2
 
-    def test_same_content_same_checksum(self, tmp_path):
+    def test_same_content_same_checksum(self, tmp_path: Path) -> None:
         """Test que des contenus identiques donnent le même checksum."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -50,7 +51,7 @@ class TestCalculateChecksum:
 
         assert checksum1 == checksum2
 
-    def test_sha512_algorithm(self, tmp_path):
+    def test_sha512_algorithm(self, tmp_path: Path) -> None:
         """Test avec algorithme SHA512 (autorisé)."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test")
@@ -59,7 +60,7 @@ class TestCalculateChecksum:
 
         assert len(checksum) == 128  # SHA512 = 128 caractères hex
 
-    def test_invalid_algorithm(self, tmp_path):
+    def test_invalid_algorithm(self, tmp_path: Path) -> None:
         """Test avec algorithme invalide (non dans la whitelist)."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test")
@@ -67,7 +68,9 @@ class TestCalculateChecksum:
         with pytest.raises(ValueError, match="non autorisé"):
             calculate_checksum(test_file, algorithm='invalid')
 
-    def test_checksum_algorithme_non_autorise_leve_valueerror(self, tmp_path):
+    def test_checksum_algorithme_non_autorise_leve_valueerror(
+        self, tmp_path: Path
+    ) -> None:
         """MD5 est refusé par la whitelist (algorithme faible)."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test")
@@ -75,7 +78,7 @@ class TestCalculateChecksum:
         with pytest.raises(ValueError, match="non autorisé"):
             calculate_checksum(test_file, algorithm='md5')
 
-    def test_file_not_found(self):
+    def test_file_not_found(self) -> None:
         """Test avec fichier inexistant."""
         with pytest.raises(FileNotFoundError):
             calculate_checksum("/nonexistent/file.txt")
@@ -85,12 +88,12 @@ class TestSHA256IntegrityChecker:
     """Tests pour SHA256IntegrityChecker."""
 
     @pytest.fixture
-    def logger(self, tmp_path):
+    def logger(self, tmp_path: Path) -> FileLogger:
         """Crée un logger pour les tests."""
         log_file = tmp_path / "test.log"
         return FileLogger(str(log_file))
 
-    def test_verify_file_success(self, tmp_path, logger):
+    def test_verify_file_success(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test de vérification réussie d'un fichier."""
         source = tmp_path / "source.txt"
         dest = tmp_path / "dest.txt"
@@ -102,7 +105,7 @@ class TestSHA256IntegrityChecker:
 
         assert checker.verify_file(str(source), str(dest)) is True
 
-    def test_verify_file_failure(self, tmp_path, logger):
+    def test_verify_file_failure(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test de vérification échouée d'un fichier."""
         source = tmp_path / "source.txt"
         dest = tmp_path / "dest.txt"
@@ -113,7 +116,7 @@ class TestSHA256IntegrityChecker:
 
         assert checker.verify_file(str(source), str(dest)) is False
 
-    def test_verify_directory(self, tmp_path, logger):
+    def test_verify_directory(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test de vérification d'un répertoire."""
         # Créer structure source
         source_dir = tmp_path / "source"
@@ -131,7 +134,7 @@ class TestSHA256IntegrityChecker:
 
         assert checker.verify(str(source_dir), str(tmp_path / "dest")) is True
 
-    def test_verify_missing_file(self, tmp_path, logger):
+    def test_verify_missing_file(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test avec fichier manquant dans destination."""
         source_dir = tmp_path / "source"
         source_dir.mkdir()
@@ -145,7 +148,7 @@ class TestSHA256IntegrityChecker:
 
         assert checker.verify(str(source_dir), str(tmp_path / "dest")) is False
 
-    def test_get_checksum(self, tmp_path, logger):
+    def test_get_checksum(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test de la méthode get_checksum."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test")
@@ -155,7 +158,9 @@ class TestSHA256IntegrityChecker:
 
         assert len(checksum) == 64
 
-    def test_verify_file_oserror_returns_false(self, tmp_path, logger):
+    def test_verify_file_oserror_returns_false(
+        self, tmp_path: Path, logger: FileLogger
+    ) -> None:
         """Test que verify_file retourne False en cas d'OSError."""
         # Arrange — fichier source inexistant déclenche FileNotFoundError
         checker = SHA256IntegrityChecker(logger)
@@ -169,7 +174,7 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is False
 
-    def test_verify_with_dest_subdir(self, tmp_path, logger):
+    def test_verify_with_dest_subdir(self, tmp_path: Path, logger: FileLogger) -> None:
         """Test de verify avec un dest_subdir explicite."""
         # Arrange
         source_dir = tmp_path / "source"
@@ -192,7 +197,9 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is True
 
-    def test_verify_directory_flat_destination(self, tmp_path, logger):
+    def test_verify_directory_flat_destination(
+        self, tmp_path: Path, logger: FileLogger
+    ) -> None:
         """Test que verify utilise la destination si le sous-dossier n'existe pas.
 
         Quand destination/basename(source) n'existe pas,
@@ -216,7 +223,9 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is True
 
-    def test_verify_directory_with_subdirectories(self, tmp_path, logger):
+    def test_verify_directory_with_subdirectories(
+        self, tmp_path: Path, logger: FileLogger
+    ) -> None:
         """Test que verify ignore les sous-répertoires et traite les fichiers."""
         # Arrange
         source_dir = tmp_path / "source"
@@ -241,7 +250,9 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is True
 
-    def test_verify_directory_checksum_mismatch(self, tmp_path, logger):
+    def test_verify_directory_checksum_mismatch(
+        self, tmp_path: Path, logger: FileLogger
+    ) -> None:
         """Test que verify retourne False si un checksum diffère."""
         # Arrange
         source_dir = tmp_path / "source"
@@ -262,7 +273,9 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is False
 
-    def test_verify_exception_returns_false(self, tmp_path, logger):
+    def test_verify_exception_returns_false(
+        self, tmp_path: Path, logger: FileLogger
+    ) -> None:
         """Test que verify retourne False en cas d'OSError."""
         # Arrange
         source_dir = tmp_path / "source"
@@ -281,7 +294,7 @@ class TestSHA256IntegrityChecker:
         # Assert
         assert result is False
 
-    def test_verify_source_vide_logue_warning(self, tmp_path):
+    def test_verify_source_vide_logue_warning(self, tmp_path: Path) -> None:
         """verify() retourne True et logue un warning si la source est vide."""
         # Arrange
         mock_logger = MagicMock()
@@ -305,13 +318,13 @@ class TestSHA256IntegrityCheckerOrRaise:
     """Tests pour verify_file_or_raise et verify_or_raise."""
 
     @pytest.fixture
-    def logger(self, tmp_path):
+    def logger(self, tmp_path: Path) -> FileLogger:
         """Fixture fournissant un FileLogger pour les tests."""
         log_file = tmp_path / "test.log"
         return FileLogger(str(log_file))
 
     def test_verify_file_or_raise_succes_ne_leve_pas(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_file_or_raise ne lève rien si les fichiers sont identiques."""
         # Arrange
@@ -325,7 +338,7 @@ class TestSHA256IntegrityCheckerOrRaise:
         checker.verify_file_or_raise(source, dest)
 
     def test_verify_file_or_raise_leve_integrity_error(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_file_or_raise lève IntegrityError si les checksums diffèrent."""
         # Arrange
@@ -340,7 +353,7 @@ class TestSHA256IntegrityCheckerOrRaise:
             checker.verify_file_or_raise(source, dest)
 
     def test_verify_file_or_raise_attributs_integrity_error(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """IntegrityError expose path, expected et actual non nuls."""
         # Arrange
@@ -362,7 +375,7 @@ class TestSHA256IntegrityCheckerOrRaise:
         assert err.expected != err.actual
 
     def test_verify_file_or_raise_oserror_propage(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_file_or_raise ne capture pas OSError."""
         # Arrange
@@ -376,7 +389,7 @@ class TestSHA256IntegrityCheckerOrRaise:
             )
 
     def test_verify_or_raise_succes_retourne_count(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_or_raise retourne le nombre de fichiers vérifiés."""
         # Arrange
@@ -399,7 +412,7 @@ class TestSHA256IntegrityCheckerOrRaise:
         assert count == 2
 
     def test_verify_or_raise_fichier_manquant_leve_integrity_error(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_or_raise lève IntegrityError si un fichier est absent."""
         # Arrange
@@ -417,7 +430,7 @@ class TestSHA256IntegrityCheckerOrRaise:
             )
 
     def test_verify_or_raise_checksum_different_leve_integrity_error(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_or_raise lève IntegrityError si un checksum diffère."""
         # Arrange
@@ -436,7 +449,7 @@ class TestSHA256IntegrityCheckerOrRaise:
             )
 
     def test_verify_or_raise_source_vide_retourne_zero(
-        self, tmp_path, logger
+        self, tmp_path: Path, logger: FileLogger
     ) -> None:
         """verify_or_raise retourne 0 si la source est vide."""
         # Arrange

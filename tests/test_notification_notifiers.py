@@ -2,7 +2,12 @@
 
 import smtplib
 import socket
+import ssl
 import urllib.error
+import urllib.request
+from email.message import EmailMessage
+from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -38,15 +43,24 @@ class FakeExecutor(CommandExecutor):
         return self._results.pop(0)
 
     def run(
-        self, command, env=None, cwd=None, timeout=None, probe=False
-    ):
+        self,
+        command: list[str],
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
+        timeout: int | None = None,
+        probe: bool = False,
+    ) -> CommandResult:
         """Simule l'exécution d'une commande."""
         return self._next(command)
 
     def run_streaming(
-        self, command, env=None, cwd=None, timeout=None,
-        merge_stderr=False,
-    ):
+        self,
+        command: list[str],
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
+        timeout: int | None = None,
+        merge_stderr: bool = False,
+    ) -> CommandResult:
         """Simule l'exécution en streaming."""
         return self._next(command)
 
@@ -68,12 +82,14 @@ def _result(
 class TestDesktopNotifier:
     """Tests pour DesktopNotifier."""
 
-    def test_raises_on_empty_app_name(self):
+    def test_raises_on_empty_app_name(self) -> None:
         """Vérifie l'erreur si app_name est vide."""
         with pytest.raises(ValueError, match="app_name est requis"):
             DesktopNotifier(app_name="")
 
-    def test_session_courante_construit_notify_send(self, notif):
+    def test_session_courante_construit_notify_send(
+        self, notif: Notification
+    ) -> None:
         """Vérifie la commande notify-send en session courante."""
         executor = FakeExecutor([_result()])
         notifier = DesktopNotifier(
@@ -86,7 +102,7 @@ class TestDesktopNotifier:
         assert "-a" in command and "backup" in command
         assert command[-2:] == ["Test", "Corps"]
 
-    def test_icone_ajoutee_si_presente(self):
+    def test_icone_ajoutee_si_presente(self) -> None:
         """Vérifie l'option -i quand une icône est fournie."""
         executor = FakeExecutor([_result()])
         notifier = DesktopNotifier(
@@ -100,7 +116,9 @@ class TestDesktopNotifier:
         command = executor.calls[0]
         assert "-i" in command and "dialog-error" in command
 
-    def test_raises_si_notify_send_echoue(self, notif):
+    def test_raises_si_notify_send_echoue(
+        self, notif: Notification
+    ) -> None:
         """Vérifie NotificationSendError sur code non nul."""
         executor = FakeExecutor([_result(return_code=1, stderr="ko")])
         notifier = DesktopNotifier(
@@ -109,7 +127,9 @@ class TestDesktopNotifier:
         with pytest.raises(NotificationSendError, match="notify-send"):
             notifier.send(notif)
 
-    def test_all_users_diffuse_via_runuser(self, notif, monkeypatch):
+    def test_all_users_diffuse_via_runuser(
+        self, notif: Notification, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Vérifie la diffusion loginctl + runuser en mode all_users."""
         executor = FakeExecutor(
             [
@@ -132,8 +152,8 @@ class TestDesktopNotifier:
         assert executor.calls[2][2] == "alice"
 
     def test_all_users_sans_session_leve_erreur(
-        self, notif, monkeypatch
-    ):
+        self, notif: Notification, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Vérifie l'erreur si aucun bus D-Bus n'est disponible."""
         executor = FakeExecutor(
             [_result(stdout="1000 fred\n")]
@@ -158,11 +178,11 @@ class FakeHttpResponse:
         """Initialise avec le statut à retourner."""
         self.status = status
 
-    def __enter__(self):
+    def __enter__(self) -> "FakeHttpResponse":
         """Retourne la réponse pour usage en context manager."""
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> Literal[False]:
         """Ne fait rien à la sortie du contexte."""
         return False
 
@@ -170,21 +190,24 @@ class FakeHttpResponse:
 class TestGotifyNotifier:
     """Tests pour GotifyNotifier."""
 
-    def test_raises_on_bad_url(self):
+    def test_raises_on_bad_url(self) -> None:
         """Vérifie l'erreur si l'URL n'est pas http(s)."""
         with pytest.raises(ValueError, match="http"):
             GotifyNotifier(base_url="ftp://nas", token="t")
 
-    def test_raises_on_empty_token(self):
+    def test_raises_on_empty_token(self) -> None:
         """Vérifie l'erreur si le token est vide."""
         with pytest.raises(ValueError, match="token est requis"):
             GotifyNotifier(base_url="https://nas", token="")
 
-    def test_envoie_requete_message(self, notif):
+    def test_envoie_requete_message(self, notif: Notification) -> None:
         """Vérifie l'URL, le token et la priorité envoyés."""
         requests = []
 
-        def opener(request, timeout=None):
+        def opener(
+            request: urllib.request.Request,
+            timeout: float | None = None,
+        ) -> FakeHttpResponse:
             requests.append(request)
             return FakeHttpResponse(status=200)
 
@@ -199,11 +222,14 @@ class TestGotifyNotifier:
         assert request.get_header("X-gotify-key") == "secret"
         assert b'"priority": 5' in request.data
 
-    def test_priorite_critical(self):
+    def test_priorite_critical(self) -> None:
         """Vérifie la priorité Gotify pour une urgence critique."""
         requests = []
 
-        def opener(request, timeout=None):
+        def opener(
+            request: urllib.request.Request,
+            timeout: float | None = None,
+        ) -> FakeHttpResponse:
             requests.append(request)
             return FakeHttpResponse(status=200)
 
@@ -219,10 +245,13 @@ class TestGotifyNotifier:
         )
         assert b'"priority": 8' in requests[0].data
 
-    def test_raises_sur_erreur_http(self, notif):
+    def test_raises_sur_erreur_http(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur HTTPError."""
 
-        def opener(request, timeout=None):
+        def opener(
+            request: urllib.request.Request,
+            timeout: float | None = None,
+        ) -> FakeHttpResponse:
             raise urllib.error.HTTPError(
                 request.full_url, 401, "Unauthorized", {}, None
             )
@@ -235,10 +264,15 @@ class TestGotifyNotifier:
         with pytest.raises(NotificationSendError, match="401"):
             notifier.send(notif)
 
-    def test_raises_sur_serveur_injoignable(self, notif):
+    def test_raises_sur_serveur_injoignable(
+        self, notif: Notification
+    ) -> None:
         """Vérifie NotificationSendError sur URLError."""
 
-        def opener(request, timeout=None):
+        def opener(
+            request: urllib.request.Request,
+            timeout: float | None = None,
+        ) -> FakeHttpResponse:
             raise urllib.error.URLError("refused")
 
         notifier = GotifyNotifier(
@@ -257,33 +291,35 @@ class FakeSmtp:
 
     instances: list["FakeSmtp"] = []
 
-    def __init__(self, host, port, timeout=None) -> None:
+    def __init__(
+        self, host: str, port: int, timeout: float | None = None
+    ) -> None:
         """Initialise et s'enregistre dans instances."""
         self.host = host
         self.port = port
         self.tls_started = False
         self.logged_in: tuple[str, str] | None = None
-        self.sent: list = []
+        self.sent: list[EmailMessage] = []
         self.fail_send = False
         FakeSmtp.instances.append(self)
 
-    def __enter__(self):
+    def __enter__(self) -> "FakeSmtp":
         """Retourne le client pour usage en context manager."""
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> Literal[False]:
         """Ne fait rien à la sortie du contexte."""
         return False
 
-    def starttls(self, context=None):
+    def starttls(self, context: ssl.SSLContext | None = None) -> None:
         """Simule la négociation STARTTLS."""
         self.tls_started = True
 
-    def login(self, username, password):
+    def login(self, username: str, password: str) -> None:
         """Simule l'authentification."""
         self.logged_in = (username, password)
 
-    def send_message(self, message):
+    def send_message(self, message: EmailMessage) -> None:
         """Simule l'envoi, avec échec optionnel."""
         if self.fail_send:
             raise smtplib.SMTPException("refusé")
@@ -293,18 +329,18 @@ class FakeSmtp:
 class TestSmtpEmailNotifier:
     """Tests pour SmtpEmailNotifier."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Réinitialise les instances SMTP factices."""
         FakeSmtp.instances = []
 
-    def test_raises_on_empty_recipients(self):
+    def test_raises_on_empty_recipients(self) -> None:
         """Vérifie l'erreur sans destinataire."""
         with pytest.raises(ValueError, match="destinataire"):
             SmtpEmailNotifier(
                 host="smtp.lan", sender="a@b", recipients=[]
             )
 
-    def test_envoi_avec_tls_et_login(self, notif):
+    def test_envoi_avec_tls_et_login(self, notif: Notification) -> None:
         """Vérifie STARTTLS, login et contenu du message."""
         notifier = SmtpEmailNotifier(
             host="smtp.lan",
@@ -323,7 +359,7 @@ class TestSmtpEmailNotifier:
         assert message["From"] == "nas@lan"
         assert message["To"] == "fred@lan"
 
-    def test_sans_tls_ni_login(self, notif):
+    def test_sans_tls_ni_login(self, notif: Notification) -> None:
         """Vérifie l'envoi sans TLS ni authentification."""
         notifier = SmtpEmailNotifier(
             host="smtp.lan",
@@ -337,10 +373,12 @@ class TestSmtpEmailNotifier:
         assert smtp.tls_started is False
         assert smtp.logged_in is None
 
-    def test_raises_sur_echec_smtp(self, notif):
+    def test_raises_sur_echec_smtp(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur SMTPException."""
 
-        def factory(host, port, timeout=None):
+        def factory(
+            host: str, port: int, timeout: float | None = None
+        ) -> FakeSmtp:
             smtp = FakeSmtp(host, port, timeout=timeout)
             smtp.fail_send = True
             return smtp
@@ -359,17 +397,17 @@ class TestSmtpEmailNotifier:
 class TestJournaldNotifier:
     """Tests pour JournaldNotifier."""
 
-    def test_raises_on_empty_app_name(self):
+    def test_raises_on_empty_app_name(self) -> None:
         """Vérifie l'erreur si app_name est vide."""
         with pytest.raises(ValueError, match="app_name est requis"):
             JournaldNotifier(app_name="")
 
-    def test_encode_field_simple(self):
+    def test_encode_field_simple(self) -> None:
         """Vérifie la sérialisation d'un champ monoligne."""
         data = JournaldNotifier._encode_field("PRIORITY", "5")
         assert data == b"PRIORITY=5\n"
 
-    def test_encode_field_multiligne(self):
+    def test_encode_field_multiligne(self) -> None:
         """Vérifie la sérialisation binaire d'un champ multiligne."""
         data = JournaldNotifier._encode_field("MESSAGE", "a\nb")
         expected = (
@@ -379,7 +417,7 @@ class TestJournaldNotifier:
         )
         assert data == expected
 
-    def test_envoi_sur_socket(self, tmp_path):
+    def test_envoi_sur_socket(self, tmp_path: Path) -> None:
         """Vérifie l'envoi du datagramme sur un socket réel."""
         socket_path = str(tmp_path / "journal.sock")
         server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -403,7 +441,7 @@ class TestJournaldNotifier:
         assert b"NOTIFICATION_TITLE=Titre\n" in payload
         assert b"l1\nl2" in payload
 
-    def test_raises_si_socket_absent(self, tmp_path):
+    def test_raises_si_socket_absent(self, tmp_path: Path) -> None:
         """Vérifie NotificationSendError si le socket n'existe pas."""
         notifier = JournaldNotifier(
             app_name="backup",

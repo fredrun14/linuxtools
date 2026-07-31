@@ -17,38 +17,38 @@ from linuxtools.deploy.models import (
 class TestDeployTarget:
     """Tests pour la dataclass DeployTarget."""
 
-    def test_is_remote_faux_par_defaut(self):
+    def test_is_remote_faux_par_defaut(self) -> None:
         """Une cible sans host est locale."""
         target = DeployTarget()
         assert target.is_remote is False
 
-    def test_is_remote_vrai_avec_host(self):
+    def test_is_remote_vrai_avec_host(self) -> None:
         """Une cible avec host est distante."""
         target = DeployTarget(host="srv01")
         assert target.is_remote is True
 
-    def test_ssh_destination_leve_erreur_si_locale(self):
+    def test_ssh_destination_leve_erreur_si_locale(self) -> None:
         """ssh_destination lève ValueError sur une cible locale."""
         target = DeployTarget()
         with pytest.raises(ValueError, match="distante"):
             _ = target.ssh_destination
 
-    def test_ssh_destination_sans_user(self):
+    def test_ssh_destination_sans_user(self) -> None:
         """ssh_destination retourne le host seul sans user."""
         target = DeployTarget(host="srv01")
         assert target.ssh_destination == "srv01"
 
-    def test_ssh_destination_avec_user(self):
+    def test_ssh_destination_avec_user(self) -> None:
         """ssh_destination retourne user@host si user est renseigné."""
         target = DeployTarget(host="srv01", user="deploy")
         assert target.ssh_destination == "deploy@srv01"
 
-    def test_ssh_options_par_defaut_vide(self):
+    def test_ssh_options_par_defaut_vide(self) -> None:
         """ssh_options est un tuple vide par défaut."""
         target = DeployTarget()
         assert target.ssh_options == ()
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         """DeployTarget est immuable."""
         target = DeployTarget(host="srv01")
         with pytest.raises(AttributeError):
@@ -58,14 +58,14 @@ class TestDeployTarget:
 class TestVerificationSpec:
     """Tests pour la dataclass VerificationSpec."""
 
-    def test_valeurs_par_defaut(self):
+    def test_valeurs_par_defaut(self) -> None:
         """Les listes sont vides et regression_command est None."""
         spec = VerificationSpec()
         assert spec.imports == ()
         assert spec.subcommands == ()
         assert spec.regression_command is None
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         """VerificationSpec est immuable."""
         spec = VerificationSpec(imports=("os",))
         with pytest.raises(AttributeError):
@@ -75,7 +75,7 @@ class TestVerificationSpec:
 class TestDeployConfig:
     """Tests pour la dataclass DeployConfig."""
 
-    def test_source_dir_optionnel(self):
+    def test_source_dir_optionnel(self) -> None:
         """source_dir peut être None (auto-détection V1)."""
         config = DeployConfig(
             source_dir=None,
@@ -84,7 +84,7 @@ class TestDeployConfig:
         )
         assert config.source_dir is None
 
-    def test_valeurs_par_defaut(self):
+    def test_valeurs_par_defaut(self) -> None:
         """target, verification et recreate_venv ont des défauts."""
         config = DeployConfig(
             source_dir=Path("/src"),
@@ -96,7 +96,7 @@ class TestDeployConfig:
         assert config.recreate_venv is False
         assert config.cli_bin is None
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         """DeployConfig est immuable."""
         config = DeployConfig(
             source_dir=Path("/src"),
@@ -110,12 +110,12 @@ class TestDeployConfig:
 class TestCheckResult:
     """Tests pour la dataclass CheckResult."""
 
-    def test_detail_vide_par_defaut(self):
+    def test_detail_vide_par_defaut(self) -> None:
         """detail est une chaîne vide par défaut."""
         check = CheckResult(label="import os", ok=True)
         assert check.detail == ""
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         """CheckResult est immuable."""
         check = CheckResult(label="import os", ok=True)
         with pytest.raises(AttributeError):
@@ -125,7 +125,7 @@ class TestCheckResult:
 class TestDeployPhase:
     """Tests pour l'énumération DeployPhase."""
 
-    def test_valeurs_dans_l_ordre_attendu(self):
+    def test_valeurs_dans_l_ordre_attendu(self) -> None:
         """Vérifie les valeurs textuelles de chaque phase."""
         assert DeployPhase.TRANSPORT.value == "transport"
         assert DeployPhase.BACKUP.value == "backup"
@@ -138,7 +138,7 @@ class TestDeployPhase:
 class TestDeployReportFormatSummary:
     """Tests pour DeployReport.format_summary()."""
 
-    def test_succes_sans_checks(self):
+    def test_succes_sans_checks(self) -> None:
         """Un succès sans checks affiche le statut et la phase."""
         report = DeployReport(
             success=True, phase_reached=DeployPhase.DONE
@@ -147,7 +147,7 @@ class TestDeployReportFormatSummary:
         assert "Succès" in summary
         assert "done" in summary
 
-    def test_echec_affiche_croix(self):
+    def test_echec_affiche_croix(self) -> None:
         """Un échec affiche le symbole d'échec."""
         report = DeployReport(
             success=False, phase_reached=DeployPhase.TRANSPORT
@@ -156,7 +156,7 @@ class TestDeployReportFormatSummary:
         assert "Échec" in summary
         assert "transport" in summary
 
-    def test_checks_affiches_avec_symboles(self):
+    def test_checks_affiches_avec_symboles(self) -> None:
         """Les checks OK/KO sont listés avec leur symbole."""
         report = DeployReport(
             success=False,
@@ -173,7 +173,7 @@ class TestDeployReportFormatSummary:
         assert "✗ import bad (ModuleError)" in summary
         assert "1/2" in summary
 
-    def test_rollback_affiche_backup_path(self):
+    def test_rollback_affiche_backup_path(self) -> None:
         """Le rollback mentionne le chemin de backup."""
         report = DeployReport(
             success=False,
@@ -185,7 +185,7 @@ class TestDeployReportFormatSummary:
         assert "Rollback effectué" in summary
         assert "venv.bak-20260719-120000" in summary
 
-    def test_messages_inclus_dans_le_resume(self):
+    def test_messages_inclus_dans_le_resume(self) -> None:
         """Les messages du journal apparaissent dans le résumé."""
         report = DeployReport(
             success=True,
@@ -195,7 +195,7 @@ class TestDeployReportFormatSummary:
         summary = report.format_summary()
         assert "Source auto-détecté : /home/user/app" in summary
 
-    def test_frozen(self):
+    def test_frozen(self) -> None:
         """DeployReport est immuable."""
         report = DeployReport(
             success=True, phase_reached=DeployPhase.DONE

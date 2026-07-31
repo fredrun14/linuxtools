@@ -1,5 +1,7 @@
 """Tests pour la gestion DNS locale."""
 
+from typing import Any
+
 from linuxtools.network.config import (
     DnsConfig,
     NetworkConfig,
@@ -22,7 +24,7 @@ def _config(domain: str = "maison.local") -> NetworkConfig:
 def _device(
     ip: str = "192.168.1.100",
     mac: str = "aa:bb:cc:dd:ee:ff",
-    **kwargs,
+    **kwargs: Any,
 ) -> NetworkDevice:
     """Cree un NetworkDevice pour les tests."""
     return NetworkDevice(ip=ip, mac=mac, **kwargs)

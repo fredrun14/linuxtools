@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,7 +22,7 @@ def _make_parser(command: DeployCommand) -> argparse.ArgumentParser:
 class TestDeployCommandName:
     """Tests pour la propriété name."""
 
-    def test_name_est_deploy(self):
+    def test_name_est_deploy(self) -> None:
         """Le nom de la sous-commande est 'deploy'."""
         assert DeployCommand().name == "deploy"
 
@@ -29,13 +30,13 @@ class TestDeployCommandName:
 class TestDeployCommandRegister:
     """Tests pour register() : arguments argparse."""
 
-    def test_venv_et_dest_sont_requis(self):
+    def test_venv_et_dest_sont_requis(self) -> None:
         """--venv et --dest sont requis (SystemExit si absents)."""
         parser = _make_parser(DeployCommand())
         with pytest.raises(SystemExit):
             parser.parse_args(["deploy"])
 
-    def test_parse_arguments_minimaux(self):
+    def test_parse_arguments_minimaux(self) -> None:
         """Parse avec seulement --venv et --dest requis."""
         parser = _make_parser(DeployCommand())
         args = parser.parse_args(
@@ -49,7 +50,7 @@ class TestDeployCommandRegister:
         assert args.recreate_venv is False
         assert args.dry_run is False
 
-    def test_options_repetables(self):
+    def test_options_repetables(self) -> None:
         """--import, --subcommand et --ssh-option sont répétables."""
         parser = _make_parser(DeployCommand())
         args = parser.parse_args(
@@ -69,7 +70,7 @@ class TestDeployCommandRegister:
         assert args.subcommands == ["list", "status"]
         assert args.ssh_option == ["-p", "2222"]
 
-    def test_dry_run_active(self):
+    def test_dry_run_active(self) -> None:
         """--dry-run active le flag dry_run."""
         parser = _make_parser(DeployCommand())
         args = parser.parse_args(
@@ -82,7 +83,7 @@ class TestDeployCommandRegister:
         )
         assert args.dry_run is True
 
-    def test_recreate_venv_active(self):
+    def test_recreate_venv_active(self) -> None:
         """--recreate-venv active le flag recreate_venv."""
         parser = _make_parser(DeployCommand())
         args = parser.parse_args(
@@ -99,7 +100,7 @@ class TestDeployCommandRegister:
 class TestDeployCommandExecute:
     """Tests pour execute() : construction config + délégation."""
 
-    def _base_args(self, **overrides) -> argparse.Namespace:
+    def _base_args(self, **overrides: Any) -> argparse.Namespace:
         """Construit un Namespace minimal valide, avec overrides."""
         base = {
             "source": None,
@@ -119,7 +120,9 @@ class TestDeployCommandExecute:
         return argparse.Namespace(**base)
 
     @patch("linuxtools.deploy.cli.Deployer")
-    def test_execute_succes_sort_avec_code_0(self, mock_deployer_cls):
+    def test_execute_succes_sort_avec_code_0(
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
         """Un déploiement réussi termine avec sys.exit(0)."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(
@@ -133,7 +136,9 @@ class TestDeployCommandExecute:
         assert exc_info.value.code == 0
 
     @patch("linuxtools.deploy.cli.Deployer")
-    def test_execute_echec_sort_avec_code_1(self, mock_deployer_cls):
+    def test_execute_echec_sort_avec_code_1(
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
         """Un déploiement en échec termine avec sys.exit(1)."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(
@@ -148,8 +153,8 @@ class TestDeployCommandExecute:
 
     @patch("linuxtools.deploy.cli.Deployer")
     def test_execute_construit_la_config_correctement(
-        self, mock_deployer_cls
-    ):
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
         """execute() transmet les bons paramètres à Deployer.deploy."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(
@@ -183,8 +188,8 @@ class TestDeployCommandExecute:
 
     @patch("linuxtools.deploy.cli.Deployer")
     def test_execute_propage_dry_run_au_deployer(
-        self, mock_deployer_cls
-    ):
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
         """dry_run est transmis à Deployer.for_target."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(
@@ -202,8 +207,8 @@ class TestDeployCommandExecute:
 
     @patch("linuxtools.deploy.cli.Deployer")
     def test_execute_affiche_le_resume(
-        self, mock_deployer_cls, capsys
-    ):
+        self, mock_deployer_cls: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """execute() affiche report.format_summary() sur stdout."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(

@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+from typing import Any
 
 from linuxtools.network.models import NetworkDevice
 from linuxtools.network.reporter import (
@@ -16,7 +17,7 @@ from linuxtools.network.reporter import (
 def _device(
     ip: str = "192.168.1.1",
     mac: str = "aa:bb:cc:dd:ee:ff",
-    **kwargs,
+    **kwargs: Any,
 ) -> NetworkDevice:
     """Cree un NetworkDevice pour les tests."""
     return NetworkDevice(ip=ip, mac=mac, **kwargs)

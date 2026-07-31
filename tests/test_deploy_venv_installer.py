@@ -35,7 +35,7 @@ def _make_executor() -> MagicMock:
 class TestVenvInstallerBackupVenv:
     """Tests pour VenvInstaller.backup_venv()."""
 
-    def test_retourne_none_si_venv_absent(self):
+    def test_retourne_none_si_venv_absent(self) -> None:
         """Retourne None (rien à sauver) si le venv n'existe pas."""
         executor = _make_executor()
         executor.run.return_value = _result(success=False)
@@ -48,7 +48,7 @@ class TestVenvInstallerBackupVenv:
             ["test", "-d", "/opt/app/venv"]
         )
 
-    def test_retourne_le_chemin_de_backup_si_succes(self):
+    def test_retourne_le_chemin_de_backup_si_succes(self) -> None:
         """Retourne un Path .bak-<timestamp> si cp réussit."""
         executor = _make_executor()
         executor.run.side_effect = [
@@ -69,7 +69,7 @@ class TestVenvInstallerBackupVenv:
         assert backup == Path("/opt/app/venv.bak-20260719-165500")
         logger.log_info.assert_called_once()
 
-    def test_leve_deploy_error_si_cp_echoue(self):
+    def test_leve_deploy_error_si_cp_echoue(self) -> None:
         """Lève DeployError si la copie de sauvegarde échoue.
 
         Cœur du besoin (plan §Points d'attention 3) : on n'installe
@@ -85,7 +85,7 @@ class TestVenvInstallerBackupVenv:
         with pytest.raises(DeployError, match="Backup"):
             installer.backup_venv(Path("/opt/app/venv"))
 
-    def test_logue_erreur_si_backup_echoue(self):
+    def test_logue_erreur_si_backup_echoue(self) -> None:
         """Le logger reçoit l'erreur avant la levée de DeployError."""
         executor = _make_executor()
         executor.run.side_effect = [
@@ -100,7 +100,7 @@ class TestVenvInstallerBackupVenv:
 
         logger.log_error.assert_called_once()
 
-    def test_horodatage_contient_les_microsecondes(self):
+    def test_horodatage_contient_les_microsecondes(self) -> None:
         """Le suffixe de backup inclut les microsecondes (correctif
         #5) pour éviter une collision entre deux backups à la même
         seconde."""
@@ -121,7 +121,7 @@ class TestVenvInstallerBackupVenv:
 class TestVenvInstallerInstall:
     """Tests pour VenvInstaller.install()."""
 
-    def test_utilise_toujours_le_pip_du_venv(self):
+    def test_utilise_toujours_le_pip_du_venv(self) -> None:
         """Verrou PEP 668 : jamais python3 -m pip système.
 
         Fedora 41+ lève externally-managed-environment si on invoque
@@ -138,7 +138,7 @@ class TestVenvInstallerInstall:
         assert "python3" not in command
         assert "-m" not in command
 
-    def test_commande_pip_force_reinstall(self):
+    def test_commande_pip_force_reinstall(self) -> None:
         """La commande pip utilise --force-reinstall (idempotence)."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -154,7 +154,7 @@ class TestVenvInstallerInstall:
             "/opt/app/src",
         ]
 
-    def test_timeout_genereux(self):
+    def test_timeout_genereux(self) -> None:
         """Le timeout pip est généreux (deps git potentiellement longues)."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -164,7 +164,7 @@ class TestVenvInstallerInstall:
 
         assert executor.run.call_args.kwargs["timeout"] >= 300
 
-    def test_retourne_le_resultat_pip(self):
+    def test_retourne_le_resultat_pip(self) -> None:
         """install() retourne le CommandResult de pip."""
         executor = _make_executor()
         executor.run.return_value = _result(
@@ -179,7 +179,7 @@ class TestVenvInstallerInstall:
         assert result.success is False
         assert result.stderr == "pip error"
 
-    def test_recreate_supprime_puis_recree_le_venv(self):
+    def test_recreate_supprime_puis_recree_le_venv(self) -> None:
         """recreate=True : rm -rf puis python3 -m venv avant pip."""
         executor = _make_executor()
         executor.run.side_effect = [
@@ -202,7 +202,7 @@ class TestVenvInstallerInstall:
         assert calls[2] == ["python3", "-m", "venv", "/opt/app/venv"]
         assert calls[3][0] == "/opt/app/venv/bin/pip"
 
-    def test_recreate_arrete_si_rm_echoue(self):
+    def test_recreate_arrete_si_rm_echoue(self) -> None:
         """Si rm -rf échoue en mode recreate, pip n'est pas appelé."""
         executor = _make_executor()
         executor.run.side_effect = [
@@ -220,7 +220,7 @@ class TestVenvInstallerInstall:
         assert result.success is False
         assert executor.run.call_count == 2
 
-    def test_recreate_arrete_si_creation_venv_echoue(self):
+    def test_recreate_arrete_si_creation_venv_echoue(self) -> None:
         """Si python3 -m venv échoue, pip n'est pas appelé."""
         executor = _make_executor()
         executor.run.side_effect = [
@@ -248,7 +248,7 @@ class TestVenvInstallerRestoreVenv:
     puis cp -a du backup, puis rm -rf du garde-fou en cas de succès.
     """
 
-    def test_restaure_avec_succes(self):
+    def test_restaure_avec_succes(self) -> None:
         """test -d, mv garde-fou, cp -a puis rm -rf garde-fou :
         restore_venv retourne True."""
         executor = _make_executor()
@@ -275,7 +275,7 @@ class TestVenvInstallerRestoreVenv:
         ]
         assert calls[3][0] == "rm"
 
-    def test_retourne_false_si_mv_garde_fou_echoue(self):
+    def test_retourne_false_si_mv_garde_fou_echoue(self) -> None:
         """Le venv existe mais le mv vers le garde-fou échoue :
         retourne False sans jamais toucher au venv (pas de cp)."""
         executor = _make_executor()
@@ -293,7 +293,7 @@ class TestVenvInstallerRestoreVenv:
         assert ok is False
         assert executor.run.call_count == 2
 
-    def test_cp_echoue_remet_le_garde_fou_et_retourne_false(self):
+    def test_cp_echoue_remet_le_garde_fou_et_retourne_false(self) -> None:
         """Le cp -a échoue : le garde-fou est remis à la place du
         venv (rien n'est perdu) et restore_venv retourne False."""
         executor = _make_executor()
@@ -317,7 +317,7 @@ class TestVenvInstallerRestoreVenv:
         assert calls[3][0] == "mv"
         assert calls[3][2] == "/opt/app/venv"
 
-    def test_cp_et_remise_du_garde_fou_echouent_toutes_deux(self):
+    def test_cp_et_remise_du_garde_fou_echouent_toutes_deux(self) -> None:
         """cp -a échoue ET la remise en place du garde-fou échoue
         aussi : restore_venv retourne quand même False (double
         échec loggué, ne lève pas d'exception)."""
@@ -341,7 +341,7 @@ class TestVenvInstallerRestoreVenv:
         assert ok is False
         assert logger.log_error.call_count == 2
 
-    def test_venv_absent_copie_directement_sans_garde_fou(self):
+    def test_venv_absent_copie_directement_sans_garde_fou(self) -> None:
         """Si le venv n'existe pas déjà, aucune étape de garde-fou :
         seul un cp -a est tenté."""
         executor = _make_executor()
@@ -363,7 +363,7 @@ class TestVenvInstallerRestoreVenv:
 class TestVenvInstallerPruneBackup:
     """Tests pour VenvInstaller.prune_backup()."""
 
-    def test_supprime_le_backup(self):
+    def test_supprime_le_backup(self) -> None:
         """prune_backup exécute rm -rf sur le chemin du backup."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -375,7 +375,7 @@ class TestVenvInstallerPruneBackup:
             ["rm", "-rf", "/opt/app/venv.bak-20260719"]
         )
 
-    def test_best_effort_ne_leve_pas_si_echec(self):
+    def test_best_effort_ne_leve_pas_si_echec(self) -> None:
         """Un échec de suppression du backup ne lève pas d'exception."""
         executor = _make_executor()
         executor.run.return_value = _result(

@@ -786,7 +786,9 @@ class TestIpHelpers:
 class TestAsusRouterClientMocked:
     """Tests pour AsusRouterClient avec urllib mocké."""
 
-    def _make_client(self, router_config):
+    def _make_client(
+        self, router_config: RouterConfig
+    ) -> tuple[AsusRouterClient, MagicMock]:
         """Crée un client avec logger mocké."""
         logger = MagicMock()
         return AsusRouterClient(router_config, logger=logger), logger
@@ -961,7 +963,9 @@ class TestAsusRouterScannerAvecLogger:
 class TestAsusRouterDhcpManager:
     """Tests pour AsusRouterDhcpManager."""
 
-    def _make_manager(self, router_config, network_config):
+    def _make_manager(
+        self, router_config: RouterConfig, network_config: NetworkConfig
+    ) -> tuple[AsusRouterDhcpManager, MagicMock, MagicMock]:
         """Crée un gestionnaire DHCP avec client mocké."""
         mock_client = MagicMock(spec=AsusRouterClient)
         logger = MagicMock()

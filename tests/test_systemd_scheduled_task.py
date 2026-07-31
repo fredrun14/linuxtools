@@ -14,7 +14,7 @@ from linuxtools.systemd import ServiceConfig, TimerConfig
 class TestSystemdScheduledTaskInstaller(unittest.TestCase):
     """Tests pour la classe SystemdScheduledTaskInstaller."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Crée les mocks et configurations nécessaires."""
         self.mock_logger = Mock(spec=Logger)
         self.mock_script_installer = Mock()
@@ -43,7 +43,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             persistent=True,
         )
 
-    def _setup_all_success(self):
+    def _setup_all_success(self) -> None:
         """Configure tous les mocks pour retourner True."""
         self.mock_script_installer.install.return_value = True
         self.mock_service_manager.install_service_unit_with_name \
@@ -51,7 +51,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
         self.mock_timer_manager.install_timer_unit.return_value = True
         self.mock_timer_manager.enable_timer.return_value = True
 
-    def test_install_calls_script_installer(self):
+    def test_install_calls_script_installer(self) -> None:
         """Vérifie que install appelle le script_installer."""
         self._setup_all_success()
 
@@ -67,7 +67,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.script_path, self.script_config
         )
 
-    def test_install_calls_service_manager(self):
+    def test_install_calls_service_manager(self) -> None:
         """Vérifie que install appelle le service_manager."""
         self._setup_all_success()
 
@@ -82,7 +82,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
         self.mock_service_manager.install_service_unit_with_name \
             .assert_called_once_with(self.task_name, self.service_config)
 
-    def test_install_calls_timer_manager_install(self):
+    def test_install_calls_timer_manager_install(self) -> None:
         """Vérifie que install appelle timer_manager.install_timer_unit."""
         self._setup_all_success()
 
@@ -98,7 +98,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config
         )
 
-    def test_install_calls_timer_manager_enable(self):
+    def test_install_calls_timer_manager_enable(self) -> None:
         """Vérifie que install appelle timer_manager.enable_timer."""
         self._setup_all_success()
 
@@ -114,7 +114,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.task_name
         )
 
-    def test_install_returns_true_on_success(self):
+    def test_install_returns_true_on_success(self) -> None:
         """Vérifie que install retourne True en cas de succès."""
         self._setup_all_success()
 
@@ -128,7 +128,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
 
         self.assertTrue(result)
 
-    def test_install_logs_success(self):
+    def test_install_logs_success(self) -> None:
         """Vérifie que install log le succès."""
         self._setup_all_success()
 
@@ -142,7 +142,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
 
         self.mock_logger.log_info.assert_called()
 
-    def test_install_fails_on_script_error(self):
+    def test_install_fails_on_script_error(self) -> None:
         """Vérifie que install échoue si le script échoue."""
         self.mock_script_installer.install.return_value = False
 
@@ -158,7 +158,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
         self.mock_service_manager.install_service_unit_with_name \
             .assert_not_called()
 
-    def test_install_fails_on_service_error(self):
+    def test_install_fails_on_service_error(self) -> None:
         """Vérifie que install échoue si le service échoue."""
         self.mock_script_installer.install.return_value = True
         self.mock_service_manager.install_service_unit_with_name \
@@ -175,7 +175,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
         self.assertFalse(result)
         self.mock_timer_manager.install_timer_unit.assert_not_called()
 
-    def test_install_fails_on_timer_install_error(self):
+    def test_install_fails_on_timer_install_error(self) -> None:
         """Vérifie que install échoue si l'installation du timer échoue."""
         self.mock_script_installer.install.return_value = True
         self.mock_service_manager.install_service_unit_with_name \
@@ -193,7 +193,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
         self.assertFalse(result)
         self.mock_timer_manager.enable_timer.assert_not_called()
 
-    def test_install_fails_on_timer_enable_error(self):
+    def test_install_fails_on_timer_enable_error(self) -> None:
         """Vérifie que install échoue si l'activation du timer échoue."""
         self.mock_script_installer.install.return_value = True
         self.mock_service_manager.install_service_unit_with_name \
@@ -211,7 +211,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
 
         self.assertFalse(result)
 
-    def test_install_logs_error_on_script_failure(self):
+    def test_install_logs_error_on_script_failure(self) -> None:
         """Vérifie que install log l'erreur si le script échoue."""
         self.mock_script_installer.install.return_value = False
 
@@ -225,7 +225,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
 
         self.mock_logger.log_error.assert_called()
 
-    def test_install_logs_error_on_service_failure(self):
+    def test_install_logs_error_on_service_failure(self) -> None:
         """Vérifie que install log l'erreur si le service échoue."""
         self.mock_script_installer.install.return_value = True
         self.mock_service_manager.install_service_unit_with_name \

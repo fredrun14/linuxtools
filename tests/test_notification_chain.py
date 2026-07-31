@@ -58,12 +58,14 @@ class RecordingLogger(Logger):
 class TestNotifierChain:
     """Tests pour NotifierChain."""
 
-    def test_chaine_vide_retourne_false(self, notif):
+    def test_chaine_vide_retourne_false(self, notif: Notification) -> None:
         """Vérifie qu'une chaîne vide n'a rien livré."""
         chain = NotifierChain()
         assert chain.send(notif) is False
 
-    def test_diffuse_a_tous_les_notifiers(self, notif):
+    def test_diffuse_a_tous_les_notifiers(
+        self, notif: Notification
+    ) -> None:
         """Vérifie la diffusion à tous les canaux."""
         first = RecordingNotifier()
         second = RecordingNotifier()
@@ -74,7 +76,7 @@ class TestNotifierChain:
         assert first.received == [notif]
         assert second.received == [notif]
 
-    def test_continue_apres_echec(self, notif):
+    def test_continue_apres_echec(self, notif: Notification) -> None:
         """Vérifie le best-effort quand un canal échoue."""
         logger = RecordingLogger()
         failing = RecordingNotifier(fail=True)
@@ -88,14 +90,16 @@ class TestNotifierChain:
             "RecordingNotifier" in msg for msg in logger.errors
         )
 
-    def test_retourne_false_si_tous_echouent(self, notif):
+    def test_retourne_false_si_tous_echouent(
+        self, notif: Notification
+    ) -> None:
         """Vérifie le retour False si aucun canal ne réussit."""
         chain = NotifierChain()
         chain.add_notifier(RecordingNotifier(fail=True))
         chain.add_notifier(RecordingNotifier(fail=True))
         assert chain.send(notif) is False
 
-    def test_send_report_convertit_le_rapport(self):
+    def test_send_report_convertit_le_rapport(self) -> None:
         """Vérifie la conversion et la diffusion d'un rapport."""
         report = ExecutionReport(script_name="backup")
         report.add_step("rsync", success=True)

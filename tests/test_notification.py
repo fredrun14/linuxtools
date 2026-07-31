@@ -20,7 +20,7 @@ def notif() -> NotificationConfig:
 class TestNotificationConfig:
     """Tests pour la dataclass NotificationConfig."""
 
-    def test_creation_with_required_fields(self):
+    def test_creation_with_required_fields(self) -> None:
         """Vérifie la création avec les champs requis."""
         config = NotificationConfig(
             title="Test",
@@ -31,12 +31,12 @@ class TestNotificationConfig:
         assert config.message_success == "Succès"
         assert config.message_failure == "Échec"
 
-    def test_default_icons(self, notif):
+    def test_default_icons(self, notif: NotificationConfig) -> None:
         """Vérifie les icônes par défaut."""
         assert notif.icon_success == "software-update-available"
         assert notif.icon_failure == "dialog-error"
 
-    def test_custom_icons(self):
+    def test_custom_icons(self) -> None:
         """Vérifie les icônes personnalisées."""
         config = NotificationConfig(
             title="Test",
@@ -48,7 +48,7 @@ class TestNotificationConfig:
         assert config.icon_success == "emblem-ok"
         assert config.icon_failure == "emblem-error"
 
-    def test_raises_on_empty_title(self):
+    def test_raises_on_empty_title(self) -> None:
         """Vérifie que __post_init__ lève une erreur si title est vide."""
         with pytest.raises(ValueError, match="title est requis"):
             NotificationConfig(
@@ -57,7 +57,7 @@ class TestNotificationConfig:
                 message_failure="KO"
             )
 
-    def test_raises_on_empty_message_success(self):
+    def test_raises_on_empty_message_success(self) -> None:
         """Vérifie l'erreur si message_success est vide."""
         with pytest.raises(ValueError, match="message_success est requis"):
             NotificationConfig(
@@ -66,7 +66,7 @@ class TestNotificationConfig:
                 message_failure="KO"
             )
 
-    def test_raises_on_empty_message_failure(self):
+    def test_raises_on_empty_message_failure(self) -> None:
         """Vérifie l'erreur si message_failure est vide."""
         with pytest.raises(ValueError, match="message_failure est requis"):
             NotificationConfig(
@@ -75,7 +75,7 @@ class TestNotificationConfig:
                 message_failure=""
             )
 
-    def test_is_frozen(self, notif):
+    def test_is_frozen(self, notif: NotificationConfig) -> None:
         """Vérifie que la dataclass est immutable."""
         with pytest.raises(
             AttributeError, match="cannot assign to field"
@@ -86,22 +86,22 @@ class TestNotificationConfig:
 class TestNotificationConfigToBashFunction:
     """Tests pour NotificationConfig.to_bash_function()."""
 
-    def test_contains_function_definition(self, notif):
+    def test_contains_function_definition(self, notif: NotificationConfig) -> None:
         """Vérifie la présence de la définition de fonction."""
         assert "send_notification()" in notif.to_bash_function()
 
-    def test_contains_local_variables(self, notif):
+    def test_contains_local_variables(self, notif: NotificationConfig) -> None:
         """Vérifie la présence des variables locales."""
         result = notif.to_bash_function()
         assert 'local title="$1"' in result
         assert 'local message="$2"' in result
         assert 'local icon="$3"' in result
 
-    def test_contains_loginctl_command(self, notif):
+    def test_contains_loginctl_command(self, notif: NotificationConfig) -> None:
         """Vérifie la présence de loginctl pour lister les utilisateurs."""
         assert "loginctl list-users" in notif.to_bash_function()
 
-    def test_contains_notify_send(self, notif):
+    def test_contains_notify_send(self, notif: NotificationConfig) -> None:
         """Vérifie la présence de notify-send."""
         assert "notify-send" in notif.to_bash_function()
 
@@ -109,7 +109,7 @@ class TestNotificationConfigToBashFunction:
 class TestNotificationConfigToBashCalls:
     """Tests pour les méthodes to_bash_call_*()."""
 
-    def test_to_bash_call_success(self):
+    def test_to_bash_call_success(self) -> None:
         """Vérifie la génération de l'appel pour le succès."""
         config = NotificationConfig(
             title="Flatpak",
@@ -123,7 +123,7 @@ class TestNotificationConfigToBashCalls:
         assert "Mise à jour OK" in result
         assert "emblem-ok" in result
 
-    def test_to_bash_call_failure(self):
+    def test_to_bash_call_failure(self) -> None:
         """Vérifie la génération de l'appel pour l'échec."""
         config = NotificationConfig(
             title="Flatpak",
@@ -141,7 +141,7 @@ class TestNotificationConfigToBashCalls:
 class TestNotificationConfigValidationControle:
     """Tests de rejet des caractères de contrôle dans __post_init__."""
 
-    def test_title_avec_newline_leve_valueerror(self):
+    def test_title_avec_newline_leve_valueerror(self) -> None:
         """title contenant \\n lève ValueError."""
         with pytest.raises(ValueError, match="Caractère de contrôle"):
             NotificationConfig(
@@ -150,7 +150,7 @@ class TestNotificationConfigValidationControle:
                 message_failure="KO",
             )
 
-    def test_message_avec_caractere_controle_leve_valueerror(self):
+    def test_message_avec_caractere_controle_leve_valueerror(self) -> None:
         """message_success contenant un char de contrôle (\\x01) lève ValueError."""
         with pytest.raises(ValueError, match="Caractère de contrôle"):
             NotificationConfig(
@@ -159,7 +159,7 @@ class TestNotificationConfigValidationControle:
                 message_failure="KO",
             )
 
-    def test_message_failure_avec_tab_leve_valueerror(self):
+    def test_message_failure_avec_tab_leve_valueerror(self) -> None:
         """message_failure contenant \\t lève ValueError."""
         with pytest.raises(ValueError, match="Caractère de contrôle"):
             NotificationConfig(
@@ -168,7 +168,7 @@ class TestNotificationConfigValidationControle:
                 message_failure="msg\tmalicieux",
             )
 
-    def test_icon_success_avec_newline_leve_valueerror(self):
+    def test_icon_success_avec_newline_leve_valueerror(self) -> None:
         """icon_success contenant \\n lève ValueError."""
         with pytest.raises(ValueError, match="Caractère de contrôle"):
             NotificationConfig(
@@ -178,7 +178,7 @@ class TestNotificationConfigValidationControle:
                 icon_success="icone\nmalicieuse",
             )
 
-    def test_icon_failure_avec_caractere_controle_leve_valueerror(self):
+    def test_icon_failure_avec_caractere_controle_leve_valueerror(self) -> None:
         """icon_failure contenant \\x01 lève ValueError."""
         with pytest.raises(ValueError, match="Caractère de contrôle"):
             NotificationConfig(
@@ -188,7 +188,7 @@ class TestNotificationConfigValidationControle:
                 icon_failure="icone\x01malicieuse",
             )
 
-    def test_icon_success_vide_leve_valueerror(self):
+    def test_icon_success_vide_leve_valueerror(self) -> None:
         """icon_success vide lève ValueError."""
         with pytest.raises(ValueError, match="icon_success est requis"):
             NotificationConfig(
@@ -198,7 +198,7 @@ class TestNotificationConfigValidationControle:
                 icon_success="",
             )
 
-    def test_to_bash_call_echappe_entree_hostile(self):
+    def test_to_bash_call_echappe_entree_hostile(self) -> None:
         """shlex.quote neutralise les entrées hostiles dans to_bash_call_success."""
         config = NotificationConfig(
             title='a"; rm -rf /',
@@ -213,14 +213,14 @@ class TestNotificationConfigValidationControle:
 class TestNotificationConfigAppName:
     """Tests pour l'attribut app_name."""
 
-    def test_app_name_defaut_flatpak(self):
+    def test_app_name_defaut_flatpak(self) -> None:
         """app_name vaut 'Flatpak' par défaut."""
         config = NotificationConfig(
             title="T", message_success="OK", message_failure="KO"
         )
         assert config.app_name == "Flatpak"
 
-    def test_app_name_personnalise_dans_bash_function(self):
+    def test_app_name_personnalise_dans_bash_function(self) -> None:
         """app_name personnalisé apparaît dans to_bash_function()."""
         config = NotificationConfig(
             title="T", message_success="OK", message_failure="KO",
