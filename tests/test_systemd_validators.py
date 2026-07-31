@@ -22,41 +22,41 @@ class TestValidateUnitName:
         "A1",
         "backup-daily_2",
     ])
-    def test_noms_valides(self, name: str):
+    def test_noms_valides(self, name: str) -> None:
         """Vérifie l'acceptation de noms d'unités valides."""
         assert validate_unit_name(name) == name
 
-    def test_rejet_nom_vide(self):
+    def test_rejet_nom_vide(self) -> None:
         """Vérifie le rejet d'un nom vide."""
         with pytest.raises(ValueError, match="vide"):
             validate_unit_name("")
 
-    def test_rejet_traversee_chemin(self):
+    def test_rejet_traversee_chemin(self) -> None:
         """Vérifie le rejet de traversée de chemin."""
         with pytest.raises(ValueError, match="traversée"):
             validate_unit_name("../etc/passwd")
 
-    def test_rejet_slash(self):
+    def test_rejet_slash(self) -> None:
         """Vérifie le rejet de slash."""
         with pytest.raises(ValueError, match="traversée"):
             validate_unit_name("foo/bar")
 
-    def test_rejet_injection_point_virgule(self):
+    def test_rejet_injection_point_virgule(self) -> None:
         """Vérifie le rejet d'injection de commande."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("name;cmd")
 
-    def test_rejet_injection_dollar(self):
+    def test_rejet_injection_dollar(self) -> None:
         """Vérifie le rejet d'injection via $()."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("name$(cmd)")
 
-    def test_rejet_espaces(self):
+    def test_rejet_espaces(self) -> None:
         """Vérifie le rejet d'espaces."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("name with spaces")
 
-    def test_rejet_debut_non_alphanum(self):
+    def test_rejet_debut_non_alphanum(self) -> None:
         """Vérifie le rejet d'un nom commençant par un tiret."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("-backup")
@@ -72,36 +72,36 @@ class TestValidateServiceName:
         "A1",
         "backup-daily_2",
     ])
-    def test_noms_valides(self, name: str):
+    def test_noms_valides(self, name: str) -> None:
         """Vérifie l'acceptation de noms de services valides."""
         assert validate_service_name(name) == name
 
-    def test_rejet_nom_vide(self):
+    def test_rejet_nom_vide(self) -> None:
         """Vérifie le rejet d'un nom vide."""
         with pytest.raises(ValueError, match="vide"):
             validate_service_name("")
 
-    def test_rejet_traversee_chemin(self):
+    def test_rejet_traversee_chemin(self) -> None:
         """Vérifie le rejet de traversée de chemin."""
         with pytest.raises(ValueError, match="traversée"):
             validate_service_name("../etc/passwd")
 
-    def test_rejet_slash(self):
+    def test_rejet_slash(self) -> None:
         """Vérifie le rejet de slash."""
         with pytest.raises(ValueError, match="traversée"):
             validate_service_name("foo/bar")
 
-    def test_rejet_point(self):
+    def test_rejet_point(self) -> None:
         """Vérifie le rejet de points (contrairement à unit_name)."""
         with pytest.raises(ValueError, match="invalide"):
             validate_service_name("my.service")
 
-    def test_rejet_deux_points(self):
+    def test_rejet_deux_points(self) -> None:
         """Vérifie le rejet de deux-points."""
         with pytest.raises(ValueError, match="invalide"):
             validate_service_name("sys:name")
 
-    def test_rejet_caracteres_speciaux(self):
+    def test_rejet_caracteres_speciaux(self) -> None:
         """Vérifie le rejet de caractères spéciaux."""
         with pytest.raises(ValueError, match="invalide"):
             validate_service_name("name;cmd")
@@ -110,30 +110,30 @@ class TestValidateServiceName:
 class TestRejectControlChars:
     """Tests pour reject_control_chars."""
 
-    def test_chaine_valide_retournee(self):
+    def test_chaine_valide_retournee(self) -> None:
         """Retourne la valeur inchangée si elle ne contient aucun contrôle."""
         assert reject_control_chars("valeur normale", "desc") == "valeur normale"
 
-    def test_chaine_vide_acceptee(self):
+    def test_chaine_vide_acceptee(self) -> None:
         """Accepte une chaîne vide."""
         assert reject_control_chars("", "champ") == ""
 
-    def test_rejet_newline(self):
+    def test_rejet_newline(self) -> None:
         """Rejette un saut de ligne (\\n)."""
         with pytest.raises(ValueError, match="contrôle"):
             reject_control_chars("ligne1\nligne2", "description")
 
-    def test_rejet_carriage_return(self):
+    def test_rejet_carriage_return(self) -> None:
         """Rejette un retour chariot (\\r)."""
         with pytest.raises(ValueError, match="contrôle"):
             reject_control_chars("val\reur", "champ")
 
-    def test_rejet_tab(self):
+    def test_rejet_tab(self) -> None:
         """Rejette une tabulation (\\t, code 9 < 32)."""
         with pytest.raises(ValueError, match="contrôle"):
             reject_control_chars("val\teur", "champ")
 
-    def test_message_contient_nom_champ(self):
+    def test_message_contient_nom_champ(self) -> None:
         """Le message d'erreur mentionne le nom du champ."""
         with pytest.raises(ValueError, match="monchamp"):
             reject_control_chars("val\neur", "monchamp")
@@ -149,31 +149,31 @@ class TestValidateFullUnitName:
         "sshd.socket",
         "my_unit.automount",
     ])
-    def test_noms_complets_valides(self, name: str):
+    def test_noms_complets_valides(self, name: str) -> None:
         """Accepte les noms complets avec extension autorisée."""
         assert validate_full_unit_name(name) == name
 
-    def test_rejet_sans_extension(self):
+    def test_rejet_sans_extension(self) -> None:
         """Rejette un nom sans extension."""
         with pytest.raises(ValueError, match="sans extension"):
             validate_full_unit_name("backup")
 
-    def test_rejet_extension_inconnue(self):
+    def test_rejet_extension_inconnue(self) -> None:
         """Rejette une extension non autorisée."""
         with pytest.raises(ValueError, match="non autorisée"):
             validate_full_unit_name("backup.path")
 
-    def test_rejet_extension_swap(self):
+    def test_rejet_extension_swap(self) -> None:
         """Rejette .swap (hors whitelist)."""
         with pytest.raises(ValueError, match="non autorisée"):
             validate_full_unit_name("dev-sda1.swap")
 
-    def test_rejet_radical_invalide(self):
+    def test_rejet_radical_invalide(self) -> None:
         """Rejette un radical contenant des caractères interdits."""
         with pytest.raises(ValueError):
             validate_full_unit_name("../etc.service")
 
-    def test_rejet_traversal_dans_radical(self):
+    def test_rejet_traversal_dans_radical(self) -> None:
         """Rejette une tentative de path traversal."""
         with pytest.raises(ValueError):
             validate_full_unit_name("../../etc/cron.service")

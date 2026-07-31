@@ -31,7 +31,7 @@ def _make_executor() -> MagicMock:
 class TestInstallVerifierImports:
     """Tests pour la vérification des imports."""
 
-    def test_import_ok(self):
+    def test_import_ok(self) -> None:
         """Un import réussi produit un CheckResult ok=True."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -46,7 +46,7 @@ class TestInstallVerifierImports:
         assert results[0].ok is True
         assert results[0].label == "import linuxtools"
 
-    def test_import_ko_avec_detail_tronque(self):
+    def test_import_ko_avec_detail_tronque(self) -> None:
         """Un import échoué produit un CheckResult ok=False avec detail."""
         executor = _make_executor()
         executor.run.return_value = _result(
@@ -62,7 +62,7 @@ class TestInstallVerifierImports:
         assert results[0].ok is False
         assert "ModuleNotFoundError" in results[0].detail
 
-    def test_commande_utilise_python_du_venv(self):
+    def test_commande_utilise_python_du_venv(self) -> None:
         """La vérification passe par <venv>/bin/python -c."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -78,7 +78,7 @@ class TestInstallVerifierImports:
             "/opt/app/venv/bin/python", "-c", "import os",
         ]
 
-    def test_plusieurs_imports_produisent_plusieurs_checks(self):
+    def test_plusieurs_imports_produisent_plusieurs_checks(self) -> None:
         """Chaque import déclaré produit un CheckResult distinct."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -96,7 +96,7 @@ class TestInstallVerifierImports:
 class TestInstallVerifierSubcommands:
     """Tests pour la vérification des sous-commandes."""
 
-    def test_echoue_les_subcommands_sans_cli_bin(self):
+    def test_echoue_les_subcommands_sans_cli_bin(self) -> None:
         """Sans cli_bin, les subcommands déclarées échouent (pas de
         faux succès silencieux — plan correctif #1, BLOQUANT)."""
         executor = _make_executor()
@@ -115,7 +115,7 @@ class TestInstallVerifierSubcommands:
 
     def test_echoue_les_subcommands_sans_cli_bin_bloque_le_all_ok(
         self,
-    ):
+    ) -> None:
         """Le CheckResult d'échec fait basculer all(c.ok) à False,
         ce qui déclenche le rollback côté Deployer."""
         executor = _make_executor()
@@ -129,7 +129,7 @@ class TestInstallVerifierSubcommands:
 
         assert all(check.ok for check in results) is False
 
-    def test_subcommand_ok_via_help(self):
+    def test_subcommand_ok_via_help(self) -> None:
         """Une sous-commande valide répond --help en code 0."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -147,7 +147,7 @@ class TestInstallVerifierSubcommands:
             "/opt/app/venv/bin/borg-manager", "list", "--help",
         ]
 
-    def test_subcommand_inconnue_echoue(self):
+    def test_subcommand_inconnue_echoue(self) -> None:
         """Une sous-commande inconnue répond --help en code non nul."""
         executor = _make_executor()
         executor.run.return_value = _result(
@@ -167,7 +167,7 @@ class TestInstallVerifierSubcommands:
 class TestInstallVerifierRegression:
     """Tests pour le hook de non-régression."""
 
-    def test_sans_regression_aucun_check(self):
+    def test_sans_regression_aucun_check(self) -> None:
         """Sans regression_command, aucun check n'est ajouté."""
         executor = _make_executor()
         verifier = InstallVerifier(executor)
@@ -178,7 +178,7 @@ class TestInstallVerifierRegression:
 
         assert results == []
 
-    def test_regression_ok(self):
+    def test_regression_ok(self) -> None:
         """La commande de non-régression est exécutée telle quelle."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -197,7 +197,7 @@ class TestInstallVerifierRegression:
         command = executor.run.call_args.args[0]
         assert command == ["borg-manager", "check"]
 
-    def test_regression_ko(self):
+    def test_regression_ko(self) -> None:
         """Un échec de la commande de non-régression est reporté."""
         executor = _make_executor()
         executor.run.return_value = _result(
@@ -216,7 +216,7 @@ class TestInstallVerifierRegression:
 class TestInstallVerifierCombine:
     """Tests d'intégration combinant les trois types de vérifications."""
 
-    def test_verify_combine_imports_subcommands_et_regression(self):
+    def test_verify_combine_imports_subcommands_et_regression(self) -> None:
         """verify() combine et retourne les checks des 3 catégories."""
         executor = _make_executor()
         executor.run.return_value = _result(success=True)
@@ -237,7 +237,7 @@ class TestInstallVerifierCombine:
         assert "sous-commande list" in labels
         assert "non-régression" in labels
 
-    def test_logue_chaque_check(self):
+    def test_logue_chaque_check(self) -> None:
         """Chaque CheckResult est loggué (OK ou KO)."""
         executor = _make_executor()
         executor.run.side_effect = [

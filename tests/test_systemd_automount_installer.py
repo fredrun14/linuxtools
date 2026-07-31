@@ -1,6 +1,8 @@
 """Tests pour le module systemd.automount_installer."""
 
 import unittest
+from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 from linuxtools import (
@@ -17,14 +19,18 @@ class MockConfigLoader(ConfigLoader):
     def __init__(self, config: dict):
         self._config = config
 
-    def load(self, config_path, schema=None):
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type | None = None,
+    ) -> dict[str, Any] | Any:  # noqa: ANN401
         return self._config
 
 
 class TestSystemdAutomountInstallerInstall(unittest.TestCase):
     """Tests pour la méthode install (config déjà construite)."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Crée les mocks et la configuration nécessaires."""
         self.mock_logger = Mock(spec=Logger)
         self.mock_mount_manager = Mock()
@@ -42,12 +48,12 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
             options="rw,soft",
         )
 
-    def _setup_all_success(self):
+    def _setup_all_success(self) -> None:
         """Configure tous les mocks pour retourner True."""
         self.mock_mount_manager.install_mount_unit.return_value = True
         self.mock_mount_manager.enable_mount.return_value = True
 
-    def test_install_installs_mount_then_enables(self):
+    def test_install_installs_mount_then_enables(self) -> None:
         """Vérifie l'orchestration complète en cas de succès."""
         self._setup_all_success()
 
@@ -57,7 +63,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
         self.mock_mount_manager.install_mount_unit.assert_called_once()
         self.mock_mount_manager.enable_mount.assert_called_once()
 
-    def test_install_passes_with_automount_and_timeout(self):
+    def test_install_passes_with_automount_and_timeout(self) -> None:
         """Vérifie la transmission des réglages automount."""
         self._setup_all_success()
 
@@ -76,7 +82,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
         )
         self.assertTrue(enable_kwargs["with_automount"])
 
-    def test_install_returns_false_if_install_mount_fails(self):
+    def test_install_returns_false_if_install_mount_fails(self) -> None:
         """Vérifie l'arrêt si l'installation du montage échoue."""
         self.mock_mount_manager.install_mount_unit.return_value = False
 
@@ -86,7 +92,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
         self.mock_mount_manager.enable_mount.assert_not_called()
         self.mock_logger.log_error.assert_called_once()
 
-    def test_install_returns_false_if_enable_mount_fails(self):
+    def test_install_returns_false_if_enable_mount_fails(self) -> None:
         """Vérifie l'échec si l'activation du montage échoue."""
         self._setup_all_success()
         self.mock_mount_manager.enable_mount.return_value = False
@@ -100,7 +106,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
 class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
     """Tests pour la méthode install_from_toml (chargement TOML)."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Crée les mocks nécessaires."""
         self.mock_logger = Mock(spec=Logger)
         self.mock_mount_manager = Mock()
@@ -112,7 +118,7 @@ class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
             mount_manager=self.mock_mount_manager,
         )
 
-    def test_install_from_toml_reads_automount_settings(self):
+    def test_install_from_toml_reads_automount_settings(self) -> None:
         """Vérifie le chargement des réglages automount depuis le TOML."""
         config = {
             "mount": {
@@ -134,7 +140,9 @@ class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
         self.assertTrue(install_args.kwargs["with_automount"])
         self.assertEqual(install_args.kwargs["automount_timeout"], 600)
 
-    def test_install_from_toml_defaults_automount_false_when_absent(self):
+    def test_install_from_toml_defaults_automount_false_when_absent(
+        self,
+    ) -> None:
         """Vérifie l'absence d'automount quand les clés manquent."""
         config = {
             "mount": {

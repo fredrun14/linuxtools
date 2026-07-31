@@ -5,6 +5,8 @@ from importlib import metadata
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from linuxtools.deploy.discovery import (
     find_editable_source,
     find_project_source,
@@ -15,14 +17,16 @@ class TestFindProjectSource:
     """Tests pour find_project_source()."""
 
     def test_trouve_pyproject_dans_le_repertoire_de_depart(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """Détecte pyproject.toml directement dans start."""
         (tmp_path / "pyproject.toml").write_text("[project]\n")
         result = find_project_source(tmp_path)
         assert result == tmp_path.resolve()
 
-    def test_remonte_jusqu_a_trouver_pyproject(self, tmp_path):
+    def test_remonte_jusqu_a_trouver_pyproject(
+        self, tmp_path: Path
+    ) -> None:
         """Remonte plusieurs niveaux jusqu'à pyproject.toml."""
         (tmp_path / "pyproject.toml").write_text("[project]\n")
         nested = tmp_path / "src" / "pkg" / "sub"
@@ -30,7 +34,9 @@ class TestFindProjectSource:
         result = find_project_source(nested)
         assert result == tmp_path.resolve()
 
-    def test_retourne_none_si_aucun_pyproject(self, tmp_path):
+    def test_retourne_none_si_aucun_pyproject(
+        self, tmp_path: Path
+    ) -> None:
         """Retourne None si aucun ancêtre ne contient pyproject.toml.
 
         S'appuie sur le fait qu'aucun ancêtre de tmp_path (sous /tmp)
@@ -41,14 +47,16 @@ class TestFindProjectSource:
         result = find_project_source(nested)
         assert result is None
 
-    def test_utilise_cwd_par_defaut(self, tmp_path, monkeypatch):
+    def test_utilise_cwd_par_defaut(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Sans start, utilise Path.cwd()."""
         (tmp_path / "pyproject.toml").write_text("[project]\n")
         monkeypatch.chdir(tmp_path)
         result = find_project_source()
         assert result == tmp_path.resolve()
 
-    def test_pyproject_a_la_racine_du_systeme(self):
+    def test_pyproject_a_la_racine_du_systeme(self) -> None:
         """Cas limite : pyproject.toml directement à la racine '/'.
 
         La boucle while s'arrête dès que candidate == candidate.parent
@@ -66,7 +74,7 @@ class TestFindProjectSource:
 class TestFindEditableSource:
     """Tests pour find_editable_source()."""
 
-    def test_retourne_none_si_distribution_absente(self):
+    def test_retourne_none_si_distribution_absente(self) -> None:
         """Retourne None si la distribution n'est pas installée."""
         with patch(
             "linuxtools.deploy.discovery.metadata.distribution",
@@ -75,7 +83,7 @@ class TestFindEditableSource:
             result = find_editable_source("inexistant")
         assert result is None
 
-    def test_retourne_none_si_direct_url_absent(self):
+    def test_retourne_none_si_direct_url_absent(self) -> None:
         """Retourne None si direct_url.json n'existe pas."""
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = None
@@ -86,7 +94,7 @@ class TestFindEditableSource:
             result = find_editable_source("linuxtools")
         assert result is None
 
-    def test_retourne_none_si_json_malforme(self):
+    def test_retourne_none_si_json_malforme(self) -> None:
         """Retourne None (best-effort) si direct_url.json est invalide."""
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = "{invalide"
@@ -97,7 +105,7 @@ class TestFindEditableSource:
             result = find_editable_source("linuxtools")
         assert result is None
 
-    def test_retourne_none_si_non_editable(self):
+    def test_retourne_none_si_non_editable(self) -> None:
         """Retourne None si l'install n'est pas éditable."""
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = json.dumps(
@@ -113,7 +121,7 @@ class TestFindEditableSource:
             result = find_editable_source("linuxtools")
         assert result is None
 
-    def test_retourne_none_si_url_non_file(self):
+    def test_retourne_none_si_url_non_file(self) -> None:
         """Retourne None si l'url n'est pas un file://."""
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = json.dumps(
@@ -129,7 +137,7 @@ class TestFindEditableSource:
             result = find_editable_source("linuxtools")
         assert result is None
 
-    def test_retourne_le_chemin_si_editable_et_file(self):
+    def test_retourne_le_chemin_si_editable_et_file(self) -> None:
         """Retourne le Path local si l'install est éditable via file://."""
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = json.dumps(

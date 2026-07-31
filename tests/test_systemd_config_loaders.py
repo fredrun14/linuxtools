@@ -1,6 +1,8 @@
 """Tests pour les chargeurs de configuration systemd."""
 
 import unittest
+from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 from linuxtools import (
@@ -25,14 +27,18 @@ class MockConfigLoader(ConfigLoader):
     def __init__(self, config: dict):
         self._config = config
 
-    def load(self, config_path, schema=None):
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type | None = None,
+    ) -> dict[str, Any] | Any:  # noqa: ANN401
         return self._config
 
 
 class TestServiceConfigLoader(unittest.TestCase):
     """Tests pour ServiceConfigLoader."""
 
-    def test_load_returns_service_config(self):
+    def test_load_returns_service_config(self) -> None:
         """Vérifie que load retourne un ServiceConfig."""
         config = {
             "service": {
@@ -51,7 +57,7 @@ class TestServiceConfigLoader(unittest.TestCase):
         self.assertEqual(result.exec_start, "/usr/bin/test")
         self.assertEqual(result.type, "oneshot")
 
-    def test_load_uses_defaults(self):
+    def test_load_uses_defaults(self) -> None:
         """Vérifie que load utilise les valeurs par défaut."""
         config = {
             "service": {
@@ -68,7 +74,7 @@ class TestServiceConfigLoader(unittest.TestCase):
         self.assertEqual(result.restart, "no")
         self.assertEqual(result.wanted_by, "multi-user.target")
 
-    def test_load_custom_section(self):
+    def test_load_custom_section(self) -> None:
         """Vérifie le chargement depuis une section personnalisée."""
         config = {
             "my_service": {
@@ -83,7 +89,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.description, "Custom Service")
 
-    def test_load_raises_key_error_on_missing_section(self):
+    def test_load_raises_key_error_on_missing_section(self) -> None:
         """Vérifie que load lève KeyError si la section manque."""
         config = {"other": {}}
         mock_loader = MockConfigLoader(config)
@@ -94,7 +100,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         self.assertIn("service", str(context.exception))
 
-    def test_load_with_exec_override(self):
+    def test_load_with_exec_override(self) -> None:
         """Vérifie load_with_exec_override."""
         config = {
             "service": {
@@ -109,7 +115,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.exec_start, "/usr/bin/override")
 
-    def test_load_all_service_fields(self):
+    def test_load_all_service_fields(self) -> None:
         """Vérifie le chargement de tous les champs ServiceConfig."""
         config = {
             "service": {
@@ -138,7 +144,7 @@ class TestServiceConfigLoader(unittest.TestCase):
         self.assertEqual(result.restart_sec, 5)
         self.assertEqual(result.wanted_by, "graphical.target")
 
-    def test_load_from_json_path(self):
+    def test_load_from_json_path(self) -> None:
         """Vérifie que le loader accepte un chemin JSON."""
         config = {
             "service": {
@@ -153,7 +159,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.description, "JSON Service")
 
-    def test_load_reads_hardening_fields_from_toml(self):
+    def test_load_reads_hardening_fields_from_toml(self) -> None:
         """Vérifie que load lit les champs de durcissement."""
         config = {
             "service": {
@@ -178,7 +184,7 @@ class TestServiceConfigLoader(unittest.TestCase):
         self.assertTrue(result.private_tmp)
         self.assertEqual(result.read_write_paths, ("/var/lib/app",))
 
-    def test_load_defaults_hardening_fields_when_absent(self):
+    def test_load_defaults_hardening_fields_when_absent(self) -> None:
         """Vérifie les valeurs par défaut du durcissement."""
         config = {
             "service": {
@@ -197,7 +203,7 @@ class TestServiceConfigLoader(unittest.TestCase):
         self.assertFalse(result.private_tmp)
         self.assertEqual(result.read_write_paths, ())
 
-    def test_load_with_exec_override_also_reads_hardening_fields(self):
+    def test_load_with_exec_override_also_reads_hardening_fields(self) -> None:
         """Vérifie que l'override exec_start lit aussi le durcissement."""
         config = {
             "service": {
@@ -221,7 +227,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 class TestTimerConfigLoader(unittest.TestCase):
     """Tests pour TimerConfigLoader."""
 
-    def test_load_returns_timer_config(self):
+    def test_load_returns_timer_config(self) -> None:
         """Vérifie que load retourne un TimerConfig."""
         config = {
             "timer": {
@@ -242,7 +248,7 @@ class TestTimerConfigLoader(unittest.TestCase):
         self.assertEqual(result.on_calendar, "daily")
         self.assertTrue(result.persistent)
 
-    def test_load_uses_defaults(self):
+    def test_load_uses_defaults(self) -> None:
         """Vérifie que load utilise les valeurs par défaut."""
         config = {
             "timer": {
@@ -258,7 +264,7 @@ class TestTimerConfigLoader(unittest.TestCase):
         self.assertEqual(result.on_calendar, "")
         self.assertFalse(result.persistent)
 
-    def test_load_for_service(self):
+    def test_load_for_service(self) -> None:
         """Vérifie load_for_service."""
         config = {
             "timer": {
@@ -274,7 +280,7 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.unit, "my-service.service")
 
-    def test_load_for_service_with_extension(self):
+    def test_load_for_service_with_extension(self) -> None:
         """Vérifie load_for_service avec extension déjà présente."""
         config = {
             "timer": {
@@ -289,7 +295,7 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.unit, "my-service.service")
 
-    def test_load_all_timer_fields(self):
+    def test_load_all_timer_fields(self) -> None:
         """Vérifie le chargement de tous les champs TimerConfig."""
         config = {
             "timer": {
@@ -315,7 +321,7 @@ class TestTimerConfigLoader(unittest.TestCase):
 class TestMountConfigLoader(unittest.TestCase):
     """Tests pour MountConfigLoader."""
 
-    def test_load_returns_mount_config(self):
+    def test_load_returns_mount_config(self) -> None:
         """Vérifie que load retourne un MountConfig."""
         config = {
             "mount": {
@@ -336,7 +342,7 @@ class TestMountConfigLoader(unittest.TestCase):
         self.assertEqual(result.where, "/media/nas")
         self.assertEqual(result.type, "nfs")
 
-    def test_load_with_options(self):
+    def test_load_with_options(self) -> None:
         """Vérifie le chargement avec options."""
         config = {
             "mount": {
@@ -354,7 +360,7 @@ class TestMountConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.options, "username=user,password=pass")
 
-    def test_load_multiple(self):
+    def test_load_multiple(self) -> None:
         """Vérifie load_multiple avec une liste de montages."""
         config = {
             "mounts": [
@@ -383,7 +389,7 @@ class TestMountConfigLoader(unittest.TestCase):
         self.assertEqual(results[1].where, "/media/nas2")
         self.assertEqual(results[1].options, "ro")
 
-    def test_load_multiple_raises_type_error_if_not_list(self):
+    def test_load_multiple_raises_type_error_if_not_list(self) -> None:
         """Vérifie que load_multiple lève TypeError si pas une liste."""
         config = {
             "mounts": {
@@ -402,7 +408,7 @@ class TestMountConfigLoader(unittest.TestCase):
         self.assertIn("doit être une liste", str(context.exception))
         self.assertIn("mounts", str(context.exception))
 
-    def test_load_multiple_message_contient_nom_section(self):
+    def test_load_multiple_message_contient_nom_section(self) -> None:
         """Vérifie que le nom de section est interpolé dans le message."""
         config = {"custom_mounts": {"not": "a list"}}
         mock_loader = MockConfigLoader(config)
@@ -413,7 +419,7 @@ class TestMountConfigLoader(unittest.TestCase):
 
         self.assertIn("custom_mounts", str(context.exception))
 
-    def test_load_with_automount_returns_settings_from_toml(self):
+    def test_load_with_automount_returns_settings_from_toml(self) -> None:
         """Vérifie que load_with_automount lit config et réglages."""
         config = {
             "mount": {
@@ -436,7 +442,7 @@ class TestMountConfigLoader(unittest.TestCase):
         self.assertTrue(settings.with_automount)
         self.assertEqual(settings.timeout_sec, 600)
 
-    def test_load_with_automount_defaults_false_and_zero_when_absent(self):
+    def test_load_with_automount_defaults_false_and_zero_when_absent(self) -> None:
         """Vérifie les défauts automount quand les clés sont absentes."""
         config = {
             "mount": {
@@ -458,7 +464,7 @@ class TestMountConfigLoader(unittest.TestCase):
 class TestBashScriptConfigLoader(unittest.TestCase):
     """Tests pour BashScriptConfigLoader."""
 
-    def test_load_returns_bash_script_config(self):
+    def test_load_returns_bash_script_config(self) -> None:
         """Vérifie que load retourne un BashScriptConfig."""
         config = {
             "service": {
@@ -473,7 +479,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         self.assertIsInstance(result, BashScriptConfig)
         self.assertEqual(result.exec_command, "/usr/bin/flatpak update -y")
 
-    def test_load_with_exec_start_fallback(self):
+    def test_load_with_exec_start_fallback(self) -> None:
         """Vérifie que load utilise exec_start si exec_command absent."""
         config = {
             "service": {
@@ -487,7 +493,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertEqual(result.exec_command, "/usr/bin/app")
 
-    def test_load_without_notification(self):
+    def test_load_without_notification(self) -> None:
         """Vérifie le chargement sans notification."""
         config = {
             "service": {
@@ -501,7 +507,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertIsNone(result.notification)
 
-    def test_load_with_notification_disabled(self):
+    def test_load_with_notification_disabled(self) -> None:
         """Vérifie que notification disabled = pas de notification."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -514,7 +520,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertIsNone(result.notification)
 
-    def test_load_with_notification_enabled(self):
+    def test_load_with_notification_enabled(self) -> None:
         """Vérifie le chargement avec notification activée."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -537,7 +543,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         self.assertEqual(result.notification.message_success, "Success!")
         self.assertEqual(result.notification.icon_success, "test-ok")
 
-    def test_load_with_notification_defaults(self):
+    def test_load_with_notification_defaults(self) -> None:
         """Vérifie les valeurs par défaut des notifications."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -553,7 +559,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
             result.notification.message_success, "Task completed successfully."
         )
 
-    def test_load_without_notification_method(self):
+    def test_load_without_notification_method(self) -> None:
         """Vérifie load_without_notification."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -566,7 +572,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertIsNone(result.notification)
 
-    def test_has_notification_returns_true(self):
+    def test_has_notification_returns_true(self) -> None:
         """Vérifie has_notification retourne True si activé."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -577,7 +583,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertTrue(loader.has_notification())
 
-    def test_has_notification_returns_false(self):
+    def test_has_notification_returns_false(self) -> None:
         """Vérifie has_notification retourne False si désactivé."""
         config = {
             "service": {"exec_command": "/usr/bin/test"},
@@ -588,7 +594,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         self.assertFalse(loader.has_notification())
 
-    def test_load_raises_key_error_if_no_command(self):
+    def test_load_raises_key_error_if_no_command(self) -> None:
         """Vérifie que load lève KeyError si pas de commande."""
         config = {
             "service": {"description": "No command"},
@@ -605,7 +611,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 class TestConfigFileLoaderBase(unittest.TestCase):
     """Tests pour les méthodes de base de ConfigFileLoader."""
 
-    def test_config_property(self):
+    def test_config_property(self) -> None:
         """Vérifie la propriété config."""
         config = {"key": "value"}
         mock_loader = MockConfigLoader(config)
@@ -613,7 +619,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
 
         self.assertEqual(loader.config, config)
 
-    def test_get_nested_value(self):
+    def test_get_nested_value(self) -> None:
         """Vérifie _get_nested_value."""
         config = {
             "paths": {
@@ -631,7 +637,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
 
         self.assertEqual(result, "/var/log/app.log")
 
-    def test_get_nested_value_with_default(self):
+    def test_get_nested_value_with_default(self) -> None:
         """Vérifie _get_nested_value avec valeur par défaut."""
         config = {
             "service": {
@@ -648,7 +654,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
 
         self.assertEqual(result, "/default/path")
 
-    def test_inherits_from_config_file_loader(self):
+    def test_inherits_from_config_file_loader(self) -> None:
         """Vérifie que les loaders héritent de ConfigFileLoader."""
         config = {
             "service": {

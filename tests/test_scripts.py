@@ -3,6 +3,7 @@
 import importlib.metadata
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,13 +24,13 @@ from linuxtools.scripts import (
 class TestBashScriptConfig:
     """Tests pour la dataclass BashScriptConfig."""
 
-    def test_creation_with_command_only(self):
+    def test_creation_with_command_only(self) -> None:
         """Vérifie la création avec uniquement la commande."""
         config = BashScriptConfig(exec_command="echo 'Hello'")
         assert config.exec_command == "echo 'Hello'"
         assert config.notification is None
 
-    def test_creation_with_notification(self):
+    def test_creation_with_notification(self) -> None:
         """Vérifie la création avec notification."""
         notif = NotificationConfig(
             title="Test",
@@ -43,12 +44,12 @@ class TestBashScriptConfig:
         assert config.exec_command == "ls -la"
         assert config.notification is notif
 
-    def test_raises_on_empty_exec_command(self):
+    def test_raises_on_empty_exec_command(self) -> None:
         """Vérifie l'erreur si exec_command est vide."""
         with pytest.raises(ValueError, match="exec_command est requis"):
             BashScriptConfig(exec_command="")
 
-    def test_is_frozen(self):
+    def test_is_frozen(self) -> None:
         """Vérifie que la dataclass est immutable."""
         config = BashScriptConfig(exec_command="echo test")
         with pytest.raises(AttributeError):
@@ -58,26 +59,26 @@ class TestBashScriptConfig:
 class TestBashScriptConfigToBashScript:
     """Tests pour BashScriptConfig.to_bash_script()."""
 
-    def test_simple_script_starts_with_shebang(self):
+    def test_simple_script_starts_with_shebang(self) -> None:
         """Vérifie que le script simple commence par le shebang."""
         config = BashScriptConfig(exec_command="echo 'Hello'")
         result = config.to_bash_script()
         assert result.startswith("#!/bin/bash")
 
-    def test_simple_script_contains_command(self):
+    def test_simple_script_contains_command(self) -> None:
         """Vérifie que le script simple contient la commande."""
         config = BashScriptConfig(exec_command="/usr/bin/flatpak update -y")
         result = config.to_bash_script()
         assert "/usr/bin/flatpak update -y" in result
 
-    def test_simple_script_is_minimal(self):
+    def test_simple_script_is_minimal(self) -> None:
         """Vérifie que le script simple est minimal (pas de notification)."""
         config = BashScriptConfig(exec_command="echo test")
         result = config.to_bash_script()
         assert "send_notification" not in result
         assert "exit_code" not in result
 
-    def test_script_with_notification_contains_function(self):
+    def test_script_with_notification_contains_function(self) -> None:
         """Vérifie la présence de send_notification avec notification."""
         notif = NotificationConfig(
             title="Test",
@@ -91,7 +92,7 @@ class TestBashScriptConfigToBashScript:
         result = config.to_bash_script()
         assert "send_notification()" in result
 
-    def test_script_with_notification_captures_exit_code(self):
+    def test_script_with_notification_captures_exit_code(self) -> None:
         """Vérifie la capture du code de retour."""
         notif = NotificationConfig(
             title="Test",
@@ -106,7 +107,7 @@ class TestBashScriptConfigToBashScript:
         assert "exit_code=$?" in result
         assert "exit $exit_code" in result
 
-    def test_script_with_notification_has_conditional(self):
+    def test_script_with_notification_has_conditional(self) -> None:
         """Vérifie la présence de la condition if/else."""
         notif = NotificationConfig(
             title="Test",
@@ -122,7 +123,7 @@ class TestBashScriptConfigToBashScript:
         assert "else" in result
         assert "fi" in result
 
-    def test_script_with_notification_uses_config_values(self):
+    def test_script_with_notification_uses_config_values(self) -> None:
         """Vérifie l'utilisation des valeurs de configuration."""
         notif = NotificationConfig(
             title="Flatpak Update",
@@ -146,7 +147,7 @@ class TestBashScriptConfigToBashScript:
 class TestBashScriptInstaller:
     """Tests pour la classe BashScriptInstaller."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Initialise les mocks pour chaque test."""
         self.mock_logger = MagicMock()
         self.mock_file_manager = MagicMock()
@@ -156,7 +157,7 @@ class TestBashScriptInstaller:
         )
         self.config = BashScriptConfig(exec_command="echo 'test'")
 
-    def test_install_creates_file_when_not_exists(self):
+    def test_install_creates_file_when_not_exists(self) -> None:
         """Vérifie que le fichier est créé s'il n'existe pas."""
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
@@ -168,7 +169,7 @@ class TestBashScriptInstaller:
         assert result is True
         self.mock_file_manager.create_file.assert_called_once()
 
-    def test_install_skips_existing_file(self):
+    def test_install_skips_existing_file(self) -> None:
         """Vérifie que l'installation est ignorée si le fichier existe."""
         self.mock_file_manager.file_exists.return_value = True
 
@@ -178,7 +179,7 @@ class TestBashScriptInstaller:
         self.mock_file_manager.create_file.assert_not_called()
         self.mock_logger.log_info.assert_called()
 
-    def test_install_returns_false_on_create_failure(self):
+    def test_install_returns_false_on_create_failure(self) -> None:
         """Vérifie le retour False si la création échoue."""
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = False
@@ -188,7 +189,7 @@ class TestBashScriptInstaller:
         assert result is False
         self.mock_logger.log_error.assert_called()
 
-    def test_install_sets_executable_permission(self):
+    def test_install_sets_executable_permission(self) -> None:
         """Vérifie que le script est rendu exécutable (fd-safe)."""
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
@@ -202,7 +203,7 @@ class TestBashScriptInstaller:
             )
             mock_fchmod.assert_called_once_with(3, 0o755)
 
-    def test_install_returns_false_on_chmod_failure(self):
+    def test_install_returns_false_on_chmod_failure(self) -> None:
         """Vérifie le retour False si les permissions ne peuvent pas être appliquées."""
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
@@ -213,7 +214,7 @@ class TestBashScriptInstaller:
         assert result is False
         self.mock_logger.log_error.assert_called()
 
-    def test_install_generates_correct_content(self):
+    def test_install_generates_correct_content(self) -> None:
         """Vérifie que le contenu généré est correct."""
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
@@ -227,7 +228,7 @@ class TestBashScriptInstaller:
         assert "#!/bin/bash" in content
         assert "echo 'test'" in content
 
-    def test_exists_delegates_to_file_manager(self):
+    def test_exists_delegates_to_file_manager(self) -> None:
         """Vérifie que exists() délègue au file_manager."""
         self.mock_file_manager.file_exists.return_value = True
 
@@ -238,7 +239,7 @@ class TestBashScriptInstaller:
             "/tmp/test.sh"
         )
 
-    def test_custom_default_mode(self):
+    def test_custom_default_mode(self) -> None:
         """Vérifie l'utilisation d'un mode personnalisé."""
         installer = BashScriptInstaller(
             self.mock_logger,
@@ -258,7 +259,7 @@ class TestBashScriptInstaller:
 class TestSetExecutableFdSafe:
     """Tests TOCTOU-safe pour BashScriptInstaller._set_executable()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Initialise les mocks avant chaque test."""
         self.mock_logger = MagicMock()
         self.mock_file_manager = MagicMock()
@@ -267,7 +268,7 @@ class TestSetExecutableFdSafe:
             self.mock_file_manager
         )
 
-    def test_set_executable_refuse_les_symlinks(self, tmp_path):
+    def test_set_executable_refuse_les_symlinks(self, tmp_path: Path) -> None:
         """_set_executable() retourne False et logue si le chemin est un symlink."""
         real_file = tmp_path / "target.sh"
         real_file.write_text("#!/bin/bash\n")
@@ -279,7 +280,7 @@ class TestSetExecutableFdSafe:
         assert result is False
         self.mock_logger.log_error.assert_called_once()
 
-    def test_set_executable_applique_le_mode_correct(self, tmp_path):
+    def test_set_executable_applique_le_mode_correct(self, tmp_path: Path) -> None:
         """_set_executable() applique le mode 0o755 sur un fichier réel."""
         script = tmp_path / "script.sh"
         script.write_text("#!/bin/bash\n")
@@ -297,7 +298,7 @@ class TestSetExecutableFdSafe:
 class TestPythonCliConfig:
     """Tests pour la dataclass PythonCliConfig."""
 
-    def test_valid_user_config_creates_instance(self, tmp_path):
+    def test_valid_user_config_creates_instance(self, tmp_path: Path) -> None:
         """Vérifie la création avec un type user valide."""
         config = PythonCliConfig(
             name="mon-app",
@@ -310,7 +311,7 @@ class TestPythonCliConfig:
         assert config.check_extras == []
         assert config.generate_wrapper is True
 
-    def test_valid_system_config_creates_instance(self, tmp_path):
+    def test_valid_system_config_creates_instance(self, tmp_path: Path) -> None:
         """Vérifie la création avec un type system valide."""
         config = PythonCliConfig(
             name="svc",
@@ -319,7 +320,7 @@ class TestPythonCliConfig:
         )
         assert config.deploy_type == "system"
 
-    def test_empty_name_raises_value_error(self, tmp_path):
+    def test_empty_name_raises_value_error(self, tmp_path: Path) -> None:
         """Vérifie l'erreur si name est vide."""
         with pytest.raises(ValueError, match="name est requis"):
             PythonCliConfig(
@@ -328,7 +329,7 @@ class TestPythonCliConfig:
                 source_dir=tmp_path,
             )
 
-    def test_whitespace_name_raises_value_error(self, tmp_path):
+    def test_whitespace_name_raises_value_error(self, tmp_path: Path) -> None:
         """Vérifie l'erreur si name ne contient que des espaces."""
         with pytest.raises(ValueError, match="name est requis"):
             PythonCliConfig(
@@ -337,7 +338,7 @@ class TestPythonCliConfig:
                 source_dir=tmp_path,
             )
 
-    def test_invalid_deploy_type_raises_value_error(self, tmp_path):
+    def test_invalid_deploy_type_raises_value_error(self, tmp_path: Path) -> None:
         """Vérifie l'erreur si deploy_type est invalide."""
         with pytest.raises(ValueError, match="deploy_type invalide"):
             PythonCliConfig(
@@ -346,7 +347,7 @@ class TestPythonCliConfig:
                 source_dir=tmp_path,
             )
 
-    def test_config_name_traversal_leve_valueerror(self, tmp_path):
+    def test_config_name_traversal_leve_valueerror(self, tmp_path: Path) -> None:
         """Un nom de traversal path-traversal lève ValueError."""
         with pytest.raises(ValueError, match="name invalide"):
             PythonCliConfig(
@@ -356,8 +357,8 @@ class TestPythonCliConfig:
             )
 
     def test_config_name_caracteres_interdits_leve_valueerror(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """Un name avec slash ou espace lève ValueError."""
         for bad in ("/etc/passwd", "my app", "app;rm -rf /"):
             with pytest.raises(ValueError, match="name invalide"):
@@ -367,7 +368,7 @@ class TestPythonCliConfig:
                     source_dir=tmp_path,
                 )
 
-    def test_config_is_frozen(self, tmp_path):
+    def test_config_is_frozen(self, tmp_path: Path) -> None:
         """Vérifie que la dataclass est immutable."""
         config = PythonCliConfig(
             name="app",
@@ -385,7 +386,7 @@ class TestPythonCliConfig:
 class TestInstallReport:
     """Tests pour la dataclass InstallReport."""
 
-    def _make_report(self, **kwargs) -> InstallReport:
+    def _make_report(self, **kwargs: Any) -> InstallReport:
         defaults = {
             "success": True,
             "app_name": "app",
@@ -395,31 +396,31 @@ class TestInstallReport:
         defaults.update(kwargs)
         return InstallReport(**defaults)
 
-    def test_deps_satisfied_true_when_no_missing(self):
+    def test_deps_satisfied_true_when_no_missing(self) -> None:
         """Vérifie deps_satisfied quand aucune dépendance manque."""
         report = self._make_report(total_deps=3)
         assert report.deps_satisfied is True
 
-    def test_deps_satisfied_false_when_missing(self):
+    def test_deps_satisfied_false_when_missing(self) -> None:
         """Vérifie deps_satisfied quand des dépendances manquent."""
         report = self._make_report(
             missing_deps=[MissingDependency("requests", ">=2.0")]
         )
         assert report.deps_satisfied is False
 
-    def test_format_summary_success_contains_app_name(self):
+    def test_format_summary_success_contains_app_name(self) -> None:
         """Vérifie que le résumé contient le nom de l'app."""
         report = self._make_report()
         summary = report.format_summary()
         assert "app" in summary
         assert "✓" in summary
 
-    def test_format_summary_failure_shows_echec(self):
+    def test_format_summary_failure_shows_echec(self) -> None:
         """Vérifie que le résumé indique l'échec."""
         report = self._make_report(success=False)
         assert "✗" in report.format_summary()
 
-    def test_format_summary_includes_missing_deps(self):
+    def test_format_summary_includes_missing_deps(self) -> None:
         """Vérifie que les dépendances manquantes apparaissent."""
         report = self._make_report(
             total_deps=2,
@@ -429,7 +430,7 @@ class TestInstallReport:
         assert "requests" in summary
         assert ">=2.0" in summary
 
-    def test_format_summary_includes_install_command(self):
+    def test_format_summary_includes_install_command(self) -> None:
         """Vérifie que la commande d'installation apparaît."""
         report = self._make_report(
             total_deps=1,
@@ -438,7 +439,7 @@ class TestInstallReport:
         )
         assert "pip3 install" in report.format_summary()
 
-    def test_format_summary_includes_warnings(self):
+    def test_format_summary_includes_warnings(self) -> None:
         """Vérifie que les warnings apparaissent dans le résumé."""
         report = self._make_report(warnings=["Venv inaccessible"])
         assert "Venv inaccessible" in report.format_summary()
@@ -451,7 +452,7 @@ class TestInstallReport:
 class TestScriptPaths:
     """Tests pour ScriptPaths (chemins FHS via platformdirs)."""
 
-    def test_user_data_dir_ends_with_app_name(self):
+    def test_user_data_dir_ends_with_app_name(self) -> None:
         """Vérifie que data_dir se termine par le nom de l'app (user)."""
         with patch(
             "linuxtools.scripts.paths.user_data_dir",
@@ -460,7 +461,7 @@ class TestScriptPaths:
             paths = ScriptPaths("mon-app", "user")
             assert paths.data_dir == Path("/home/user/.local/share/mon-app")
 
-    def test_system_data_dir_returns_usr_local_share(self):
+    def test_system_data_dir_returns_usr_local_share(self) -> None:
         """Vérifie que data_dir pointe vers /usr/local/share (system)."""
         with patch(
             "linuxtools.scripts.paths.site_data_dir",
@@ -469,7 +470,7 @@ class TestScriptPaths:
             paths = ScriptPaths("mon-app", "system")
             assert paths.data_dir == Path("/usr/local/share/mon-app")
 
-    def test_user_bin_path_returns_local_bin(self):
+    def test_user_bin_path_returns_local_bin(self) -> None:
         """Vérifie que bin_path est dans ~/.local/bin (user)."""
         with patch(
             "linuxtools.scripts.paths.Path.home",
@@ -478,7 +479,7 @@ class TestScriptPaths:
             paths = ScriptPaths("mon-app", "user")
             assert paths.bin_path == Path("/home/user/.local/bin/mon-app")
 
-    def test_system_bin_path_returns_usr_local_bin(self):
+    def test_system_bin_path_returns_usr_local_bin(self) -> None:
         """Vérifie que bin_path est dans /usr/local/bin (system)."""
         with patch(
             "linuxtools.scripts.paths.site_data_dir",
@@ -487,7 +488,7 @@ class TestScriptPaths:
             paths = ScriptPaths("mon-app", "system")
             assert paths.bin_path == Path("/usr/local/bin/mon-app")
 
-    def test_venv_dir_is_inside_data_dir(self):
+    def test_venv_dir_is_inside_data_dir(self) -> None:
         """Vérifie que venv_dir est un sous-répertoire de data_dir."""
         with patch(
             "linuxtools.scripts.paths.user_data_dir",
@@ -496,7 +497,7 @@ class TestScriptPaths:
             paths = ScriptPaths("app", "user")
             assert paths.venv_dir == paths.data_dir / "venv"
 
-    def test_wrapper_path_equals_bin_path(self):
+    def test_wrapper_path_equals_bin_path(self) -> None:
         """Vérifie que wrapper_path est un alias de bin_path."""
         with patch(
             "linuxtools.scripts.paths.user_data_dir",
@@ -505,7 +506,7 @@ class TestScriptPaths:
             paths = ScriptPaths("app", "user")
             assert paths.wrapper_path == paths.bin_path
 
-    def test_user_config_dir_returns_dot_config(self):
+    def test_user_config_dir_returns_dot_config(self) -> None:
         """Vérifie config_dir pour user."""
         with patch(
             "linuxtools.scripts.paths.user_data_dir",
@@ -515,7 +516,7 @@ class TestScriptPaths:
             assert ".config" in str(paths.config_dir)
             assert "app" in str(paths.config_dir)
 
-    def test_system_config_dir_returns_etc(self):
+    def test_system_config_dir_returns_etc(self) -> None:
         """Vérifie config_dir pour system."""
         with patch(
             "linuxtools.scripts.paths.site_data_dir",
@@ -532,11 +533,11 @@ class TestScriptPaths:
 class TestLinuxScriptCheckerPython:
     """Tests pour LinuxScriptChecker.check_python()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
-    def test_returns_true_when_python_available(self):
+    def test_returns_true_when_python_available(self) -> None:
         """Vérifie True si python3 est disponible et sans version requise."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -545,13 +546,13 @@ class TestLinuxScriptCheckerPython:
             )
             assert self.checker.check_python() is True
 
-    def test_returns_false_when_exec_missing(self):
+    def test_returns_false_when_exec_missing(self) -> None:
         """Vérifie False si /usr/bin/python3 n'existe pas."""
         with patch("pathlib.Path.exists", return_value=False):
             assert self.checker.check_python() is False
         self.logger.log_error.assert_called()
 
-    def test_returns_false_when_version_too_old(self):
+    def test_returns_false_when_version_too_old(self) -> None:
         """Vérifie False si la version est insuffisante."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -561,7 +562,7 @@ class TestLinuxScriptCheckerPython:
             assert self.checker.check_python("3.11") is False
         self.logger.log_error.assert_called()
 
-    def test_returns_true_when_version_satisfied(self):
+    def test_returns_true_when_version_satisfied(self) -> None:
         """Vérifie True si la version satisfait le minimum requis."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -570,7 +571,7 @@ class TestLinuxScriptCheckerPython:
             )
             assert self.checker.check_python("3.11") is True
 
-    def test_returns_true_when_version_illisible(self):
+    def test_returns_true_when_version_illisible(self) -> None:
         """Retourne True et logue si version Python illisible."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -584,11 +585,11 @@ class TestLinuxScriptCheckerPython:
 class TestLinuxScriptCheckerScript:
     """Tests pour LinuxScriptChecker.check_script_syntax()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
-    def test_returns_true_for_valid_script(self, tmp_path):
+    def test_returns_true_for_valid_script(self, tmp_path: Path) -> None:
         """Vérifie True pour un script syntaxiquement correct."""
         script = tmp_path / "main.py"
         script.write_text("print('hello')\n")
@@ -596,14 +597,14 @@ class TestLinuxScriptCheckerScript:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
             assert self.checker.check_script_syntax(script) is True
 
-    def test_returns_false_when_not_found(self, tmp_path):
+    def test_returns_false_when_not_found(self, tmp_path: Path) -> None:
         """Vérifie False si le script n'existe pas."""
         assert self.checker.check_script_syntax(
             tmp_path / "missing.py"
         ) is False
         self.logger.log_error.assert_called()
 
-    def test_returns_false_when_syntax_error(self, tmp_path):
+    def test_returns_false_when_syntax_error(self, tmp_path: Path) -> None:
         """Vérifie False si py_compile détecte une erreur."""
         script = tmp_path / "bad.py"
         script.write_text("def f(\n")
@@ -618,11 +619,11 @@ class TestLinuxScriptCheckerScript:
 class TestLinuxScriptCheckerVenv:
     """Tests pour LinuxScriptChecker.check_venv()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
-    def test_returns_true_when_venv_valid(self, tmp_path):
+    def test_returns_true_when_venv_valid(self, tmp_path: Path) -> None:
         """Vérifie True si le venv est fonctionnel."""
         python_bin = tmp_path / "bin" / "python"
         python_bin.parent.mkdir()
@@ -631,20 +632,20 @@ class TestLinuxScriptCheckerVenv:
             mock_run.return_value = MagicMock(returncode=0)
             assert self.checker.check_venv(tmp_path) is True
 
-    def test_returns_false_when_venv_missing(self, tmp_path):
+    def test_returns_false_when_venv_missing(self, tmp_path: Path) -> None:
         """Vérifie False si le répertoire venv n'existe pas."""
         assert self.checker.check_venv(tmp_path / "novenv") is False
         self.logger.log_error.assert_called()
 
-    def test_returns_false_when_python_bin_missing(self, tmp_path):
+    def test_returns_false_when_python_bin_missing(self, tmp_path: Path) -> None:
         """Vérifie False si l'interpréteur est absent."""
         (tmp_path / "bin").mkdir()
         assert self.checker.check_venv(tmp_path) is False
         self.logger.log_error.assert_called()
 
     def test_returns_false_when_venv_interpreter_nonfonctionnel(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """Retourne False et logue si l'interpréteur venv ne répond pas."""
         python_bin = tmp_path / "bin" / "python"
         python_bin.parent.mkdir()
@@ -658,11 +659,11 @@ class TestLinuxScriptCheckerVenv:
 class TestLinuxScriptCheckerPyproject:
     """Tests pour LinuxScriptChecker.read_pyproject()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
-    def test_returns_data_when_valid(self, tmp_path):
+    def test_returns_data_when_valid(self, tmp_path: Path) -> None:
         """Vérifie le retour d'un dict valide."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
@@ -674,19 +675,19 @@ class TestLinuxScriptCheckerPyproject:
         assert data["version"] == "1.0"
         assert "requests>=2.0" in data["dependencies"]  # type: ignore[operator]
 
-    def test_raises_file_not_found_when_missing(self, tmp_path):
+    def test_raises_file_not_found_when_missing(self, tmp_path: Path) -> None:
         """Vérifie FileNotFoundError si le fichier n'existe pas."""
         with pytest.raises(FileNotFoundError):
             self.checker.read_pyproject(tmp_path / "missing.toml")
 
-    def test_raises_value_error_missing_project_section(self, tmp_path):
+    def test_raises_value_error_missing_project_section(self, tmp_path: Path) -> None:
         """Vérifie ValueError si [project] est absent."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(b'[build-system]\nrequires = []\n')
         with pytest.raises(ValueError, match="Section \\[project\\]"):
             self.checker.read_pyproject(pyproject)
 
-    def test_returns_scripts_dict_when_present(self, tmp_path):
+    def test_returns_scripts_dict_when_present(self, tmp_path: Path) -> None:
         """Vérifie la présence de la clé scripts dans le retour."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
@@ -700,7 +701,7 @@ class TestLinuxScriptCheckerPyproject:
 class TestLinuxScriptCheckerDeps:
     """Tests pour LinuxScriptChecker.check_dependencies()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
@@ -713,7 +714,7 @@ class TestLinuxScriptCheckerDeps:
         pyproject.write_bytes(content)
         return pyproject
 
-    def test_all_installed_returns_empty_missing(self, tmp_path):
+    def test_all_installed_returns_empty_missing(self, tmp_path: Path) -> None:
         """Vérifie liste vide si toutes les deps sont installées."""
         pyproject = self._make_pyproject(tmp_path, ["requests>=2.0"])
         with patch("subprocess.run") as mock_run:
@@ -725,7 +726,7 @@ class TestLinuxScriptCheckerDeps:
         assert len(installed) == 1
         assert total == 1
 
-    def test_missing_package_in_report(self, tmp_path):
+    def test_missing_package_in_report(self, tmp_path: Path) -> None:
         """Vérifie que le paquet manquant apparaît dans missing."""
         pyproject = self._make_pyproject(tmp_path, ["click>=8.0"])
         # _is_installed sonde importlib.metadata avant pip : forcer
@@ -742,8 +743,8 @@ class TestLinuxScriptCheckerDeps:
         assert missing[0].package == "click"
 
     def test_checker_venv_cible_ignore_process_courant(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """check_dependencies n'appelle pas importlib.metadata si venv_path fourni."""
         pyproject = self._make_pyproject(tmp_path, ["requests>=2.0"])
         with patch(
@@ -755,7 +756,7 @@ class TestLinuxScriptCheckerDeps:
             )
         mock_dist.assert_not_called()
 
-    def test_extras_are_included(self, tmp_path):
+    def test_extras_are_included(self, tmp_path: Path) -> None:
         """Vérifie que les extras sont inclus dans la vérification."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
@@ -778,7 +779,7 @@ class TestLinuxScriptCheckerDeps:
 class TestLinuxCliInstaller:
     """Tests pour LinuxCliInstaller.install()."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = MagicMock()
         self.installer = LinuxCliInstaller(self.logger, self.checker)
@@ -790,14 +791,14 @@ class TestLinuxCliInstaller:
             source_dir=tmp_path,
         )
 
-    def _patch_paths(self, tmp_path: Path):
+    def _patch_paths(self, tmp_path: Path) -> MagicMock:
         """Retourne un patch de ScriptPaths avec des chemins tmp."""
         mock_paths = MagicMock()
         mock_paths.bin_path = tmp_path / "bin" / "app"
         mock_paths.data_dir = tmp_path / "data"
         return mock_paths
 
-    def test_returns_failure_when_python_check_fails(self, tmp_path):
+    def test_returns_failure_when_python_check_fails(self, tmp_path: Path) -> None:
         """Vérifie InstallReport(success=False) si python3 absent."""
         self.checker.check_python.return_value = False
         config = self._user_config(tmp_path)
@@ -808,7 +809,7 @@ class TestLinuxCliInstaller:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def test_returns_failure_when_pyproject_missing(self, tmp_path):
+    def test_returns_failure_when_pyproject_missing(self, tmp_path: Path) -> None:
         """Vérifie InstallReport(success=False) si pyproject.toml absent."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.side_effect = FileNotFoundError(
@@ -822,7 +823,7 @@ class TestLinuxCliInstaller:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def test_returns_failure_when_uv_fails(self, tmp_path):
+    def test_returns_failure_when_uv_fails(self, tmp_path: Path) -> None:
         """Vérifie InstallReport(success=False) si uv échoue."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -843,7 +844,7 @@ class TestLinuxCliInstaller:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def test_skips_wrapper_when_scripts_entry_exists(self, tmp_path):
+    def test_skips_wrapper_when_scripts_entry_exists(self, tmp_path: Path) -> None:
         """Vérifie qu'aucun wrapper n'est généré si [project.scripts] existe."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -865,7 +866,7 @@ class TestLinuxCliInstaller:
             self.installer.install(config, confirm_wrapper=False)
         mock_write.assert_not_called()
 
-    def test_generates_wrapper_when_no_scripts_entry(self, tmp_path):
+    def test_generates_wrapper_when_no_scripts_entry(self, tmp_path: Path) -> None:
         """Vérifie que le wrapper est généré si [project.scripts] absent."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -887,7 +888,9 @@ class TestLinuxCliInstaller:
             self.installer.install(config, confirm_wrapper=False)
         mock_write.assert_called_once()
 
-    def _run_system_install_cmd(self, tmp_path, euid):
+    def _run_system_install_cmd(
+        self, tmp_path: Path, euid: int
+    ) -> list[str]:
         """Lance un install system mocké et retourne la commande uv.
 
         Args:
@@ -924,18 +927,18 @@ class TestLinuxCliInstaller:
             self.installer.install(config, confirm_wrapper=False)
             return mock_run.call_args[0][0]
 
-    def test_system_avec_sudo_si_non_root(self, tmp_path):
+    def test_system_avec_sudo_si_non_root(self, tmp_path: Path) -> None:
         """sudo présent dans la commande system si euid != 0."""
         cmd = self._run_system_install_cmd(tmp_path, euid=1000)
         assert cmd[0] == "sudo"
 
-    def test_system_sans_sudo_si_root(self, tmp_path):
+    def test_system_sans_sudo_si_root(self, tmp_path: Path) -> None:
         """sudo absent de la commande system si déjà root (euid == 0)."""
         cmd = self._run_system_install_cmd(tmp_path, euid=0)
         assert "sudo" not in cmd
         assert cmd[0] == "env"
 
-    def test_missing_deps_recorded_in_report(self, tmp_path):
+    def test_missing_deps_recorded_in_report(self, tmp_path: Path) -> None:
         """Vérifie que les deps manquantes sont dans le rapport."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -958,7 +961,7 @@ class TestLinuxCliInstaller:
         assert len(report.missing_deps) == 1
         assert report.success is True
 
-    def test_find_uv_prefere_le_path(self, tmp_path):
+    def test_find_uv_prefere_le_path(self, tmp_path: Path) -> None:
         """_find_uv retourne le résultat de shutil.which en priorité."""
         with patch(
             "linuxtools.scripts.installer.shutil.which",
@@ -966,7 +969,7 @@ class TestLinuxCliInstaller:
         ):
             assert self.installer._find_uv() == "/usr/bin/uv"
 
-    def test_find_uv_repli_local_bin(self, tmp_path):
+    def test_find_uv_repli_local_bin(self, tmp_path: Path) -> None:
         """_find_uv trouve uv dans ~/.local/bin si absent du PATH."""
         fake_uv = tmp_path / ".local" / "bin" / "uv"
         fake_uv.parent.mkdir(parents=True)
@@ -983,7 +986,7 @@ class TestLinuxCliInstaller:
         ):
             assert self.installer._find_uv() == str(fake_uv)
 
-    def test_find_uv_repli_sudo_user(self, tmp_path):
+    def test_find_uv_repli_sudo_user(self, tmp_path: Path) -> None:
         """_find_uv sonde le home de $SUDO_USER (cas sudo/root)."""
         sudo_home = tmp_path / "fredhome"
         fake_uv = sudo_home / ".local" / "bin" / "uv"
@@ -1008,7 +1011,7 @@ class TestLinuxCliInstaller:
         ):
             assert self.installer._find_uv() == str(fake_uv)
 
-    def test_find_uv_introuvable_retourne_none(self, tmp_path):
+    def test_find_uv_introuvable_retourne_none(self, tmp_path: Path) -> None:
         """_find_uv retourne None si uv n'est nulle part."""
         with patch(
             "linuxtools.scripts.installer.shutil.which",
@@ -1025,12 +1028,12 @@ class TestLinuxCliInstaller:
 class TestLinuxCliInstallerWrapper:
     """Tests pour les méthodes privées de génération du wrapper."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = MagicMock()
         self.installer = LinuxCliInstaller(self.logger, self.checker)
 
-    def test_strip_venv_block_removes_activate_block(self):
+    def test_strip_venv_block_removes_activate_block(self) -> None:
         """Vérifie la suppression du bloc d'activation du venv."""
         content = (
             "#!/bin/bash\n"
@@ -1043,20 +1046,20 @@ class TestLinuxCliInstallerWrapper:
         assert "activate" not in result
         assert "exec python main.py" in result
 
-    def test_strip_venv_block_keeps_content_without_venv(self):
+    def test_strip_venv_block_keeps_content_without_venv(self) -> None:
         """Vérifie que le contenu sans bloc venv reste intact."""
         content = "#!/bin/bash\nexec python main.py\n"
         result = LinuxCliInstaller._strip_venv_block(content)
         assert result == content
 
-    def test_write_wrapper_creates_executable_file(self, tmp_path):
+    def test_write_wrapper_creates_executable_file(self, tmp_path: Path) -> None:
         """Vérifie que _write_wrapper crée un fichier exécutable."""
         target = tmp_path / "bin" / "app"
         self.installer._write_wrapper("#!/bin/bash\n", target)
         assert target.exists()
         assert target.stat().st_mode & 0o111  # au moins un bit exécutable
 
-    def test_wrapper_refuse_symlink(self, tmp_path):
+    def test_wrapper_refuse_symlink(self, tmp_path: Path) -> None:
         """_write_wrapper lève OSError si target_path est un symlink."""
         real_file = tmp_path / "real.sh"
         real_file.write_text("#!/bin/bash\n")
@@ -1067,8 +1070,8 @@ class TestLinuxCliInstallerWrapper:
             self.installer._write_wrapper("#!/bin/bash\n", symlink)
 
     def test_write_wrapper_oserror_retourne_rapport_echec(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """install() retourne InstallReport(success=False) si wrapper échoue."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1102,7 +1105,7 @@ class TestLinuxCliInstallerWrapper:
             for w in report.warnings
         )
 
-    def test_generate_wrapper_user_sans_venv(self, tmp_path):
+    def test_generate_wrapper_user_sans_venv(self, tmp_path: Path) -> None:
         """Wrapper user sans venv : pas de bloc activate."""
         config = PythonCliConfig(
             name="app", deploy_type="user", source_dir=tmp_path
@@ -1114,7 +1117,7 @@ class TestLinuxCliInstallerWrapper:
         assert "HOME" in content
         assert "activate" not in content
 
-    def test_generate_wrapper_user_avec_venv(self, tmp_path):
+    def test_generate_wrapper_user_avec_venv(self, tmp_path: Path) -> None:
         """Wrapper user avec venv : le bloc activate est présent."""
         venv = tmp_path / "venv"
         config = PythonCliConfig(
@@ -1126,7 +1129,7 @@ class TestLinuxCliInstallerWrapper:
         content = self.installer._generate_wrapper_content(config, paths)
         assert "activate" in content
 
-    def test_generate_wrapper_system_sans_venv(self, tmp_path):
+    def test_generate_wrapper_system_sans_venv(self, tmp_path: Path) -> None:
         """Wrapper system sans venv : chemin /usr/local/share."""
         config = PythonCliConfig(
             name="app", deploy_type="system", source_dir=tmp_path
@@ -1136,7 +1139,7 @@ class TestLinuxCliInstallerWrapper:
         assert "/usr/local/share/app" in content
         assert "activate" not in content
 
-    def test_generate_wrapper_system_avec_venv(self, tmp_path):
+    def test_generate_wrapper_system_avec_venv(self, tmp_path: Path) -> None:
         """Wrapper system avec venv : bloc activate présent."""
         venv = tmp_path / "venv"
         config = PythonCliConfig(
@@ -1156,11 +1159,11 @@ class TestLinuxCliInstallerWrapper:
 class TestBashScriptInstallerNoLogger:
     """Chemins sans logger dans BashScriptInstaller."""
 
-    def _make_installer(self):
+    def _make_installer(self) -> tuple[BashScriptInstaller, MagicMock]:
         file_manager = MagicMock()
         return BashScriptInstaller(None, file_manager), file_manager
 
-    def test_install_skip_existing_sans_logger(self, tmp_path):
+    def test_install_skip_existing_sans_logger(self, tmp_path: Path) -> None:
         """install() retourne True sur un script existant sans logger."""
         installer, fm = self._make_installer()
         fm.file_exists.return_value = True
@@ -1168,7 +1171,7 @@ class TestBashScriptInstallerNoLogger:
             exec_command="echo x"
         )) is True
 
-    def test_install_create_fails_sans_logger(self, tmp_path):
+    def test_install_create_fails_sans_logger(self, tmp_path: Path) -> None:
         """install() retourne False si create_file échoue sans logger."""
         installer, fm = self._make_installer()
         fm.file_exists.return_value = False
@@ -1177,13 +1180,13 @@ class TestBashScriptInstallerNoLogger:
             exec_command="echo x"
         )) is False
 
-    def test_set_executable_fails_sans_logger(self, tmp_path):
+    def test_set_executable_fails_sans_logger(self, tmp_path: Path) -> None:
         """_set_executable retourne False sur OSError sans logger."""
         installer, _ = self._make_installer()
         with patch("os.open", side_effect=OSError("denied")):
             assert installer._set_executable(str(tmp_path / "f.sh")) is False
 
-    def test_install_success_logue_info_sans_logger(self, tmp_path):
+    def test_install_success_logue_info_sans_logger(self, tmp_path: Path) -> None:
         """install() retourne True sans lever d'erreur quand logger=None."""
         installer, fm = self._make_installer()
         fm.file_exists.return_value = False
@@ -1199,22 +1202,22 @@ class TestBashScriptInstallerNoLogger:
 class TestLinuxScriptCheckerSansLogger:
     """Branches sans logger dans LinuxScriptChecker."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.checker = LinuxScriptChecker()
 
-    def test_check_python_exec_manquant(self):
+    def test_check_python_exec_manquant(self) -> None:
         """Retourne False si python3 absent sans logger."""
         with patch("pathlib.Path.exists", return_value=False):
             assert self.checker.check_python() is False
 
-    def test_check_python_subprocess_echec(self):
+    def test_check_python_subprocess_echec(self) -> None:
         """Retourne False si subprocess python3 --version échoue sans logger."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
             assert self.checker.check_python() is False
 
-    def test_check_python_version_insuffisante(self):
+    def test_check_python_version_insuffisante(self) -> None:
         """Retourne False si version trop ancienne sans logger."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -1223,7 +1226,7 @@ class TestLinuxScriptCheckerSansLogger:
             )
             assert self.checker.check_python("3.11") is False
 
-    def test_check_python_version_ok(self):
+    def test_check_python_version_ok(self) -> None:
         """Retourne True si version satisfaite sans logger."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -1232,13 +1235,13 @@ class TestLinuxScriptCheckerSansLogger:
             )
             assert self.checker.check_python("3.11") is True
 
-    def test_check_script_syntax_introuvable(self, tmp_path):
+    def test_check_script_syntax_introuvable(self, tmp_path: Path) -> None:
         """Retourne False si script absent sans logger."""
         assert self.checker.check_script_syntax(
             tmp_path / "missing.py"
         ) is False
 
-    def test_check_script_syntax_erreur(self, tmp_path):
+    def test_check_script_syntax_erreur(self, tmp_path: Path) -> None:
         """Retourne False si syntaxe incorrecte sans logger."""
         script = tmp_path / "bad.py"
         script.write_text("def f(\n")
@@ -1246,7 +1249,7 @@ class TestLinuxScriptCheckerSansLogger:
             mock_run.return_value = MagicMock(returncode=1, stderr="err")
             assert self.checker.check_script_syntax(script) is False
 
-    def test_check_script_syntax_ok(self, tmp_path):
+    def test_check_script_syntax_ok(self, tmp_path: Path) -> None:
         """Retourne True si syntaxe correcte sans logger."""
         script = tmp_path / "ok.py"
         script.write_text("print('ok')\n")
@@ -1254,16 +1257,16 @@ class TestLinuxScriptCheckerSansLogger:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
             assert self.checker.check_script_syntax(script) is True
 
-    def test_check_venv_absent(self, tmp_path):
+    def test_check_venv_absent(self, tmp_path: Path) -> None:
         """Retourne False si venv absent sans logger."""
         assert self.checker.check_venv(tmp_path / "novenv") is False
 
-    def test_check_venv_python_absent(self, tmp_path):
+    def test_check_venv_python_absent(self, tmp_path: Path) -> None:
         """Retourne False si interpréteur absent sans logger."""
         (tmp_path / "bin").mkdir()
         assert self.checker.check_venv(tmp_path) is False
 
-    def test_check_venv_subprocess_echec(self, tmp_path):
+    def test_check_venv_subprocess_echec(self, tmp_path: Path) -> None:
         """Retourne False si subprocess venv échoue sans logger."""
         python_bin = tmp_path / "bin" / "python"
         python_bin.parent.mkdir()
@@ -1272,7 +1275,7 @@ class TestLinuxScriptCheckerSansLogger:
             mock_run.return_value = MagicMock(returncode=1)
             assert self.checker.check_venv(tmp_path) is False
 
-    def test_check_venv_ok(self, tmp_path):
+    def test_check_venv_ok(self, tmp_path: Path) -> None:
         """Retourne True si venv fonctionnel sans logger."""
         python_bin = tmp_path / "bin" / "python"
         python_bin.parent.mkdir()
@@ -1281,7 +1284,7 @@ class TestLinuxScriptCheckerSansLogger:
             mock_run.return_value = MagicMock(returncode=0)
             assert self.checker.check_venv(tmp_path) is True
 
-    def test_check_python_version_illisible(self):
+    def test_check_python_version_illisible(self) -> None:
         """Retourne True si version Python illisible (sans logger)."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -1294,11 +1297,11 @@ class TestLinuxScriptCheckerSansLogger:
 class TestLinuxScriptCheckerEdgeCases:
     """Branches non couvertes de LinuxScriptChecker."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.logger = MagicMock()
         self.checker = LinuxScriptChecker(self.logger)
 
-    def test_check_python_subprocess_fails(self):
+    def test_check_python_subprocess_fails(self) -> None:
         """Retourne False si subprocess python3 --version retourne != 0."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -1306,7 +1309,7 @@ class TestLinuxScriptCheckerEdgeCases:
             assert self.checker.check_python() is False
         self.logger.log_error.assert_called()
 
-    def test_check_python_version_ok_logue_info(self):
+    def test_check_python_version_ok_logue_info(self) -> None:
         """Logue log_info quand la version satisfait le minimum."""
         with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
@@ -1316,7 +1319,7 @@ class TestLinuxScriptCheckerEdgeCases:
             assert self.checker.check_python("3.11") is True
         self.logger.log_info.assert_called()
 
-    def test_check_extras_inconnu_ignore(self, tmp_path):
+    def test_check_extras_inconnu_ignore(self, tmp_path: Path) -> None:
         """Un extra inexistant dans opt-deps n'ajoute pas de dépendances."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
@@ -1329,7 +1332,7 @@ class TestLinuxScriptCheckerEdgeCases:
             )
         assert total == 0
 
-    def test_is_installed_direct_url_file(self):
+    def test_is_installed_direct_url_file(self) -> None:
         """_is_installed retourne le chemin depuis direct_url.json file://."""
         import json as _json
         direct_url_data = _json.dumps({"url": "file:///home/user/proj"})
@@ -1344,7 +1347,7 @@ class TestLinuxScriptCheckerEdgeCases:
             )
         assert result == "/home/user/proj"
 
-    def test_is_installed_pip_show_sans_location(self):
+    def test_is_installed_pip_show_sans_location(self) -> None:
         """_is_installed retourne 'installé' si pip show OK mais pas de Location."""
         with patch(
             "importlib.metadata.distribution",
@@ -1358,7 +1361,7 @@ class TestLinuxScriptCheckerEdgeCases:
             )
         assert result == "installé"
 
-    def test_is_installed_direct_url_non_file(self):
+    def test_is_installed_direct_url_non_file(self) -> None:
         """_is_installed utilise locate_file si URL n'est pas file://."""
         import json as _json
         direct_url_data = _json.dumps({"url": "https://example.com/pkg"})
@@ -1374,7 +1377,7 @@ class TestLinuxScriptCheckerEdgeCases:
             )
         assert result == "/site-packages"
 
-    def test_is_installed_pip_show_avec_location(self):
+    def test_is_installed_pip_show_avec_location(self) -> None:
         """_is_installed retourne le chemin si pip show contient Location."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
@@ -1390,21 +1393,21 @@ class TestLinuxScriptCheckerEdgeCases:
 class TestLinuxCliInstallerEdgeCases:
     """Branches non couvertes de LinuxCliInstaller."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.checker = MagicMock()
         self.installer = LinuxCliInstaller(None, self.checker)
 
-    def _patch_paths(self, tmp_path):
+    def _patch_paths(self, tmp_path: Path) -> MagicMock:
         mock_paths = MagicMock()
         mock_paths.bin_path = tmp_path / "bin" / "app"
         return mock_paths
 
-    def _user_config(self, tmp_path):
+    def _user_config(self, tmp_path: Path) -> PythonCliConfig:
         return PythonCliConfig(
             name="app", deploy_type="user", source_dir=tmp_path
         )
 
-    def test_install_success_sans_logger(self, tmp_path):
+    def test_install_success_sans_logger(self, tmp_path: Path) -> None:
         """install() réussit sans logger injecté."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1426,7 +1429,7 @@ class TestLinuxCliInstallerEdgeCases:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is True
 
-    def test_install_venv_inaccessible_sans_logger(self, tmp_path):
+    def test_install_venv_inaccessible_sans_logger(self, tmp_path: Path) -> None:
         """venv inaccessible enregistre un warning sans logger."""
         venv = tmp_path / "missing_venv"
         self.checker.check_python.return_value = True
@@ -1453,7 +1456,7 @@ class TestLinuxCliInstallerEdgeCases:
             report = self.installer.install(config, confirm_wrapper=False)
         assert any("Venv" in w for w in report.warnings)
 
-    def test_handle_wrapper_tty_desactive_confirmation(self, tmp_path):
+    def test_handle_wrapper_tty_desactive_confirmation(self, tmp_path: Path) -> None:
         """confirm_wrapper=True basculé sur False si stdin non-TTY."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1481,7 +1484,7 @@ class TestLinuxCliInstallerEdgeCases:
             self.installer.install(config, confirm_wrapper=True)
         mock_write.assert_called_once()
 
-    def test_handle_wrapper_refuse_interactif(self, tmp_path):
+    def test_handle_wrapper_refuse_interactif(self, tmp_path: Path) -> None:
         """Wrapper refusé interactivement → InstallReport(success=False)."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1503,7 +1506,7 @@ class TestLinuxCliInstallerEdgeCases:
         assert report.success is False
         assert any("refusé" in w for w in report.warnings)
 
-    def test_candidate_homes_sudo_user_keyerror(self):
+    def test_candidate_homes_sudo_user_keyerror(self) -> None:
         """_candidate_homes ignore KeyError si SUDO_USER est invalide."""
         with patch.dict(
             "linuxtools.scripts.installer.os.environ",
@@ -1515,7 +1518,7 @@ class TestLinuxCliInstallerEdgeCases:
             homes = self.installer._candidate_homes()
         assert len(homes) == 1  # seulement Path.home()
 
-    def test_run_uv_install_file_not_found(self, tmp_path):
+    def test_run_uv_install_file_not_found(self, tmp_path: Path) -> None:
         """_run_uv_install retourne False si uv binaire non trouvé."""
         config = self._user_config(tmp_path)
         with patch(
@@ -1527,8 +1530,8 @@ class TestLinuxCliInstallerEdgeCases:
             assert self.installer._run_uv_install(config) is False
 
     def test_run_uv_install_returncode_nonzero_sans_logger(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """_run_uv_install retourne False sur returncode != 0 sans logger."""
         config = self._user_config(tmp_path)
         with patch(
@@ -1540,7 +1543,7 @@ class TestLinuxCliInstallerEdgeCases:
             )
             assert self.installer._run_uv_install(config) is False
 
-    def test_run_uv_introuvable_sans_logger(self, tmp_path):
+    def test_run_uv_introuvable_sans_logger(self, tmp_path: Path) -> None:
         """_run_uv_install retourne False si uv introuvable sans logger."""
         config = self._user_config(tmp_path)
         with patch(
@@ -1554,14 +1557,14 @@ class TestLinuxCliInstallerEdgeCases:
         ):
             assert self.installer._run_uv_install(config) is False
 
-    def test_write_wrapper_sans_logger(self, tmp_path):
+    def test_write_wrapper_sans_logger(self, tmp_path: Path) -> None:
         """_write_wrapper crée le fichier sans logger."""
         target = tmp_path / "bin" / "app"
         installer = LinuxCliInstaller(None, MagicMock())
         installer._write_wrapper("#!/bin/bash\n", target)
         assert target.exists()
 
-    def test_preconditions_valueerror_sans_logger(self, tmp_path):
+    def test_preconditions_valueerror_sans_logger(self, tmp_path: Path) -> None:
         """_check_preconditions retourne échec sur ValueError sans logger."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.side_effect = ValueError(
@@ -1575,7 +1578,7 @@ class TestLinuxCliInstallerEdgeCases:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def test_venv_ok_ne_cree_pas_warning(self, tmp_path):
+    def test_venv_ok_ne_cree_pas_warning(self, tmp_path: Path) -> None:
         """Aucun warning venv si check_venv retourne True."""
         venv = tmp_path / "venv"
         self.checker.check_python.return_value = True
@@ -1602,7 +1605,7 @@ class TestLinuxCliInstallerEdgeCases:
             report = self.installer.install(config, confirm_wrapper=False)
         assert all("Venv" not in w for w in report.warnings)
 
-    def test_handle_wrapper_refuse_interactif_accepte(self, tmp_path):
+    def test_handle_wrapper_refuse_interactif_accepte(self, tmp_path: Path) -> None:
         """Wrapper accepté interactivement (réponse 'o')."""
         logger = MagicMock()
         checker = MagicMock()
@@ -1634,7 +1637,7 @@ class TestLinuxCliInstallerEdgeCases:
         mock_write.assert_called_once()
         assert report.success is True
 
-    def test_wrapper_echec_oserror_sans_logger(self, tmp_path):
+    def test_wrapper_echec_oserror_sans_logger(self, tmp_path: Path) -> None:
         """Wrapper OSError sans logger → rapport d'échec."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1657,7 +1660,7 @@ class TestLinuxCliInstallerEdgeCases:
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def test_run_uv_intro_uvable_avec_logger(self, tmp_path):
+    def test_run_uv_intro_uvable_avec_logger(self, tmp_path: Path) -> None:
         """_run_uv_install retourne False et logue si uv introuvable (avec logger)."""
         logger = MagicMock()
         installer = LinuxCliInstaller(logger, MagicMock())
@@ -1674,7 +1677,7 @@ class TestLinuxCliInstallerEdgeCases:
             assert installer._run_uv_install(config) is False
         logger.log_error.assert_called()
 
-    def test_run_uv_file_not_found_avec_logger(self, tmp_path):
+    def test_run_uv_file_not_found_avec_logger(self, tmp_path: Path) -> None:
         """_run_uv_install logue si FileNotFoundError avec logger."""
         logger = MagicMock()
         installer = LinuxCliInstaller(logger, MagicMock())

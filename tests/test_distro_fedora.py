@@ -25,7 +25,7 @@ def _make_executor(
 class TestFedoraVersion:
     """Tests pour fedora_version()."""
 
-    def test_nominal_retourne_la_version(self):
+    def test_nominal_retourne_la_version(self) -> None:
         """Cas nominal : retourne la version stdout sans le \\n."""
         # Arrange
         executor = _make_executor(return_code=0, stdout="44\n")
@@ -36,7 +36,7 @@ class TestFedoraVersion:
         # Assert
         assert version == "44"
 
-    def test_utilise_probe_et_pas_run(self):
+    def test_utilise_probe_et_pas_run(self) -> None:
         """fedora_version() sonde via executor.probe(), pas run()."""
         # Arrange
         executor = _make_executor(return_code=0, stdout="44")
@@ -50,7 +50,7 @@ class TestFedoraVersion:
         )
         executor.run.assert_not_called()
 
-    def test_code_retour_non_nul_retourne_chaine_vide(self):
+    def test_code_retour_non_nul_retourne_chaine_vide(self) -> None:
         """Code retour non nul → chaîne vide (variante défensive)."""
         # Arrange
         executor = _make_executor(

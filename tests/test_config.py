@@ -2,6 +2,7 @@
 
 import json
 import tomllib
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,11 +13,11 @@ from linuxtools.config import FileConfigLoader, ConfigurationManager
 class TestLoadConfig:
     """Tests pour la fonction load_config."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Initialise le loader avant chaque test."""
         self.loader = FileConfigLoader()
 
-    def test_load_json(self, tmp_path):
+    def test_load_json(self, tmp_path: Path) -> None:
         """Test du chargement d'un fichier JSON."""
         config_file = tmp_path / "config.json"
         config_data = {"key": "value", "nested": {"a": 1}}
@@ -26,7 +27,7 @@ class TestLoadConfig:
 
         assert result == config_data
 
-    def test_load_toml(self, tmp_path):
+    def test_load_toml(self, tmp_path: Path) -> None:
         """Test du chargement d'un fichier TOML."""
         config_file = tmp_path / "config.toml"
         config_file.write_text('[section]\nkey = "value"\n')
@@ -35,12 +36,12 @@ class TestLoadConfig:
 
         assert result["section"]["key"] == "value"
 
-    def test_file_not_found(self):
+    def test_file_not_found(self) -> None:
         """Test avec fichier inexistant."""
         with pytest.raises(FileNotFoundError):
             self.loader.load("/nonexistent/config.toml")
 
-    def test_unsupported_extension(self, tmp_path):
+    def test_unsupported_extension(self, tmp_path: Path) -> None:
         """Test avec extension non supportée."""
         config_file = tmp_path / "config.xml"
         config_file.write_text("<config></config>")
@@ -52,7 +53,7 @@ class TestLoadConfig:
 class TestConfigurationManager:
     """Tests pour ConfigurationManager."""
 
-    def test_get_dotted_path(self, tmp_path):
+    def test_get_dotted_path(self, tmp_path: Path) -> None:
         """Test de l'accès par chemin pointé."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -69,7 +70,7 @@ class TestConfigurationManager:
         assert manager.get("level1.level2.value") == "found"
         assert manager.get("nonexistent", "default") == "default"
 
-    def test_deep_merge(self, tmp_path):
+    def test_deep_merge(self, tmp_path: Path) -> None:
         """Test de la fusion profonde avec config par défaut."""
         config_file = tmp_path / "config.json"
         config_file.write_text('{"a": {"b": 2}}')
@@ -81,7 +82,7 @@ class TestConfigurationManager:
         assert manager.get("a.c") == 3  # Conservé du défaut
         assert manager.get("d") == 4    # Conservé du défaut
 
-    def test_get_profile(self, tmp_path):
+    def test_get_profile(self, tmp_path: Path) -> None:
         """Test de la récupération de profils."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -100,7 +101,7 @@ class TestConfigurationManager:
         assert "source" in profile
         assert profile["destination"] == "/dest"
 
-    def test_profile_not_found(self, tmp_path):
+    def test_profile_not_found(self, tmp_path: Path) -> None:
         """Test avec profil inexistant."""
         config_file = tmp_path / "config.json"
         config_file.write_text('{"profiles": {}}')
@@ -110,7 +111,7 @@ class TestConfigurationManager:
         with pytest.raises(ValueError, match="non trouvé"):
             manager.get_profile("nonexistent")
 
-    def test_list_profiles(self, tmp_path):
+    def test_list_profiles(self, tmp_path: Path) -> None:
         """Test de la liste des profils."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -125,7 +126,7 @@ class TestConfigurationManager:
 
         assert set(manager.list_profiles()) == {"profile1", "profile2"}
 
-    def test_get_section(self, tmp_path):
+    def test_get_section(self, tmp_path: Path) -> None:
         """Test de la récupération d'une section complète."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -143,7 +144,7 @@ class TestConfigurationManager:
         assert section == {"level": "DEBUG", "format": "%(message)s"}
         assert manager.get_section("nonexistent") == {}
 
-    def test_create_default_config_json(self, tmp_path):
+    def test_create_default_config_json(self, tmp_path: Path) -> None:
         """Test de la création d'un fichier de config JSON par défaut."""
         default = {"key": "value", "nested": {"a": 1}}
         manager = ConfigurationManager(default_config=default)
@@ -156,7 +157,7 @@ class TestConfigurationManager:
         result = loader.load(output_file)
         assert result == default
 
-    def test_create_default_config_toml(self, tmp_path):
+    def test_create_default_config_toml(self, tmp_path: Path) -> None:
         """Test de la création d'un fichier de config TOML par défaut."""
         default = {
             "simple": "value",
@@ -179,7 +180,7 @@ class TestConfigurationManager:
         assert result["enabled"] is True
         assert result["section"]["nested_key"] == "nested_value"
 
-    def test_search_paths(self, tmp_path):
+    def test_search_paths(self, tmp_path: Path) -> None:
         """Test de la recherche dans plusieurs emplacements."""
         config_file = tmp_path / "found.toml"
         config_file.write_text('[test]\nfound = true\n')
@@ -194,7 +195,7 @@ class TestConfigurationManager:
 
         assert manager.get("test.found") is True
 
-    def test_deep_merge_liste_override_ecrase_base(self, tmp_path):
+    def test_deep_merge_liste_override_ecrase_base(self, tmp_path: Path) -> None:
         """_deep_merge : une liste dans override écrase celle de base."""
         config_file = tmp_path / "config.json"
         config_file.write_text('{"tags": ["override"]}')
@@ -204,7 +205,7 @@ class TestConfigurationManager:
 
         assert manager.get("tags") == ["override"]
 
-    def test_deep_merge_scalaire_imbrique_ecrase_base(self, tmp_path):
+    def test_deep_merge_scalaire_imbrique_ecrase_base(self, tmp_path: Path) -> None:
         """_deep_merge : un scalaire imbriqué dans override écrase la base."""
         config_file = tmp_path / "config.json"
         config_file.write_text('{"app": {"level": "DEBUG"}}')
@@ -215,7 +216,7 @@ class TestConfigurationManager:
         assert manager.get("app.level") == "DEBUG"
         assert manager.get("app.timeout") == 30
 
-    def test_search_paths_premier_existant_gagne(self, tmp_path):
+    def test_search_paths_premier_existant_gagne(self, tmp_path: Path) -> None:
         """search_paths : le premier chemin existant est utilisé."""
         first = tmp_path / "first.toml"
         second = tmp_path / "second.toml"
@@ -228,7 +229,9 @@ class TestConfigurationManager:
 
         assert manager.get("app.name") == "first"
 
-    def test_search_paths_ordre_respecte_si_premier_absent(self, tmp_path):
+    def test_search_paths_ordre_respecte_si_premier_absent(
+        self, tmp_path: Path
+    ) -> None:
         """search_paths : si le premier est absent, le second est utilisé."""
         second = tmp_path / "second.toml"
         second.write_text('[app]\nname = "second"\n')
@@ -244,8 +247,8 @@ class TestConfigurationManagerLogger:
     """Tests pour le logger optionnel de ConfigurationManager."""
 
     def test_load_config_logue_warning_si_fichier_introuvable(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """ConfigurationManager logue un warning si fichier introuvable."""
         logger = MagicMock()
         chemin_inexistant = tmp_path / "inexistant.json"
@@ -259,8 +262,8 @@ class TestConfigurationManagerLogger:
         assert "inexistant.json" in logger.log_warning.call_args[0][0]
 
     def test_load_config_logue_warning_si_erreur_chargement(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """ConfigurationManager logue un warning si le chargement échoue."""
         logger = MagicMock()
         config_file = tmp_path / "config.json"
@@ -276,7 +279,7 @@ class TestConfigurationManagerLogger:
 
         logger.log_warning.assert_called_once()
 
-    def test_load_config_sans_logger_pas_d_erreur(self, tmp_path):
+    def test_load_config_sans_logger_pas_d_erreur(self, tmp_path: Path) -> None:
         """ConfigurationManager sans logger ne lève pas d'exception."""
         chemin_inexistant = tmp_path / "inexistant.json"
 
@@ -285,8 +288,8 @@ class TestConfigurationManagerLogger:
         assert manager.config == {}
 
     def test_load_config_retourne_defaut_si_fichier_manquant_avec_logger(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """ConfigurationManager retourne default_config si fichier manquant."""
         logger = MagicMock()
         default = {"cle": "valeur_defaut"}
@@ -304,7 +307,7 @@ class TestConfigurationManagerLogger:
 class TestTomlSerialiseur:
     """Tests de sécurité et de validité du sérialiseur TOML."""
 
-    def test_write_toml_liste_produit_tableau_valide(self, tmp_path):
+    def test_write_toml_liste_produit_tableau_valide(self, tmp_path: Path) -> None:
         """Liste Python → tableau TOML parseable par tomllib (round-trip)."""
         default = {"tags": ["alpha", "beta", "gamma"]}
         manager = ConfigurationManager(default_config=default)
@@ -316,7 +319,7 @@ class TestTomlSerialiseur:
             result = tomllib.load(f)
         assert result["tags"] == ["alpha", "beta", "gamma"]
 
-    def test_write_toml_echappe_guillemets_et_newline(self, tmp_path):
+    def test_write_toml_echappe_guillemets_et_newline(self, tmp_path: Path) -> None:
         """Caractères spéciaux dans une chaîne : round-trip TOML correct."""
         valeur = 'avec "guillemets" et\nnewline'
         default = {"description": valeur}
@@ -329,7 +332,7 @@ class TestTomlSerialiseur:
             result = tomllib.load(f)
         assert result["description"] == valeur
 
-    def test_load_config_fichier_corrompu_repli_defaut(self, tmp_path):
+    def test_load_config_fichier_corrompu_repli_defaut(self, tmp_path: Path) -> None:
         """TOML invalide → log_warning + retour config par défaut."""
         logger = MagicMock()
         default = {"cle": "defaut"}

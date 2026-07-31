@@ -1,5 +1,6 @@
 """Tests pour le module systemd.executor."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,67 +19,67 @@ class TestSystemdExecutorValidation:
         logger = MagicMock()
         return SystemdExecutor(logger)
 
-    def test_enable_unit_rejette_nom_invalide(self):
+    def test_enable_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans enable_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.enable_unit("bad;name.service")
 
-    def test_disable_unit_rejette_nom_invalide(self):
+    def test_disable_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans disable_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.disable_unit("../etc.service")
 
-    def test_start_unit_rejette_nom_invalide(self):
+    def test_start_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans start_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.start_unit("$(cmd).service")
 
-    def test_stop_unit_rejette_nom_invalide(self):
+    def test_stop_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans stop_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.stop_unit("bad name.service")
 
-    def test_restart_unit_rejette_nom_invalide(self):
+    def test_restart_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans restart_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.restart_unit(";evil.service")
 
-    def test_get_status_rejette_nom_invalide(self):
+    def test_get_status_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans get_status."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.get_status("../passwd.service")
 
-    def test_is_enabled_rejette_nom_invalide(self):
+    def test_is_enabled_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans is_enabled."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.is_enabled("bad;cmd.timer")
 
-    def test_mask_unit_rejette_nom_invalide(self):
+    def test_mask_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans mask_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.mask_unit("bad;name.service")
 
-    def test_unmask_unit_rejette_nom_invalide(self):
+    def test_unmask_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans unmask_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.unmask_unit("../etc.service")
 
-    def test_is_masked_rejette_nom_invalide(self):
+    def test_is_masked_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet d'un nom invalide dans is_masked."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="invalide"):
             executor.is_masked("bad;cmd.service")
 
-    def test_nom_valide_accepte(self):
+    def test_nom_valide_accepte(self) -> None:
         """Vérifie que les noms valides passent la validation."""
         executor = self._make_executor()
         try:
@@ -86,13 +87,13 @@ class TestSystemdExecutorValidation:
         except ValueError:
             pytest.fail("Nom valide rejeté par la validation")
 
-    def test_rejet_extension_inconnue(self):
+    def test_rejet_extension_inconnue(self) -> None:
         """Rejette une extension non autorisée dans enable_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="non autorisée"):
             executor.enable_unit("backup.path")
 
-    def test_rejet_sans_extension(self):
+    def test_rejet_sans_extension(self) -> None:
         """Rejette un nom sans extension dans start_unit."""
         executor = self._make_executor()
         with pytest.raises(ValueError, match="sans extension"):
@@ -102,7 +103,7 @@ class TestSystemdExecutorValidation:
 class TestUserSystemdExecutorValidation:
     """Tests pour la validation dans UserSystemdExecutor."""
 
-    def test_enable_unit_rejette_nom_invalide(self):
+    def test_enable_unit_rejette_nom_invalide(self) -> None:
         """Vérifie le rejet dans l'executor utilisateur."""
         logger = MagicMock()
         executor = UserSystemdExecutor(logger)
@@ -113,12 +114,12 @@ class TestUserSystemdExecutorValidation:
 class TestSystemdExecutorMocked:
     """Tests pour SystemdExecutor avec subprocess.run mocke."""
 
-    def _make_executor(self):
+    def _make_executor(self) -> tuple[SystemdExecutor, MagicMock]:
         """Cree un executor avec logger mock."""
         logger = MagicMock()
         return SystemdExecutor(logger), logger
 
-    def _mock_success(self):
+    def _mock_success(self) -> MagicMock:
         """Cree un resultat subprocess de succes."""
         import subprocess
         result = MagicMock(spec=subprocess.CompletedProcess)
@@ -127,13 +128,13 @@ class TestSystemdExecutorMocked:
         result.stderr = ""
         return result
 
-    def _mock_failure(self):
+    def _mock_failure(self) -> subprocess.CalledProcessError:
         """Cree une exception subprocess.CalledProcessError."""
         import subprocess
         return subprocess.CalledProcessError(1, ["systemctl"])
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_reload_systemd_succes(self, mock_run):
+    def test_reload_systemd_succes(self, mock_run: MagicMock) -> None:
         """reload_systemd() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -142,7 +143,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_reload_systemd_echec(self, mock_run):
+    def test_reload_systemd_echec(self, mock_run: MagicMock) -> None:
         """reload_systemd() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -154,7 +155,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_enable_unit_succes_avec_now(self, mock_run):
+    def test_enable_unit_succes_avec_now(self, mock_run: MagicMock) -> None:
         """enable_unit() avec now=True retourne True."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -165,7 +166,7 @@ class TestSystemdExecutorMocked:
         assert "--now" in args
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_enable_unit_succes_sans_now(self, mock_run):
+    def test_enable_unit_succes_sans_now(self, mock_run: MagicMock) -> None:
         """enable_unit() avec now=False ne passe pas --now."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -175,7 +176,7 @@ class TestSystemdExecutorMocked:
         assert "--now" not in args
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_enable_unit_echec(self, mock_run):
+    def test_enable_unit_echec(self, mock_run: MagicMock) -> None:
         """enable_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -187,7 +188,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_disable_unit_succes(self, mock_run):
+    def test_disable_unit_succes(self, mock_run: MagicMock) -> None:
         """disable_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -196,7 +197,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_disable_unit_echec(self, mock_run):
+    def test_disable_unit_echec(self, mock_run: MagicMock) -> None:
         """disable_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -208,7 +209,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_disable_unit_ignore_errors(self, mock_run):
+    def test_disable_unit_ignore_errors(self, mock_run: MagicMock) -> None:
         """disable_unit() avec ignore_errors retourne True."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -222,7 +223,7 @@ class TestSystemdExecutorMocked:
         logger.log_warning.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_start_unit_succes(self, mock_run):
+    def test_start_unit_succes(self, mock_run: MagicMock) -> None:
         """start_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -231,7 +232,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_start_unit_echec(self, mock_run):
+    def test_start_unit_echec(self, mock_run: MagicMock) -> None:
         """start_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -243,7 +244,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_stop_unit_succes(self, mock_run):
+    def test_stop_unit_succes(self, mock_run: MagicMock) -> None:
         """stop_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -252,7 +253,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_stop_unit_echec(self, mock_run):
+    def test_stop_unit_echec(self, mock_run: MagicMock) -> None:
         """stop_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -264,7 +265,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_restart_unit_succes(self, mock_run):
+    def test_restart_unit_succes(self, mock_run: MagicMock) -> None:
         """restart_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -273,7 +274,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_restart_unit_echec(self, mock_run):
+    def test_restart_unit_echec(self, mock_run: MagicMock) -> None:
         """restart_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -285,7 +286,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_get_status_retourne_statut(self, mock_run):
+    def test_get_status_retourne_statut(self, mock_run: MagicMock) -> None:
         """get_status() retourne le statut de l unite."""
         mock_result = MagicMock()
         mock_result.stdout = "active\n"
@@ -295,7 +296,7 @@ class TestSystemdExecutorMocked:
         assert status == "active"
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_get_status_erreur_subprocess(self, mock_run):
+    def test_get_status_erreur_subprocess(self, mock_run: MagicMock) -> None:
         """get_status() retourne None en cas d OSError."""
         mock_run.side_effect = OSError("systemctl non trouve")
         executor, logger = self._make_executor()
@@ -304,7 +305,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_active_retourne_true(self, mock_run):
+    def test_is_active_retourne_true(self, mock_run: MagicMock) -> None:
         """is_active() retourne True si statut == active."""
         mock_result = MagicMock()
         mock_result.stdout = "active\n"
@@ -313,7 +314,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_active("backup.service") is True
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_active_retourne_false(self, mock_run):
+    def test_is_active_retourne_false(self, mock_run: MagicMock) -> None:
         """is_active() retourne False si statut != active."""
         mock_result = MagicMock()
         mock_result.stdout = "inactive\n"
@@ -322,7 +323,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_active("backup.service") is False
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_enabled_retourne_true(self, mock_run):
+    def test_is_enabled_retourne_true(self, mock_run: MagicMock) -> None:
         """is_enabled() retourne True si statut == enabled."""
         mock_result = MagicMock()
         mock_result.stdout = "enabled\n"
@@ -331,7 +332,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_enabled("backup.service") is True
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_enabled_retourne_false(self, mock_run):
+    def test_is_enabled_retourne_false(self, mock_run: MagicMock) -> None:
         """is_enabled() retourne False si statut != enabled."""
         mock_result = MagicMock()
         mock_result.stdout = "disabled\n"
@@ -340,7 +341,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_enabled("backup.service") is False
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_enabled_erreur(self, mock_run):
+    def test_is_enabled_erreur(self, mock_run: MagicMock) -> None:
         """is_enabled() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.SubprocessError("erreur")
@@ -350,7 +351,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_masked_retourne_true(self, mock_run):
+    def test_is_masked_retourne_true(self, mock_run: MagicMock) -> None:
         """is_masked() retourne True si stdout == masked."""
         mock_result = MagicMock()
         mock_result.stdout = "masked\n"
@@ -359,7 +360,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_masked("packagekit.service") is True
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_masked_retourne_false(self, mock_run):
+    def test_is_masked_retourne_false(self, mock_run: MagicMock) -> None:
         """is_masked() retourne False si stdout != masked."""
         mock_result = MagicMock()
         mock_result.stdout = "enabled\n"
@@ -368,7 +369,7 @@ class TestSystemdExecutorMocked:
         assert executor.is_masked("packagekit.service") is False
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_is_masked_erreur(self, mock_run):
+    def test_is_masked_erreur(self, mock_run: MagicMock) -> None:
         """is_masked() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.SubprocessError("erreur")
@@ -377,7 +378,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_mask_unit_succes(self, mock_run):
+    def test_mask_unit_succes(self, mock_run: MagicMock) -> None:
         """mask_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -386,7 +387,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_mask_unit_echec(self, mock_run):
+    def test_mask_unit_echec(self, mock_run: MagicMock) -> None:
         """mask_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -398,7 +399,7 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_unmask_unit_succes(self, mock_run):
+    def test_unmask_unit_succes(self, mock_run: MagicMock) -> None:
         """unmask_unit() retourne True en cas de succes."""
         mock_run.return_value = self._mock_success()
         executor, logger = self._make_executor()
@@ -407,7 +408,7 @@ class TestSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_unmask_unit_echec(self, mock_run):
+    def test_unmask_unit_echec(self, mock_run: MagicMock) -> None:
         """unmask_unit() retourne False en cas d erreur."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -422,13 +423,13 @@ class TestSystemdExecutorMocked:
 class TestUserSystemdExecutorMocked:
     """Tests pour UserSystemdExecutor avec subprocess.run mocke."""
 
-    def _make_executor(self):
+    def _make_executor(self) -> tuple[UserSystemdExecutor, MagicMock]:
         """Cree un executor utilisateur avec logger mock."""
         logger = MagicMock()
         return UserSystemdExecutor(logger), logger
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_run_systemctl_utilise_user_flag(self, mock_run):
+    def test_run_systemctl_utilise_user_flag(self, mock_run: MagicMock) -> None:
         """_run_systemctl() utilise --user dans la commande."""
         mock_result = MagicMock()
         mock_result.stdout = "active\n"
@@ -440,7 +441,7 @@ class TestUserSystemdExecutorMocked:
         assert "systemctl" in args[0]
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_reload_systemd_user_succes(self, mock_run):
+    def test_reload_systemd_user_succes(self, mock_run: MagicMock) -> None:
         """reload_systemd() pour user retourne True."""
         mock_result = MagicMock()
         mock_result.stdout = ""
@@ -451,7 +452,7 @@ class TestUserSystemdExecutorMocked:
         logger.log_info.assert_called_once()
 
     @patch("linuxtools.systemd.executor.subprocess.run")
-    def test_reload_systemd_user_echec(self, mock_run):
+    def test_reload_systemd_user_echec(self, mock_run: MagicMock) -> None:
         """reload_systemd() pour user retourne False."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(

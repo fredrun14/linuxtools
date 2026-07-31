@@ -27,24 +27,24 @@ class TestRequireRoot:
     """Tests pour la fonction require_root."""
 
     @patch("linuxtools.errors.exceptions.os.geteuid", return_value=0)
-    def test_passe_si_euid_zero(self, _mock) -> None:
+    def test_passe_si_euid_zero(self, _mock: MagicMock) -> None:
         """require_root() silencieux quand le process est root."""
         require_root()
 
     @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_leve_si_non_root(self, _mock) -> None:
+    def test_leve_si_non_root(self, _mock: MagicMock) -> None:
         """require_root() lève AppPermissionError si euid != 0."""
         with pytest.raises(AppPermissionError):
             require_root()
 
     @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_message_par_defaut_mentionne_root(self, _mock) -> None:
+    def test_message_par_defaut_mentionne_root(self, _mock: MagicMock) -> None:
         """Le message par défaut mentionne les droits root."""
         with pytest.raises(AppPermissionError, match="root"):
             require_root()
 
     @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_message_personnalise(self, _mock) -> None:
+    def test_message_personnalise(self, _mock: MagicMock) -> None:
         """require_root() utilise le message personnalisé si fourni."""
         with pytest.raises(AppPermissionError, match="sudo requis"):
             require_root("sudo requis")

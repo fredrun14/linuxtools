@@ -1,6 +1,7 @@
 """Tests pour le module systemd.timer."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,7 +14,7 @@ from linuxtools.systemd.user_timer import LinuxUserTimerUnitManager
 class TestTimerConfig:
     """Tests pour la dataclass TimerConfig."""
 
-    def test_timer_name_extracts_from_service(self):
+    def test_timer_name_extracts_from_service(self) -> None:
         """Vérifie l'extraction du nom du timer depuis l'unité cible."""
         config = TimerConfig(
             description="Test",
@@ -21,7 +22,7 @@ class TestTimerConfig:
         )
         assert config.timer_name == "backup"
 
-    def test_timer_name_handles_complex_unit_names(self):
+    def test_timer_name_handles_complex_unit_names(self) -> None:
         """Vérifie l'extraction avec des noms d'unités complexes."""
         config = TimerConfig(
             description="Test",
@@ -29,7 +30,7 @@ class TestTimerConfig:
         )
         assert config.timer_name == "my-backup-task"
 
-    def test_post_init_raises_on_empty_unit(self):
+    def test_post_init_raises_on_empty_unit(self) -> None:
         """Vérifie que __post_init__ lève une erreur si unit est vide."""
         with pytest.raises(ValueError, match="'unit' est requis"):
             TimerConfig(description="Test", unit="")
@@ -38,7 +39,7 @@ class TestTimerConfig:
 class TestTimerConfigToUnitFile:
     """Tests pour TimerConfig.to_unit_file()."""
 
-    def test_basic_timer_contains_required_sections(self):
+    def test_basic_timer_contains_required_sections(self) -> None:
         """Vérifie que le fichier .timer contient toutes les sections."""
         config = TimerConfig(
             description="Sauvegarde quotidienne",
@@ -56,7 +57,7 @@ class TestTimerConfigToUnitFile:
         assert "[Install]" in result
         assert "WantedBy=timers.target" in result
 
-    def test_timer_with_on_boot_sec(self):
+    def test_timer_with_on_boot_sec(self) -> None:
         """Vérifie l'inclusion de OnBootSec."""
         config = TimerConfig(
             description="Démarrage différé",
@@ -68,7 +69,7 @@ class TestTimerConfigToUnitFile:
 
         assert "OnBootSec=5min" in result
 
-    def test_timer_with_on_unit_active_sec(self):
+    def test_timer_with_on_unit_active_sec(self) -> None:
         """Vérifie l'inclusion de OnUnitActiveSec."""
         config = TimerConfig(
             description="Tâche récurrente",
@@ -80,7 +81,7 @@ class TestTimerConfigToUnitFile:
 
         assert "OnUnitActiveSec=1h" in result
 
-    def test_timer_with_persistent_true(self):
+    def test_timer_with_persistent_true(self) -> None:
         """Vérifie l'inclusion de Persistent=true."""
         config = TimerConfig(
             description="Timer persistant",
@@ -93,7 +94,7 @@ class TestTimerConfigToUnitFile:
 
         assert "Persistent=true" in result
 
-    def test_timer_with_persistent_false_omits_line(self):
+    def test_timer_with_persistent_false_omits_line(self) -> None:
         """Vérifie l'absence de Persistent quand False."""
         config = TimerConfig(
             description="Timer non persistant",
@@ -106,7 +107,7 @@ class TestTimerConfigToUnitFile:
 
         assert "Persistent" not in result
 
-    def test_timer_with_randomized_delay(self):
+    def test_timer_with_randomized_delay(self) -> None:
         """Vérifie l'inclusion de RandomizedDelaySec."""
         config = TimerConfig(
             description="Timer avec délai aléatoire",
@@ -119,7 +120,7 @@ class TestTimerConfigToUnitFile:
 
         assert "RandomizedDelaySec=15min" in result
 
-    def test_timer_without_optional_fields_omits_them(self):
+    def test_timer_without_optional_fields_omits_them(self) -> None:
         """Vérifie l'absence des champs optionnels non définis."""
         config = TimerConfig(
             description="Timer minimal",
@@ -134,7 +135,7 @@ class TestTimerConfigToUnitFile:
         assert "Persistent" not in result
         assert "RandomizedDelaySec=" not in result
 
-    def test_timer_with_all_options(self):
+    def test_timer_with_all_options(self) -> None:
         """Vérifie un timer avec toutes les options."""
         config = TimerConfig(
             description="Timer complet",
@@ -164,7 +165,7 @@ class TestLinuxTimerListTimers:
         executor = MagicMock()
         return LinuxTimerUnitManager(logger, executor)
 
-    def test_list_timers_json_valide(self):
+    def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
         data = [
             {"unit": "backup.timer", "activates": "backup.service",
@@ -180,7 +181,7 @@ class TestLinuxTimerListTimers:
         assert result[0]["unit"] == "backup.timer"
         assert result[0]["activates"] == "backup.service"
 
-    def test_list_timers_json_vide(self):
+    def test_list_timers_json_vide(self) -> None:
         """Vérifie le parsing d'une liste JSON vide."""
         manager = self._make_manager()
         manager.executor._run_systemctl.return_value = MagicMock(
@@ -189,7 +190,7 @@ class TestLinuxTimerListTimers:
         result = manager.list_timers()
         assert result == []
 
-    def test_list_timers_fallback_texte(self):
+    def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
             returncode=1, stdout="",
@@ -208,7 +209,7 @@ class TestLinuxTimerListTimers:
         assert len(result) == 1
         assert result[0]["unit"] == "backup.timer"
 
-    def test_list_timers_erreur_subprocess(self):
+    def test_list_timers_erreur_subprocess(self) -> None:
         """Vérifie que RuntimeError est levée sur erreur."""
         manager = self._make_manager()
         manager.executor._run_systemctl.return_value = MagicMock(
@@ -217,7 +218,7 @@ class TestLinuxTimerListTimers:
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
 
-    def test_list_timers_systemctl_introuvable(self):
+    def test_list_timers_systemctl_introuvable(self) -> None:
         """Vérifie RuntimeError si systemctl n'existe pas."""
         manager = self._make_manager()
         manager.executor._run_systemctl.side_effect = FileNotFoundError(
@@ -226,7 +227,7 @@ class TestLinuxTimerListTimers:
         with pytest.raises(RuntimeError, match="Impossible"):
             manager.list_timers()
 
-    def test_list_timers_os_error(self):
+    def test_list_timers_os_error(self) -> None:
         """Vérifie RuntimeError sur OSError."""
         manager = self._make_manager()
         manager.executor._run_systemctl.side_effect = OSError(
@@ -245,7 +246,7 @@ class TestLinuxUserTimerListTimers:
         executor = MagicMock()
         return LinuxUserTimerUnitManager(logger, executor)
 
-    def test_list_timers_json_valide(self):
+    def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
         data = [
             {"unit": "backup.timer", "activates": "backup.service",
@@ -259,7 +260,7 @@ class TestLinuxUserTimerListTimers:
         assert len(result) == 1
         assert result[0]["unit"] == "backup.timer"
 
-    def test_list_timers_json_vide(self):
+    def test_list_timers_json_vide(self) -> None:
         """Vérifie le parsing d'une liste JSON vide."""
         manager = self._make_manager()
         manager.executor._run_systemctl.return_value = MagicMock(
@@ -268,7 +269,7 @@ class TestLinuxUserTimerListTimers:
         result = manager.list_timers()
         assert result == []
 
-    def test_list_timers_fallback_texte(self):
+    def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
             returncode=1, stdout="",
@@ -287,7 +288,7 @@ class TestLinuxUserTimerListTimers:
         assert len(result) == 1
         assert result[0]["unit"] == "user.timer"
 
-    def test_list_timers_erreur_subprocess(self):
+    def test_list_timers_erreur_subprocess(self) -> None:
         """Vérifie que RuntimeError est levée sur erreur."""
         manager = self._make_manager()
         manager.executor._run_systemctl.return_value = MagicMock(
@@ -296,7 +297,7 @@ class TestLinuxUserTimerListTimers:
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
 
-    def test_list_timers_systemctl_introuvable(self):
+    def test_list_timers_systemctl_introuvable(self) -> None:
         """Vérifie RuntimeError si systemctl n'existe pas."""
         manager = self._make_manager()
         manager.executor._run_systemctl.side_effect = FileNotFoundError(
@@ -305,7 +306,7 @@ class TestLinuxUserTimerListTimers:
         with pytest.raises(RuntimeError, match="Impossible"):
             manager.list_timers()
 
-    def test_list_timers_os_error(self):
+    def test_list_timers_os_error(self) -> None:
         """Vérifie RuntimeError sur OSError."""
         manager = self._make_manager()
         manager.executor._run_systemctl.side_effect = OSError(
@@ -318,7 +319,9 @@ class TestLinuxUserTimerListTimers:
 class TestLinuxTimerUnitManagerSuccessPaths:
     """Tests pour les chemins succès de LinuxTimerUnitManager."""
 
-    def _make_manager(self, tmp_path):
+    def _make_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxTimerUnitManager, MagicMock, MagicMock]:
         """Crée un manager avec mocks et répertoire temporaire."""
         logger = MagicMock()
         executor = MagicMock()
@@ -330,7 +333,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         return manager, logger, executor
 
-    def test_install_timer_unit_succes(self, tmp_path):
+    def test_install_timer_unit_succes(self, tmp_path: Path) -> None:
         """install_timer_unit() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
         config = TimerConfig(
@@ -342,7 +345,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         assert result is True
         logger.log_info.assert_called()
 
-    def test_install_timer_unit_reload_echoue(self, tmp_path):
+    def test_install_timer_unit_reload_echoue(self, tmp_path: Path) -> None:
         """install_timer_unit() retourne False si reload_systemd échoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
@@ -354,14 +357,14 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         result = manager.install_timer_unit(config)
         assert result is False
 
-    def test_enable_timer_appelle_executor(self, tmp_path):
+    def test_enable_timer_appelle_executor(self, tmp_path: Path) -> None:
         """enable_timer() appelle executor.enable_unit()."""
         manager, _, executor = self._make_manager(tmp_path)
         result = manager.enable_timer("backup")
         assert result is True
         executor.enable_unit.assert_called_once_with("backup.timer")
 
-    def test_disable_timer_appelle_executor(self, tmp_path):
+    def test_disable_timer_appelle_executor(self, tmp_path: Path) -> None:
         """disable_timer() appelle executor.disable_unit()."""
         manager, _, executor = self._make_manager(tmp_path)
         result = manager.disable_timer("backup")
@@ -370,7 +373,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
             "backup.timer", ignore_errors=False
         )
 
-    def test_remove_timer_unit_succes(self, tmp_path):
+    def test_remove_timer_unit_succes(self, tmp_path: Path) -> None:
         """remove_timer_unit() retourne True en cas de succès."""
         timer_file = tmp_path / "backup.timer"
         timer_file.write_text("[Unit]\n")
@@ -379,26 +382,26 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         assert result is True
         logger.log_info.assert_called()
 
-    def test_get_timer_status_retourne_statut(self, tmp_path):
+    def test_get_timer_status_retourne_statut(self, tmp_path: Path) -> None:
         """get_timer_status() retourne le statut via l'executor."""
         manager, _, executor = self._make_manager(tmp_path)
         status = manager.get_timer_status("backup")
         assert status == "active"
         executor.get_status.assert_called_once_with("backup.timer")
 
-    def test_is_timer_active_retourne_true(self, tmp_path):
+    def test_is_timer_active_retourne_true(self, tmp_path: Path) -> None:
         """is_timer_active() retourne True si statut == 'active'."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.get_status.return_value = "active"
         assert manager.is_timer_active("backup") is True
 
-    def test_is_timer_active_retourne_false(self, tmp_path):
+    def test_is_timer_active_retourne_false(self, tmp_path: Path) -> None:
         """is_timer_active() retourne False si inactif."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.get_status.return_value = "inactive"
         assert manager.is_timer_active("backup") is False
 
-    def test_list_timers_json_invalide_fallback(self):
+    def test_list_timers_json_invalide_fallback(self) -> None:
         """list_timers() fallback texte si JSON invalide."""
         json_fail = MagicMock(returncode=0, stdout="invalid-json", stderr="")
         text_output = (
@@ -413,7 +416,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         assert len(result) == 1
         assert result[0]["unit"] == "cron.timer"
 
-    def test_list_timers_fallback_texte_os_error(self):
+    def test_list_timers_fallback_texte_os_error(self) -> None:
         """_list_timers_text_fallback lève RuntimeError si OSError."""
         fail_result = MagicMock(
             returncode=1, stdout="", stderr="unknown option '--output=json'"
@@ -426,7 +429,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         with pytest.raises(RuntimeError, match="Impossible"):
             manager.list_timers()
 
-    def test_list_timers_fallback_texte_returncode_nonzero(self):
+    def test_list_timers_fallback_texte_returncode_nonzero(self) -> None:
         """_list_timers_text_fallback lève RuntimeError si returncode != 0."""
         fail_result = MagicMock(
             returncode=1, stdout="", stderr="unknown option '--output=json'"
@@ -444,7 +447,9 @@ class TestLinuxTimerUnitManagerSuccessPaths:
 class TestLinuxUserTimerUnitManagerSuccessPaths:
     """Tests pour les chemins succès de LinuxUserTimerUnitManager."""
 
-    def _make_manager(self, tmp_path):
+    def _make_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxUserTimerUnitManager, MagicMock, MagicMock]:
         """Crée un manager utilisateur avec mocks."""
         logger = MagicMock()
         executor = MagicMock()
@@ -456,7 +461,9 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         manager._unit_path = str(tmp_path)
         return manager, logger, executor
 
-    def test_install_timer_unit_rejette_caractere_controle(self, tmp_path):
+    def test_install_timer_unit_rejette_caractere_controle(
+        self, tmp_path: Path
+    ) -> None:
         """install_timer_unit() lève ValueError si description contient \\n."""
         manager, _, _ = self._make_manager(tmp_path)
         config = TimerConfig(
@@ -467,7 +474,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         with pytest.raises(ValueError, match="contrôle"):
             manager.install_timer_unit(config)
 
-    def test_install_timer_unit_succes(self, tmp_path):
+    def test_install_timer_unit_succes(self, tmp_path: Path) -> None:
         """install_timer_unit() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
         config = TimerConfig(
@@ -479,7 +486,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         assert result is True
         logger.log_info.assert_called()
 
-    def test_install_timer_unit_reload_echoue(self, tmp_path):
+    def test_install_timer_unit_reload_echoue(self, tmp_path: Path) -> None:
         """install_timer_unit() retourne False si reload_systemd échoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
@@ -490,14 +497,14 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         result = manager.install_timer_unit(config)
         assert result is False
 
-    def test_enable_timer_appelle_executor(self, tmp_path):
+    def test_enable_timer_appelle_executor(self, tmp_path: Path) -> None:
         """enable_timer() appelle executor.enable_unit()."""
         manager, _, executor = self._make_manager(tmp_path)
         result = manager.enable_timer("backup")
         assert result is True
         executor.enable_unit.assert_called_once_with("backup.timer")
 
-    def test_disable_timer_appelle_executor(self, tmp_path):
+    def test_disable_timer_appelle_executor(self, tmp_path: Path) -> None:
         """disable_timer() appelle executor.disable_unit()."""
         manager, _, executor = self._make_manager(tmp_path)
         result = manager.disable_timer("backup")
@@ -506,7 +513,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
             "backup.timer", ignore_errors=False
         )
 
-    def test_remove_timer_unit_succes(self, tmp_path):
+    def test_remove_timer_unit_succes(self, tmp_path: Path) -> None:
         """remove_timer_unit() retourne True en cas de succès."""
         timer_file = tmp_path / "backup.timer"
         timer_file.write_text("[Unit]\n")
@@ -515,26 +522,26 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         assert result is True
         logger.log_info.assert_called()
 
-    def test_get_timer_status_retourne_statut(self, tmp_path):
+    def test_get_timer_status_retourne_statut(self, tmp_path: Path) -> None:
         """get_timer_status() retourne le statut via l'executor."""
         manager, _, executor = self._make_manager(tmp_path)
         status = manager.get_timer_status("backup")
         assert status == "active"
         executor.get_status.assert_called_once_with("backup.timer")
 
-    def test_is_timer_active_retourne_true(self, tmp_path):
+    def test_is_timer_active_retourne_true(self, tmp_path: Path) -> None:
         """is_timer_active() retourne True si actif."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.get_status.return_value = "active"
         assert manager.is_timer_active("backup") is True
 
-    def test_is_timer_active_retourne_false(self, tmp_path):
+    def test_is_timer_active_retourne_false(self, tmp_path: Path) -> None:
         """is_timer_active() retourne False si inactif."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.get_status.return_value = "inactive"
         assert manager.is_timer_active("backup") is False
 
-    def test_list_timers_json_invalide_fallback(self):
+    def test_list_timers_json_invalide_fallback(self) -> None:
         """list_timers() fallback texte si JSON invalide."""
         json_fail = MagicMock(returncode=0, stdout="not-json", stderr="")
         text_output = (
@@ -549,7 +556,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         assert len(result) == 1
         assert result[0]["unit"] == "user.timer"
 
-    def test_list_timers_fallback_texte_os_error(self):
+    def test_list_timers_fallback_texte_os_error(self) -> None:
         """_list_timers_text_fallback lève RuntimeError si OSError."""
         fail_result = MagicMock(
             returncode=1, stdout="", stderr="unknown option '--output=json'"
@@ -562,7 +569,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         with pytest.raises(RuntimeError, match="Impossible"):
             manager.list_timers()
 
-    def test_list_timers_fallback_texte_returncode_nonzero(self):
+    def test_list_timers_fallback_texte_returncode_nonzero(self) -> None:
         """_list_timers_text_fallback lève RuntimeError si returncode != 0."""
         fail_result = MagicMock(
             returncode=1, stdout="", stderr="unknown option '--output=json'"
@@ -580,7 +587,9 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
 class TestRemoveTimerLogWarning:
     """Tests pour log_warning dans remove_timer_unit() si disable échoue."""
 
-    def _make_manager(self, tmp_path):
+    def _make_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxTimerUnitManager, MagicMock, MagicMock]:
         """Crée un manager avec mocks."""
         logger = MagicMock()
         executor = MagicMock()
@@ -590,7 +599,9 @@ class TestRemoveTimerLogWarning:
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         return manager, logger, executor
 
-    def _make_user_manager(self, tmp_path):
+    def _make_user_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxUserTimerUnitManager, MagicMock, MagicMock]:
         """Crée un manager utilisateur avec mocks."""
         logger = MagicMock()
         executor = MagicMock()
@@ -601,8 +612,8 @@ class TestRemoveTimerLogWarning:
         return manager, logger, executor
 
     def test_remove_timer_unit_logue_warning_si_disable_echoue(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """remove_timer_unit() logue un warning si disable échoue."""
         manager, logger, executor = self._make_manager(tmp_path)
         executor.disable_unit.return_value = False
@@ -616,8 +627,8 @@ class TestRemoveTimerLogWarning:
         assert "backup" in logger.log_warning.call_args[0][0]
 
     def test_remove_timer_unit_pas_de_warning_si_disable_reussit(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """remove_timer_unit() ne logue pas de warning si disable réussit."""
         manager, logger, executor = self._make_manager(tmp_path)
         executor.disable_unit.return_value = True
@@ -629,8 +640,8 @@ class TestRemoveTimerLogWarning:
         logger.log_warning.assert_not_called()
 
     def test_user_remove_timer_unit_logue_warning_si_disable_echoue(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """LinuxUserTimerUnitManager: log_warning si disable échoue."""
         manager, logger, executor = self._make_user_manager(tmp_path)
         executor.disable_unit.return_value = False
@@ -643,8 +654,8 @@ class TestRemoveTimerLogWarning:
         logger.log_warning.assert_called_once()
 
     def test_user_remove_timer_unit_pas_de_warning_si_disable_reussit(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """LinuxUserTimerUnitManager: pas de warning si disable réussit."""
         manager, logger, executor = self._make_user_manager(tmp_path)
         executor.disable_unit.return_value = True
@@ -659,7 +670,7 @@ class TestRemoveTimerLogWarning:
 class TestTimerToUnitFileSecurite:
     """Tests de sécurité : rejet des caractères de contrôle dans TimerConfig."""
 
-    def test_rejette_newline_dans_description(self):
+    def test_rejette_newline_dans_description(self) -> None:
         """to_unit_file lève ValueError si description contient \\n."""
         from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(
@@ -670,7 +681,7 @@ class TestTimerToUnitFileSecurite:
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
 
-    def test_rejette_newline_dans_on_calendar(self):
+    def test_rejette_newline_dans_on_calendar(self) -> None:
         """to_unit_file lève ValueError si on_calendar contient \\n."""
         from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(
@@ -681,7 +692,7 @@ class TestTimerToUnitFileSecurite:
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
 
-    def test_rejette_newline_dans_unit(self):
+    def test_rejette_newline_dans_unit(self) -> None:
         """to_unit_file lève ValueError si unit contient \\n."""
         from linuxtools.systemd.base import TimerConfig
         config = TimerConfig(

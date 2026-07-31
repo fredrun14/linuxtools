@@ -2,6 +2,7 @@
 
 import os
 import stat
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,7 +38,7 @@ def _grp_entry(gid: int) -> MagicMock:
 
 
 @pytest.fixture
-def mock_getgrnam():
+def mock_getgrnam() -> Iterator[MagicMock]:
     """Patch grp.getgrnam → GID 1001 pour 'ff_home'."""
     with patch(
         "linuxtools.validation"
@@ -50,7 +51,9 @@ def mock_getgrnam():
 class TestPathCheckerGroupAccess:
     """Tests pour PathCheckerGroupAccess."""
 
-    def test_validate_répertoire_valide(self, mock_getgrnam) -> None:
+    def test_validate_répertoire_valide(
+        self, mock_getgrnam: MagicMock
+    ) -> None:
         """validate() silencieux si groupe, rwx et setgid corrects."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
@@ -60,7 +63,9 @@ class TestPathCheckerGroupAccess:
         ):
             checker.validate()
 
-    def test_validate_répertoire_inexistant(self, mock_getgrnam) -> None:
+    def test_validate_répertoire_inexistant(
+        self, mock_getgrnam: MagicMock
+    ) -> None:
         """FileNotFoundError si le répertoire n'existe pas."""
         checker = PathCheckerGroupAccess("/inexistant", "ff_home")
         with patch(
@@ -82,7 +87,9 @@ class TestPathCheckerGroupAccess:
             with pytest.raises(KeyError):
                 checker.validate()
 
-    def test_validate_mauvais_groupe(self, mock_getgrnam) -> None:
+    def test_validate_mauvais_groupe(
+        self, mock_getgrnam: MagicMock
+    ) -> None:
         """PermissionError si le répertoire n'appartient pas au groupe."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
@@ -94,7 +101,7 @@ class TestPathCheckerGroupAccess:
                 checker.validate()
 
     def test_validate_message_mauvais_groupe_contient_gids(
-        self, mock_getgrnam
+        self, mock_getgrnam: MagicMock
     ) -> None:
         """Le message indique le groupe réel et le groupe attendu."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
@@ -114,7 +121,9 @@ class TestPathCheckerGroupAccess:
                 assert "9999" in msg
                 assert str(GID_FF_HOME) in msg
 
-    def test_validate_permissions_w_manquant(self, mock_getgrnam) -> None:
+    def test_validate_permissions_w_manquant(
+        self, mock_getgrnam: MagicMock
+    ) -> None:
         """PermissionError si le bit w est absent pour le groupe."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
@@ -127,7 +136,7 @@ class TestPathCheckerGroupAccess:
                 checker.validate()
 
     def test_validate_permissions_message_contient_chmod(
-        self, mock_getgrnam
+        self, mock_getgrnam: MagicMock
     ) -> None:
         """Le message d'erreur inclut la commande chmod corrective."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
@@ -142,7 +151,7 @@ class TestPathCheckerGroupAccess:
             assert "chmod g+" in str(exc_info.value)
 
     def test_validate_setgid_absent_leve_si_requis(
-        self, mock_getgrnam
+        self, mock_getgrnam: MagicMock
     ) -> None:
         """PermissionError si setgid absent et require_setgid=True."""
         checker = PathCheckerGroupAccess(
@@ -158,7 +167,7 @@ class TestPathCheckerGroupAccess:
                 checker.validate()
 
     def test_validate_setgid_absent_ignoré_si_non_requis(
-        self, mock_getgrnam
+        self, mock_getgrnam: MagicMock
     ) -> None:
         """validate() silencieux si setgid absent et require_setgid=False."""
         checker = PathCheckerGroupAccess(
@@ -173,7 +182,7 @@ class TestPathCheckerGroupAccess:
             checker.validate()
 
     def test_validate_setgid_message_contient_chmod_gs(
-        self, mock_getgrnam
+        self, mock_getgrnam: MagicMock
     ) -> None:
         """Le message setgid inclut la commande chmod g+s corrective."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")

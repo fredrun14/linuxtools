@@ -1,8 +1,9 @@
 """Tests pour le repository JSON de peripheriques."""
 
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
-
 
 from linuxtools.network.models import NetworkDevice
 from linuxtools.network.repository import (
@@ -13,7 +14,7 @@ from linuxtools.network.repository import (
 def _device(
     ip: str = "192.168.1.1",
     mac: str = "aa:bb:cc:dd:ee:ff",
-    **kwargs,
+    **kwargs: Any,
 ) -> NetworkDevice:
     """Cree un NetworkDevice pour les tests."""
     return NetworkDevice(ip=ip, mac=mac, **kwargs)
@@ -22,7 +23,7 @@ def _device(
 class TestJsonDeviceRepository:
     """Tests pour JsonDeviceRepository."""
 
-    def test_save_puis_load(self, tmp_path) -> None:
+    def test_save_puis_load(self, tmp_path: Path) -> None:
         """Sauvegarder puis recharger 3 peripheriques."""
         path = tmp_path / "devices.json"
         repo = JsonDeviceRepository(str(path))
@@ -38,14 +39,14 @@ class TestJsonDeviceRepository:
         assert loaded[2].mac == "aa:bb:cc:dd:ee:03"
 
     def test_load_fichier_inexistant(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Fichier inexistant retourne liste vide."""
         path = tmp_path / "absent.json"
         repo = JsonDeviceRepository(str(path))
         assert repo.load() == []
 
-    def test_load_fichier_vide(self, tmp_path) -> None:
+    def test_load_fichier_vide(self, tmp_path: Path) -> None:
         """Fichier vide retourne liste vide."""
         path = tmp_path / "empty.json"
         path.write_text("")
@@ -53,7 +54,7 @@ class TestJsonDeviceRepository:
         assert repo.load() == []
 
     def test_find_by_mac_existant(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Trouve un peripherique par MAC."""
         path = tmp_path / "devices.json"
@@ -67,7 +68,7 @@ class TestJsonDeviceRepository:
         assert found.ip == "192.168.1.2"
 
     def test_find_by_mac_inexistant(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """MAC inexistante retourne None."""
         path = tmp_path / "devices.json"
@@ -76,7 +77,7 @@ class TestJsonDeviceRepository:
         assert repo.find_by_mac("ff:ff:ff:ff:ff:ff") is None
 
     def test_find_by_mac_normalise(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Recherche MAC insensible a la casse."""
         path = tmp_path / "devices.json"
@@ -86,7 +87,7 @@ class TestJsonDeviceRepository:
         assert found is not None
 
     def test_find_by_ip_existant(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Trouve un peripherique par IP."""
         path = tmp_path / "devices.json"
@@ -97,7 +98,7 @@ class TestJsonDeviceRepository:
         assert found.mac == "aa:bb:cc:dd:ee:ff"
 
     def test_find_by_ip_inexistant(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """IP inexistante retourne None."""
         path = tmp_path / "devices.json"
@@ -211,7 +212,7 @@ class TestJsonDeviceRepository:
         )
         assert merged[0].ip == "192.168.1.7"
 
-    def test_json_encoding_utf8(self, tmp_path) -> None:
+    def test_json_encoding_utf8(self, tmp_path: Path) -> None:
         """Caracteres accentues preserves."""
         path = tmp_path / "devices.json"
         repo = JsonDeviceRepository(str(path))
@@ -222,7 +223,7 @@ class TestJsonDeviceRepository:
         assert "accentue" in content
         assert "\\u" not in content
 
-    def test_json_datetime_iso(self, tmp_path) -> None:
+    def test_json_datetime_iso(self, tmp_path: Path) -> None:
         """Datetimes au format ISO 8601."""
         path = tmp_path / "devices.json"
         repo = JsonDeviceRepository(str(path))
@@ -237,7 +238,7 @@ class TestJsonDeviceRepository:
 class TestJsonDeviceRepositoryAvecLogger:
     """Tests avec logger pour JsonDeviceRepository."""
 
-    def test_load_avec_logger(self, tmp_path) -> None:
+    def test_load_avec_logger(self, tmp_path: Path) -> None:
         """load() appelle logger.log_info si logger present."""
         path = tmp_path / "devices.json"
         repo_sans_logger = JsonDeviceRepository(str(path))
@@ -250,7 +251,7 @@ class TestJsonDeviceRepositoryAvecLogger:
         assert len(result) == 1
         logger.log_info.assert_called_once()
 
-    def test_save_avec_logger(self, tmp_path) -> None:
+    def test_save_avec_logger(self, tmp_path: Path) -> None:
         """save() appelle logger.log_info si logger present."""
         path = tmp_path / "devices.json"
         logger = MagicMock()
@@ -264,7 +265,7 @@ class TestJsonDeviceRepositoryRobustesse:
     """Tests robustesse : écriture atomique et lecture tolérante."""
 
     def test_save_inventaire_atomique(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """save() écrit de façon atomique (aucun tmp après succès)."""
         path = tmp_path / "devices.json"
@@ -275,7 +276,7 @@ class TestJsonDeviceRepositoryRobustesse:
         assert tmps == []
 
     def test_load_json_corrompu_retourne_liste_vide(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Fichier JSON corrompu retourne une liste vide."""
         path = tmp_path / "corrupt.json"
@@ -284,7 +285,7 @@ class TestJsonDeviceRepositoryRobustesse:
         assert repo.load() == []
 
     def test_load_json_corrompu_logue_warning(
-        self, tmp_path
+        self, tmp_path: Path
     ) -> None:
         """Fichier JSON corrompu logue un warning si logger présent."""
         path = tmp_path / "corrupt.json"

@@ -1,6 +1,7 @@
 """Tests pour le module validation."""
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -15,18 +16,18 @@ from linuxtools.validation import (
 class TestPathChecker:
     """Tests pour PathChecker."""
 
-    def test_validate_accessible_paths(self, tmp_path):
+    def test_validate_accessible_paths(self, tmp_path: Path) -> None:
         """Vérifie que la validation passe pour des chemins accessibles."""
         checker = PathChecker([str(tmp_path / "file.txt")])
         checker.validate()
 
-    def test_validate_nonexistent_directory(self):
+    def test_validate_nonexistent_directory(self) -> None:
         """Vérifie ValueError si le répertoire parent n'existe pas."""
         checker = PathChecker(["/nonexistent/dir/file.log"])
         with pytest.raises(ValueError, match="n'existe pas"):
             checker.validate()
 
-    def test_validate_multiple_paths(self, tmp_path):
+    def test_validate_multiple_paths(self, tmp_path: Path) -> None:
         """Vérifie la validation avec plusieurs chemins valides."""
         paths = [
             str(tmp_path / "file1.txt"),
@@ -35,7 +36,7 @@ class TestPathChecker:
         checker = PathChecker(paths)
         checker.validate()
 
-    def test_validate_stops_at_first_error(self, tmp_path):
+    def test_validate_stops_at_first_error(self, tmp_path: Path) -> None:
         """Vérifie que la validation s'arrête à la première erreur."""
         paths = [
             str(tmp_path / "valid.txt"),
@@ -49,18 +50,18 @@ class TestPathChecker:
 class TestPathCheckerPermission:
     """Tests pour PathCheckerPermission."""
 
-    def test_validate_accessible_paths(self, tmp_path):
+    def test_validate_accessible_paths(self, tmp_path: Path) -> None:
         """Vérifie que la validation passe pour un répertoire accessible."""
         checker = PathCheckerPermission([str(tmp_path / "file.txt")])
         checker.validate()
 
-    def test_validate_nonexistent_directory(self):
+    def test_validate_nonexistent_directory(self) -> None:
         """Vérifie ValueError si le répertoire parent n'existe pas."""
         checker = PathCheckerPermission(["/nonexistent/dir/file.log"])
         with pytest.raises(ValueError, match="n'existe pas"):
             checker.validate()
 
-    def test_validate_no_write_permission(self, tmp_path):
+    def test_validate_no_write_permission(self, tmp_path: Path) -> None:
         """Vérifie PermissionError si l'écriture est impossible."""
         checker = PathCheckerPermission([str(tmp_path / "file.log")])
         with patch(
@@ -77,7 +78,9 @@ class TestPathCheckerPermission:
 class TestPathCheckerWorldWritable:
     """Tests pour PathCheckerWorldWritable."""
 
-    def test_fichier_non_world_writable_valide(self, tmp_path):
+    def test_fichier_non_world_writable_valide(
+        self, tmp_path: Path
+    ) -> None:
         """validate() ne lève pas d'exception si non world-writable."""
         f = tmp_path / "secure.conf"
         f.write_text("config")
@@ -85,7 +88,9 @@ class TestPathCheckerWorldWritable:
         checker = PathCheckerWorldWritable(str(f))
         checker.validate()  # Ne doit pas lever d'exception
 
-    def test_fichier_world_writable_leve_permission_error(self, tmp_path):
+    def test_fichier_world_writable_leve_permission_error(
+        self, tmp_path: Path
+    ) -> None:
         """validate() lève PermissionError si le fichier est world-writable."""
         f = tmp_path / "dangereux.conf"
         f.write_text("config")
@@ -94,7 +99,9 @@ class TestPathCheckerWorldWritable:
         with pytest.raises(PermissionError, match="world-writable"):
             checker.validate()
 
-    def test_fichier_inexistant_leve_file_not_found(self, tmp_path):
+    def test_fichier_inexistant_leve_file_not_found(
+        self, tmp_path: Path
+    ) -> None:
         """validate() lève FileNotFoundError si le fichier n'existe pas."""
         checker = PathCheckerWorldWritable(
             str(tmp_path / "inexistant.conf")
@@ -102,7 +109,9 @@ class TestPathCheckerWorldWritable:
         with pytest.raises(FileNotFoundError, match="introuvable"):
             checker.validate()
 
-    def test_world_writable_ne_suit_pas_symlink(self, tmp_path):
+    def test_world_writable_ne_suit_pas_symlink(
+        self, tmp_path: Path
+    ) -> None:
         """lstat() ne suit pas les liens symboliques (TOCTOU-safe).
 
         Un lien symbolique a les bits 0o777 sur Linux, donc il est

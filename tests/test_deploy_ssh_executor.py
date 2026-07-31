@@ -30,19 +30,19 @@ def _make_local_mock(
 class TestSshCommandExecutorInit:
     """Tests pour l'initialisation de SshCommandExecutor."""
 
-    def test_refuse_une_cible_locale(self):
+    def test_refuse_une_cible_locale(self) -> None:
         """Lève ValueError si la cible n'a pas de host."""
         with pytest.raises(ValueError, match="distante"):
             SshCommandExecutor(DeployTarget())
 
-    def test_accepte_une_cible_distante(self):
+    def test_accepte_une_cible_distante(self) -> None:
         """S'initialise sans erreur avec une cible distante."""
         executor = SshCommandExecutor(
             DeployTarget(host="srv01"), local_executor=_make_local_mock()
         )
         assert executor is not None
 
-    def test_cree_un_linux_command_executor_par_defaut(self):
+    def test_cree_un_linux_command_executor_par_defaut(self) -> None:
         """Un LinuxCommandExecutor local est créé si non fourni."""
         executor = SshCommandExecutor(DeployTarget(host="srv01"))
         assert executor._local is not None
@@ -51,7 +51,7 @@ class TestSshCommandExecutorInit:
 class TestSshCommandExecutorRun:
     """Tests pour SshCommandExecutor.run()."""
 
-    def test_enveloppe_la_commande_avec_ssh(self):
+    def test_enveloppe_la_commande_avec_ssh(self) -> None:
         """La commande est préfixée par ssh <destination> -- <cmd>."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -66,7 +66,7 @@ class TestSshCommandExecutorRun:
         assert called_cmd[-2] == "--"
         assert called_cmd[-1] == "echo hello"
 
-    def test_inclut_les_options_ssh(self):
+    def test_inclut_les_options_ssh(self) -> None:
         """Les ssh_options sont insérées avant la destination."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -80,7 +80,7 @@ class TestSshCommandExecutorRun:
             "ssh", "-p", "2222", "srv01", "--", "ls",
         ]
 
-    def test_cwd_injecte_dans_la_commande_distante(self):
+    def test_cwd_injecte_dans_la_commande_distante(self) -> None:
         """cwd devient un préfixe `cd <cwd> &&` côté distant."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -91,7 +91,7 @@ class TestSshCommandExecutorRun:
         called_cmd = local.run.call_args.args[0]
         assert called_cmd[-1] == "cd /opt/app && ls"
 
-    def test_cwd_avec_espace_est_shell_quote(self):
+    def test_cwd_avec_espace_est_shell_quote(self) -> None:
         """Un cwd contenant un espace est protégé par shlex.quote."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -102,7 +102,7 @@ class TestSshCommandExecutorRun:
         called_cmd = local.run.call_args.args[0]
         assert "'/opt/mon app'" in called_cmd[-1]
 
-    def test_env_injecte_dans_la_commande_distante(self):
+    def test_env_injecte_dans_la_commande_distante(self) -> None:
         """env devient un `export K=V` chaîné à la commande par
         `&&` (correctif #4 : jamais `;`, pour ne pas exécuter la
         commande si l'export échoue)."""
@@ -115,7 +115,7 @@ class TestSshCommandExecutorRun:
         called_cmd = local.run.call_args.args[0]
         assert "export MY_VAR=42 && ls" in called_cmd[-1]
 
-    def test_cwd_et_env_sont_chaines_par_et_et(self):
+    def test_cwd_et_env_sont_chaines_par_et_et(self) -> None:
         """cwd+env : tous les segments (cd, export, commande) sont
         chaînés par `&&`, jamais `;` — si le cd échoue, la commande
         ne doit pas s'exécuter (correctif #4, BLOQUANT sécurité)."""
@@ -131,7 +131,7 @@ class TestSshCommandExecutorRun:
         )
         assert ";" not in called_cmd[-1]
 
-    def test_env_avec_injection_shell_est_neutralisee(self):
+    def test_env_avec_injection_shell_est_neutralisee(self) -> None:
         """Une valeur env malicieuse est neutralisée par shlex.quote."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -143,7 +143,7 @@ class TestSshCommandExecutorRun:
         # La valeur dangereuse doit être shell-quotée, pas interprétée
         assert "'$(rm -rf /)'" in called_cmd[-1]
 
-    def test_ne_passe_pas_cwd_env_au_local_executor(self):
+    def test_ne_passe_pas_cwd_env_au_local_executor(self) -> None:
         """cwd/env ne sont jamais transmis à l'exécuteur local ssh.
 
         Piège classique documenté dans le plan : cwd/env doivent
@@ -163,7 +163,7 @@ class TestSshCommandExecutorRun:
         assert "env" not in call_kwargs
         assert call_kwargs["timeout"] == 30
 
-    def test_retourne_le_resultat_du_local_executor(self):
+    def test_retourne_le_resultat_du_local_executor(self) -> None:
         """run() retourne tel quel le CommandResult du local executor."""
         local = _make_local_mock(return_code=1, stderr="échec ssh")
         executor = SshCommandExecutor(
@@ -178,13 +178,13 @@ class TestSshCommandExecutorRun:
 class TestSshCommandExecutorProbe:
     """Tests pour l'héritage de probe() par SshCommandExecutor."""
 
-    def test_probe_est_herite_sans_redefinition(self):
+    def test_probe_est_herite_sans_redefinition(self) -> None:
         """probe() n'est pas redéfinie : héritée de CommandExecutor."""
         assert (
             "probe" not in SshCommandExecutor.__dict__
         )
 
-    def test_probe_delegue_a_run_avec_probe_true(self):
+    def test_probe_delegue_a_run_avec_probe_true(self) -> None:
         """probe() appelle self.run(..., probe=True), donc _wrap()
         puis le local executor avec probe=True."""
         local = _make_local_mock(stdout="paquet installé")
@@ -201,7 +201,7 @@ class TestSshCommandExecutorProbe:
         assert called_cmd[-1] == "rpm -q vim"
         assert result.stdout == "paquet installé"
 
-    def test_probe_propage_le_resultat_du_local_executor(self):
+    def test_probe_propage_le_resultat_du_local_executor(self) -> None:
         """probe() retourne tel quel le CommandResult du local."""
         local = _make_local_mock(return_code=1, stderr="absent")
         executor = SshCommandExecutor(
@@ -217,7 +217,7 @@ class TestSshCommandExecutorProbe:
 class TestSshCommandExecutorRunStreaming:
     """Tests pour SshCommandExecutor.run_streaming()."""
 
-    def test_delegue_a_run_streaming_local(self):
+    def test_delegue_a_run_streaming_local(self) -> None:
         """run_streaming() délègue au run_streaming du local executor."""
         local = _make_local_mock()
         executor = SshCommandExecutor(
@@ -231,7 +231,7 @@ class TestSshCommandExecutorRunStreaming:
         assert "cwd" not in call_kwargs
         assert "env" not in call_kwargs
 
-    def test_enveloppe_la_commande_avec_ssh(self):
+    def test_enveloppe_la_commande_avec_ssh(self) -> None:
         """La commande streaming est aussi enveloppée par ssh."""
         local = _make_local_mock()
         executor = SshCommandExecutor(

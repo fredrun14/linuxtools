@@ -6,6 +6,7 @@ import os
 import stat
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,7 +41,9 @@ class _ConfigANotationPointee:
         """Stocke les valeurs simulées, indexées par clé pointée."""
         self._valeurs = valeurs
 
-    def get(self, key_path, default=None):
+    def get(
+        self, key_path: str, default: Any = None
+    ) -> Any:  # noqa: ANN401
         """Retourne la valeur associée à ``key_path``, ou ``default``."""
         return self._valeurs.get(key_path, default)
 
@@ -70,14 +73,14 @@ class TestBaseFileLogger:
 class TestFileLogger:
     """Tests pour FileLogger."""
 
-    def test_implements_logger_interface(self, tmp_path):
+    def test_implements_logger_interface(self, tmp_path: Path) -> None:
         """Vérifie que FileLogger implémente l'interface Logger."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
 
         assert isinstance(logger, Logger)
 
-    def test_log_info(self, tmp_path):
+    def test_log_info(self, tmp_path: Path) -> None:
         """Test du logging info."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -88,7 +91,7 @@ class TestFileLogger:
         assert "INFO" in content
         assert "Test message" in content
 
-    def test_log_warning(self, tmp_path):
+    def test_log_warning(self, tmp_path: Path) -> None:
         """Test du logging warning."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -99,7 +102,7 @@ class TestFileLogger:
         assert "WARNING" in content
         assert "Warning message" in content
 
-    def test_log_error(self, tmp_path):
+    def test_log_error(self, tmp_path: Path) -> None:
         """Test du logging error."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -110,7 +113,7 @@ class TestFileLogger:
         assert "ERROR" in content
         assert "Error message" in content
 
-    def test_creates_log_directory(self, tmp_path):
+    def test_creates_log_directory(self, tmp_path: Path) -> None:
         """Test que le répertoire de log est créé si nécessaire."""
         log_file = tmp_path / "subdir" / "test.log"
 
@@ -119,7 +122,7 @@ class TestFileLogger:
 
         assert log_file.exists()
 
-    def test_config_from_dict(self, tmp_path):
+    def test_config_from_dict(self, tmp_path: Path) -> None:
         """Test de la configuration depuis un dictionnaire."""
         log_file = tmp_path / "test.log"
         config = {
@@ -135,7 +138,7 @@ class TestFileLogger:
         content = log_file.read_text()
         assert "INFO - Test" in content
 
-    def test_utf8_encoding(self, tmp_path):
+    def test_utf8_encoding(self, tmp_path: Path) -> None:
         """Test de l'encodage UTF-8."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -145,7 +148,7 @@ class TestFileLogger:
         content = log_file.read_text(encoding='utf-8')
         assert "éàü" in content
 
-    def test_log_to_file_direct(self, tmp_path):
+    def test_log_to_file_direct(self, tmp_path: Path) -> None:
         """Test de l'écriture directe sans formatage."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -155,7 +158,7 @@ class TestFileLogger:
         content = log_file.read_text()
         assert "Direct message" in content
 
-    def test_fichier_log_cree_en_0600(self, tmp_path):
+    def test_fichier_log_cree_en_0600(self, tmp_path: Path) -> None:
         """Le fichier log est créé avec les permissions 0o600."""
         log_file = tmp_path / "secure.log"
         FileLogger(str(log_file))
@@ -163,7 +166,7 @@ class TestFileLogger:
         mode = stat.S_IMODE(os.stat(str(log_file)).st_mode)
         assert mode == 0o600
 
-    def test_log_refuse_symlink(self, tmp_path):
+    def test_log_refuse_symlink(self, tmp_path: Path) -> None:
         """FileLogger lève OSError si le chemin est un symlink (O_NOFOLLOW)."""
         target = tmp_path / "real.log"
         link = tmp_path / "link.log"
@@ -172,20 +175,22 @@ class TestFileLogger:
         with pytest.raises(OSError):
             FileLogger(str(link))
 
-    def test_log_level_invalide_leve_valueerror(self, tmp_path):
+    def test_log_level_invalide_leve_valueerror(self, tmp_path: Path) -> None:
         """Un niveau de log invalide lève ValueError."""
         log_file = str(tmp_path / "test.log")
 
         # ConfigurationManager-style : get() accepte la notation pointée
         class ConfigDotNotation:
             """Config avec notation pointée (simule ConfigurationManager)."""
-            def get(self, key, default=None):
+            def get(
+                self, key: str, default: Any = None
+            ) -> Any:  # noqa: ANN401
                 return {"logging.level": "VERBOSE"}.get(key, default)
 
         with pytest.raises(ValueError, match="VERBOSE"):
             FileLogger(log_file, config=ConfigDotNotation())
 
-    def test_accepte_path_en_parametre(self, tmp_path):
+    def test_accepte_path_en_parametre(self, tmp_path: Path) -> None:
         """FileLogger accepte un Path en plus d'un str."""
         log_file = tmp_path / "path_test.log"
         logger = FileLogger(log_file)
@@ -193,7 +198,7 @@ class TestFileLogger:
         assert log_file.exists()
         assert "via Path" in log_file.read_text()
 
-    def test_log_success_prefixe_success(self, tmp_path):
+    def test_log_success_prefixe_success(self, tmp_path: Path) -> None:
         """log_success écrit un message avec préfixe SUCCESS dans le fichier."""
         log_file = tmp_path / "test.log"
         logger = FileLogger(str(log_file))
@@ -202,8 +207,8 @@ class TestFileLogger:
         assert "SUCCESS: opération réussie" in content
 
     def test_file_logger_accepte_un_objet_a_notation_pointee(
-        self, tmp_path,
-    ):
+        self, tmp_path: Path,
+    ) -> None:
         """FileLogger accepte un objet get(key_path, default)."""
         log_file = tmp_path / "test.log"
         config = _ConfigANotationPointee({"logging.level": "WARNING"})
@@ -216,7 +221,7 @@ class TestFileLogger:
         assert "ne doit pas apparaître" not in content
         assert "doit apparaître" in content
 
-    def test_file_logger_accepte_toujours_un_dict(self, tmp_path):
+    def test_file_logger_accepte_toujours_un_dict(self, tmp_path: Path) -> None:
         """Non-régression : un dict reste accepté pour config."""
         log_file = tmp_path / "test.log"
         config = {"logging": {"level": "WARNING"}}
@@ -229,7 +234,7 @@ class TestFileLogger:
         assert "ne doit pas apparaître" not in content
         assert "doit apparaître" in content
 
-    def test_file_logger_accepte_toujours_none(self, tmp_path):
+    def test_file_logger_accepte_toujours_none(self, tmp_path: Path) -> None:
         """Non-régression : None reste accepté (niveau INFO par défaut)."""
         log_file = tmp_path / "test.log"
 
@@ -243,7 +248,7 @@ class TestFileLogger:
 class TestFileLoggerConsole:
     """Tests pour FileLogger avec sortie console et handlers dupliqués."""
 
-    def test_console_output_active(self, tmp_path):
+    def test_console_output_active(self, tmp_path: Path) -> None:
         """FileLogger avec console_output=True crée un StreamHandler."""
         log_file = str(tmp_path / "console.log")
         logger = FileLogger(log_file, console_output=True)
@@ -251,7 +256,7 @@ class TestFileLoggerConsole:
         assert len(logger.logger.handlers) == 2
         logger.log_info("Test console")
 
-    def test_logger_handler_existant_reutilise(self, tmp_path):
+    def test_logger_handler_existant_reutilise(self, tmp_path: Path) -> None:
         """Crée deux FileLogger sur le même fichier : handler réutilisé."""
         log_file = str(tmp_path / "shared.log")
         # Premier logger : crée les handlers dans le registre logging
@@ -262,13 +267,15 @@ class TestFileLoggerConsole:
         assert logger2.handler is not None
         logger2.log_info("Test handler réutilisé")
 
-    def test_config_objet_type_erreur(self, tmp_path):
+    def test_config_objet_type_erreur(self, tmp_path: Path) -> None:
         """FileLogger avec config dont get() lève TypeError."""
         log_file = str(tmp_path / "type_err.log")
 
         class ConfigTypeError:
             """Config dont get() lève TypeError pour les clés pointées."""
-            def get(self, key, default=None):
+            def get(
+                self, key: str, default: Any = None
+            ) -> Any:  # noqa: ANN401
                 # Simule un objet qui ne gère pas les clés en notation pointée
                 if "." in key:
                     raise TypeError("Clé pointée non supportée")
@@ -282,7 +289,7 @@ class TestFileLoggerConsole:
         content = (tmp_path / "type_err.log").read_text(encoding="utf-8")
         assert "Test avec TypeError" in content
 
-    def test_config_sans_methode_get(self, tmp_path):
+    def test_config_sans_methode_get(self, tmp_path: Path) -> None:
         """FileLogger avec config sans get() utilise les valeurs par defaut."""
         log_file = str(tmp_path / "test.log")
 
@@ -299,7 +306,7 @@ class TestFileLoggerConsole:
 class TestSecurityLogger:
     """Tests pour SecurityLogger et SecurityEvent."""
 
-    def test_log_event_info(self):
+    def test_log_event_info(self) -> None:
         """log_event avec severity='info' appelle log_info."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -313,7 +320,7 @@ class TestSecurityLogger:
         call_arg = mock_logger.log_info.call_args[0][0]
         assert "auth.success" in call_arg
 
-    def test_log_event_warning(self):
+    def test_log_event_warning(self) -> None:
         """log_event avec severity='warning' appelle log_warning."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -325,7 +332,7 @@ class TestSecurityLogger:
         sec_logger.log_event(event)
         mock_logger.log_warning.assert_called_once()
 
-    def test_log_event_error(self):
+    def test_log_event_error(self) -> None:
         """log_event avec severity='error' appelle log_error."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -337,7 +344,7 @@ class TestSecurityLogger:
         sec_logger.log_event(event)
         mock_logger.log_error.assert_called_once()
 
-    def test_log_event_critical(self):
+    def test_log_event_critical(self) -> None:
         """log_event avec severity='critical' appelle log_error."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -349,7 +356,7 @@ class TestSecurityLogger:
         sec_logger.log_event(event)
         mock_logger.log_error.assert_called_once()
 
-    def test_log_event_avec_user_id(self):
+    def test_log_event_avec_user_id(self) -> None:
         """log_event inclut user_id dans le payload JSON."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -364,7 +371,7 @@ class TestSecurityLogger:
         payload = json.loads(call_arg)
         assert payload["user_id"] == "admin"
 
-    def test_log_event_sans_user_id_pas_dans_payload(self):
+    def test_log_event_sans_user_id_pas_dans_payload(self) -> None:
         """log_event sans user_id n'inclut pas user_id dans le payload."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -377,7 +384,7 @@ class TestSecurityLogger:
         payload = json.loads(call_arg)
         assert "user_id" not in payload
 
-    def test_log_event_avec_details(self):
+    def test_log_event_avec_details(self) -> None:
         """log_event inclut les détails dans le payload JSON."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -392,7 +399,7 @@ class TestSecurityLogger:
         payload = json.loads(call_arg)
         assert payload["details"]["table"] == "users"
 
-    def test_log_event_debug_route_vers_log_info(self):
+    def test_log_event_debug_route_vers_log_info(self) -> None:
         """log_event avec severity='debug' est routé vers log_info."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -405,7 +412,7 @@ class TestSecurityLogger:
         mock_logger.log_warning.assert_not_called()
         mock_logger.log_error.assert_not_called()
 
-    def test_log_event_severite_inconnue_route_vers_log_info(self):
+    def test_log_event_severite_inconnue_route_vers_log_info(self) -> None:
         """Une sévérité inconnue est routée vers log_info sans lever."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)
@@ -416,7 +423,7 @@ class TestSecurityLogger:
         sec_logger.log_event(event)
         mock_logger.log_info.assert_called_once()
 
-    def test_security_logger_masque_les_cles_sensibles(self):
+    def test_security_logger_masque_les_cles_sensibles(self) -> None:
         """Les clés sensibles dans details sont remplacées par '***'."""
         mock_logger = MagicMock()
         sec_logger = SecurityLogger(mock_logger)

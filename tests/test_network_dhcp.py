@@ -1,5 +1,7 @@
 """Tests pour la gestion DHCP."""
 
+from typing import Any
+
 import pytest
 
 from linuxtools.network.config import (
@@ -30,7 +32,7 @@ def _config(
 def _device(
     ip: str = "192.168.1.1",
     mac: str = "aa:bb:cc:dd:ee:ff",
-    **kwargs,
+    **kwargs: Any,
 ) -> NetworkDevice:
     """Cree un NetworkDevice pour les tests."""
     return NetworkDevice(ip=ip, mac=mac, **kwargs)

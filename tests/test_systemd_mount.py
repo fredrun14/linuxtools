@@ -7,8 +7,9 @@ des classes MountConfig, AutomountConfig et LinuxMountUnitManager.
 import os
 import shutil
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -102,7 +103,7 @@ def mount_manager(
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Iterator[str]:
     """Fixture fournissant un répertoire temporaire."""
     path = tempfile.mkdtemp()
     yield path
@@ -121,7 +122,7 @@ class TestPathToUnitName:
     ])
     def test_path_conversion(
         self, mount_manager: LinuxMountUnitManager, mount_path: str, expected: str
-    ):
+    ) -> None:
         """Vérifie la conversion de différents chemins en noms d'unité."""
         result = mount_manager.path_to_unit_name(mount_path)
         assert result == expected
@@ -130,7 +131,7 @@ class TestPathToUnitName:
 class TestGenerateMountUnit:
     """Tests pour la génération de fichiers .mount via MountConfig.to_unit_file."""
 
-    def test_basic_nfs_mount_contains_required_sections(self):
+    def test_basic_nfs_mount_contains_required_sections(self) -> None:
         """Vérifie que le fichier .mount contient toutes les sections requises."""
         # Arrange
         config = MountConfig(
@@ -153,7 +154,7 @@ class TestGenerateMountUnit:
         assert "[Install]" in result
         assert "WantedBy=remote-fs.target" in result
 
-    def test_mount_with_options_includes_options_line(self):
+    def test_mount_with_options_includes_options_line(self) -> None:
         """Vérifie que les options de montage sont incluses."""
         # Arrange
         config = MountConfig(
@@ -170,7 +171,7 @@ class TestGenerateMountUnit:
         # Assert
         assert "Options=defaults,_netdev,noatime" in result
 
-    def test_cifs_mount_generates_correct_format(self):
+    def test_cifs_mount_generates_correct_format(self) -> None:
         """Vérifie la génération correcte d'un montage CIFS."""
         # Arrange
         config = MountConfig(
@@ -189,7 +190,7 @@ class TestGenerateMountUnit:
         assert "What=//192.168.1.50/Documents" in result
         assert "Options=credentials=/etc/samba/credentials,uid=1000" in result
 
-    def test_mount_without_options_omits_options_line(self):
+    def test_mount_without_options_omits_options_line(self) -> None:
         """Vérifie l'absence de ligne Options= quand aucune option n'est définie."""
         # Arrange
         config = MountConfig(
@@ -209,7 +210,7 @@ class TestGenerateMountUnit:
 class TestGenerateAutomountUnit:
     """Tests pour la génération de fichiers .automount via to_unit_file."""
 
-    def test_basic_automount_contains_required_sections(self):
+    def test_basic_automount_contains_required_sections(self) -> None:
         """Vérifie que le fichier .automount contient toutes les sections."""
         # Arrange
         config = AutomountConfig(
@@ -228,7 +229,7 @@ class TestGenerateAutomountUnit:
         assert "[Install]" in result
         assert "WantedBy=remote-fs.target" in result
 
-    def test_automount_with_timeout_includes_timeout_line(self):
+    def test_automount_with_timeout_includes_timeout_line(self) -> None:
         """Vérifie que le timeout est inclus quand spécifié."""
         # Arrange
         config = AutomountConfig(
@@ -243,7 +244,7 @@ class TestGenerateAutomountUnit:
         # Assert
         assert "TimeoutIdleSec=300" in result
 
-    def test_automount_without_timeout_omits_timeout_line(self):
+    def test_automount_without_timeout_omits_timeout_line(self) -> None:
         """Vérifie l'absence de TimeoutIdleSec= quand timeout est 0."""
         # Arrange
         config = AutomountConfig(
@@ -267,7 +268,7 @@ class TestInstallMountUnit:
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager,
         temp_dir: str
-    ):
+    ) -> None:
         """Vérifie que l'installation crée le fichier .mount."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -296,7 +297,7 @@ class TestInstallMountUnit:
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager,
         temp_dir: str
-    ):
+    ) -> None:
         """Vérifie que l'installation avec automount crée les deux fichiers."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -332,7 +333,7 @@ class TestInstallMountUnit:
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager,
         temp_dir: str
-    ):
+    ) -> None:
         """Vérifie que le point de montage est créé automatiquement."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -356,7 +357,7 @@ class TestInstallMountUnit:
         self,
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que les erreurs de permission sont loggées."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -386,7 +387,7 @@ class TestEnableDisableMount:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que enable_mount active l'unité .mount."""
         # Act
         result = mount_manager.enable_mount("/media/nas/backup")
@@ -399,7 +400,7 @@ class TestEnableDisableMount:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que enable_mount avec with_automount active l'unité .automount."""
         # Act
         result = mount_manager.enable_mount(
@@ -415,7 +416,7 @@ class TestEnableDisableMount:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que disable_mount désactive les unités .mount et .automount."""
         # Act
         result = mount_manager.disable_mount("/media/nas/backup")
@@ -434,7 +435,7 @@ class TestRemoveMountUnit:
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager,
         temp_dir: str
-    ):
+    ) -> None:
         """Vérifie que remove_mount_unit supprime les deux fichiers."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -458,7 +459,7 @@ class TestRemoveMountUnit:
         mock_logger: MockLogger,
         mock_systemd: MockSystemdManager,
         temp_dir: str
-    ):
+    ) -> None:
         """Vérifie que la suppression d'unités inexistantes ne génère pas d'erreur."""
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
@@ -478,7 +479,7 @@ class TestMountStatus:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que get_mount_status retourne le statut de l'unité."""
         # Arrange
         mock_systemd.get_status = Mock(return_value="active")
@@ -494,7 +495,7 @@ class TestMountStatus:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que is_mounted retourne True quand l'unité est active."""
         # Arrange
         mock_systemd.get_status = Mock(return_value="active")
@@ -506,7 +507,7 @@ class TestMountStatus:
         self,
         mount_manager: LinuxMountUnitManager,
         mock_systemd: MockSystemdManager
-    ):
+    ) -> None:
         """Vérifie que is_mounted retourne False quand l'unité est inactive."""
         # Arrange
         mock_systemd.get_status = Mock(return_value="inactive")
@@ -518,7 +519,7 @@ class TestMountStatus:
 class TestMountConfigDataclass:
     """Tests pour la dataclass MountConfig."""
 
-    def test_mount_config_creation_with_required_fields(self):
+    def test_mount_config_creation_with_required_fields(self) -> None:
         """Vérifie la création avec les champs requis."""
         # Arrange & Act
         config = MountConfig(
@@ -535,7 +536,7 @@ class TestMountConfigDataclass:
         assert config.type == "nfs"
         assert config.options == ""
 
-    def test_mount_config_with_options(self):
+    def test_mount_config_with_options(self) -> None:
         """Vérifie la création avec des options."""
         # Arrange & Act
         config = MountConfig(
@@ -553,7 +554,7 @@ class TestMountConfigDataclass:
 class TestMountConfigValidation:
     """Tests pour la validation de MountConfig."""
 
-    def test_rejet_where_relatif(self):
+    def test_rejet_where_relatif(self) -> None:
         """Vérifie le rejet d'un chemin relatif pour where."""
         with pytest.raises(ValueError, match="chemin absolu"):
             MountConfig(
@@ -563,7 +564,7 @@ class TestMountConfigValidation:
                 type="nfs"
             )
 
-    def test_rejet_nfs_format_invalide(self):
+    def test_rejet_nfs_format_invalide(self) -> None:
         """Vérifie le rejet d'un format NFS invalide."""
         with pytest.raises(ValueError, match="NFS invalide"):
             MountConfig(
@@ -573,7 +574,7 @@ class TestMountConfigValidation:
                 type="nfs"
             )
 
-    def test_rejet_nfs_commence_par_deux_points(self):
+    def test_rejet_nfs_commence_par_deux_points(self) -> None:
         """Vérifie le rejet NFS commençant par ':'."""
         with pytest.raises(ValueError, match="NFS invalide"):
             MountConfig(
@@ -583,7 +584,7 @@ class TestMountConfigValidation:
                 type="nfs4"
             )
 
-    def test_rejet_cifs_format_invalide(self):
+    def test_rejet_cifs_format_invalide(self) -> None:
         """Vérifie le rejet d'un format CIFS invalide."""
         with pytest.raises(ValueError, match="CIFS invalide"):
             MountConfig(
@@ -593,7 +594,7 @@ class TestMountConfigValidation:
                 type="cifs"
             )
 
-    def test_rejet_device_format_invalide(self):
+    def test_rejet_device_format_invalide(self) -> None:
         """Vérifie le rejet d'un device invalide pour ext4."""
         with pytest.raises(ValueError, match="device"):
             MountConfig(
@@ -603,7 +604,7 @@ class TestMountConfigValidation:
                 type="ext4"
             )
 
-    def test_acceptation_device_valide(self):
+    def test_acceptation_device_valide(self) -> None:
         """Vérifie l'acceptation d'un device valide."""
         config = MountConfig(
             description="Test",
@@ -613,7 +614,7 @@ class TestMountConfigValidation:
         )
         assert config.what == "/dev/sda1"
 
-    def test_acceptation_type_inconnu_sans_validation(self):
+    def test_acceptation_type_inconnu_sans_validation(self) -> None:
         """Vérifie que les types inconnus ne sont pas validés."""
         config = MountConfig(
             description="Test",
@@ -627,7 +628,7 @@ class TestMountConfigValidation:
 class TestAutomountConfigValidation:
     """Tests pour la validation de AutomountConfig."""
 
-    def test_rejet_where_relatif(self):
+    def test_rejet_where_relatif(self) -> None:
         """Vérifie le rejet d'un chemin relatif pour where."""
         with pytest.raises(ValueError, match="chemin absolu"):
             AutomountConfig(
@@ -639,7 +640,7 @@ class TestAutomountConfigValidation:
 class TestAutomountConfigDataclass:
     """Tests pour la dataclass AutomountConfig."""
 
-    def test_automount_config_creation_with_required_fields(self):
+    def test_automount_config_creation_with_required_fields(self) -> None:
         """Vérifie la création avec les champs requis."""
         # Arrange & Act
         config = AutomountConfig(
@@ -652,7 +653,7 @@ class TestAutomountConfigDataclass:
         assert config.where == "/mnt/test"
         assert config.timeout_idle_sec == 0
 
-    def test_automount_config_with_timeout(self):
+    def test_automount_config_with_timeout(self) -> None:
         """Vérifie la création avec un timeout personnalisé."""
         # Arrange & Act
         config = AutomountConfig(
@@ -669,7 +670,9 @@ class TestAutomountConfigDataclass:
 class TestMountUnitManagerErrorPaths:
     """Tests pour les chemins d'erreur de LinuxMountUnitManager."""
 
-    def _make_manager(self, tmp_path):
+    def _make_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxMountUnitManager, MagicMock, MagicMock]:
         """Cree un manager avec mocks."""
         from unittest.mock import MagicMock
         logger = MagicMock()
@@ -683,7 +686,7 @@ class TestMountUnitManagerErrorPaths:
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         return manager, logger, executor
 
-    def test_ensure_mount_point_oserror(self, tmp_path):
+    def test_ensure_mount_point_oserror(self, tmp_path: Path) -> None:
         """_ensure_mount_point() retourne False en cas d'OSError."""
         from unittest.mock import patch
         manager, logger, _ = self._make_manager(tmp_path)
@@ -695,7 +698,7 @@ class TestMountUnitManagerErrorPaths:
         assert result is False
         logger.log_error.assert_called_once()
 
-    def test_install_mount_write_echoue(self, tmp_path):
+    def test_install_mount_write_echoue(self, tmp_path: Path) -> None:
         """install_mount_unit() retourne False si _write_unit_file echoue."""
         from unittest.mock import patch
         manager, _, _ = self._make_manager(tmp_path)
@@ -712,7 +715,7 @@ class TestMountUnitManagerErrorPaths:
             result = manager.install_mount_unit(config)
         assert result is False
 
-    def test_install_mount_reload_echoue(self, tmp_path):
+    def test_install_mount_reload_echoue(self, tmp_path: Path) -> None:
         """install_mount_unit() retourne False si reload_systemd echoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
@@ -725,7 +728,7 @@ class TestMountUnitManagerErrorPaths:
         result = manager.install_mount_unit(config)
         assert result is False
 
-    def test_remove_mount_echec_suppression(self, tmp_path):
+    def test_remove_mount_echec_suppression(self, tmp_path: Path) -> None:
         """remove_mount_unit() retourne False si _remove_unit_file echoue."""
         from unittest.mock import patch
         manager, _, _ = self._make_manager(tmp_path)
@@ -742,7 +745,9 @@ class TestMountUnitManagerErrorPaths:
 class TestRemoveMountLogWarning:
     """Tests pour log_warning dans remove_mount_unit() si disable échoue."""
 
-    def _make_manager(self, tmp_path):
+    def _make_manager(
+        self, tmp_path: Path
+    ) -> tuple[LinuxMountUnitManager, MagicMock, MagicMock]:
         """Crée un manager avec mocks."""
         from unittest.mock import MagicMock
         from linuxtools.systemd import LinuxMountUnitManager
@@ -755,8 +760,8 @@ class TestRemoveMountLogWarning:
         return manager, logger, executor
 
     def test_remove_mount_unit_logue_warning_si_disable_echoue(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """remove_mount_unit() logue un warning si disable échoue."""
         manager, logger, executor = self._make_manager(tmp_path)
         executor.disable_unit.return_value = False
@@ -771,8 +776,8 @@ class TestRemoveMountLogWarning:
         assert "mnt/test" in logger.log_warning.call_args[0][0]
 
     def test_remove_mount_unit_pas_de_warning_si_disable_reussit(
-        self, tmp_path
-    ):
+        self, tmp_path: Path
+    ) -> None:
         """remove_mount_unit() ne logue pas de warning si disable réussit."""
         manager, logger, executor = self._make_manager(tmp_path)
         executor.disable_unit.return_value = True
@@ -789,7 +794,7 @@ class TestRemoveMountLogWarning:
 class TestToUnitFileSecurite:
     """Tests de sécurité : rejet des caractères de contrôle dans to_unit_file."""
 
-    def test_mount_rejette_newline_dans_description(self):
+    def test_mount_rejette_newline_dans_description(self) -> None:
         """MountConfig.to_unit_file lève ValueError si description contient \\n."""
         config = MountConfig(
             description="desc\nExecStart=/bin/sh",
@@ -800,7 +805,7 @@ class TestToUnitFileSecurite:
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
 
-    def test_mount_rejette_newline_dans_what(self):
+    def test_mount_rejette_newline_dans_what(self) -> None:
         """MountConfig.to_unit_file lève ValueError si what contient \\n."""
         config = MountConfig(
             description="NAS",
@@ -811,7 +816,7 @@ class TestToUnitFileSecurite:
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
 
-    def test_mount_rejette_newline_dans_options(self):
+    def test_mount_rejette_newline_dans_options(self) -> None:
         """MountConfig.to_unit_file lève ValueError si options contient \\n."""
         config = MountConfig(
             description="NAS",
@@ -823,7 +828,7 @@ class TestToUnitFileSecurite:
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
 
-    def test_automount_rejette_newline_dans_description(self):
+    def test_automount_rejette_newline_dans_description(self) -> None:
         """AutomountConfig.to_unit_file lève ValueError si description contient \\n."""
         config = AutomountConfig(
             description="auto\nType=tmpfs",

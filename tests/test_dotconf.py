@@ -3,6 +3,7 @@
 import configparser
 import os
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass, field as dataclass_field
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -15,7 +16,7 @@ from linuxtools.dotconf import (
     build_validators,
     parse_validator,
 )
-from linuxtools.dotconf.base import IniConfig
+from linuxtools.dotconf.base import IniConfig, IniSection
 from linuxtools.logging import FileLogger
 
 
@@ -23,7 +24,7 @@ from linuxtools.logging import FileLogger
 
 
 @pytest.fixture
-def temp_log_file():
+def temp_log_file() -> Iterator[str]:
     """Crée un fichier de log temporaire."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
         yield f.name
@@ -31,7 +32,7 @@ def temp_log_file():
 
 
 @pytest.fixture
-def temp_ini_file():
+def temp_ini_file() -> Iterator[str]:
     """Crée un fichier INI temporaire."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
         yield f.name
@@ -39,13 +40,13 @@ def temp_ini_file():
 
 
 @pytest.fixture
-def logger(temp_log_file):
+def logger(temp_log_file: str) -> FileLogger:
     """Crée un logger pour les tests."""
     return FileLogger(temp_log_file)
 
 
 @pytest.fixture
-def manager(logger):
+def manager(logger: FileLogger) -> LinuxIniConfigManager:
     """Crée un gestionnaire INI pour les tests."""
     return LinuxIniConfigManager(logger)
 
@@ -85,17 +86,17 @@ class MainSectionFixture(ValidatedSection):
 class TestParseValidator:
     """Tests pour la fonction parse_validator."""
 
-    def test_parse_list_validator(self):
+    def test_parse_list_validator(self) -> None:
         """Teste le parsing d'une liste de valeurs."""
         result = parse_validator(["yes", "no"])
         assert result == ["yes", "no"]
 
-    def test_parse_non_list_raises(self):
+    def test_parse_non_list_raises(self) -> None:
         """Teste qu'un string lève une exception."""
         with pytest.raises(ValueError, match="Format de validateur invalide"):
             parse_validator("lambda x: x.isdigit()")
 
-    def test_parse_invalid_validator_raises(self):
+    def test_parse_invalid_validator_raises(self) -> None:
         """Teste qu'un validateur invalide lève une exception."""
         with pytest.raises(ValueError, match="Format de validateur invalide"):
             parse_validator("invalid string")
@@ -104,7 +105,7 @@ class TestParseValidator:
 class TestBuildValidators:
     """Tests pour la fonction build_validators."""
 
-    def test_build_list_validators(self):
+    def test_build_list_validators(self) -> None:
         """Teste la construction d'un dictionnaire de listes."""
         validators_dict = {
             "field1": ["opt1", "opt2"],
@@ -122,7 +123,7 @@ class TestBuildValidators:
 class TestValidatedSection:
     """Tests pour ValidatedSection."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Configure les validators avant chaque test."""
         CommandsSectionFixture.set_validators({
             "upgrade_type": ["default", "security"],
@@ -131,11 +132,11 @@ class TestValidatedSection:
             "random_sleep": lambda x: x.isdigit() and 0 <= int(x) <= 86400,
         })
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Nettoie les validators après chaque test."""
         CommandsSectionFixture.clear_validators()
 
-    def test_create_valid_section(self):
+    def test_create_valid_section(self) -> None:
         """Teste la création d'une section valide."""
         section = CommandsSectionFixture(
             upgrade_type="default",
@@ -148,33 +149,33 @@ class TestValidatedSection:
         assert section.apply_updates == "no"
         assert section.random_sleep == "600"
 
-    def test_create_with_defaults(self):
+    def test_create_with_defaults(self) -> None:
         """Teste la création avec les valeurs par défaut."""
         section = CommandsSectionFixture()
         assert section.upgrade_type == "default"
         assert section.download_updates == "yes"
 
-    def test_invalid_list_value_raises(self):
+    def test_invalid_list_value_raises(self) -> None:
         """Teste qu'une valeur invalide dans une liste lève une exception."""
         with pytest.raises(ValueError, match="upgrade_type='invalid' invalide"):
             CommandsSectionFixture(upgrade_type="invalid")
 
-    def test_invalid_lambda_value_raises(self):
+    def test_invalid_lambda_value_raises(self) -> None:
         """Teste qu'une valeur invalide pour un lambda lève une exception."""
         with pytest.raises(ValueError, match="random_sleep='abc' échoue"):
             CommandsSectionFixture(random_sleep="abc")
 
-    def test_lambda_out_of_range_raises(self):
+    def test_lambda_out_of_range_raises(self) -> None:
         """Teste qu'une valeur hors limites lève une exception."""
         with pytest.raises(ValueError, match="random_sleep='100000' échoue"):
             CommandsSectionFixture(random_sleep="100000")
 
-    def test_section_name(self):
+    def test_section_name(self) -> None:
         """Teste que section_name retourne le bon nom."""
         section = CommandsSectionFixture()
         assert section.section_name() == "commands"
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Teste la conversion en dictionnaire."""
         section = CommandsSectionFixture(
             upgrade_type="security",
@@ -186,7 +187,7 @@ class TestValidatedSection:
         assert "apply_updates" in result
         assert "random_sleep" in result
 
-    def test_from_dict(self):
+    def test_from_dict(self) -> None:
         """Teste la création depuis un dictionnaire."""
         data = {
             "upgrade_type": "security",
@@ -198,13 +199,13 @@ class TestValidatedSection:
         assert section.upgrade_type == "security"
         assert section.download_updates == "no"
 
-    def test_immutability(self):
+    def test_immutability(self) -> None:
         """Teste que la section est immuable (frozen)."""
         section = CommandsSectionFixture()
         with pytest.raises(AttributeError):
             section.upgrade_type = "security"
 
-    def test_without_validators(self):
+    def test_without_validators(self) -> None:
         """Teste la création sans validators (pas de validation)."""
         CommandsSectionFixture.clear_validators()
         section = CommandsSectionFixture(upgrade_type="anything")
@@ -217,7 +218,7 @@ class TestValidatedSection:
 class TestLinuxIniConfigManager:
     """Tests pour LinuxIniConfigManager."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Configure les validators."""
         CommandsSectionFixture.set_validators({
             "upgrade_type": ["default", "security"],
@@ -230,12 +231,14 @@ class TestLinuxIniConfigManager:
             "max_parallel_downloads": lambda x: x.isdigit() and 1 <= int(x) <= 20,
         })
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Nettoie les validators."""
         CommandsSectionFixture.clear_validators()
         MainSectionFixture.clear_validators()
 
-    def test_write_and_read_section(self, manager, temp_ini_file):
+    def test_write_and_read_section(
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """Teste l'écriture et la lecture d'une section."""
         path = Path(temp_ini_file)
         section = CommandsSectionFixture(upgrade_type="security")
@@ -246,12 +249,14 @@ class TestLinuxIniConfigManager:
         assert "commands" in result
         assert result["commands"]["upgrade_type"] == "security"
 
-    def test_read_nonexistent_file_raises(self, manager):
+    def test_read_nonexistent_file_raises(self, manager: LinuxIniConfigManager) -> None:
         """Teste que la lecture d'un fichier inexistant lève une exception."""
         with pytest.raises(FileNotFoundError):
             manager.read(Path("/nonexistent/file.conf"))
 
-    def test_update_section_with_changes(self, manager, temp_ini_file):
+    def test_update_section_with_changes(
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """Teste la mise à jour d'une section avec modifications."""
         path = Path(temp_ini_file)
         section1 = CommandsSectionFixture(upgrade_type="default")
@@ -264,7 +269,9 @@ class TestLinuxIniConfigManager:
         result = manager.read(path)
         assert result["commands"]["upgrade_type"] == "security"
 
-    def test_update_section_no_changes(self, manager, temp_ini_file):
+    def test_update_section_no_changes(
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """Teste la mise à jour sans modifications."""
         path = Path(temp_ini_file)
         section = CommandsSectionFixture()
@@ -273,7 +280,7 @@ class TestLinuxIniConfigManager:
         updated = manager.update_section(path, section)
         assert updated is False
 
-    def test_section_to_ini(self, manager):
+    def test_section_to_ini(self, manager: LinuxIniConfigManager) -> None:
         """Teste la génération du contenu INI d'une section."""
         section = CommandsSectionFixture(upgrade_type="security")
         ini_content = manager.section_to_ini(section)
@@ -281,7 +288,9 @@ class TestLinuxIniConfigManager:
         assert "[commands]" in ini_content
         assert "upgrade_type = security" in ini_content
 
-    def test_multiple_sections(self, manager, temp_ini_file):
+    def test_multiple_sections(
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """Teste l'écriture de plusieurs sections."""
         path = Path(temp_ini_file)
 
@@ -297,19 +306,21 @@ class TestLinuxIniConfigManager:
         assert result["commands"]["upgrade_type"] == "security"
         assert result["main"]["fastestmirror"] == "true"
 
-    def test_write_config(self, manager, temp_ini_file):
+    def test_write_config(
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """Teste write() avec un IniConfig complet."""
         path = Path(temp_ini_file)
 
         class SimpleConfig(IniConfig):
-            def sections(self):
+            def sections(self) -> list[IniSection]:
                 return [CommandsSectionFixture(upgrade_type="security")]
 
             def to_ini(self) -> str:
                 return manager.config_to_ini(self)
 
             @classmethod
-            def from_file(cls, path):
+            def from_file(cls, path: Path) -> "IniConfig":
                 raise NotImplementedError
 
         config = SimpleConfig()
@@ -318,10 +329,10 @@ class TestLinuxIniConfigManager:
         assert "commands" in result
         assert result["commands"]["upgrade_type"] == "security"
 
-    def test_config_to_ini(self, manager):
+    def test_config_to_ini(self, manager: LinuxIniConfigManager) -> None:
         """Teste config_to_ini() avec plusieurs sections."""
         class SimpleConfig(IniConfig):
-            def sections(self):
+            def sections(self) -> list[IniSection]:
                 return [
                     CommandsSectionFixture(upgrade_type="security"),
                     MainSectionFixture(fastestmirror="true"),
@@ -331,7 +342,7 @@ class TestLinuxIniConfigManager:
                 return manager.config_to_ini(self)
 
             @classmethod
-            def from_file(cls, path):
+            def from_file(cls, path: Path) -> "IniConfig":
                 raise NotImplementedError
 
         config = SimpleConfig()
@@ -340,7 +351,9 @@ class TestLinuxIniConfigManager:
         assert "[main]" in ini
         assert "upgrade_type = security" in ini
 
-    def test_update_section_fichier_inexistant(self, manager, tmp_path):
+    def test_update_section_fichier_inexistant(
+        self, manager: LinuxIniConfigManager, tmp_path: Path
+    ) -> None:
         """update_section() sur un fichier inexistant cree la section."""
         path = tmp_path / "new_config.conf"
         section = CommandsSectionFixture(upgrade_type="security")
@@ -354,8 +367,8 @@ class TestUpdateSectionLogSansValeur:
     """Tests pour la confidentialité des logs dans update_section()."""
 
     def test_update_section_logue_cle_sans_valeur(
-        self, manager, temp_ini_file
-    ):
+        self, manager: LinuxIniConfigManager, temp_ini_file: str
+    ) -> None:
         """update_section() logue le nom de la clé mais pas sa valeur."""
         mock_logger = MagicMock()
         mgr = LinuxIniConfigManager(mock_logger)
@@ -370,8 +383,8 @@ class TestUpdateSectionLogSansValeur:
         assert not any("security" in msg for msg in log_calls)
 
     def test_update_section_ne_logue_pas_valeur_sensible(
-        self, temp_ini_file
-    ):
+        self, temp_ini_file: str
+    ) -> None:
         """update_section() ne logue pas la valeur d'une clé sensible."""
         mock_logger = MagicMock()
         mgr = LinuxIniConfigManager(mock_logger)
@@ -398,7 +411,7 @@ class TestUpdateSectionLogSansValeur:
 class TestLinuxIniConfigManagerChmod:
     """Tests permissions fichier après écriture."""
 
-    def test_write_section_cree_fichier_en_0644(self, tmp_path):
+    def test_write_section_cree_fichier_en_0644(self, tmp_path: Path) -> None:
         """write_section() positionne les permissions à 0o644."""
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
@@ -407,7 +420,7 @@ class TestLinuxIniConfigManagerChmod:
         )
         assert oct(os.stat(path).st_mode & 0o777) == oct(0o644)
 
-    def test_update_section_cree_fichier_en_0644(self, tmp_path):
+    def test_update_section_cree_fichier_en_0644(self, tmp_path: Path) -> None:
         """update_section() positionne les permissions à 0o644."""
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
@@ -420,12 +433,12 @@ class TestLinuxIniConfigManagerChmod:
 class TestValidatedSectionEdgeCases:
     """Tests pour les cas limites de ValidatedSection."""
 
-    def test_section_name_not_implemented(self):
+    def test_section_name_not_implemented(self) -> None:
         """section_name() leve NotImplementedError si non redefini."""
         with pytest.raises(NotImplementedError):
             ValidatedSection.section_name()
 
-    def test_private_field_skipped_in_validation(self):
+    def test_private_field_skipped_in_validation(self) -> None:
         """Les champs prives (commencant par _) sont ignores."""
         @dataclass(frozen=True)
         class SectionWithPrivate(ValidatedSection):
