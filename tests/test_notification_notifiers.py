@@ -220,6 +220,11 @@ class TestGotifyNotifier:
         request = requests[0]
         assert request.full_url == "https://gotify.lan/message"
         assert request.get_header("X-gotify-key") == "secret"
+        # Request.data est typé Buffer | SupportsRead[bytes] |
+        # Iterable[bytes] | None (stdlib) ; GotifyNotifier envoie
+        # toujours un payload bytes, ce isinstance le confirme pour
+        # mypy sans changer le comportement du test.
+        assert isinstance(request.data, bytes)
         assert b'"priority": 5' in request.data
 
     def test_priorite_critical(self) -> None:
@@ -243,6 +248,8 @@ class TestGotifyNotifier:
                 title="T", message="M", urgency=Urgency.CRITICAL
             )
         )
+        # Cf. commentaire dans test_envoie_requete_message ci-dessus.
+        assert isinstance(requests[0].data, bytes)
         assert b'"priority": 8' in requests[0].data
 
     def test_raises_sur_erreur_http(self, notif: Notification) -> None:
@@ -253,7 +260,11 @@ class TestGotifyNotifier:
             timeout: float | None = None,
         ) -> FakeHttpResponse:
             raise urllib.error.HTTPError(
-                request.full_url, 401, "Unauthorized", {}, None
+                request.full_url,
+                401,
+                "Unauthorized",
+                EmailMessage(),
+                None,
             )
 
         notifier = GotifyNotifier(
@@ -348,7 +359,12 @@ class TestSmtpEmailNotifier:
             recipients=["fred@lan"],
             username="nas",
             password="pw",
-            smtp_factory=FakeSmtp,
+            # FakeSmtp est structurellement compatible avec
+            # smtplib.SMTP (starttls/login/send_message/__enter__/
+            # __exit__) mais n'en hérite pas nominalement : SmtpFactory
+            # est typé Callable[..., smtplib.SMTP] dans src/, mypy ne
+            # peut pas valider ce duck-typing intentionnel.
+            smtp_factory=FakeSmtp,  # type: ignore[arg-type]
         )
         notifier.send(notif)
         smtp = FakeSmtp.instances[0]
@@ -366,7 +382,9 @@ class TestSmtpEmailNotifier:
             sender="nas@lan",
             recipients=["fred@lan"],
             use_tls=False,
-            smtp_factory=FakeSmtp,
+            # Cf. commentaire ci-dessus (test_envoi_avec_tls_et_login) :
+            # FakeSmtp respecte le contrat structurel, pas nominal.
+            smtp_factory=FakeSmtp,  # type: ignore[arg-type]
         )
         notifier.send(notif)
         smtp = FakeSmtp.instances[0]
@@ -388,7 +406,9 @@ class TestSmtpEmailNotifier:
             sender="nas@lan",
             recipients=["fred@lan"],
             use_tls=False,
-            smtp_factory=factory,
+            # Idem : factory() retourne FakeSmtp, structurellement
+            # compatible avec smtplib.SMTP mais pas un sous-type nominal.
+            smtp_factory=factory,  # type: ignore[arg-type]
         )
         with pytest.raises(NotificationSendError, match="smtp.lan"):
             notifier.send(notif)

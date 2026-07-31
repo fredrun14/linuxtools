@@ -80,7 +80,9 @@ class TestNotificationConfig:
         with pytest.raises(
             AttributeError, match="cannot assign to field"
         ):
-            notif.title = "Nouveau titre"
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            notif.title = "Nouveau titre"  # type: ignore[misc]
 
 
 class TestNotificationConfigToBashFunction:

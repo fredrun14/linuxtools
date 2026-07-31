@@ -53,7 +53,9 @@ class TestBashScriptConfig:
         """Vérifie que la dataclass est immutable."""
         config = BashScriptConfig(exec_command="echo test")
         with pytest.raises(AttributeError):
-            config.exec_command = "autre commande"
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            config.exec_command = "autre commande"  # type: ignore[misc]
 
 
 class TestBashScriptConfigToBashScript:
@@ -387,7 +389,7 @@ class TestInstallReport:
     """Tests pour la dataclass InstallReport."""
 
     def _make_report(self, **kwargs: Any) -> InstallReport:
-        defaults = {
+        defaults: dict[str, Any] = {
             "success": True,
             "app_name": "app",
             "deploy_type": "user",
@@ -925,7 +927,10 @@ class TestLinuxCliInstaller:
             mock_cls.return_value = self._patch_paths(tmp_path)
             mock_run.return_value = MagicMock(returncode=0, stderr="")
             self.installer.install(config, confirm_wrapper=False)
-            return mock_run.call_args[0][0]
+            # Force le retour en list[str] réel au lieu de laisser
+            # fuiter l'Any du mock (call_args[0][0] est la commande
+            # positionnelle passée à subprocess.run).
+            return list(mock_run.call_args[0][0])
 
     def test_system_avec_sudo_si_non_root(self, tmp_path: Path) -> None:
         """sudo présent dans la commande system si euid != 0."""

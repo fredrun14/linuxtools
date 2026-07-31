@@ -1,6 +1,7 @@
 """Tests unitaires pour XdgAppConfig."""
 
 # stdlib
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch, PropertyMock
 
@@ -15,7 +16,7 @@ _TEMPLATE = "[log]\nlevel = 'INFO'\n"
 
 
 @pytest.fixture
-def xdg(tmp_path: Path) -> XdgAppConfig:
+def xdg(tmp_path: Path) -> Iterator[XdgAppConfig]:
     """XdgAppConfig avec config_dir redirigé vers tmp_path."""
     with patch(
         "linuxtools.config.xdg.user_config_path",

@@ -24,7 +24,7 @@ from linuxtools.systemd.config_loaders import (
 class MockConfigLoader(ConfigLoader):
     """Mock du ConfigLoader pour les tests."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict[str, Any]):
         self._config = config
 
     def load(
@@ -91,7 +91,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
     def test_load_raises_key_error_on_missing_section(self) -> None:
         """Vérifie que load lève KeyError si la section manque."""
-        config = {"other": {}}
+        config: dict[str, Any] = {"other": {}}
         mock_loader = MockConfigLoader(config)
         loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
 
@@ -538,7 +538,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsInstance(result.notification, NotificationConfig)
+        assert isinstance(result.notification, NotificationConfig)
         self.assertEqual(result.notification.title, "Test Notification")
         self.assertEqual(result.notification.message_success, "Success!")
         self.assertEqual(result.notification.icon_success, "test-ok")
@@ -554,6 +554,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
+        assert isinstance(result.notification, NotificationConfig)
         self.assertEqual(result.notification.title, "Task Update")
         self.assertEqual(
             result.notification.message_success, "Task completed successfully."

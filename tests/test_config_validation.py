@@ -42,7 +42,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
     def setUp(self) -> None:
         self.loader = FileConfigLoader()
 
-    def _write_json(self, data: dict) -> str:
+    def _write_json(self, data: dict[str, object]) -> str:
         """Ecrit un fichier JSON temporaire et retourne le chemin."""
         f = tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False
@@ -62,7 +62,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
         """Avec schema valide, retourne une instance du modele."""
         path = self._write_json({"name": "test", "count": 42})
         result = self.loader.load(path, schema=SampleConfig)
-        self.assertIsInstance(result, SampleConfig)
+        assert isinstance(result, SampleConfig)
         self.assertEqual(result.name, "test")
         self.assertEqual(result.count, 42)
 
@@ -97,7 +97,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
         }
         path = self._write_json(data)
         result = self.loader.load(path, schema=SectionedConfig)
-        self.assertIsInstance(result, SectionedConfig)
+        assert isinstance(result, SectionedConfig)
         self.assertEqual(result.paths.path, "/usr/bin")
 
     def test_load_with_field_validator(self) -> None:
@@ -117,7 +117,13 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
         """Passer une string comme schema leve TypeError."""
         path = self._write_json({"key": "value"})
         with self.assertRaises(TypeError):
-            self.loader.load(path, schema="SampleConfig")
+            # Passage volontaire d'un type incorrect (str au lieu de
+            # type | None) : ce test vérifie la garde runtime destinée
+            # aux appelants non typés, documentée dans
+            # FileConfigLoader._validate_with_schema.
+            self.loader.load(
+                path, schema="SampleConfig"  # type: ignore[arg-type]
+            )
 
 
 class TestFileConfigLoaderWithoutPydantic(unittest.TestCase):
@@ -126,7 +132,7 @@ class TestFileConfigLoaderWithoutPydantic(unittest.TestCase):
     def setUp(self) -> None:
         self.loader = FileConfigLoader()
 
-    def _write_json(self, data: dict) -> str:
+    def _write_json(self, data: dict[str, object]) -> str:
         f = tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False
         )
@@ -180,7 +186,7 @@ class TestConfigurationManagerValidate(unittest.TestCase):
             default_config={"name": "test"}
         )
         with self.assertRaises(TypeError):
-            cfg.validate(dict)  # type: ignore[arg-type]
+            cfg.validate(dict)
 
 
 if __name__ == "__main__":

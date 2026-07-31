@@ -169,7 +169,9 @@ class TestToToml:
 
     def test_contient_section_meta(self) -> None:
         """Le TOML produit contient une section [meta]."""
-        data: dict = {"Unit": {"Description": ["Test"]}}
+        data: dict[str, dict[str, list[str]]] = {
+            "Unit": {"Description": ["Test"]}
+        }
         result = SystemdUnitExporter.to_toml(data, "service", enabled=True)
         assert "[meta]" in result
         assert 'unit_type = "service"' in result
@@ -177,19 +179,23 @@ class TestToToml:
 
     def test_valeur_unique_devient_string(self) -> None:
         """Une valeur unique est sérialisée en string TOML."""
-        data: dict = {"Service": {"ExecStart": ["/usr/bin/foo"]}}
+        data: dict[str, dict[str, list[str]]] = {
+            "Service": {"ExecStart": ["/usr/bin/foo"]}
+        }
         result = SystemdUnitExporter.to_toml(data, "service")
         assert 'ExecStart = "/usr/bin/foo"' in result
 
     def test_valeurs_multiples_deviennent_tableau(self) -> None:
         """Les valeurs multiples sont sérialisées en tableau TOML."""
-        data: dict = {"Service": {"Environment": ["A=1", "B=2"]}}
+        data: dict[str, dict[str, list[str]]] = {
+            "Service": {"Environment": ["A=1", "B=2"]}
+        }
         result = SystemdUnitExporter.to_toml(data, "service")
         assert 'Environment = ["A=1", "B=2"]' in result
 
     def test_requires_exec_dans_meta(self) -> None:
         """Le champ requires_exec est présent dans [meta]."""
-        data: dict = {}
+        data: dict[str, dict[str, list[str]]] = {}
         result = SystemdUnitExporter.to_toml(
             data, "service", requires_exec="/usr/bin/foo"
         )
@@ -197,13 +203,15 @@ class TestToToml:
 
     def test_echappe_guillemets_dans_valeurs(self) -> None:
         """Les guillemets dans les valeurs sont échappés."""
-        data: dict = {"Unit": {"Description": ['Va"leur']}}
+        data: dict[str, dict[str, list[str]]] = {
+            "Unit": {"Description": ['Va"leur']}
+        }
         result = SystemdUnitExporter.to_toml(data, "service")
         assert 'Description = "Va\\"leur"' in result
 
     def test_enabled_false_par_defaut(self) -> None:
         """enabled = false par défaut."""
-        data: dict = {}
+        data: dict[str, dict[str, list[str]]] = {}
         result = SystemdUnitExporter.to_toml(data, "service")
         assert "enabled = false" in result
 
@@ -292,7 +300,7 @@ class TestToIni:
 
     def test_reconstruit_service(self) -> None:
         """Reconstruit le contenu INI d'un service depuis le dict TOML."""
-        data = {
+        data: dict[str, object] = {
             "meta": {"unit_type": "service"},
             "Unit": {"Description": "Mon service"},
             "Service": {"ExecStart": "/usr/bin/foo", "Type": "simple"},
@@ -308,7 +316,7 @@ class TestToIni:
 
     def test_reconstruit_timer(self) -> None:
         """Reconstruit [Timer] pour un timer."""
-        data = {
+        data: dict[str, object] = {
             "Unit": {"Description": "Timer"},
             "Timer": {"OnCalendar": "daily"},
             "Install": {"WantedBy": "timers.target"},
@@ -320,7 +328,7 @@ class TestToIni:
 
     def test_reconstruit_mount(self) -> None:
         """Reconstruit [Mount] pour un mount."""
-        data = {
+        data: dict[str, object] = {
             "Unit": {"Description": "NFS"},
             "Mount": {"What": "10.0.0.1:/data", "Where": "/mnt/data"},
             "Install": {"WantedBy": "remote-fs.target"},
@@ -332,7 +340,7 @@ class TestToIni:
 
     def test_valeurs_liste_produisent_plusieurs_lignes(self) -> None:
         """Les listes TOML produisent plusieurs lignes key=value."""
-        data = {
+        data: dict[str, object] = {
             "Service": {"Environment": ["A=1", "B=2"]},
         }
         result = SystemdUnitRestorer.to_ini(data, "service")
@@ -342,7 +350,7 @@ class TestToIni:
 
     def test_sections_absentes_omises(self) -> None:
         """Les sections absentes du dict ne génèrent pas de lignes."""
-        data = {
+        data: dict[str, object] = {
             "Unit": {"Description": "Test"},
         }
         result = SystemdUnitRestorer.to_ini(data, "service")
@@ -661,7 +669,7 @@ class TestRestore:
 
     def test_to_ini_rejette_newline_dans_valeur(self) -> None:
         """to_ini lève ValueError si une valeur contient un \\n."""
-        data = {
+        data: dict[str, object] = {
             "Unit": {"Description": "légitime\nExecStart=/bin/evil"},
             "Service": {"ExecStart": "/usr/bin/foo"},
         }

@@ -196,6 +196,11 @@ class TestValidatedSection:
             "random_sleep": "100",
         }
         section = CommandsSectionFixture.from_dict(data)
+        # from_dict() est déclaré -> ValidatedSection (classe de base)
+        # sur ValidatedSection.from_dict ; l'instance réelle créée par
+        # cls(**data) est bien une CommandsSectionFixture, ce que ce
+        # isinstance rend explicite pour mypy (narrowing).
+        assert isinstance(section, CommandsSectionFixture)
         assert section.upgrade_type == "security"
         assert section.download_updates == "no"
 
@@ -203,7 +208,9 @@ class TestValidatedSection:
         """Teste que la section est immuable (frozen)."""
         section = CommandsSectionFixture()
         with pytest.raises(AttributeError):
-            section.upgrade_type = "security"
+            # Test d'immutabilité intentionnel : l'erreur mypy confirme
+            # le contrat testé (dataclass frozen).
+            section.upgrade_type = "security"  # type: ignore[misc]
 
     def test_without_validators(self) -> None:
         """Teste la création sans validators (pas de validation)."""

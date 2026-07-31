@@ -21,8 +21,11 @@ class ConcreteCommand(CliCommand):
     def name(self) -> str:
         return self._name
 
-    def register(self, subparsers: object) -> None:
-        p = subparsers.add_parser(self._name, help="Test command")  # type: ignore[union-attr]
+    def register(
+        self,
+        subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    ) -> None:
+        p = subparsers.add_parser(self._name, help="Test command")
         p.add_argument("--flag", default="default")
 
     def execute(self, args: argparse.Namespace) -> None:
@@ -36,7 +39,7 @@ class TestCliCommand:
     def test_cli_command_abc_ne_peut_pas_etre_instancie(self) -> None:
         """Vérifie que CliCommand ne peut pas être instanciée directement."""
         with pytest.raises(TypeError):
-            CliCommand()  # type: ignore
+            CliCommand()  # type: ignore[abstract]
 
     def test_concrete_command_a_un_nom(self) -> None:
         """Vérifie que la propriété name retourne le nom configuré."""
@@ -81,7 +84,7 @@ class TestCliCommand:
 
         # Act / Assert
         with pytest.raises(TypeError):
-            MissingRegister()  # type: ignore
+            MissingRegister()  # type: ignore[abstract]
 
     def test_concrete_command_sans_execute_ne_peut_etre_instanciee(
         self,
@@ -98,7 +101,7 @@ class TestCliCommand:
 
         # Act / Assert
         with pytest.raises(TypeError):
-            MissingExecute()  # type: ignore
+            MissingExecute()  # type: ignore[abstract]
 
 
 class TestCliApplication:
@@ -207,7 +210,10 @@ class TestCliApplication:
         # Arrange
         names = ["alpha", "beta", "gamma"]
         commands = [ConcreteCommand(n) for n in names]
-        app = CliApplication("test", "desc", commands)
+        # list() re-solidifie une copie covariante list[CliCommand] pour
+        # l'appel (list est invariant), sans perdre le type précis
+        # ConcreteCommand nécessaire aux assertions ci-dessous.
+        app = CliApplication("test", "desc", list(commands))
         monkeypatch.setattr("sys.argv", ["test", name])
         # Act
         app.run()

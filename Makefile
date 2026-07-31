@@ -47,7 +47,7 @@ test-cov:
 # Linting
 lint:
 	pycodestyle src/linuxtools/
-	mypy src/linuxtools/
+	mypy src/linuxtools/ tests/
 	ruff check src/
 
 # Nettoyage
