@@ -48,6 +48,7 @@ class CommandExecutor(ABC):
         cwd: str | None = None,
         timeout: int | None = None,
         probe: bool = False,
+        stdin: str | None = None,
     ) -> CommandResult:
         """Exécute une commande et retourne le résultat.
 
@@ -61,6 +62,12 @@ class CommandExecutor(ABC):
                 commandes sans effet de bord (``rpm -q``,
                 ``repolist``, ``flatpak info``) : le mode dry-run
                 s'appuie sur leur résultat pour décider quoi faire.
+            stdin: Contenu texte à envoyer sur l'entrée standard du
+                process lancé, ou None pour ne rien envoyer. Permet de
+                déposer du contenu généré en mémoire (config, secrets,
+                unité systemd) sans fichier temporaire ni argument
+                CLI — important pour ne jamais exposer un secret via
+                ``ps``.
 
         Returns:
             Résultat de l'exécution.

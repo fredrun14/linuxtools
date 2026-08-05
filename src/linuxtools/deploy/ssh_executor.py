@@ -117,6 +117,7 @@ class SshCommandExecutor(CommandExecutor):
         cwd: str | None = None,
         timeout: int | None = None,
         probe: bool = False,
+        stdin: str | None = None,
     ) -> CommandResult:
         """Exécute une commande sur l'hôte distant et attend le résultat.
 
@@ -128,6 +129,11 @@ class SshCommandExecutor(CommandExecutor):
             probe: Si True, la commande est une sonde en lecture seule
                 et s'exécute même en mode dry-run de l'exécuteur
                 local. Propagé tel quel.
+            stdin: Contenu texte à envoyer sur l'entrée standard du
+                process ssh local, relayé tel quel à la commande
+                distante. Le contenu ne transite jamais par la
+                commande texte elle-même (pas de risque d'injection
+                shell via son contenu).
 
         Returns:
             CommandResult de l'appel ssh (le code retour reflète
@@ -137,6 +143,7 @@ class SshCommandExecutor(CommandExecutor):
             self._wrap(command, cwd, env),
             timeout=timeout,
             probe=probe,
+            stdin=stdin,
         )
 
     def run_streaming(

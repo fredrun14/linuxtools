@@ -25,9 +25,66 @@ Example:
             )
         )
         print(report.format_summary())
+
+    Déploiement complet (config TOML + secrets + service/timer) :
+
+        from pathlib import Path
+        from linuxtools.credentials import CredentialManager
+        from linuxtools.deploy import (
+            ConfigDeploySpec,
+            Deployer,
+            DeployConfig,
+            DeployTarget,
+            SecretsSpec,
+            TimerDeploySpec,
+            VerificationSpec,
+        )
+        from linuxtools.systemd import ServiceConfig, TimerConfig
+
+        target = DeployTarget()  # local
+        credentials = CredentialManager.from_dotenv(
+            service="mon-outil",
+            dotenv_path=Path("config/.env"),
+        )
+        deployer = Deployer.for_target(
+            target, credential_manager=credentials
+        )
+        report = deployer.deploy(
+            DeployConfig(
+                source_dir=Path("/home/user/mon-outil"),
+                venv_path=Path("/opt/mon-outil/venv"),
+                remote_source_dir=Path("/opt/mon-outil/src"),
+                verification=VerificationSpec(
+                    imports=("mon_outil",),
+                ),
+                config_deploy=ConfigDeploySpec(
+                    data={"backup": {"target": "/mnt/nas"}},
+                    dest_path=Path("/etc/mon-outil/config.toml"),
+                ),
+                secrets=SecretsSpec(
+                    service="mon-outil",
+                    keys=("GOTIFY_TOKEN",),
+                    dest_path=Path("/etc/mon-outil/secrets.env"),
+                ),
+                timer_deploy=TimerDeploySpec(
+                    unit_name="mon-outil",
+                    service_config=ServiceConfig(
+                        exec_start="/opt/mon-outil/venv/bin/mon-outil",
+                        environment_file="/etc/mon-outil/secrets.env",
+                    ),
+                    timer_config=TimerConfig(
+                        unit="mon-outil.service",
+                        on_calendar="daily",
+                    ),
+                ),
+            )
+        )
+        print(report.format_summary())
 """
 
 from linuxtools.deploy.cli import DeployCommand
+from linuxtools.deploy.config_deployer import ConfigDeployer
+from linuxtools.deploy.content_writer import deposit_content
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.discovery import (
     find_editable_source,
@@ -36,19 +93,26 @@ from linuxtools.deploy.discovery import (
 from linuxtools.deploy.exceptions import DeployError
 from linuxtools.deploy.models import (
     CheckResult,
+    ConfigDeploySpec,
     DeployConfig,
     DeployPhase,
     DeployReport,
     DeployTarget,
+    SecretsSpec,
+    TimerDeploySpec,
     VerificationSpec,
 )
+from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
+from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
 
 __all__ = [
     "CheckResult",
+    "ConfigDeploySpec",
+    "ConfigDeployer",
     "DeployCommand",
     "DeployConfig",
     "DeployError",
@@ -58,10 +122,15 @@ __all__ = [
     "Deployer",
     "InstallVerifier",
     "RsyncTransport",
+    "SecretsProvisioner",
+    "SecretsSpec",
     "SshCommandExecutor",
+    "TimerDeploySpec",
+    "TimerDeployer",
     "Transport",
     "VenvInstaller",
     "VerificationSpec",
+    "deposit_content",
     "find_editable_source",
     "find_project_source",
 ]

@@ -149,6 +149,68 @@ def _remove_unit_content(
     return True
 
 
+def _write_unit_content_remote(
+    unit_path: str,
+    content: str,
+    executor: "SystemdExecutor",
+    logger: "Logger",
+) -> bool:
+    """Écrit le contenu d'une unité sur une cible distante.
+
+    Args:
+        unit_path: Chemin absolu du fichier à écrire sur la cible.
+        content: Contenu à écrire (UTF-8).
+        executor: SystemdExecutor ciblant l'hôte distant.
+        logger: Logger pour les messages d'erreur/info.
+
+    Returns:
+        True si succès, False sinon.
+    """
+    write_result = executor.run_raw(["tee", unit_path], stdin=content)
+    if not write_result.success:
+        logger.log_error(
+            f"Échec de l'écriture distante de {unit_path}: "
+            f"{write_result.stderr}"
+        )
+        return False
+    chmod_result = executor.run_raw(["chmod", "644", unit_path])
+    if not chmod_result.success:
+        logger.log_error(
+            f"Échec du chmod distant de {unit_path}: "
+            f"{chmod_result.stderr}"
+        )
+        return False
+    logger.log_info(f"Fichier unit (distant) créé: {unit_path}")
+    return True
+
+
+def _remove_unit_content_remote(
+    unit_path: str,
+    executor: "SystemdExecutor",
+    logger: "Logger",
+) -> bool:
+    """Supprime un fichier unit sur une cible distante.
+
+    Args:
+        unit_path: Chemin absolu du fichier à supprimer.
+        executor: SystemdExecutor ciblant l'hôte distant.
+        logger: Logger pour les messages d'erreur/info.
+
+    Returns:
+        True si succès, False sinon (absence de fichier tolérée par
+        `rm -f`, jamais un échec).
+    """
+    result = executor.run_raw(["rm", "-f", unit_path])
+    if not result.success:
+        logger.log_error(
+            f"Échec de la suppression distante de {unit_path}: "
+            f"{result.stderr}"
+        )
+        return False
+    logger.log_info(f"Fichier unit (distant) supprimé: {unit_path}")
+    return True
+
+
 # =============================================================================
 # Mixins de comportement partagé système ↔ utilisateur
 # =============================================================================
@@ -172,7 +234,7 @@ class _ServiceOperationsHost(Protocol):
     ) -> bool:
         ...
 
-    def get_status(self, unit_name: str) -> "str | None":
+    def get_status(self, unit_name: str) -> "str":
         ...
 
     def reload_systemd(self) -> bool:
@@ -212,7 +274,7 @@ class _ServiceOperationsMixin:
 
         def get_status(
             self, unit_name: str
-        ) -> "str | None":
+        ) -> "str":
             ...
 
         def reload_systemd(self) -> bool:
@@ -406,14 +468,14 @@ class _ServiceOperationsMixin:
         )
         return True
 
-    def get_service_status(self, service_name: str) -> "str | None":
+    def get_service_status(self, service_name: str) -> "str":
         """Récupère le statut d'un service.
 
         Args:
             service_name: Nom du service (sans extension).
 
         Returns:
-            Statut du service ou None si erreur.
+            Statut du service, ou chaîne vide si erreur.
         """
         validate_service_name(service_name)
         return self.get_status(
@@ -465,7 +527,7 @@ class _TimerOperationsHost(Protocol):
     ) -> bool:
         ...
 
-    def get_status(self, unit_name: str) -> "str | None":
+    def get_status(self, unit_name: str) -> "str":
         ...
 
     def reload_systemd(self) -> bool:
@@ -505,7 +567,7 @@ class _TimerOperationsMixin:
 
         def get_status(
             self, unit_name: str
-        ) -> "str | None":
+        ) -> "str":
             ...
 
         def reload_systemd(self) -> bool:
@@ -594,14 +656,14 @@ class _TimerOperationsMixin:
         )
         return True
 
-    def get_timer_status(self, timer_name: str) -> "str | None":
+    def get_timer_status(self, timer_name: str) -> "str":
         """Récupère le statut d'un timer.
 
         Args:
             timer_name: Nom du timer (sans extension).
 
         Returns:
-            Statut du timer ou None si erreur.
+            Statut du timer, ou chaîne vide si erreur.
         """
         validate_unit_name(timer_name)
         return self.get_status(
@@ -621,17 +683,11 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        try:
-            result = self.executor._run_systemctl(
-                ["list-timers", "--no-pager", "--output=json"],
-                check=False,
-            )
-        except (FileNotFoundError, OSError) as e:
-            raise RuntimeError(
-                f"Impossible d'exécuter systemctl : {e}"
-            ) from e
+        result = self.executor._run_systemctl(
+            ["list-timers", "--no-pager", "--output=json"]
+        )
 
-        if result.returncode != 0:
+        if result.return_code != 0:
             if "unknown option" in result.stderr.lower() \
                     or "invalid option" in result.stderr.lower():
                 return self._list_timers_text_fallback()
@@ -665,17 +721,11 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        try:
-            result = self.executor._run_systemctl(
-                ["list-timers", "--no-pager", "--plain"],
-                check=False,
-            )
-        except (FileNotFoundError, OSError) as e:
-            raise RuntimeError(
-                f"Impossible d'exécuter systemctl : {e}"
-            ) from e
+        result = self.executor._run_systemctl(
+            ["list-timers", "--no-pager", "--plain"]
+        )
 
-        if result.returncode != 0:
+        if result.return_code != 0:
             raise RuntimeError(
                 f"Erreur systemctl list-timers : {result.stderr}"
             )
@@ -724,15 +774,22 @@ class _BaseUnitManagerMixin:
         self,
         logger: "Logger",
         executor: "SystemdExecutor",
+        remote_write: bool = False,
     ) -> None:
         """Initialise le gestionnaire avec logger et executor.
 
         Args:
             logger: Instance de Logger pour le logging.
             executor: Instance de SystemdExecutor pour les opérations.
+            remote_write: Si True, l'écriture des fichiers d'unité
+                passe par `executor.run_raw(..., stdin=...)` (cible
+                distante). Si False (défaut), écriture locale
+                TOCTOU-safe via `os.open(O_NOFOLLOW)` — comportement
+                identique aux versions précédentes.
         """
         self.logger = logger
         self.executor = executor
+        self._remote_write = remote_write
 
     def reload_systemd(self) -> bool:
         """
@@ -772,7 +829,7 @@ class _BaseUnitManagerMixin:
             unit_name, ignore_errors=ignore_errors
         )
 
-    def get_status(self, unit_name: str) -> str | None:
+    def get_status(self, unit_name: str) -> str:
         """
         Récupère le statut d'une unité.
 
@@ -780,7 +837,7 @@ class _BaseUnitManagerMixin:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
 
         Returns:
-            Statut de l'unité ou None si erreur
+            Statut de l'unité, ou chaîne vide si erreur
         """
         return self.executor.get_status(unit_name)
 
@@ -818,7 +875,10 @@ class UnitManager(_BaseUnitManagerMixin):
     def _write_unit_file(
         self, unit_name: str, content: str
     ) -> bool:
-        """Écrit un fichier unit dans le répertoire systemd (O_NOFOLLOW).
+        """Écrit un fichier unit dans le répertoire systemd.
+
+        Écriture locale TOCTOU-safe (O_NOFOLLOW) si `remote_write`
+        est False (défaut), sinon écriture distante via l'executor.
 
         Args:
             unit_name: Nom du fichier (avec extension).
@@ -828,10 +888,17 @@ class UnitManager(_BaseUnitManagerMixin):
             True si succès, False sinon.
         """
         unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        if self._remote_write:
+            return _write_unit_content_remote(
+                unit_path, content, self.executor, self.logger
+            )
         return _write_unit_content(unit_path, content, self.logger)
 
     def _remove_unit_file(self, unit_name: str) -> bool:
-        """Supprime un fichier unit du répertoire systemd (TOCTOU-safe).
+        """Supprime un fichier unit du répertoire systemd.
+
+        Suppression locale TOCTOU-safe si `remote_write` est False
+        (défaut), sinon suppression distante via l'executor.
 
         Args:
             unit_name: Nom du fichier (avec extension).
@@ -840,6 +907,10 @@ class UnitManager(_BaseUnitManagerMixin):
             True si succès ou fichier inexistant, False si erreur.
         """
         unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        if self._remote_write:
+            return _remove_unit_content_remote(
+                unit_path, self.executor, self.logger
+            )
         return _remove_unit_content(unit_path, self.logger)
 
 
@@ -923,7 +994,7 @@ class MountUnitManager(ABC, UnitManager):
         ...
 
     @abstractmethod
-    def get_mount_status(self, mount_path: str) -> str | None:
+    def get_mount_status(self, mount_path: str) -> str:
         """
         Récupère le statut d'une unité .mount.
 
@@ -931,7 +1002,7 @@ class MountUnitManager(ABC, UnitManager):
             mount_path: Chemin du point de montage
 
         Returns:
-            Statut de l'unité ou None si erreur
+            Statut de l'unité, ou chaîne vide si erreur
         """
         ...
 
@@ -1009,7 +1080,7 @@ class _TimerUnitContract(ABC):
         ...
 
     @abstractmethod
-    def get_timer_status(self, timer_name: str) -> str | None:
+    def get_timer_status(self, timer_name: str) -> str:
         """
         Récupère le statut d'un timer.
 
@@ -1017,7 +1088,7 @@ class _TimerUnitContract(ABC):
             timer_name: Nom du timer (sans extension)
 
         Returns:
-            Statut du timer ou None si erreur
+            Statut du timer, ou chaîne vide si erreur
         """
         ...
 
@@ -1149,7 +1220,7 @@ class _ServiceUnitContract(ABC):
         ...
 
     @abstractmethod
-    def get_service_status(self, service_name: str) -> str | None:
+    def get_service_status(self, service_name: str) -> str:
         """
         Récupère le statut d'un service.
 
@@ -1157,7 +1228,7 @@ class _ServiceUnitContract(ABC):
             service_name: Nom du service (sans extension)
 
         Returns:
-            Statut du service ou None si erreur
+            Statut du service, ou chaîne vide si erreur
         """
         ...
 
@@ -1191,7 +1262,8 @@ class UserUnitManager(_BaseUnitManagerMixin):
     def __init__(
         self,
         logger: "Logger",
-        executor: "UserSystemdExecutor"
+        executor: "UserSystemdExecutor",
+        remote_write: bool = False,
     ) -> None:
         """
         Initialise le gestionnaire d'unités utilisateur.
@@ -1199,8 +1271,13 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Args:
             logger: Instance de Logger pour le logging
             executor: Instance de UserSystemdExecutor pour les opérations
+            remote_write: Si True, l'écriture des fichiers d'unité
+                passe par `executor.run_raw(..., stdin=...)` (cible
+                distante). Si False (défaut), écriture locale
+                TOCTOU-safe — comportement identique aux versions
+                précédentes.
         """
-        super().__init__(logger, executor)
+        super().__init__(logger, executor, remote_write)
         self._unit_path = os.path.expanduser(self.SYSTEMD_USER_UNIT_PATH)
 
     @property
@@ -1227,7 +1304,10 @@ class UserUnitManager(_BaseUnitManagerMixin):
     def _write_unit_file(
         self, unit_name: str, content: str
     ) -> bool:
-        """Écrit un fichier unit dans le répertoire utilisateur (O_NOFOLLOW).
+        """Écrit un fichier unit dans le répertoire utilisateur.
+
+        Écriture locale TOCTOU-safe (O_NOFOLLOW) si `remote_write`
+        est False (défaut), sinon écriture distante via l'executor.
 
         Args:
             unit_name: Nom du fichier (avec extension).
@@ -1236,15 +1316,22 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès, False sinon.
         """
+        unit_path = os.path.join(self._unit_path, unit_name)
+        if self._remote_write:
+            return _write_unit_content_remote(
+                unit_path, content, self.executor, self.logger
+            )
         if not self._ensure_unit_directory():
             return False
-        unit_path = os.path.join(self._unit_path, unit_name)
         return _write_unit_content(
             unit_path, content, self.logger, log_label=" utilisateur"
         )
 
     def _remove_unit_file(self, unit_name: str) -> bool:
-        """Supprime un fichier unit du répertoire utilisateur (TOCTOU-safe).
+        """Supprime un fichier unit du répertoire utilisateur.
+
+        Suppression locale TOCTOU-safe si `remote_write` est False
+        (défaut), sinon suppression distante via l'executor.
 
         Args:
             unit_name: Nom du fichier (avec extension).
@@ -1253,6 +1340,10 @@ class UserUnitManager(_BaseUnitManagerMixin):
             True si succès ou fichier inexistant, False si erreur.
         """
         unit_path = os.path.join(self._unit_path, unit_name)
+        if self._remote_write:
+            return _remove_unit_content_remote(
+                unit_path, self.executor, self.logger
+            )
         return _remove_unit_content(
             unit_path, self.logger, log_label=" utilisateur"
         )

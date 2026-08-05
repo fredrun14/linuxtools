@@ -196,7 +196,7 @@ class LinuxMountUnitManager(MountUnitManager):
 
         return success
 
-    def get_mount_status(self, mount_path: str) -> str | None:
+    def get_mount_status(self, mount_path: str) -> str:
         """
         Récupère le statut d'une unité .mount.
 
@@ -204,7 +204,7 @@ class LinuxMountUnitManager(MountUnitManager):
             mount_path: Chemin du point de montage
 
         Returns:
-            Statut de l'unité ou None si erreur
+            Statut de l'unité, ou chaîne vide si erreur
         """
         unit_name = self.path_to_unit_name(mount_path)
         return self.get_status(f"{unit_name}.mount")

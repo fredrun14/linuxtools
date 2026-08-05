@@ -257,6 +257,7 @@ class LinuxCommandExecutor(CommandExecutor):
         cwd: str | None = None,
         timeout: int | None = None,
         probe: bool = False,
+        stdin: str | None = None,
     ) -> CommandResult:
         """Exécute une commande et retourne le résultat.
 
@@ -277,6 +278,8 @@ class LinuxCommandExecutor(CommandExecutor):
                 commandes sans effet de bord (``rpm -q``,
                 ``repolist``, ``flatpak info``) : le mode dry-run
                 s'appuie sur leur résultat pour décider quoi faire.
+            stdin: Contenu texte à envoyer sur l'entrée standard du
+                process lancé, ou None pour ne rien envoyer.
 
         Returns:
             CommandResult avec les sorties capturées et
@@ -302,13 +305,16 @@ class LinuxCommandExecutor(CommandExecutor):
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                stdin=(
+                    subprocess.PIPE if stdin is not None else None
+                ),
                 text=True,
                 env=effective_env,
                 cwd=cwd,
             ) as _proc:
                 try:
                     _stdout, _stderr = _proc.communicate(
-                        timeout=effective_timeout
+                        input=stdin, timeout=effective_timeout
                     )
                 except subprocess.TimeoutExpired:
                     _proc.kill()

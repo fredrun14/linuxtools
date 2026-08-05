@@ -1,13 +1,15 @@
 """Tests pour le module config."""
 
 import json
+import os
 import tomllib
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.config import FileConfigLoader, ConfigurationManager
 
 
@@ -348,3 +350,137 @@ class TestTomlSerialiseur:
 
         logger.log_warning.assert_called_once()
         assert manager.get("cle") == "defaut"
+
+
+def _command_result(success: bool = True, stderr: str = "") -> CommandResult:
+    """Construit un CommandResult scripté pour les tests."""
+    return CommandResult(
+        command=(),
+        return_code=0 if success else 1,
+        stdout="",
+        stderr=stderr,
+        success=success,
+        duration=0.01,
+    )
+
+
+class TestConfigurationManagerDeployVia:
+    """Tests pour ConfigurationManager.deploy_via (dépôt TOML local/SSH)."""
+
+    def test_deploy_via_local_ecrit_le_toml_effectif(
+        self, tmp_path: Path
+    ) -> None:
+        """Cas nominal local : deploy_via écrit self.config (pas
+        seulement default_config) en TOML, avec le mode demandé."""
+        default = {"a": {"b": 1}}
+        manager = ConfigurationManager(default_config=default)
+        dest_path = tmp_path / "deployed.toml"
+        executor = MagicMock(spec=CommandExecutor)
+
+        result = manager.deploy_via(
+            executor, dest_path, is_remote=False, mode=0o640
+        )
+
+        assert result is True
+        written = tomllib.loads(dest_path.read_text(encoding="utf-8"))
+        assert written == default
+        assert oct(os.stat(dest_path).st_mode)[-3:] == "640"
+        executor.run.assert_not_called()
+
+    def test_deploy_via_local_utilise_le_mode_par_defaut(
+        self, tmp_path: Path
+    ) -> None:
+        """Cas limite : mode non renseigné -> 0o644 (défaut)."""
+        manager = ConfigurationManager(default_config={"a": 1})
+        dest_path = tmp_path / "deployed.toml"
+
+        result = manager.deploy_via(
+            MagicMock(spec=CommandExecutor), dest_path, is_remote=False
+        )
+
+        assert result is True
+        assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
+
+    def test_deploy_via_local_logue_un_succes(
+        self, tmp_path: Path
+    ) -> None:
+        """Un logger injecté reçoit un message informatif de succès."""
+        logger = MagicMock()
+        manager = ConfigurationManager(
+            default_config={"a": 1}, logger=logger
+        )
+        dest_path = tmp_path / "deployed.toml"
+
+        manager.deploy_via(
+            MagicMock(spec=CommandExecutor), dest_path, is_remote=False
+        )
+
+        logger.log_info.assert_called_once()
+        assert str(dest_path) in logger.log_info.call_args.args[0]
+
+    def test_deploy_via_remote_ecrit_via_tee_puis_chmod(self) -> None:
+        """Cas nominal distant : tee (stdin=TOML) puis chmod
+        réussissent, executor mocké."""
+        manager = ConfigurationManager(default_config={"port": 8080})
+        dest_path = Path("/etc/app/config.toml")
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.side_effect = [
+            _command_result(True), _command_result(True)
+        ]
+
+        result = manager.deploy_via(
+            executor, dest_path, is_remote=True, mode=0o600
+        )
+
+        assert result is True
+        assert executor.run.call_args_list[0] == call(
+            ["tee", str(dest_path)], stdin="port = 8080\n"
+        )
+        assert executor.run.call_args_list[1] == call(
+            ["chmod", "600", str(dest_path)]
+        )
+
+    def test_deploy_via_remote_echec_tee_retourne_false_et_logue(
+        self,
+    ) -> None:
+        """Cas d'erreur distant : échec de tee -> False + log_warning."""
+        logger = MagicMock()
+        manager = ConfigurationManager(
+            default_config={"a": 1}, logger=logger
+        )
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.return_value = _command_result(
+            False, stderr="no space left"
+        )
+
+        result = manager.deploy_via(
+            executor, Path("/etc/app/config.toml"), is_remote=True
+        )
+
+        assert result is False
+        executor.run.assert_called_once()
+        logger.log_warning.assert_called_once()
+        assert "no space left" in logger.log_warning.call_args.args[0]
+
+    def test_deploy_via_remote_echec_chmod_retourne_false_et_logue(
+        self,
+    ) -> None:
+        """Cas d'erreur distant : tee ok mais chmod échoue -> False."""
+        logger = MagicMock()
+        manager = ConfigurationManager(
+            default_config={"a": 1}, logger=logger
+        )
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.side_effect = [
+            _command_result(True),
+            _command_result(False, stderr="not permitted"),
+        ]
+
+        result = manager.deploy_via(
+            executor, Path("/etc/app/config.toml"), is_remote=True
+        )
+
+        assert result is False
+        assert executor.run.call_count == 2
+        logger.log_warning.assert_called_once()
+        assert "not permitted" in logger.log_warning.call_args.args[0]

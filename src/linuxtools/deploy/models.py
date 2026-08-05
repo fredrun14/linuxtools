@@ -30,6 +30,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from linuxtools.systemd import ServiceConfig, TimerConfig
+
 
 class DeployPhase(Enum):
     """Phases du déploiement, dans l'ordre d'exécution."""
@@ -39,6 +41,9 @@ class DeployPhase(Enum):
     INSTALL = "install"
     VERIFY = "verify"
     ROLLBACK = "rollback"
+    CONFIG = "config"
+    SECRETS = "secrets"
+    TIMER = "timer"
     DONE = "done"
 
 
@@ -99,6 +104,54 @@ class VerificationSpec:
 
 
 @dataclass(frozen=True)
+class ConfigDeploySpec:
+    """Spécification de dépôt d'un fichier de config TOML sur la cible.
+
+    Attributes:
+        data: Données de configuration à sérialiser en TOML.
+        dest_path: Chemin de destination sur la cible.
+        mode: Permissions POSIX du fichier déposé (défaut 0o644).
+    """
+
+    data: dict[str, object]
+    dest_path: Path
+    mode: int = 0o644
+
+
+@dataclass(frozen=True)
+class SecretsSpec:
+    """Spécification de provisioning de secrets vers la cible.
+
+    Attributes:
+        service: Nom du service CredentialManager (ex. "pihole").
+        keys: Clés à résoudre et écrire (ex. ("GOTIFY_TOKEN",)).
+        dest_path: Chemin du fichier EnvironmentFile= sur la cible.
+        mode: Permissions POSIX du fichier déposé (défaut 0o600).
+    """
+
+    service: str
+    keys: tuple[str, ...]
+    dest_path: Path
+    mode: int = 0o600
+
+
+@dataclass(frozen=True)
+class TimerDeploySpec:
+    """Spécification d'installation d'un couple service+timer systemd.
+
+    Attributes:
+        unit_name: Nom de l'unité (service et timer, sans extension).
+        service_config: Configuration du service, déjà construite par
+            l'appelant (dataclasses ServiceConfig — cf. CDC Q-03).
+        timer_config: Configuration du timer.
+    """
+
+    unit_name: str
+    service_config: ServiceConfig
+    timer_config: TimerConfig
+
+
+@dataclass(frozen=True)
 class DeployConfig:
     """Configuration complète d'un déploiement/màj.
 
@@ -114,6 +167,12 @@ class DeployConfig:
             tester les sous-commandes (ex. "borg-manager").
         recreate_venv: Si True, recrée le venv proprement
             (Could, V1=False).
+        config_deploy: Spécification de dépôt de config TOML, ou None
+            pour ne pas exécuter cette phase (no-op).
+        secrets: Spécification de provisioning de secrets, ou None
+            pour ne pas exécuter cette phase (no-op).
+        timer_deploy: Spécification d'installation service+timer, ou
+            None pour ne pas exécuter cette phase (no-op).
     """
 
     source_dir: Path | None
@@ -125,6 +184,9 @@ class DeployConfig:
     )
     cli_bin: str | None = None
     recreate_venv: bool = False
+    config_deploy: ConfigDeploySpec | None = None
+    secrets: SecretsSpec | None = None
+    timer_deploy: TimerDeploySpec | None = None
 
 
 @dataclass(frozen=True)

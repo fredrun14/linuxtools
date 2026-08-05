@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from linuxtools.cli.dry_run import DryRunContext
 from linuxtools.commands.runner import LinuxCommandExecutor
+from linuxtools.deploy.config_deployer import ConfigDeployer
 from linuxtools.deploy.discovery import find_project_source
 from linuxtools.deploy.exceptions import DeployError
 from linuxtools.deploy.models import (
@@ -22,7 +23,9 @@ from linuxtools.deploy.models import (
     DeployReport,
     DeployTarget,
 )
+from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
+from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
@@ -31,6 +34,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from linuxtools.commands.base import CommandExecutor
+    from linuxtools.credentials.manager import CredentialManager
+    from linuxtools.deploy.models import CheckResult
     from linuxtools.logging.base import Logger
 
 
@@ -43,6 +48,12 @@ class Deployer:
         _verifier: InstallVerifier.
         _logger: Logger optionnel.
         _dry_run: Si True, simule sans effet de bord (F-11).
+        _config_deployer: ConfigDeployer optionnel (phase CONFIG).
+        _secrets_provisioner: SecretsProvisioner optionnel (phase
+            SECRETS).
+        _timer_deployer: TimerDeployer optionnel (phase TIMER).
+        _target_executor: CommandExecutor ciblant l'hôte, requis par
+            les 3 phases ci-dessus.
     """
 
     def __init__(
@@ -52,6 +63,10 @@ class Deployer:
         verifier: InstallVerifier,
         logger: Logger | None = None,
         dry_run: bool = False,
+        config_deployer: ConfigDeployer | None = None,
+        secrets_provisioner: SecretsProvisioner | None = None,
+        timer_deployer: TimerDeployer | None = None,
+        target_executor: CommandExecutor | None = None,
     ) -> None:
         """Initialise l'orchestrateur avec ses collaborateurs.
 
@@ -62,12 +77,30 @@ class Deployer:
             logger: Logger optionnel.
             dry_run: Si True, simule le déploiement sans effet de
                 bord.
+            config_deployer: Déployeur de config TOML optionnel. Si
+                None, la phase CONFIG échoue proprement si
+                `config.config_deploy` est renseigné.
+            secrets_provisioner: Provisionneur de secrets optionnel.
+                Si None, la phase SECRETS échoue proprement si
+                `config.secrets` est renseigné.
+            timer_deployer: Déployeur de service+timer optionnel. Si
+                None, la phase TIMER échoue proprement si
+                `config.timer_deploy` est renseigné.
+            target_executor: Exécuteur de commandes ciblant l'hôte,
+                requis par les 3 phases ci-dessus (même objet que
+                celui injecté dans `installer`/`verifier`). Si None
+                et qu'une de ces phases est configurée, elle échoue
+                proprement plutôt que de lever une AttributeError.
         """
         self._transport = transport
         self._installer = installer
         self._verifier = verifier
         self._logger = logger
         self._dry_run = dry_run
+        self._config_deployer = config_deployer
+        self._secrets_provisioner = secrets_provisioner
+        self._timer_deployer = timer_deployer
+        self._target_executor = target_executor
 
     def _log(self, message: str) -> None:
         """Envoie un message d'information au logger si disponible."""
@@ -160,6 +193,19 @@ class Deployer:
             "vérifications post-install (imports, sous-commandes, "
             "non-régression)"
         )
+        if config.config_deploy is not None:
+            ctx.would_run_command(
+                f"dépôt config -> {config.config_deploy.dest_path}"
+            )
+        if config.secrets is not None:
+            ctx.would_run_command(
+                f"provisioning secrets -> {config.secrets.dest_path}"
+            )
+        if config.timer_deploy is not None:
+            ctx.would_run_command(
+                "installation service+timer "
+                f"{config.timer_deploy.unit_name}"
+            )
         return DeployReport(
             success=True,
             phase_reached=DeployPhase.DONE,
@@ -211,6 +257,160 @@ class Deployer:
             )
         return ()
 
+    def _run_config_phase(
+        self,
+        config: DeployConfig,
+        checks: tuple[CheckResult, ...],
+        messages: tuple[str, ...],
+    ) -> DeployReport | None:
+        """Exécute la phase de dépôt de config, si configurée.
+
+        Args:
+            config: Configuration du déploiement.
+            checks: Résultats de vérification déjà accumulés.
+            messages: Messages déjà accumulés.
+
+        Returns:
+            None si la phase a réussi (continuer), sinon un
+            DeployReport d'échec prêt à renvoyer tel quel.
+        """
+        if self._target_executor is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.CONFIG,
+                checks=checks,
+                messages=messages + (
+                    "target_executor non configuré alors que "
+                    "config.config_deploy est renseigné.",
+                ),
+            )
+        if self._config_deployer is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.CONFIG,
+                checks=checks,
+                messages=messages + (
+                    "ConfigDeployer non configuré alors que "
+                    "config.config_deploy est renseigné.",
+                ),
+            )
+        assert config.config_deploy is not None
+        ok = self._config_deployer.deploy(
+            config.config_deploy, config.target, self._target_executor
+        )
+        if not ok:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.CONFIG,
+                checks=checks,
+                messages=messages + ("Dépôt de la config échoué.",),
+            )
+        return None
+
+    def _run_secrets_phase(
+        self,
+        config: DeployConfig,
+        checks: tuple[CheckResult, ...],
+        messages: tuple[str, ...],
+    ) -> DeployReport | None:
+        """Exécute la phase de provisioning de secrets, si configurée.
+
+        Args:
+            config: Configuration du déploiement.
+            checks: Résultats de vérification déjà accumulés.
+            messages: Messages déjà accumulés.
+
+        Returns:
+            None si la phase a réussi (continuer), sinon un
+            DeployReport d'échec prêt à renvoyer tel quel.
+        """
+        if self._target_executor is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.SECRETS,
+                checks=checks,
+                messages=messages + (
+                    "target_executor non configuré alors que "
+                    "config.secrets est renseigné.",
+                ),
+            )
+        if self._secrets_provisioner is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.SECRETS,
+                checks=checks,
+                messages=messages + (
+                    "SecretsProvisioner non configuré alors que "
+                    "config.secrets est renseigné.",
+                ),
+            )
+        assert config.secrets is not None
+        ok = self._secrets_provisioner.provision(
+            config.secrets, config.target, self._target_executor
+        )
+        if not ok:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.SECRETS,
+                checks=checks,
+                messages=messages + (
+                    "Provisioning des secrets échoué.",
+                ),
+            )
+        return None
+
+    def _run_timer_phase(
+        self,
+        config: DeployConfig,
+        checks: tuple[CheckResult, ...],
+        messages: tuple[str, ...],
+    ) -> DeployReport | None:
+        """Exécute la phase d'installation du service+timer, si configurée.
+
+        Args:
+            config: Configuration du déploiement.
+            checks: Résultats de vérification déjà accumulés.
+            messages: Messages déjà accumulés.
+
+        Returns:
+            None si la phase a réussi (continuer), sinon un
+            DeployReport d'échec prêt à renvoyer tel quel.
+        """
+        if self._target_executor is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.TIMER,
+                checks=checks,
+                messages=messages + (
+                    "target_executor non configuré alors que "
+                    "config.timer_deploy est renseigné.",
+                ),
+            )
+        if self._timer_deployer is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.TIMER,
+                checks=checks,
+                messages=messages + (
+                    "TimerDeployer non configuré alors que "
+                    "config.timer_deploy est renseigné.",
+                ),
+            )
+        assert config.timer_deploy is not None
+        ok = self._timer_deployer.deploy(
+            config.timer_deploy, config.target, self._target_executor
+        )
+        if not ok:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.TIMER,
+                checks=checks,
+                messages=messages + (
+                    "Installation du service+timer échouée.",
+                ),
+            )
+        return None
+
     def deploy(self, config: DeployConfig) -> DeployReport:
         """Exécute le déploiement complet selon config.
 
@@ -229,7 +429,9 @@ class Deployer:
                 phase_reached=DeployPhase.TRANSPORT,
                 messages=(source_message or "",),
             )
-        messages = (source_message,) if source_message else ()
+        messages: tuple[str, ...] = (
+            (source_message,) if source_message else ()
+        )
 
         if self._dry_run:
             return self._deploy_dry_run(config, source_dir, messages)
@@ -310,6 +512,24 @@ class Deployer:
                 ),
             )
 
+        if config.config_deploy is not None:
+            report = self._run_config_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Config déployée.",)
+
+        if config.secrets is not None:
+            report = self._run_secrets_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Secrets provisionnés.",)
+
+        if config.timer_deploy is not None:
+            report = self._run_timer_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Service+timer installés.",)
+
         if backup_path is not None:
             self._installer.prune_backup(backup_path)
 
@@ -326,19 +546,26 @@ class Deployer:
         target: DeployTarget,
         logger: Logger | None = None,
         dry_run: bool = False,
+        credential_manager: CredentialManager | None = None,
     ) -> Deployer:
         """Fabrique un Deployer complet pour une cible donnée.
 
         Construit les collaborateurs standards : LinuxCommandExecutor
         local, SshCommandExecutor si la cible est distante,
         RsyncTransport (toujours local), VenvInstaller et
-        InstallVerifier ciblant l'hôte.
+        InstallVerifier ciblant l'hôte, ainsi que ConfigDeployer et
+        TimerDeployer (toujours construits) et SecretsProvisioner
+        (uniquement si `credential_manager` est fourni, pour ne pas
+        forcer la dépendance optionnelle `credentials`).
 
         Args:
             target: Description de l'hôte cible (local ou distant).
             logger: Logger optionnel, propagé à tous les
                 collaborateurs.
             dry_run: Si True, le Deployer simule sans effet de bord.
+            credential_manager: CredentialManager optionnel pour la
+                résolution des secrets. Si None, la phase SECRETS
+                échoue proprement si elle est configurée.
 
         Returns:
             Deployer prêt à l'emploi pour target.
@@ -352,4 +579,21 @@ class Deployer:
         transport = RsyncTransport(local_exec, logger)
         installer = VenvInstaller(target_exec, logger)
         verifier = InstallVerifier(target_exec, logger)
-        return cls(transport, installer, verifier, logger, dry_run)
+        config_deployer = ConfigDeployer(logger)
+        timer_deployer = TimerDeployer(logger)
+        secrets_provisioner = (
+            SecretsProvisioner(credential_manager, logger)
+            if credential_manager is not None
+            else None
+        )
+        return cls(
+            transport,
+            installer,
+            verifier,
+            logger,
+            dry_run,
+            config_deployer,
+            secrets_provisioner,
+            timer_deployer,
+            target_exec,
+        )

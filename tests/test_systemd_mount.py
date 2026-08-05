@@ -86,7 +86,7 @@ class MockSystemdManager(SystemdExecutor):
         self.disabled_units.append(unit_name)
         return True
 
-    def get_status(self, unit_name: str) -> str | None:
+    def get_status(self, unit_name: str) -> str:
         """Retourne un statut simulé."""
         return "inactive"
 

@@ -836,6 +836,7 @@ class _FakeExecutor(CommandExecutor):
         cwd: str | None = None,
         timeout: int | None = None,
         probe: bool = False,
+        stdin: str | None = None,
     ) -> CommandResult:
         """Enregistre l'appel et retourne un CommandResult fixe."""
         self.calls.append((command, env, cwd, timeout, probe))
