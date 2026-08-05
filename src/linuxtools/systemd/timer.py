@@ -23,7 +23,8 @@ class LinuxTimerUnitManager(_TimerOperationsMixin, TimerUnitManager):
     def __init__(
         self,
         logger: Logger,
-        executor: SystemdExecutor
+        executor: SystemdExecutor,
+        remote_write: bool = False,
     ) -> None:
         """
         Initialise le gestionnaire d'unités timer.
@@ -31,5 +32,7 @@ class LinuxTimerUnitManager(_TimerOperationsMixin, TimerUnitManager):
         Args:
             logger: Instance de Logger pour le logging
             executor: Instance de SystemdExecutor pour les opérations systemctl
+            remote_write: Si True, écrit les fichiers d'unité via l'executor
+                (cible distante) au lieu de l'écriture locale TOCTOU-safe.
         """
-        super().__init__(logger, executor)
+        super().__init__(logger, executor, remote_write)

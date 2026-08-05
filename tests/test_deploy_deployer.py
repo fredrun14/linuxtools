@@ -1,23 +1,31 @@
 """Tests pour le module deploy.deployer."""
 
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linuxtools.commands.base import CommandResult
+from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.deploy.config_deployer import ConfigDeployer
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.exceptions import DeployError
 from linuxtools.deploy.models import (
     CheckResult,
+    ConfigDeploySpec,
     DeployConfig,
     DeployPhase,
     DeployTarget,
+    SecretsSpec,
+    TimerDeploySpec,
     VerificationSpec,
 )
+from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
+from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.systemd.base import ServiceConfig, TimerConfig
 
 
 def _result(success: bool = True, stderr: str = "") -> CommandResult:
@@ -485,3 +493,321 @@ class TestDeployerForTarget:
         """dry_run est propagé au Deployer construit."""
         deployer = Deployer.for_target(DeployTarget(), dry_run=True)
         assert deployer._dry_run is True
+
+
+def _make_config_with_phases(**overrides: object) -> DeployConfig:
+    """Étend _make_config() avec les specs des 3 nouvelles phases."""
+    return replace(_make_config(), **overrides)  # type: ignore[arg-type]
+
+
+def _make_successful_base_collaborators() -> (
+    tuple[MagicMock, MagicMock, MagicMock]
+):
+    """Transport/installer/verifier scriptés en succès jusqu'à VERIFY,
+    prêts pour enchaîner sur les phases CONFIG/SECRETS/TIMER."""
+    transport, installer, verifier = _make_collaborators()
+    transport.transfer.return_value = _result(success=True)
+    installer.backup_venv.return_value = None
+    installer.install.return_value = _result(success=True)
+    verifier.verify.return_value = [
+        CheckResult(label="import app", ok=True)
+    ]
+    return transport, installer, verifier
+
+
+_CONFIG_SPEC = ConfigDeploySpec(
+    data={"a": 1}, dest_path=Path("/etc/app/config.toml")
+)
+_SECRETS_SPEC = SecretsSpec(
+    service="svc",
+    keys=("TOKEN",),
+    dest_path=Path("/etc/app/secrets.env"),
+)
+_TIMER_SPEC = TimerDeploySpec(
+    unit_name="backup",
+    service_config=ServiceConfig(
+        description="Backup service", exec_start="/usr/bin/backup"
+    ),
+    timer_config=TimerConfig(
+        description="Backup timer",
+        unit="backup.service",
+        on_calendar="daily",
+    ),
+)
+
+
+class TestDeployerNouvellesPhases:
+    """Tests d'intégration des phases CONFIG/SECRETS/TIMER dans
+    Deployer.deploy() — chaque phase est best-effort (pas de rollback
+    en cas d'échec), et le rapport final est toujours retourné
+    proprement plutôt qu'une exception."""
+
+    def test_toutes_les_phases_reussissent_rapport_final_done(
+        self,
+    ) -> None:
+        """Succès complet : les 3 phases sont appelées avec (spec,
+        target, target_executor) et leurs messages figurent dans le
+        rapport final."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        config_deployer = MagicMock(spec=ConfigDeployer)
+        config_deployer.deploy.return_value = True
+        secrets_provisioner = MagicMock(spec=SecretsProvisioner)
+        secrets_provisioner.provision.return_value = True
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        timer_deployer.deploy.return_value = True
+        target_executor = MagicMock(spec=CommandExecutor)
+        config = _make_config_with_phases(
+            config_deploy=_CONFIG_SPEC,
+            secrets=_SECRETS_SPEC,
+            timer_deploy=_TIMER_SPEC,
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=target_executor,
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is True
+        assert report.phase_reached is DeployPhase.DONE
+        config_deployer.deploy.assert_called_once_with(
+            _CONFIG_SPEC, config.target, target_executor
+        )
+        secrets_provisioner.provision.assert_called_once_with(
+            _SECRETS_SPEC, config.target, target_executor
+        )
+        timer_deployer.deploy.assert_called_once_with(
+            _TIMER_SPEC, config.target, target_executor
+        )
+        assert "Config déployée." in report.messages
+        assert "Secrets provisionnés." in report.messages
+        assert "Service+timer installés." in report.messages
+
+    def test_aucune_spec_configuree_aucun_collaborateur_appele(
+        self,
+    ) -> None:
+        """Cas limite (no-op) : ni config_deploy, ni secrets, ni
+        timer_deploy dans la config -> aucun des 3 collaborateurs
+        n'est sollicité, même s'ils sont injectés."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        config_deployer = MagicMock(spec=ConfigDeployer)
+        secrets_provisioner = MagicMock(spec=SecretsProvisioner)
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(_make_config())
+
+        assert report.success is True
+        assert report.phase_reached is DeployPhase.DONE
+        config_deployer.deploy.assert_not_called()
+        secrets_provisioner.provision.assert_not_called()
+        timer_deployer.deploy.assert_not_called()
+
+    def test_config_deploy_configure_sans_config_deployer_echoue(
+        self,
+    ) -> None:
+        """Cas limite (no-op collaborateur absent) : config.config_deploy
+        renseigné mais aucun ConfigDeployer injecté -> échec propre,
+        phase CONFIG, message explicite."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+        config = _make_config_with_phases(config_deploy=_CONFIG_SPEC)
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.CONFIG
+        assert any(
+            "ConfigDeployer non configuré" in m for m in report.messages
+        )
+
+    def test_secrets_configure_sans_target_executor_echoue(self) -> None:
+        """Cas limite (no-op target_executor absent) : config.secrets
+        renseigné mais aucun target_executor injecté -> échec propre,
+        phase SECRETS, message explicite."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            secrets_provisioner=MagicMock(spec=SecretsProvisioner),
+        )
+        config = _make_config_with_phases(secrets=_SECRETS_SPEC)
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.SECRETS
+        assert any(
+            "target_executor non configuré" in m for m in report.messages
+        )
+
+    def test_timer_deploy_configure_sans_timer_deployer_echoue(
+        self,
+    ) -> None:
+        """Cas limite (no-op collaborateur absent) : config.timer_deploy
+        renseigné mais aucun TimerDeployer injecté -> échec propre,
+        phase TIMER, message explicite."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+        config = _make_config_with_phases(timer_deploy=_TIMER_SPEC)
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.TIMER
+        assert any(
+            "TimerDeployer non configuré" in m for m in report.messages
+        )
+
+    def test_phase_config_echoue_arrete_avant_secrets_et_timer(
+        self,
+    ) -> None:
+        """Échec best-effort : ConfigDeployer.deploy() renvoie False
+        -> le rapport final est bien retourné (pas d'exception), en
+        échec phase CONFIG, et les phases suivantes ne sont pas
+        déclenchées."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        config_deployer = MagicMock(spec=ConfigDeployer)
+        config_deployer.deploy.return_value = False
+        secrets_provisioner = MagicMock(spec=SecretsProvisioner)
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        config = _make_config_with_phases(
+            config_deploy=_CONFIG_SPEC,
+            secrets=_SECRETS_SPEC,
+            timer_deploy=_TIMER_SPEC,
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.CONFIG
+        assert any(
+            "Dépôt de la config échoué." in m for m in report.messages
+        )
+        secrets_provisioner.provision.assert_not_called()
+        timer_deployer.deploy.assert_not_called()
+        installer.prune_backup.assert_not_called()
+
+    def test_phase_secrets_echoue_apres_config_reussie(self) -> None:
+        """Échec best-effort en aval : la phase SECRETS échoue après
+        un dépôt de config réussi -> le message de succès CONFIG est
+        conservé dans le rapport, TIMER n'est pas déclenché."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        config_deployer = MagicMock(spec=ConfigDeployer)
+        config_deployer.deploy.return_value = True
+        secrets_provisioner = MagicMock(spec=SecretsProvisioner)
+        secrets_provisioner.provision.return_value = False
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        config = _make_config_with_phases(
+            config_deploy=_CONFIG_SPEC,
+            secrets=_SECRETS_SPEC,
+            timer_deploy=_TIMER_SPEC,
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.SECRETS
+        assert "Config déployée." in report.messages
+        assert any(
+            "Provisioning des secrets échoué." in m
+            for m in report.messages
+        )
+        timer_deployer.deploy.assert_not_called()
+
+    def test_phase_timer_echoue_apres_config_et_secrets_reussis(
+        self,
+    ) -> None:
+        """Échec best-effort en fin de chaîne : TIMER échoue après
+        CONFIG et SECRETS réussis -> les deux messages de succès sont
+        conservés dans le rapport final."""
+        transport, installer, verifier = (
+            _make_successful_base_collaborators()
+        )
+        config_deployer = MagicMock(spec=ConfigDeployer)
+        config_deployer.deploy.return_value = True
+        secrets_provisioner = MagicMock(spec=SecretsProvisioner)
+        secrets_provisioner.provision.return_value = True
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        timer_deployer.deploy.return_value = False
+        config = _make_config_with_phases(
+            config_deploy=_CONFIG_SPEC,
+            secrets=_SECRETS_SPEC,
+            timer_deploy=_TIMER_SPEC,
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.TIMER
+        assert "Config déployée." in report.messages
+        assert "Secrets provisionnés." in report.messages
+        assert any(
+            "Installation du service+timer échouée." in m
+            for m in report.messages
+        )

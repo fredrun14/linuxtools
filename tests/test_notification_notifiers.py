@@ -49,6 +49,7 @@ class FakeExecutor(CommandExecutor):
         cwd: str | None = None,
         timeout: int | None = None,
         probe: bool = False,
+        stdin: str | None = None,
     ) -> CommandResult:
         """Simule l'exécution d'une commande."""
         return self._next(command)

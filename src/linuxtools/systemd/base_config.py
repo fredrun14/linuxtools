@@ -300,6 +300,8 @@ class ServiceConfig(BaseSystemdConfig):
         group: Groupe sous lequel exécuter le service.
         working_directory: Répertoire de travail.
         environment: Variables d'environnement (dict).
+        environment_file: Chemin d'un fichier EnvironmentFile= (ex.
+            secrets 0600) ; non rendu si vide.
         restart: Politique de redémarrage (no, always, on-failure, etc.).
         restart_sec: Délai avant redémarrage en secondes.
         wanted_by: Cible d'installation (défaut: multi-user.target).
@@ -330,6 +332,7 @@ class ServiceConfig(BaseSystemdConfig):
     group: str = ""
     working_directory: str = ""
     environment: dict[str, str] = field(default_factory=dict)
+    environment_file: str = ""
     restart: str = "no"
     restart_sec: int = 0
     wanted_by: str = "multi-user.target"
@@ -410,6 +413,11 @@ class ServiceConfig(BaseSystemdConfig):
                 "WorkingDirectory",
                 self.working_directory,
                 "working_directory",
+            ),
+            _optional_line(
+                "EnvironmentFile",
+                self.environment_file,
+                "environment_file",
             ),
         ]))
 

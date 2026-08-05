@@ -1,8 +1,9 @@
 """Exécuteur de commandes systemctl."""
 
-import subprocess  # nosec B404
 from typing import ClassVar
 
+from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.validators import validate_full_unit_name
 
@@ -10,8 +11,10 @@ from linuxtools.systemd.validators import validate_full_unit_name
 class SystemdExecutor:
     """Exécuteur de commandes systemctl.
 
-    Encapsule toutes les opérations bas niveau systemctl
-    (daemon-reload, enable, disable, start, stop, status).
+    Délègue l'exécution réelle à un CommandExecutor injecté — local
+    par défaut (comportement identique aux versions précédentes), ou
+    SshCommandExecutor pour cibler un hôte distant (cf.
+    linuxtools.deploy).
 
     Attributes:
         logger: Instance de Logger pour le logging.
@@ -19,34 +22,54 @@ class SystemdExecutor:
 
     _label: ClassVar[str] = ""
 
-    def __init__(self, logger: Logger) -> None:
-        """
-        Initialise l'exécuteur systemd.
+    def __init__(
+        self,
+        logger: Logger,
+        executor: CommandExecutor | None = None,
+    ) -> None:
+        """Initialise l'exécuteur systemd.
 
         Args:
-            logger: Instance de Logger pour le logging
+            logger: Instance de Logger pour le logging.
+            executor: Exécuteur de commandes ciblant l'hôte (local ou
+                SSH). Si None, un LinuxCommandExecutor local est créé
+                — comportement identique aux versions précédentes de
+                cette classe.
         """
         self.logger = logger
+        self._executor = executor or LinuxCommandExecutor(logger=logger)
 
-    def _run_systemctl(
-        self,
-        args: list[str],
-        check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
-        """
-        Exécute une commande systemctl.
+    def _run_systemctl(self, args: list[str]) -> CommandResult:
+        """Exécute une commande systemctl via l'executor injecté.
 
         Args:
-            args: Arguments de la commande systemctl
-            check: Lever une exception si la commande échoue
+            args: Arguments de la commande systemctl.
 
         Returns:
-            Résultat de la commande
+            CommandResult de l'exécution (jamais d'exception levée
+            sur un code de retour non nul — à l'appelant de vérifier
+            `.success`).
         """
-        cmd = ["systemctl"] + args
-        return subprocess.run(  # nosec B603
-            cmd, check=check, capture_output=True, text=True
-        )
+        return self._executor.run(["systemctl", *args])
+
+    def run_raw(
+        self, command: list[str], stdin: str | None = None
+    ) -> CommandResult:
+        """Exécute une commande arbitraire via l'executor injecté.
+
+        Passe-plat utilisé par UnitManager (systemd/base.py) pour
+        écrire un fichier d'unité sur une cible distante via
+        `stdin=` — la cible locale garde son écriture TOCTOU-safe
+        directe et n'appelle jamais cette méthode.
+
+        Args:
+            command: Commande à exécuter.
+            stdin: Contenu à envoyer sur l'entrée standard, ou None.
+
+        Returns:
+            CommandResult de l'exécution.
+        """
+        return self._executor.run(command, stdin=stdin)
 
     def reload_systemd(self) -> bool:
         """
@@ -55,17 +78,17 @@ class SystemdExecutor:
         Returns:
             True si succès, False sinon
         """
-        try:
-            self._run_systemctl(["daemon-reload"])
-            self.logger.log_info(
-                f"Systemd{self._label} rechargé avec succès."
-            )
-            return True
-        except subprocess.CalledProcessError as e:
+        result = self._run_systemctl(["daemon-reload"])
+        if not result.success:
             self.logger.log_error(
-                f"Erreur lors du rechargement de systemd{self._label}: {e}"
+                f"Erreur lors du rechargement de systemd{self._label}: "
+                f"{result.stderr}"
             )
             return False
+        self.logger.log_info(
+            f"Systemd{self._label} rechargé avec succès."
+        )
+        return True
 
     def enable_unit(self, unit_name: str, now: bool = True) -> bool:
         """
@@ -79,28 +102,28 @@ class SystemdExecutor:
             True si succès, False sinon
         """
         validate_full_unit_name(unit_name)
-        try:
-            args = ["enable"]
-            if now:
-                args.append("--now")
-            args.append(unit_name)
-            self._run_systemctl(args)
-            msg = f"Unité {unit_name} activée"
-            if now:
-                msg += " et démarrée"
-            self.logger.log_info(f"{msg} avec succès.")
-            return True
-        except subprocess.CalledProcessError as e:
+        args = ["enable"]
+        if now:
+            args.append("--now")
+        args.append(unit_name)
+        result = self._run_systemctl(args)
+        if not result.success:
             self.logger.log_error(
-                f"Erreur lors de l'activation de l'unité {unit_name}: {e}"
+                f"Erreur lors de l'activation de l'unité {unit_name}: "
+                f"{result.stderr}"
             )
             return False
+        msg = f"Unité {unit_name} activée"
+        if now:
+            msg += " et démarrée"
+        self.logger.log_info(f"{msg} avec succès.")
+        return True
 
     def disable_unit(
         self,
         unit_name: str,
         now: bool = True,
-        ignore_errors: bool = False
+        ignore_errors: bool = False,
     ) -> bool:
         """
         Désactive une unité systemd.
@@ -114,26 +137,25 @@ class SystemdExecutor:
             True si succès, False sinon
         """
         validate_full_unit_name(unit_name)
-        try:
-            args = ["disable"]
-            if now:
-                args.append("--now")
-            args.append(unit_name)
-            self._run_systemctl(args, check=not ignore_errors)
-            self.logger.log_info(
-                f"Unité {unit_name} désactivée et arrêtée."
-            )
-            return True
-        except subprocess.CalledProcessError as e:
+        args = ["disable"]
+        if now:
+            args.append("--now")
+        args.append(unit_name)
+        result = self._run_systemctl(args)
+        if not result.success:
             if ignore_errors:
                 self.logger.log_warning(
-                    f"Impossible de désactiver {unit_name}: {e}"
+                    f"Impossible de désactiver {unit_name}: "
+                    f"{result.stderr}"
                 )
                 return True
             self.logger.log_error(
-                f"Erreur lors de la désactivation de {unit_name}: {e}"
+                f"Erreur lors de la désactivation de {unit_name}: "
+                f"{result.stderr}"
             )
             return False
+        self.logger.log_info(f"Unité {unit_name} désactivée et arrêtée.")
+        return True
 
     def _simple_action(
         self,
@@ -153,13 +175,12 @@ class SystemdExecutor:
         Returns:
             True si succès, False sinon.
         """
-        try:
-            self._run_systemctl([verb, unit_name])
-            self.logger.log_info(msg_ok)
-            return True
-        except subprocess.CalledProcessError as e:
-            self.logger.log_error(f"{msg_err}: {e}")
+        result = self._run_systemctl([verb, unit_name])
+        if not result.success:
+            self.logger.log_error(f"{msg_err}: {result.stderr}")
             return False
+        self.logger.log_info(msg_ok)
+        return True
 
     def start_unit(self, unit_name: str) -> bool:
         """
@@ -212,7 +233,7 @@ class SystemdExecutor:
             f"Erreur lors du redémarrage de {unit_name}",
         )
 
-    def get_status(self, unit_name: str) -> str | None:
+    def get_status(self, unit_name: str) -> str:
         """
         Récupère le statut d'une unité systemd.
 
@@ -220,21 +241,14 @@ class SystemdExecutor:
             unit_name: Nom de l'unité
 
         Returns:
-            Statut de l'unité (active, inactive, failed, etc.) ou None
+            Statut de l'unité (active, inactive, failed, etc.), ou
+            chaîne vide si la commande échoue (CommandExecutor.run()
+            ne lève jamais — une erreur système est déjà convertie en
+            CommandResult avec un stdout vide).
         """
         validate_full_unit_name(unit_name)
-        try:
-            result = self._run_systemctl(
-                ["is-active", unit_name],
-                check=False
-            )
-            return result.stdout.strip()
-        except (subprocess.SubprocessError, OSError) as e:
-            self.logger.log_error(
-                f"Erreur lors de la récupération du statut "
-                f"de {unit_name}: {e}"
-            )
-            return None
+        result = self._run_systemctl(["is-active", unit_name])
+        return result.stdout.strip()
 
     def is_active(self, unit_name: str) -> bool:
         """
@@ -256,20 +270,12 @@ class SystemdExecutor:
             unit_name: Nom de l'unité
 
         Returns:
-            True si activée, False sinon
+            True si activée, False sinon (y compris si la commande
+            échoue).
         """
         validate_full_unit_name(unit_name)
-        try:
-            result = self._run_systemctl(
-                ["is-enabled", unit_name],
-                check=False
-            )
-            return result.stdout.strip() == "enabled"
-        except (subprocess.SubprocessError, OSError) as e:
-            self.logger.log_error(
-                f"Erreur lors de la vérification de {unit_name}: {e}"
-            )
-            return False
+        result = self._run_systemctl(["is-enabled", unit_name])
+        return result.stdout.strip() == "enabled"
 
     def is_masked(self, unit_name: str) -> bool:
         """Vérifie si une unité systemd est masquée.
@@ -279,20 +285,12 @@ class SystemdExecutor:
                 (ex: ``packagekit.service``).
 
         Returns:
-            True si masquée, False sinon.
+            True si masquée, False sinon (y compris si la commande
+            échoue).
         """
         validate_full_unit_name(unit_name)
-        try:
-            result = self._run_systemctl(
-                ["is-enabled", unit_name],
-                check=False
-            )
-            return result.stdout.strip() == "masked"
-        except (subprocess.SubprocessError, OSError) as e:
-            self.logger.log_error(
-                f"Erreur lors de la vérification de {unit_name}: {e}"
-            )
-            return False
+        result = self._run_systemctl(["is-enabled", unit_name])
+        return result.stdout.strip() == "masked"
 
     def mask_unit(self, unit_name: str) -> bool:
         """Masque une unité systemd.
@@ -333,10 +331,11 @@ class UserSystemdExecutor(SystemdExecutor):
     """Exécuteur de commandes systemctl --user.
 
     Encapsule toutes les opérations bas niveau systemctl pour les
-    unités utilisateur (daemon-reload, enable, disable, start, stop, status).
+    unités utilisateur (daemon-reload, enable, disable, start, stop,
+    status).
 
-    Les unités utilisateur ne nécessitent pas de privilèges root et sont
-    stockées dans ~/.config/systemd/user/.
+    Les unités utilisateur ne nécessitent pas de privilèges root et
+    sont stockées dans ~/.config/systemd/user/.
 
     Attributes:
         logger: Instance de Logger pour le logging.
@@ -344,22 +343,14 @@ class UserSystemdExecutor(SystemdExecutor):
 
     _label = " utilisateur"
 
-    def _run_systemctl(
-        self,
-        args: list[str],
-        check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
+    def _run_systemctl(self, args: list[str]) -> CommandResult:
         """
-        Exécute une commande systemctl --user.
+        Exécute une commande systemctl --user via l'executor injecté.
 
         Args:
-            args: Arguments de la commande systemctl
-            check: Lever une exception si la commande échoue
+            args: Arguments de la commande systemctl.
 
         Returns:
-            Résultat de la commande
+            CommandResult de l'exécution.
         """
-        cmd = ["systemctl", "--user"] + args
-        return subprocess.run(  # nosec B603
-            cmd, check=check, capture_output=True, text=True
-        )
+        return self._executor.run(["systemctl", "--user", *args])

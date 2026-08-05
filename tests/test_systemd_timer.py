@@ -182,7 +182,7 @@ class TestLinuxTimerListTimers:
         ]
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(data), stderr=""
+            return_code=0, stdout=json.dumps(data), stderr=""
         )
         result = manager.list_timers()
         assert len(result) == 1
@@ -193,7 +193,7 @@ class TestLinuxTimerListTimers:
         """Vérifie le parsing d'une liste JSON vide."""
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=0, stdout="[]", stderr=""
+            return_code=0, stdout="[]", stderr=""
         )
         result = manager.list_timers()
         assert result == []
@@ -201,14 +201,14 @@ class TestLinuxTimerListTimers:
     def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
-            returncode=1, stdout="",
+            return_code=1, stdout="",
             stderr="unknown option '--output=json'"
         )
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
             "Mon 2026-01-01 1h ago Sun backup.timer backup.service\n"
         )
-        text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
+        text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         manager, executor = self._make_manager()
         executor._run_systemctl.side_effect = [
             fail_result, text_result
@@ -221,28 +221,11 @@ class TestLinuxTimerListTimers:
         """Vérifie que RuntimeError est levée sur erreur."""
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=1, stdout="", stderr="Failed to connect to bus"
+            return_code=1, stdout="", stderr="Failed to connect to bus"
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
 
-    def test_list_timers_systemctl_introuvable(self) -> None:
-        """Vérifie RuntimeError si systemctl n'existe pas."""
-        manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = FileNotFoundError(
-            "systemctl"
-        )
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
-
-    def test_list_timers_os_error(self) -> None:
-        """Vérifie RuntimeError sur OSError."""
-        manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = OSError(
-            "permission denied"
-        )
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
 
 
 class TestLinuxUserTimerListTimers:
@@ -268,7 +251,7 @@ class TestLinuxUserTimerListTimers:
         ]
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(data), stderr=""
+            return_code=0, stdout=json.dumps(data), stderr=""
         )
         result = manager.list_timers()
         assert len(result) == 1
@@ -278,7 +261,7 @@ class TestLinuxUserTimerListTimers:
         """Vérifie le parsing d'une liste JSON vide."""
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=0, stdout="[]", stderr=""
+            return_code=0, stdout="[]", stderr=""
         )
         result = manager.list_timers()
         assert result == []
@@ -286,14 +269,14 @@ class TestLinuxUserTimerListTimers:
     def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
-            returncode=1, stdout="",
+            return_code=1, stdout="",
             stderr="unknown option '--output=json'"
         )
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
             "Mon 2026-01-01 1h ago Sun user.timer user.service\n"
         )
-        text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
+        text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         manager, executor = self._make_manager()
         executor._run_systemctl.side_effect = [
             fail_result, text_result
@@ -306,28 +289,11 @@ class TestLinuxUserTimerListTimers:
         """Vérifie que RuntimeError est levée sur erreur."""
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
-            returncode=1, stdout="", stderr="Failed to connect to bus"
+            return_code=1, stdout="", stderr="Failed to connect to bus"
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
 
-    def test_list_timers_systemctl_introuvable(self) -> None:
-        """Vérifie RuntimeError si systemctl n'existe pas."""
-        manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = FileNotFoundError(
-            "systemctl"
-        )
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
-
-    def test_list_timers_os_error(self) -> None:
-        """Vérifie RuntimeError sur OSError."""
-        manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = OSError(
-            "permission denied"
-        )
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
 
 
 class TestLinuxTimerUnitManagerSuccessPaths:
@@ -417,12 +383,12 @@ class TestLinuxTimerUnitManagerSuccessPaths:
 
     def test_list_timers_json_invalide_fallback(self) -> None:
         """list_timers() fallback texte si JSON invalide."""
-        json_fail = MagicMock(returncode=0, stdout="invalid-json", stderr="")
+        json_fail = MagicMock(return_code=0, stdout="invalid-json", stderr="")
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
             "Mon 2026 1h ago Sun cron.timer cron.service\n"
         )
-        text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
+        text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         executor = MagicMock()
         executor._run_systemctl.side_effect = [json_fail, text_result]
         manager = LinuxTimerUnitManager(MagicMock(), executor)
@@ -430,26 +396,13 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         assert len(result) == 1
         assert result[0]["unit"] == "cron.timer"
 
-    def test_list_timers_fallback_texte_os_error(self) -> None:
-        """_list_timers_text_fallback lève RuntimeError si OSError."""
-        fail_result = MagicMock(
-            returncode=1, stdout="", stderr="unknown option '--output=json'"
-        )
-        executor = MagicMock()
-        executor._run_systemctl.side_effect = [
-            fail_result, OSError("permission denied")
-        ]
-        manager = LinuxTimerUnitManager(MagicMock(), executor)
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
-
     def test_list_timers_fallback_texte_returncode_nonzero(self) -> None:
-        """_list_timers_text_fallback lève RuntimeError si returncode != 0."""
+        """_list_timers_text_fallback lève RuntimeError si return_code != 0."""
         fail_result = MagicMock(
-            returncode=1, stdout="", stderr="unknown option '--output=json'"
+            return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
         text_fail = MagicMock(
-            returncode=1, stdout="", stderr="Failed to connect"
+            return_code=1, stdout="", stderr="Failed to connect"
         )
         executor = MagicMock()
         executor._run_systemctl.side_effect = [fail_result, text_fail]
@@ -557,12 +510,12 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
 
     def test_list_timers_json_invalide_fallback(self) -> None:
         """list_timers() fallback texte si JSON invalide."""
-        json_fail = MagicMock(returncode=0, stdout="not-json", stderr="")
+        json_fail = MagicMock(return_code=0, stdout="not-json", stderr="")
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
             "Mon 2026 1h ago Sun user.timer user.service\n"
         )
-        text_result = MagicMock(returncode=0, stdout=text_output, stderr="")
+        text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         executor = MagicMock()
         executor._run_systemctl.side_effect = [json_fail, text_result]
         manager = LinuxUserTimerUnitManager(MagicMock(), executor)
@@ -570,26 +523,13 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         assert len(result) == 1
         assert result[0]["unit"] == "user.timer"
 
-    def test_list_timers_fallback_texte_os_error(self) -> None:
-        """_list_timers_text_fallback lève RuntimeError si OSError."""
-        fail_result = MagicMock(
-            returncode=1, stdout="", stderr="unknown option '--output=json'"
-        )
-        executor = MagicMock()
-        executor._run_systemctl.side_effect = [
-            fail_result, OSError("permission denied")
-        ]
-        manager = LinuxUserTimerUnitManager(MagicMock(), executor)
-        with pytest.raises(RuntimeError, match="Impossible"):
-            manager.list_timers()
-
     def test_list_timers_fallback_texte_returncode_nonzero(self) -> None:
-        """_list_timers_text_fallback lève RuntimeError si returncode != 0."""
+        """_list_timers_text_fallback lève RuntimeError si return_code != 0."""
         fail_result = MagicMock(
-            returncode=1, stdout="", stderr="unknown option '--output=json'"
+            return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
         text_fail = MagicMock(
-            returncode=1, stdout="", stderr="Failed to connect"
+            return_code=1, stdout="", stderr="Failed to connect"
         )
         executor = MagicMock()
         executor._run_systemctl.side_effect = [fail_result, text_fail]

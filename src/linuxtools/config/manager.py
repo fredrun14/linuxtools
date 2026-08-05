@@ -6,8 +6,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
 
+from linuxtools.commands.base import CommandExecutor
 from linuxtools.config.base import ConfigManager
 from linuxtools.config.loader import ConfigLoader, FileConfigLoader
+from linuxtools.filesystem.linux import write_text_secure
 from linuxtools.logging.base import Logger
 
 _T = TypeVar("_T")
@@ -25,6 +27,21 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+def _render_toml(data: dict[str, Any]) -> str:
+    """Rend un dictionnaire en texte TOML (sans écriture disque).
+
+    Args:
+        data: Données à sérialiser.
+
+    Returns:
+        Texte TOML avec saut de ligne final.
+    """
+    from linuxtools.dotconf.conf_toml_exporter import (
+        ConfTomlExporter,
+    )
+    return ConfTomlExporter().export_mapping(data) + "\n"
+
+
 def _write_toml_file(path: Path, data: dict[str, Any]) -> None:
     """Écrit un dictionnaire en TOML sur disque via ConfTomlExporter.
 
@@ -32,11 +49,7 @@ def _write_toml_file(path: Path, data: dict[str, Any]) -> None:
         path: Chemin de sortie.
         data: Données à sérialiser.
     """
-    from linuxtools.dotconf.conf_toml_exporter import (
-        ConfTomlExporter,
-    )
-    content = ConfTomlExporter().export_mapping(data)
-    path.write_text(content + "\n", encoding="utf-8")
+    path.write_text(_render_toml(data), encoding="utf-8")
 
 
 _WRITERS: dict[str, Callable[[Path, dict[str, Any]], None]] = {
@@ -299,3 +312,55 @@ class ConfigurationManager(ConfigManager):
 
         writer_fn(path, self.default_config)
         self._log_info(f"Configuration créée : {path}")
+
+    def deploy_via(
+        self,
+        executor: CommandExecutor,
+        dest_path: str | Path,
+        *,
+        is_remote: bool,
+        mode: int = 0o644,
+    ) -> bool:
+        """Dépose la configuration effective sur une cible (locale ou SSH).
+
+        Rend `self.config` en TOML puis l'écrit sur `dest_path` — en
+        local via une écriture TOCTOU-safe directe
+        (`write_text_secure`), à distance via
+        `executor.run(..., stdin=...)` suivi d'un `chmod`.
+
+        Args:
+            executor: Exécuteur de commandes ciblant l'hôte (local ou
+                SSH). Utilisé uniquement quand `is_remote` est True.
+            dest_path: Chemin de destination sur la cible.
+            is_remote: True si `dest_path` désigne un chemin sur un
+                hôte distant (choix explicite de l'appelant — jamais
+                deviné).
+            mode: Permissions POSIX du fichier déposé (défaut 0o644).
+
+        Returns:
+            True si le dépôt a réussi, False sinon.
+        """
+        content = _render_toml(self.config)
+        if not is_remote:
+            write_text_secure(dest_path, content, mode=mode)
+            self._log_info(f"Configuration déposée (local) : {dest_path}")
+            return True
+        dest = str(dest_path)
+        write_result = executor.run(["tee", dest], stdin=content)
+        if not write_result.success:
+            self._log_warning(
+                f"Échec du dépôt distant de {dest} : "
+                f"{write_result.stderr}"
+            )
+            return False
+        chmod_result = executor.run(
+            ["chmod", format(mode, "03o"), dest]
+        )
+        if not chmod_result.success:
+            self._log_warning(
+                f"Échec du chmod distant de {dest} : "
+                f"{chmod_result.stderr}"
+            )
+            return False
+        self._log_info(f"Configuration déposée (distant) : {dest}")
+        return True
