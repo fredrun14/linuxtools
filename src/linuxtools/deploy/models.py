@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -144,11 +144,16 @@ class TimerDeploySpec:
         service_config: Configuration du service, déjà construite par
             l'appelant (dataclasses ServiceConfig — cf. CDC Q-03).
         timer_config: Configuration du timer.
+        scope: Portée d'installation — "system" (défaut,
+            /etc/systemd/system/, nécessite root) ou "user"
+            (~/.config/systemd/user/, systemctl --user, sans
+            élévation de privilèges).
     """
 
     unit_name: str
     service_config: ServiceConfig
     timer_config: TimerConfig
+    scope: Literal["system", "user"] = "system"
 
 
 @dataclass(frozen=True)

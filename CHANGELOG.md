@@ -2,6 +2,40 @@
 
 ## [Non publié]
 
+### Nouvelles fonctionnalités
+
+#### Module `deploy` — scope utilisateur pour `TimerDeploySpec`
+
+- **`TimerDeploySpec.scope: Literal["system", "user"] = "system"`** —
+  `TimerDeployer` sait désormais installer le service+timer soit en mode
+  **système** (`/etc/systemd/system/`, comportement historique inchangé,
+  toujours le défaut, nécessite root), soit en mode **utilisateur**
+  (`~/.config/systemd/user/`, `systemctl --user`, sans élévation de
+  privilèges). Bloquant réel rencontré lors d'un premier déploiement d'un
+  outil personnel (`backup-py-manager deploy`) sur poste Fedora : sauvegarder
+  son propre home ne doit pas exiger root.
+- Les briques utilisateur (`UserSystemdExecutor`,
+  `LinuxUserServiceUnitManager`, `LinuxUserTimerUnitManager`) existaient
+  déjà dans `linuxtools.systemd` depuis le 2026-07-19 mais n'étaient
+  mobilisées par aucun module — `TimerDeployer.deploy()` les câble
+  désormais dans une méthode privée dédiée (`_deploy_user`), symétrique de
+  `_deploy_system` (copie stricte de l'ancien corps de `deploy()`, aucune
+  régression possible sur le chemin système existant).
+  ⚠ **`service_timer_installer.py` non modifié, volontairement** :
+  `SystemdServiceTimerInstaller` reste typé aux seules ABCs système
+  (`ServiceUnitManager`/`TimerUnitManager`) — les classes utilisateur sont
+  des classes sœurs, pas des sous-types, et les y faire transiter aurait
+  cassé `mypy --strict` ou élargi le risque à une classe partagée par
+  d'autres consommateurs de `linuxtools.systemd`. `_deploy_user()` orchestre
+  donc directement les 3 étapes (`install_service_unit_with_name` →
+  `install_timer_unit` → `enable_timer`) sur les managers utilisateur —
+  petite duplication assumée plutôt qu'une abstraction commune prématurée.
+- Fonctionne aussi en cible SSH distante (`remote_write` propagé comme côté
+  système) — cohérent avec l'agnosticisme local/distant du reste du module.
+- Hors périmètre, assumé : `loginctl enable-linger` (survie du timer
+  utilisateur après déconnexion) n'est ni automatisé ni signalé — à la
+  charge de l'appelant si nécessaire.
+
 ### Corrections
 
 #### `RsyncTransport` — création des répertoires parents manquants
