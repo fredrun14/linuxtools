@@ -95,7 +95,7 @@ class TestRsyncTransportTransfer:
         assert command[idx + 1] == "ssh -p 2222"
 
     def test_options_par_defaut_incluses(self, tmp_path: Path) -> None:
-        """Les options par défaut (-a --delete) sont présentes."""
+        """Les options par défaut (-a --delete --mkpath) sont présentes."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
         transport.transfer(tmp_path, Path("/dst"), DeployTarget())
@@ -103,6 +103,28 @@ class TestRsyncTransportTransfer:
         command = local.run.call_args.args[0]
         assert "-a" in command
         assert "--delete" in command
+        assert "--mkpath" in command
+
+    def test_mkpath_permet_destination_a_parents_manquants(
+        self, tmp_path: Path
+    ) -> None:
+        """--mkpath est transmis même si la destination distante a
+        des répertoires parents manquants (rsync les crée lui-même,
+        le mock ne fait que vérifier la commande construite)."""
+        local = _make_local_mock()
+        transport = RsyncTransport(local_executor=local)
+        transport.transfer(
+            tmp_path,
+            Path("/opt/nouvelle-arbo/inexistante/src"),
+            DeployTarget(host="srv01", user="deploy"),
+        )
+
+        command = local.run.call_args.args[0]
+        assert "--mkpath" in command
+        assert (
+            command[-1]
+            == "deploy@srv01:/opt/nouvelle-arbo/inexistante/src"
+        )
 
     def test_extra_options_personnalisees(self, tmp_path: Path) -> None:
         """extra_options remplace les options par défaut."""

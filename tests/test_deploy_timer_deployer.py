@@ -1,5 +1,6 @@
 """Tests pour le module deploy.timer_deployer."""
 
+from dataclasses import replace
 from unittest.mock import MagicMock, call, patch
 
 from linuxtools.commands.base import CommandExecutor
@@ -131,3 +132,179 @@ class TestTimerDeployerDeploy:
             result = deployer.deploy(spec, DeployTarget(), executor)
 
         assert result is False
+
+
+class TestTimerDeployerDeployUser:
+    """Tests de TimerDeployer.deploy() pour le scope "user" — mêmes
+    principes que TestTimerDeployerDeploy, mais sur les managers
+    utilisateur, sans passer par SystemdServiceTimerInstaller."""
+
+    def test_deploy_user_scope_delegue_aux_managers_utilisateur(
+        self,
+    ) -> None:
+        """Cas nominal : les 3 étapes (service -> timer -> enable)
+        sont appelées sur les managers utilisateur, et
+        SystemdServiceTimerInstaller n'est jamais sollicité."""
+        spec = replace(_make_spec(), scope="user")
+        target = DeployTarget()
+        executor = MagicMock(spec=CommandExecutor)
+        logger = MagicMock()
+
+        with (
+            patch(f"{_MODULE}.UserSystemdExecutor") as m_user_systemd_exec,
+            patch(
+                f"{_MODULE}.LinuxUserServiceUnitManager"
+            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
+            patch(f"{_MODULE}.SystemdServiceTimerInstaller") as m_installer,
+        ):
+            m_service_mgr.return_value.install_service_unit_with_name.return_value = (
+                True
+            )
+            m_timer_mgr.return_value.install_timer_unit.return_value = True
+            m_timer_mgr.return_value.enable_timer.return_value = True
+            deployer = TimerDeployer(logger)
+
+            result = deployer.deploy(spec, target, executor)
+
+        assert result is True
+        m_user_systemd_exec.assert_called_once_with(logger, executor)
+        m_service_mgr.assert_called_once_with(
+            logger, m_user_systemd_exec.return_value, remote_write=False
+        )
+        m_timer_mgr.assert_called_once_with(
+            logger, m_user_systemd_exec.return_value, remote_write=False
+        )
+        m_service_mgr.return_value.install_service_unit_with_name.assert_called_once_with(
+            "backup", spec.service_config
+        )
+        m_timer_mgr.return_value.install_timer_unit.assert_called_once_with(
+            spec.timer_config
+        )
+        m_timer_mgr.return_value.enable_timer.assert_called_once_with(
+            "backup"
+        )
+        m_installer.assert_not_called()
+
+    def test_deploy_user_scope_cible_distante_propage_remote_write(
+        self,
+    ) -> None:
+        """Cas limite : cible distante -> remote_write=True propagé
+        aux deux gestionnaires d'unités utilisateur."""
+        spec = replace(_make_spec(), scope="user")
+        target = DeployTarget(host="srv01")
+        executor = MagicMock(spec=CommandExecutor)
+        logger = MagicMock()
+
+        with (
+            patch(f"{_MODULE}.UserSystemdExecutor") as m_user_systemd_exec,
+            patch(
+                f"{_MODULE}.LinuxUserServiceUnitManager"
+            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
+            patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
+        ):
+            m_service_mgr.return_value.install_service_unit_with_name.return_value = (
+                True
+            )
+            m_timer_mgr.return_value.install_timer_unit.return_value = True
+            m_timer_mgr.return_value.enable_timer.return_value = True
+            deployer = TimerDeployer(logger)
+
+            deployer.deploy(spec, target, executor)
+
+        assert m_service_mgr.call_args == call(
+            logger, m_user_systemd_exec.return_value, remote_write=True
+        )
+        assert m_timer_mgr.call_args == call(
+            logger, m_user_systemd_exec.return_value, remote_write=True
+        )
+
+    def test_deploy_user_scope_echec_install_service_retourne_false(
+        self,
+    ) -> None:
+        """Cas d'erreur : échec de l'installation du service ->
+        deploy() retourne False, install_timer_unit jamais appelé."""
+        spec = replace(_make_spec(), scope="user")
+        executor = MagicMock(spec=CommandExecutor)
+        logger = MagicMock()
+
+        with (
+            patch(f"{_MODULE}.UserSystemdExecutor"),
+            patch(
+                f"{_MODULE}.LinuxUserServiceUnitManager"
+            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
+            patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
+        ):
+            m_service_mgr.return_value.install_service_unit_with_name.return_value = (
+                False
+            )
+            deployer = TimerDeployer(logger)
+
+            result = deployer.deploy(spec, DeployTarget(), executor)
+
+        assert result is False
+        m_timer_mgr.return_value.install_timer_unit.assert_not_called()
+
+    def test_deploy_user_scope_echec_install_timer_retourne_false(
+        self,
+    ) -> None:
+        """Cas d'erreur : service OK mais échec du timer ->
+        deploy() retourne False, enable_timer jamais appelé."""
+        spec = replace(_make_spec(), scope="user")
+        executor = MagicMock(spec=CommandExecutor)
+        logger = MagicMock()
+
+        with (
+            patch(f"{_MODULE}.UserSystemdExecutor"),
+            patch(
+                f"{_MODULE}.LinuxUserServiceUnitManager"
+            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
+            patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
+        ):
+            m_service_mgr.return_value.install_service_unit_with_name.return_value = (
+                True
+            )
+            m_timer_mgr.return_value.install_timer_unit.return_value = False
+            deployer = TimerDeployer(logger)
+
+            result = deployer.deploy(spec, DeployTarget(), executor)
+
+        assert result is False
+        m_timer_mgr.return_value.enable_timer.assert_not_called()
+
+    def test_deploy_user_scope_echec_enable_timer_retourne_false(
+        self,
+    ) -> None:
+        """Cas d'erreur : service et timer OK mais échec de
+        l'activation -> deploy() retourne False."""
+        spec = replace(_make_spec(), scope="user")
+        executor = MagicMock(spec=CommandExecutor)
+        logger = MagicMock()
+
+        with (
+            patch(f"{_MODULE}.UserSystemdExecutor"),
+            patch(
+                f"{_MODULE}.LinuxUserServiceUnitManager"
+            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
+            patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
+        ):
+            m_service_mgr.return_value.install_service_unit_with_name.return_value = (
+                True
+            )
+            m_timer_mgr.return_value.install_timer_unit.return_value = True
+            m_timer_mgr.return_value.enable_timer.return_value = False
+            deployer = TimerDeployer(logger)
+
+            result = deployer.deploy(spec, DeployTarget(), executor)
+
+        assert result is False
+
+    def test_deploy_scope_system_est_le_defaut(self) -> None:
+        """`scope` vaut "system" par défaut sur TimerDeploySpec."""
+        spec = _make_spec()
+
+        assert spec.scope == "system"
