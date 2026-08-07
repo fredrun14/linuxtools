@@ -18,10 +18,14 @@ Example:
         from linuxtools.scripts import (
             LinuxCliInstaller, LinuxScriptChecker, PythonCliConfig,
         )
+        from linuxtools.commands import LinuxCommandExecutor
         from pathlib import Path
 
-        checker = LinuxScriptChecker(logger)
-        installer = LinuxCliInstaller(logger, checker)
+        # Un seul CommandExecutor construit une fois (composition
+        # root) et partagé entre checker et installer.
+        executor = LinuxCommandExecutor(logger=logger)
+        checker = LinuxScriptChecker(executor, logger)
+        installer = LinuxCliInstaller(checker, executor, logger)
         config = PythonCliConfig(
             name="mon-app", deploy_type="user",
             source_dir=Path("/home/user/mon-app"),
@@ -31,13 +35,11 @@ Example:
 """
 
 import os
-import pwd
-import shutil
-import subprocess
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from linuxtools.commands.base import CommandExecutor
 from linuxtools.filesystem import FileManager
 from linuxtools.filesystem.linux import _open_secure
 from linuxtools.logging import Logger
@@ -280,26 +282,43 @@ class LinuxCliInstaller(CliInstaller):
        `sudo uv tool install --python /usr/bin/python3` (system).
     5. Retour d'un InstallReport avec le résultat complet.
 
+    Toutes les commandes système (uv, recherche de uv, écriture du
+    wrapper) passent par `_executor`, injecté séparément du même
+    exécuteur que celui donné à `checker` — jamais piocher
+    `checker._executor` en interne (composition root : l'appelant
+    construit un seul CommandExecutor et l'injecte deux fois).
+
+    Deux points restent strictement locaux même avec un exécuteur
+    distant : `ScriptPaths` résout `~/.local/...` via `Path.home()`
+    local, et `config.source_dir` doit être accessible localement
+    (lu par `checker.read_pyproject()` via `open()`) — voir CDC
+    F-05, note hors périmètre.
+
     Attributes:
         _logger: Logger optionnel pour la journalisation.
         _checker: Implémentation de ScriptChecker.
+        _executor: Exécuteur de commandes ciblant l'hôte (local ou
+            distant).
     """
 
     _PYTHON_EXEC: str = "/usr/bin/python3"
 
     def __init__(
         self,
+        checker: ScriptChecker,
+        executor: CommandExecutor,
         logger: Logger | None = None,
-        checker: ScriptChecker = None,  # type: ignore[assignment]
     ) -> None:
         """Initialise avec les dépendances injectées.
 
         Args:
-            logger: Instance de Logger.
             checker: Implémentation de ScriptChecker.
+            executor: Exécuteur de commandes ciblant l'hôte.
+            logger: Instance de Logger.
         """
-        self._logger = logger
         self._checker = checker
+        self._executor = executor
+        self._logger = logger
 
     def _failure(
         self,
@@ -573,59 +592,120 @@ class LinuxCliInstaller(CliInstaller):
     def _write_wrapper(
         self, content: str, target_path: Path
     ) -> None:
-        """Écrit le wrapper bash sur disque (TOCTOU-safe).
+        """Écrit le wrapper bash sur disque (TOCTOU-safe, local/distant).
 
-        Utilise O_NOFOLLOW pour refuser les liens symboliques.
-        O_CREAT|O_TRUNC crée ou écrase ; fchmod(0o755) appliqué
-        sur le fd avant fermeture (fd-safe).
+        Séquence entièrement exécutée via `self._executor` (aucun
+        I/O filesystem locale directe) : `mktemp` crée un fichier
+        temporaire dans le répertoire cible, `tee` y écrit le contenu
+        (via `stdin`), `chmod` applique les permissions, `test -L`
+        refuse que `target_path` soit un lien symbolique, puis `mv`
+        remplace la cible de façon atomique sans jamais suivre un
+        symlink en position destination. En cas d'échec après
+        création du fichier temporaire, celui-ci est nettoyé via
+        `rm -f` avant de relever l'erreur.
 
         Args:
             content: Contenu du script bash.
             target_path: Chemin de destination.
 
         Raises:
-            OSError: Si target_path est un symlink, si l'écriture
-                ou le chmod échoue.
+            OSError: Si target_path est un symlink, ou si mktemp,
+                l'écriture, le chmod ou le déplacement échoue.
         """
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        fd = _open_secure(
-            target_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644
+        parent = str(target_path.parent)
+        self._executor.run(["mkdir", "-p", parent])
+
+        mktemp_result = self._executor.run(
+            ["mktemp", "-p", parent, f".{target_path.name}.XXXXXX"]
         )
+        if not mktemp_result.success:
+            raise OSError(
+                f"Échec mktemp pour {target_path} : "
+                f"{mktemp_result.stderr.strip()}"
+            )
+        tmp_path = mktemp_result.stdout.strip()
+
         try:
-            with os.fdopen(
-                fd, "w", encoding="utf-8", closefd=False
-            ) as fh:
-                fh.write(content)
-            os.fchmod(fd, 0o755)  # nosec B103
-        finally:
-            os.close(fd)
+            write_result = self._executor.run(
+                ["tee", tmp_path], stdin=content
+            )
+            if not write_result.success:
+                raise OSError(
+                    f"Échec écriture wrapper : "
+                    f"{write_result.stderr.strip()}"
+                )
+
+            chmod_result = self._executor.run(
+                ["chmod", "0755", tmp_path]
+            )
+            if not chmod_result.success:
+                raise OSError(
+                    f"Échec chmod wrapper : "
+                    f"{chmod_result.stderr.strip()}"
+                )
+
+            symlink_check = self._executor.probe(
+                ["test", "-L", str(target_path)]
+            )
+            if symlink_check.success:
+                raise OSError(
+                    f"{target_path} est un lien symbolique, refusé"
+                )
+
+            mv_result = self._executor.run(
+                ["mv", tmp_path, str(target_path)]
+            )
+            if not mv_result.success:
+                raise OSError(
+                    f"Échec déplacement wrapper : "
+                    f"{mv_result.stderr.strip()}"
+                )
+        except OSError:
+            self._executor.run(["rm", "-f", tmp_path])
+            raise
+
         if self._logger:
             self._logger.log_info(f"Wrapper écrit : {target_path}")
 
-    @staticmethod
-    def _candidate_homes() -> list[Path]:
+    def _candidate_homes(self) -> list[str]:
         """Retourne les homes à sonder pour localiser uv.
 
-        Inclut le home de l'utilisateur courant et, le cas échéant,
-        celui de ``$SUDO_USER`` (cas d'une exécution via sudo/root).
+        Inclut le home de l'utilisateur courant sur la cible et, le
+        cas échéant, celui de ``$SUDO_USER`` (cas d'une exécution via
+        sudo/root) — interrogés via `self._executor`, jamais via
+        `Path.home()` local. La logique `SUDO_USER` dégrade
+        naturellement en no-op sur un exécuteur distant sans session
+        sudo : aucun branchement explicite local/distant requis.
 
         Returns:
-            Liste des répertoires home candidats.
+            Liste des répertoires home candidats (chaînes de
+            caractères).
         """
-        homes = [Path.home()]
-        sudo_user = os.environ.get("SUDO_USER")
-        if sudo_user:
-            try:
-                homes.append(Path(pwd.getpwnam(sudo_user).pw_dir))
-            except KeyError:
-                pass
+        homes: list[str] = []
+        home_result = self._executor.probe(["sh", "-c", "echo $HOME"])
+        if home_result.success and home_result.stdout.strip():
+            homes.append(home_result.stdout.strip())
+
+        sudo_user_result = self._executor.probe(
+            ["sh", "-c", "echo $SUDO_USER"]
+        )
+        sudo_user = sudo_user_result.stdout.strip()
+        if sudo_user_result.success and sudo_user:
+            passwd_result = self._executor.probe(
+                ["getent", "passwd", sudo_user]
+            )
+            if passwd_result.success:
+                fields = passwd_result.stdout.strip().split(":")
+                if len(fields) >= 6:
+                    homes.append(fields[5])
+
         return homes
 
     def _find_uv(self) -> str | None:
         """Localise l'exécutable uv : PATH puis emplacements usuels.
 
-        Cherche dans l'ordre :
-        1. Le PATH courant (``shutil.which``).
+        Cherche dans l'ordre, sur l'hôte cible via `self._executor` :
+        1. Le PATH courant (``command -v uv``).
         2. ``~/.local/bin/uv`` et ``~/.cargo/bin/uv`` de l'utilisateur
            courant et de ``$SUDO_USER``.
 
@@ -635,15 +715,38 @@ class LinuxCliInstaller(CliInstaller):
         Returns:
             Chemin absolu vers uv, ou None si introuvable.
         """
-        found = shutil.which("uv")
-        if found:
-            return found
+        result = self._executor.probe(["sh", "-c", "command -v uv"])
+        if result.success and result.stdout.strip():
+            return result.stdout.strip()
         for home in self._candidate_homes():
             for sub in (".local/bin/uv", ".cargo/bin/uv"):
-                candidate = home / sub
-                if candidate.is_file() and os.access(candidate, os.X_OK):
-                    return str(candidate)
+                candidate = f"{home}/{sub}"
+                check = self._executor.probe(["test", "-x", candidate])
+                if check.success:
+                    return candidate
         return None
+
+    def _is_target_root(self) -> bool:
+        """Détermine si la cible s'exécute déjà en tant que root.
+
+        Interroge la cible elle-même (via l'exécuteur), pas le
+        processus local : `CommandResult.executed_as_root` décrit le
+        lanceur local (ex. le ssh local), pas la session distante
+        réelle.
+
+        Returns:
+            True si l'UID de la cible est 0, False sinon (y compris
+            en cas d'échec de la sonde).
+        """
+        result = self._executor.probe(["id", "-u"])
+        if not result.success:
+            if self._logger:
+                self._logger.log_warning(
+                    "Impossible de déterminer l'UID cible, "
+                    "on suppose non-root"
+                )
+            return False
+        return result.stdout.strip() == "0"
 
     def _run_uv_install(self, config: PythonCliConfig) -> bool:
         """Lance uv tool install pour déployer le script CLI.
@@ -672,26 +775,18 @@ class LinuxCliInstaller(CliInstaller):
                 "--editable",
                 str(config.source_dir),
             ]
-            # sudo uniquement si on n'est pas déjà root
-            cmd = (["sudo"] if os.geteuid() != 0 else []) + base
+            # sudo uniquement si la cible n'est pas déjà root
+            cmd = (
+                [] if self._is_target_root() else ["sudo"]
+            ) + base
         else:
             cmd = [
                 uv_path, "tool", "install",
                 "--force", "--editable", str(config.source_dir),
             ]
 
-        try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120
-            )
-        except FileNotFoundError:
-            if self._logger:
-                self._logger.log_error(
-                    f"uv non trouvé à {uv_path}"
-                )
-            return False
-
-        if result.returncode != 0:
+        result = self._executor.run(cmd, timeout=120)
+        if not result.success:
             if self._logger:
                 self._logger.log_error(
                     f"uv tool install a échoué : {result.stderr.strip()}"

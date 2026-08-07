@@ -6,7 +6,8 @@ python3, syntaxe du script, venv, pyproject.toml et dépendances.
 
 Typical usage example:
 
-    checker = LinuxScriptChecker(logger)
+    executor = LinuxCommandExecutor(logger=logger)
+    checker = LinuxScriptChecker(executor, logger)
     if not checker.check_python(required_version="3.11"):
         raise RuntimeError("Python 3.11+ requis")
     data = checker.read_pyproject(Path("pyproject.toml"))
@@ -15,15 +16,13 @@ Typical usage example:
     )
 """
 
-import importlib.metadata
-import json
 import re
-import subprocess
 import tomllib
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import cast
 
+from linuxtools.commands.base import CommandExecutor
 from linuxtools.logging import Logger
 from linuxtools.scripts.report import (
     InstalledDependency,
@@ -122,29 +121,36 @@ class ScriptChecker(ABC):
 class LinuxScriptChecker(ScriptChecker):
     """Implémentation Linux des vérifications pré-déploiement.
 
-    Utilise subprocess et tomllib (stdlib Python 3.11+) pour
-    analyser l'environnement et les dépendances déclarées dans
-    pyproject.toml.
+    Toutes les commandes système passent par l'exécuteur *cible*
+    injecté (LinuxCommandExecutor pour une cible locale, ou
+    SshCommandExecutor pour une cible distante) — LinuxScriptChecker
+    ne sait jamais s'il opère en local ou à distance.
+
+    Deux exceptions strictement locales : `read_pyproject()` (lecture
+    via `open()` sur la machine qui lance le déploiement, jamais sur
+    la cible) et la résolution `~/.local/...` de `ScriptPaths` (côté
+    appelant, hors de cette classe) — voir leurs docstrings
+    respectives.
 
     Attributes:
+        _executor: Exécuteur de commandes ciblant l'hôte.
         _logger: Logger optionnel pour la journalisation.
     """
 
     _PYTHON_EXEC: str = "/usr/bin/python3"
 
-    @staticmethod
-    def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-        """Exécute une commande et retourne le résultat."""
-        return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60
-        )
-
-    def __init__(self, logger: Logger | None = None) -> None:
-        """Initialise avec le logger.
+    def __init__(
+        self,
+        executor: CommandExecutor,
+        logger: Logger | None = None,
+    ) -> None:
+        """Initialise avec l'exécuteur cible et le logger.
 
         Args:
+            executor: Exécuteur de commandes ciblant l'hôte.
             logger: Instance de Logger pour la journalisation.
         """
+        self._executor = executor
         self._logger = logger
 
     def check_python(
@@ -158,15 +164,20 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si python3 satisfait la version requise.
         """
-        if not Path(self._PYTHON_EXEC).exists():
+        exists = self._executor.probe(
+            ["test", "-f", self._PYTHON_EXEC]
+        )
+        if not exists.success:
             if self._logger:
                 self._logger.log_error(
                     f"Exécutable Python introuvable : {self._PYTHON_EXEC}"
                 )
             return False
 
-        result = self._run([self._PYTHON_EXEC, "--version"])
-        if result.returncode != 0:
+        result = self._executor.probe(
+            [self._PYTHON_EXEC, "--version"]
+        )
+        if not result.success:
             if self._logger:
                 self._logger.log_error(
                     "Impossible d'interroger python3"
@@ -211,17 +222,21 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si le script existe et est syntaxiquement correct.
         """
-        if not script_path.is_file():
+        exists = self._executor.probe(
+            ["test", "-f", str(script_path)]
+        )
+        if not exists.success:
             if self._logger:
                 self._logger.log_error(
                     f"Script introuvable : {script_path}"
                 )
             return False
 
-        result = self._run(
-            [self._PYTHON_EXEC, "-m", "py_compile", str(script_path)]
+        result = self._executor.run(
+            [self._PYTHON_EXEC, "-m", "py_compile", str(script_path)],
+            timeout=60,
         )
-        if result.returncode != 0:
+        if not result.success:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur de syntaxe dans {script_path} :"
@@ -242,7 +257,10 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si le venv existe et son interpréteur répond.
         """
-        if not venv_path.is_dir():
+        exists = self._executor.probe(
+            ["test", "-d", str(venv_path)]
+        )
+        if not exists.success:
             if self._logger:
                 self._logger.log_error(
                     f"Venv introuvable : {venv_path}"
@@ -250,15 +268,20 @@ class LinuxScriptChecker(ScriptChecker):
             return False
 
         python_bin = venv_path / "bin" / "python"
-        if not python_bin.is_file():
+        python_exists = self._executor.probe(
+            ["test", "-f", str(python_bin)]
+        )
+        if not python_exists.success:
             if self._logger:
                 self._logger.log_error(
                     f"Interpréteur venv absent : {python_bin}"
                 )
             return False
 
-        result = self._run([str(python_bin), "--version"])
-        if result.returncode != 0:
+        result = self._executor.probe(
+            [str(python_bin), "--version"]
+        )
+        if not result.success:
             if self._logger:
                 self._logger.log_error(
                     f"Interpréteur venv non fonctionnel : {python_bin}"
@@ -273,6 +296,12 @@ class LinuxScriptChecker(ScriptChecker):
         self, pyproject_path: Path
     ) -> dict[str, object]:
         """Lit et valide un fichier pyproject.toml (PEP 621).
+
+        Lecture strictement locale (via `open()`) : le fichier doit
+        être accessible sur la machine qui lance le déploiement, même
+        lorsque `LinuxCliInstaller` cible un hôte distant via
+        `CommandExecutor` — ce point n'est pas couvert par
+        l'injection de l'exécuteur (cf. CDC F-05, note hors périmètre).
 
         Args:
             pyproject_path: Chemin du fichier pyproject.toml.
@@ -349,11 +378,7 @@ class LinuxScriptChecker(ScriptChecker):
         for dep in deps:
             pkg = self._extract_package_name(dep)
             constraint = self._extract_version_constraint(dep)
-            location = self._is_installed(
-                pkg,
-                pip_cmd,
-                use_importlib=(venv_path is None),
-            )
+            location = self._is_installed(pkg, pip_cmd)
             if location is None:
                 missing.append(
                     MissingDependency(
@@ -401,43 +426,23 @@ class LinuxScriptChecker(ScriptChecker):
         match = re.search(r"[>=<!~][^,\s]+", dep)
         return match.group() if match else ""
 
-    @staticmethod
-    def _is_installed(
-        pkg: str,
-        pip_cmd: str,
-        use_importlib: bool = True,
-    ) -> str | None:
+    def _is_installed(self, pkg: str, pip_cmd: str) -> str | None:
         """Vérifie si un paquet est installé et retourne son chemin.
 
-        Utilise importlib.metadata uniquement pour le venv courant
-        (use_importlib=True), sinon pip show dans le venv cible.
+        Interroge la cible via `pip show` (exécuteur injecté), pour
+        fonctionner identiquement en local et à distance.
 
         Args:
             pkg: Nom du paquet (ex. 'linuxtools').
             pip_cmd: Chemin vers pip à utiliser.
-            use_importlib: Si True, interroge le venv courant via
-                importlib.metadata avant pip show.
 
         Returns:
             Chemin d'installation si trouvé, None sinon.
         """
-        if use_importlib:
-            for name in (pkg.replace("-", "_").lower(), pkg):
-                try:
-                    dist = importlib.metadata.distribution(name)
-                    direct_url = dist.read_text("direct_url.json")
-                    if direct_url:
-                        data = json.loads(direct_url)
-                        url: str = data.get("url", "")
-                        if url.startswith("file://"):
-                            return url[7:]
-                    location = dist.locate_file(".")
-                    return str(location)
-                except importlib.metadata.PackageNotFoundError:
-                    continue
-
-        result = LinuxScriptChecker._run([pip_cmd, "show", pkg])
-        if result.returncode == 0:
+        result = self._executor.probe(
+            [pip_cmd, "show", pkg], timeout=60
+        )
+        if result.success:
             for line in result.stdout.splitlines():
                 if line.startswith("Location:"):
                     return line.split(":", 1)[1].strip()

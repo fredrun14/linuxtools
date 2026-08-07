@@ -26,9 +26,16 @@ Rapport d'installation:
 
 Exemple d'utilisation:
     from pathlib import Path
-    from linuxtools.scripts import LinuxCliInstaller, PythonCliConfig
+    from linuxtools.commands import LinuxCommandExecutor
+    from linuxtools.scripts import (
+        LinuxCliInstaller, LinuxScriptChecker, PythonCliConfig,
+    )
 
-    installer = LinuxCliInstaller(logger=logger)
+    # Un seul CommandExecutor construit une fois (composition root)
+    # et partagé entre checker et installer.
+    executor = LinuxCommandExecutor(logger=logger)
+    checker = LinuxScriptChecker(executor, logger)
+    installer = LinuxCliInstaller(checker, executor, logger)
     report = installer.install(PythonCliConfig(
         name="mon-outil",
         deploy_type="user",
