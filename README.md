@@ -1720,11 +1720,19 @@ from linuxtools import (
     ScriptPaths,
     LinuxScriptChecker,
 )
+from linuxtools.commands import LinuxCommandExecutor
 from pathlib import Path
 
 logger = FileLogger("/var/log/deploy.log")
 
+# Un seul CommandExecutor construit une fois (composition root) et
+# injecté séparément dans checker et installer — local (comme ici)
+# ou distant (SshCommandExecutor), sans notion de "target" propre à
+# LinuxCliInstaller.
+executor = LinuxCommandExecutor(logger=logger)
+
 # Résolution des chemins FHS (nom de l'app + portée système/utilisateur)
+# — toujours locale, même avec un exécuteur distant.
 paths = ScriptPaths("mon-outil", "user")  # ou "system"
 print(paths.data_dir)   # ~/.local/share/mon-outil
 print(paths.bin_path)   # ~/.local/bin/mon-outil
@@ -1737,7 +1745,7 @@ config = PythonCliConfig(
 )
 
 # Vérifications pré-installation, étape par étape
-checker = LinuxScriptChecker(logger)
+checker = LinuxScriptChecker(executor, logger)
 if checker.check_python(required_version="3.11"):
     pyproject_path = config.source_dir / "pyproject.toml"
     missing, installed, total, install_cmd = checker.check_dependencies(
@@ -1749,7 +1757,7 @@ if checker.check_python(required_version="3.11"):
 # Installation orchestrée : checks + wrapper bash + `uv tool install`
 # confirm_wrapper=True demande confirmation interactive si stdin est un TTY ;
 # en CI/cron (stdin non-TTY), la confirmation est automatiquement désactivée.
-installer = LinuxCliInstaller(logger, checker)
+installer = LinuxCliInstaller(checker, executor, logger)
 report = installer.install(config, confirm_wrapper=True)
 
 print(report.success)            # True/False
@@ -1796,8 +1804,9 @@ print(report.format_summary())   # Résumé lisible (deps, avertissements...)
 │    config)→ bool │                     ▼
 └──────────────────┘  ┌────────────────────────────────────┐
                        │         LinuxCliInstaller          │
-                       │  - logger: Logger                  │
                        │  - checker: ScriptChecker          │
+                       │  - executor: CommandExecutor       │
+                       │  - logger: Logger                  │
                        │  + install(config) → InstallReport │
                        │  (FHS, uv, scope sys/user)         │
                        └────────────────────────────────────┘
@@ -1816,7 +1825,8 @@ print(report.format_summary())   # Résumé lisible (deps, avertissements...)
                   ▼
   ┌──────────────────────────────────────────────┐
   │          LinuxScriptChecker                  │
-  │  (subprocess + tomllib + importlib.metadata) │
+  │  - executor: CommandExecutor                 │
+  │  (CommandExecutor injecté + tomllib local)   │
   └──────────────────────────────────────────────┘
 
   BashScriptConfig (frozen dataclass)
