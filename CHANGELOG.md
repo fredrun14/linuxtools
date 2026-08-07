@@ -2,6 +2,18 @@
 
 ## [Non publié]
 
+### Corrections
+
+#### `RsyncTransport` — création des répertoires parents manquants
+
+- **`extra_options` par défaut passe de `("-a", "--delete")` à
+  `("-a", "--delete", "--mkpath")`** — sans `--mkpath`, un premier
+  déploiement vers un chemin dont aucun ancêtre n'existait encore sur la
+  cible (locale ou distante) échouait avec `mkdir "..." failed: No such
+  file or directory (2)`. `--mkpath` (rsync ≥ 3.2.3) crée récursivement les
+  répertoires parents manquants de la destination. Bug réel trouvé via
+  `backup-py-manager deploy --profile home` sur poste Fedora neuf.
+
 ### Documentation
 
 - **Docstrings de package harmonisées** — `config`, `errors`,
