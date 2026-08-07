@@ -62,7 +62,7 @@ class RsyncTransport(Transport):
         self,
         local_executor: CommandExecutor | None = None,
         logger: Logger | None = None,
-        extra_options: tuple[str, ...] = ("-a", "--delete"),
+        extra_options: tuple[str, ...] = ("-a", "--delete", "--mkpath"),
         timeout: int | None = 300,
     ) -> None:
         """Initialise le transport rsync.
@@ -72,7 +72,9 @@ class RsyncTransport(Transport):
                 None, un LinuxCommandExecutor est créé.
             logger: Logger optionnel.
             extra_options: Options rsync additionnelles (défaut :
-                archive + suppression des fichiers orphelins).
+                archive + suppression des fichiers orphelins + création
+                récursive du chemin de destination manquant, y compris
+                sur une cible SSH distante — requiert rsync >= 3.2.3).
             timeout: Timeout en secondes pour l'appel rsync.
         """
         self._local = local_executor or LinuxCommandExecutor(
