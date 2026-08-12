@@ -1,6 +1,30 @@
 # Changelog
 
-## [Non publié]
+## [1.16.0] - 2026-08-13
+
+### Changements incompatibles
+
+#### Module `scripts` — `CommandExecutor` injecté
+
+- **`LinuxCliInstaller.__init__` passe de `(logger, checker)` à
+  `(checker, executor, logger=None)`** et **`LinuxScriptChecker.__init__`
+  de `(logger)` à `(executor, logger=None)`** — les deux classes
+  appelaient `subprocess.run` en dur, hors de l'abstraction
+  `CommandExecutor` utilisée partout ailleurs (`VenvInstaller` dans
+  `deploy`, par exemple). Elles ne pouvaient donc pas cibler un hôte
+  distant en SSH. L'appelant construit désormais **un seul** exécuteur et
+  le partage entre les deux : `_run_uv_install`, `_find_uv`,
+  `check_python`, `check_venv`, `check_script_syntax` et
+  `check_dependencies` passent tous par `probe()`/`run()`.
+  ⚠ **`backup-py-manager`, seul consommateur externe connu, doit migrer.**
+- **Écriture du wrapper bash** — abandon de
+  `os.open(O_NOFOLLOW)` + `fchmod` (local uniquement) au profit d'une
+  séquence `mktemp` + `tee` + `chmod` + `mv` passée à l'exécuteur : `mv`
+  ne suit jamais un lien symbolique en position destination, la garantie
+  TOCTOU est équivalente, et le chemin de code devient identique en local
+  et en distant.
+- Effet de bord : les 5 constats Bandit du module `scripts` tombent à 0,
+  plus aucun `subprocess.run` n'y subsistant.
 
 ### Nouvelles fonctionnalités
 
@@ -47,6 +71,63 @@
   file or directory (2)`. `--mkpath` (rsync ≥ 3.2.3) crée récursivement les
   répertoires parents manquants de la destination. Bug réel trouvé via
   `backup-py-manager deploy --profile home` sur poste Fedora neuf.
+
+### Outillage
+
+- **`uv.lock` resynchronisé** — le fichier de verrouillage était resté à
+  `version = "1.14.0"` après la release 1.15.0, qui n'avait touché que
+  `pyproject.toml`. Sans incidence à l'installation (`source = { editable
+  = "." }`), mais l'écart laissait un fichier modifié en permanence dans
+  l'arbre de travail.
+
+## [1.15.0] - 2026-08-06
+
+### Nouvelles fonctionnalités
+
+#### Module `deploy` — config TOML, secrets et timer systemd
+
+- **`Deployer` gagne trois collaborateurs optionnels** — `ConfigDeployer`,
+  `SecretsProvisioner` et `TimerDeployer`, sur le modèle de
+  `Transport`/`VenvInstaller`/`InstallVerifier` : **best-effort et non
+  transactionnels**, actifs indifféremment sur cible locale ou SSH. Le
+  déployeur ne gère donc plus seulement le **code**, mais aussi la config
+  runtime, les secrets et la planification.
+- **Secrets jamais déposés par le `rsync` du `source_dir`** — fichier
+  séparé en `0600` (`KEY=value`), référencé depuis l'unit par
+  `EnvironmentFile=`. `ServiceConfig` gagne `environment_file`, rendu
+  **avant** les `Environment=` inline : les secrets ne transitent jamais
+  par le fichier unit, lisible en `0644`.
+
+Ce chantier a exigé de corriger l'abstraction sous-jacente plutôt que de
+contourner localement dans `deploy` (contournement rejeté en revue) :
+
+- **`CommandExecutor.run(stdin: str | None)`** — permet de piper du
+  contenu vers une commande distante (`tee`, `chmod`).
+- **`SystemdExecutor` / `UserSystemdExecutor`** reçoivent un
+  `CommandExecutor` injecté (défaut local, rétrocompatible) au lieu du
+  `subprocess.run` codé en dur dans `_run_systemctl` ; nouvelle méthode
+  `run_raw()`.
+- **`UnitManager` / `UserUnitManager` : drapeau explicite `remote_write`**
+  — écriture locale inchangée (TOCTOU-safe, `os.open(O_NOFOLLOW)`),
+  écriture distante via l'exécuteur injecté (`tee` + `chmod`).
+- **`ConfigurationManager.deploy_via()`** — même schéma pour le dépôt du
+  fichier TOML.
+- ⚠ **Annotation corrigée** sur `get_status()`, `get_mount_status()`,
+  `get_timer_status()` et `get_service_status()` : `str | None` devient
+  `str` — `CommandResult.stdout` ne renvoie jamais `None` depuis le
+  passage à `CommandExecutor`, et aucun appelant ne testait `is None`.
+
+Toutes les API existantes restent rétrocompatibles.
+
+### Outillage
+
+- **Hook `pre-commit`** (`.githooks/pre-commit`) — bloque le commit local
+  sur exactement le même gate que la CI (`make lint` + `make test`), joué
+  sur l'arbre `src/`+`tests/` complet et non sur les seuls fichiers
+  indexés : un commit vert en local garantit un run de CI vert.
+  Contournement explicite : `git commit --no-verify`. Récupéré
+  automatiquement via le `core.hooksPath=.githooks` déjà en place sur le
+  dépôt (`make hooks`).
 
 ### Documentation
 
