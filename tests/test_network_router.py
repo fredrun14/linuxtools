@@ -29,7 +29,10 @@ from linuxtools.network.router import (
     RouterAuthError,
     RouterConfig,
 )
-from linuxtools.network.router._nvram import _parse_custom_clientlist
+from linuxtools.network.router._nvram import (
+    _parse_custom_clientlist,
+    _parse_nvram_reservations,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,59 @@ class TestParseCustomClientlist:
         assert result["7c:4d:8f:4c:a4:66"] == "print"
         assert "90:6a:94:4b:ad:2b" in result
         assert result["90:6a:94:4b:ad:2b"] == "REXCam"
+
+
+# ---------------------------------------------------------------------------
+# Tests : _parse_nvram_reservations
+# ---------------------------------------------------------------------------
+
+class TestParseNvramReservations:
+    """Tests pour _parse_nvram_reservations."""
+
+    def test_parse_nvram_reservations_decode_entites_html(
+        self,
+    ) -> None:
+        """Les entites HTML &#60 et &#62 sont decodees (cas reel)."""
+        static_list = (
+            "&#6028:73:F6:FE:30:3E&#62192.168.50.41"
+            "&#60A8:CA:77:5E:EC:A0&#62192.168.50.42"
+        )
+        result = _parse_nvram_reservations(static_list, "")
+        assert result["28:73:f6:fe:30:3e"] == (
+            "192.168.50.41", ""
+        )
+        assert result["a8:ca:77:5e:ec:a0"] == (
+            "192.168.50.42", ""
+        )
+
+    def test_parse_nvram_reservations_format_non_encode_toujours_ok(
+        self,
+    ) -> None:
+        """Le format non encode (ancien firmware) reste supporte."""
+        static_list = (
+            "<28:73:F6:FE:30:3E>192.168.50.41"
+            "<A8:CA:77:5E:EC:A0>192.168.50.42"
+        )
+        result = _parse_nvram_reservations(static_list, "")
+        assert result["28:73:f6:fe:30:3e"] == (
+            "192.168.50.41", ""
+        )
+        assert result["a8:ca:77:5e:ec:a0"] == (
+            "192.168.50.42", ""
+        )
+
+    def test_parse_nvram_reservations_hostnames_encodes(
+        self,
+    ) -> None:
+        """Le decodage HTML s'applique aussi a dhcp_hostnames."""
+        static_list = "<28:73:F6:FE:30:3E>192.168.50.41"
+        hostnames_str = "&#6028:73:F6:FE:30:3E&#62Shield"
+        result = _parse_nvram_reservations(
+            static_list, hostnames_str
+        )
+        assert result["28:73:f6:fe:30:3e"] == (
+            "192.168.50.41", "Shield"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1164,6 +1220,34 @@ class TestAsusRouterDhcpManager:
         result = manager.read_reservations()
         assert len(result) == 1
         assert result[0].fixed_ip == "192.168.50.10"
+        mock_client.login.assert_called_once()
+        mock_client.logout.assert_called_once()
+
+    def test_read_reservations_decode_entites_html(
+        self, router_config: RouterConfig, network_config: NetworkConfig
+    ) -> None:
+        """read_reservations() decode dhcp_staticlist encode HTML.
+
+        Cas reel constate : le firmware encode < et > en
+        &#60/&#62 sans point-virgule terminal, ce qui faisait
+        remonter 0 reservation avant correctif (faux negatif).
+        """
+        manager, mock_client, _ = self._make_manager(
+            router_config, network_config
+        )
+        mock_client.get_nvram.return_value = {
+            "dhcp_staticlist": (
+                "&#6028:73:F6:FE:30:3E&#62192.168.50.41"
+                "&#60A8:CA:77:5E:EC:A0&#62192.168.50.42"
+            ),
+            "dhcp_hostnames": "",
+        }
+        result = manager.read_reservations()
+        assert len(result) == 2
+        fixed_ips = {device.fixed_ip for device in result}
+        assert fixed_ips == {
+            "192.168.50.41", "192.168.50.42"
+        }
         mock_client.login.assert_called_once()
         mock_client.logout.assert_called_once()
 

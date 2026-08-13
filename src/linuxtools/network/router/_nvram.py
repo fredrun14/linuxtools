@@ -55,13 +55,29 @@ def _parse_nvram_reservations(
     - Ancien : <MAC>IP<MAC>IP...
     - Nouveau (386+) : <MAC>IP>DNS>HOSTNAME<MAC>...
 
+    Le firmware ASUS encode les < et > en entites HTML
+    (&#60 et &#62) dans la reponse JSON du hook nvram_get.
+    Ce decodage est applique avant le parsing (meme
+    substitution litterale que _parse_custom_clientlist :
+    html.unescape() est trop gourmand sur les references
+    numeriques sans point-virgule terminal, ex. &#6028
+    serait mal segmente).
+
     Args:
-        static_list: Chaine NVRAM dhcp_staticlist.
-        hostnames_str: Chaine NVRAM dhcp_hostnames.
+        static_list: Chaine NVRAM dhcp_staticlist (encodee
+            HTML).
+        hostnames_str: Chaine NVRAM dhcp_hostnames (encodee
+            HTML).
 
     Returns:
         Dict {mac_lowercase: (fixed_ip, dns_name)}.
     """
+    static_list = static_list.replace(
+        "&#60", "<"
+    ).replace("&#62", ">")
+    hostnames_str = hostnames_str.replace(
+        "&#60", "<"
+    ).replace("&#62", ">")
     hostnames: dict[str, str] = {
         m.group(1).lower(): m.group(2).split(">")[0]
         for m in re.finditer(
