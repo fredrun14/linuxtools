@@ -8,7 +8,10 @@ rapports.
 from abc import ABC, abstractmethod
 
 from linuxtools.network.config import NetworkConfig
-from linuxtools.network.models import NetworkDevice
+from linuxtools.network.models import (
+    MacFilterStatus,
+    NetworkDevice,
+)
 
 
 class NetworkScanner(ABC):
@@ -133,6 +136,48 @@ class RouterDhcpManager(DhcpReservationManager):
 
         Returns:
             Liste des peripheriques reserves.
+        """
+        ...
+
+
+class MacFilterManager(ABC):
+    """Interface pour le filtrage MAC Wi-Fi du routeur."""
+
+    @abstractmethod
+    def apply_mac_filter(
+        self,
+        devices: list[NetworkDevice],
+        mode: str,
+        bands: list[int],
+    ) -> None:
+        """Applique un filtre MAC sur les bandes Wi-Fi.
+
+        Args:
+            devices: Peripheriques dont les MAC constituent
+                la liste (whitelist ou blacklist).
+            mode: Mode du filtre — 'allow' (liste blanche),
+                'deny' (liste noire) ou 'disabled'.
+            bands: Indices des bandes Wi-Fi a configurer
+                (0 = 2.4 GHz, 1 = 5 GHz).
+
+        Raises:
+            ValueError: Si mode ou bands sont invalides.
+            RouterAuthError: Si l'authentification echoue.
+            RuntimeError: Si l'envoi echoue.
+        """
+        ...
+
+    @abstractmethod
+    def read_mac_filter(
+        self, bands: list[int]
+    ) -> list[MacFilterStatus]:
+        """Lit la configuration du filtre MAC du routeur.
+
+        Args:
+            bands: Indices des bandes a lire.
+
+        Returns:
+            Liste de MacFilterStatus, une entree par bande.
         """
         ...
 

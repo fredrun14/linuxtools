@@ -9,6 +9,7 @@ from linuxtools.network.base import (
     DeviceRepository,
     DhcpReservationManager,
     DnsManager,
+    MacFilterManager,
     NetworkScanner,
     RouterDhcpManager,
 )
@@ -25,6 +26,7 @@ from linuxtools.network.dns import (
     LinuxHostsFileManager,
 )
 from linuxtools.network.models import (
+    MacFilterStatus,
     NetworkDevice,
 )
 from linuxtools.network.reporter import (
@@ -39,6 +41,7 @@ from linuxtools.network.repository import (
 from linuxtools.network.router import (
     AsusRouterClient,
     AsusRouterDhcpManager,
+    AsusRouterMacFilterManager,
     AsusRouterScanner,
     RouterAuthError,
     RouterConfig,
@@ -57,6 +60,7 @@ from linuxtools.network.validators import (
 __all__ = [
     "AsusRouterClient",
     "AsusRouterDhcpManager",
+    "AsusRouterMacFilterManager",
     "AsusRouterScanner",
     "ConsoleTableReporter",
     "CsvReporter",
@@ -74,6 +78,8 @@ __all__ = [
     "LinuxDnsmasqConfigGenerator",
     "LinuxHostsFileManager",
     "LinuxNmapScanner",
+    "MacFilterManager",
+    "MacFilterStatus",
     "NetworkConfig",
     "NetworkDevice",
     "NetworkScanner",

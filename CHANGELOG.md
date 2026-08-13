@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.18.0] - 2026-08-13
+
+### Ajouté
+
+- **Filtrage MAC Wi-Fi du routeur ASUS** — ABC `MacFilterManager`
+  (`network/base.py`), dataclass `MacFilterStatus` (`network/models.py`),
+  implémentation `AsusRouterMacFilterManager`
+  (`network/router/mac_filter.py`) et `AsusRouterClient.set_mac_filter()`
+  (`network/router/client.py`). Même mécanique que
+  `AsusRouterDhcpManager`/`RouterDhcpManager` déjà en place pour les
+  réservations DHCP, transposée au filtre MAC Wi-Fi (`wl{band}_macmode` /
+  `wl{band}_maclist_x`). `mode` et `bands` validés dans la bibliothèque
+  elle-même (pas seulement côté appelant).
+
 ## [1.17.1] - 2026-08-13
 
 ### Corrigé

@@ -10,10 +10,11 @@ from unittest.mock import MagicMock, patch
 import json
 import socket
 import ssl
+import urllib.parse
 
 import pytest
 
-from linuxtools.network.models import NetworkDevice
+from linuxtools.network.models import MacFilterStatus, NetworkDevice
 from linuxtools.network.vendors import _infer_type_from_vendor
 
 from linuxtools.network.config import NetworkConfig, DhcpRange
@@ -25,6 +26,7 @@ from linuxtools.network.ip_utils import (
 from linuxtools.network.router import (
     AsusRouterClient,
     AsusRouterDhcpManager,
+    AsusRouterMacFilterManager,
     AsusRouterScanner,
     RouterAuthError,
     RouterConfig,
@@ -1494,3 +1496,235 @@ class TestSecuriteRouter:
         ):
             cfg = RouterConfig(url="http://router.lan")
         assert cfg.url == "http://router.lan"
+
+
+# ---------------------------------------------------------------------------
+# Tests : AsusRouterClient.set_mac_filter
+# ---------------------------------------------------------------------------
+
+class TestAsusRouterClientSetMacFilter:
+    """Tests pour AsusRouterClient.set_mac_filter()."""
+
+    @staticmethod
+    def _mock_response(status: int = 200) -> MagicMock:
+        """Cree une reponse urlopen mockee avec le statut donne."""
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.status = status
+        return mock_resp
+
+    def test_set_mac_filter_allow_mode_construit_payload_correct(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Mode allow : payload wl0_macmode/wl0_maclist_x corrects."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+
+        with patch(
+            "urllib.request.urlopen",
+            return_value=self._mock_response(),
+        ) as mock_urlopen:
+            client.set_mac_filter(
+                "allow", ["AA:BB:CC:DD:EE:FF"], [0]
+            )
+
+        req = mock_urlopen.call_args.args[0]
+        payload = urllib.parse.parse_qs(
+            req.data.decode("ascii")
+        )
+        assert payload["wl0_macmode"] == ["allow"]
+        assert payload["wl0_maclist_x"] == [
+            "AA:BB:CC:DD:EE:FF"
+        ]
+
+    def test_set_mac_filter_deny_mode_construit_payload_correct(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Mode deny sur deux bandes : payload correct pour chacune."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+
+        with patch(
+            "urllib.request.urlopen",
+            return_value=self._mock_response(),
+        ) as mock_urlopen:
+            client.set_mac_filter(
+                "deny",
+                ["aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66"],
+                [0, 1],
+            )
+
+        req = mock_urlopen.call_args.args[0]
+        payload = urllib.parse.parse_qs(
+            req.data.decode("ascii")
+        )
+        assert payload["wl0_macmode"] == ["deny"]
+        assert payload["wl1_macmode"] == ["deny"]
+        assert payload["wl0_maclist_x"] == [
+            "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
+        ]
+        assert payload["wl1_maclist_x"] == [
+            "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
+        ]
+
+    def test_set_mac_filter_mode_invalide_leve_value_error(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Un mode hors {allow, deny, disabled} leve ValueError."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+        with pytest.raises(ValueError, match="Mode"):
+            client.set_mac_filter(
+                "invalid", ["aa:bb:cc:dd:ee:ff"], [0]
+            )
+
+    def test_set_mac_filter_bands_vide_leve_value_error(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Une liste de bandes vide leve ValueError."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+        with pytest.raises(ValueError, match="Bandes"):
+            client.set_mac_filter(
+                "allow", ["aa:bb:cc:dd:ee:ff"], []
+            )
+
+    def test_set_mac_filter_band_hors_plage_leve_value_error(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Une bande hors {0, 1} leve ValueError (defense en profondeur)."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+        with pytest.raises(ValueError, match="Bandes"):
+            client.set_mac_filter(
+                "allow", ["aa:bb:cc:dd:ee:ff"], [2]
+            )
+
+    def test_set_mac_filter_mac_invalide_leve_value_error(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Une adresse MAC invalide leve ValueError."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+        with pytest.raises(ValueError, match="MAC"):
+            client.set_mac_filter(
+                "allow", ["invalid-mac"], [0]
+            )
+
+    def test_set_mac_filter_reponse_http_inattendue_leve_runtime_error(
+        self, router_config: RouterConfig
+    ) -> None:
+        """Une reponse HTTP hors {200, 302} leve RuntimeError."""
+        client = AsusRouterClient(router_config)
+        client._token = "fake-token"
+        with patch(
+            "urllib.request.urlopen",
+            return_value=self._mock_response(status=500),
+        ):
+            with pytest.raises(
+                RuntimeError, match="Reponse inattendue"
+            ):
+                client.set_mac_filter(
+                    "allow", ["aa:bb:cc:dd:ee:ff"], [0]
+                )
+
+
+# ---------------------------------------------------------------------------
+# Tests : AsusRouterMacFilterManager
+# ---------------------------------------------------------------------------
+
+class TestAsusRouterMacFilterManager:
+    """Tests pour AsusRouterMacFilterManager."""
+
+    def _make_manager(
+        self, router_config: RouterConfig
+    ) -> tuple[AsusRouterMacFilterManager, MagicMock, MagicMock]:
+        """Cree un gestionnaire de filtre MAC avec client mocke."""
+        mock_client = MagicMock(spec=AsusRouterClient)
+        logger = MagicMock()
+        manager = AsusRouterMacFilterManager(
+            router_config=router_config,
+            logger=logger,
+            client=mock_client,
+        )
+        return manager, mock_client, logger
+
+    def test_asus_router_mac_filter_manager_apply_appelle_login_logout(
+        self, router_config: RouterConfig
+    ) -> None:
+        """apply_mac_filter() appelle login() puis logout()."""
+        manager, mock_client, _ = self._make_manager(
+            router_config
+        )
+        devices = [
+            NetworkDevice(
+                ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"
+            ),
+        ]
+        manager.apply_mac_filter(devices, "allow", [0])
+        mock_client.login.assert_called_once_with(
+            router_config.username, router_config.password
+        )
+        mock_client.logout.assert_called_once()
+
+    def test_asus_router_mac_filter_manager_apply_extrait_macs_devices(
+        self, router_config: RouterConfig
+    ) -> None:
+        """apply_mac_filter() extrait les MAC des devices fournis."""
+        manager, mock_client, _ = self._make_manager(
+            router_config
+        )
+        devices = [
+            NetworkDevice(
+                ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"
+            ),
+            NetworkDevice(
+                ip="192.168.50.4", mac="11:22:33:44:55:66"
+            ),
+        ]
+        manager.apply_mac_filter(devices, "deny", [0, 1])
+        mock_client.set_mac_filter.assert_called_once_with(
+            "deny",
+            ["aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66"],
+            [0, 1],
+        )
+
+    def test_asus_router_mac_filter_manager_read_retourne_liste_status(
+        self, router_config: RouterConfig
+    ) -> None:
+        """read_mac_filter() retourne une liste de MacFilterStatus."""
+        manager, mock_client, _ = self._make_manager(
+            router_config
+        )
+        mock_client.get_nvram.return_value = {
+            "wl0_macmode": "allow",
+            "wl0_maclist_x": (
+                "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
+            ),
+        }
+        result = manager.read_mac_filter([0])
+        assert result == [
+            MacFilterStatus(
+                band=0,
+                mode="allow",
+                macs=(
+                    "aa:bb:cc:dd:ee:ff",
+                    "11:22:33:44:55:66",
+                ),
+            )
+        ]
+
+    def test_asus_router_mac_filter_manager_read_appelle_login_logout(
+        self, router_config: RouterConfig
+    ) -> None:
+        """read_mac_filter() appelle login() puis logout()."""
+        manager, mock_client, _ = self._make_manager(
+            router_config
+        )
+        mock_client.get_nvram.return_value = {}
+        manager.read_mac_filter([0, 1])
+        mock_client.login.assert_called_once_with(
+            router_config.username, router_config.password
+        )
+        mock_client.logout.assert_called_once()
