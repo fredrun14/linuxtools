@@ -8,6 +8,9 @@ from linuxtools.network.router.client import (
 from linuxtools.network.router.dhcp import (
     AsusRouterDhcpManager,
 )
+from linuxtools.network.router.mac_filter import (
+    AsusRouterMacFilterManager,
+)
 from linuxtools.network.router.scanner import (
     AsusRouterScanner,
 )
@@ -15,6 +18,7 @@ from linuxtools.network.router.scanner import (
 __all__ = [
     "AsusRouterClient",
     "AsusRouterDhcpManager",
+    "AsusRouterMacFilterManager",
     "AsusRouterScanner",
     "RouterAuthError",
     "RouterConfig",

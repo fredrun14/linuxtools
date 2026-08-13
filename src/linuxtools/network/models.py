@@ -100,3 +100,19 @@ class NetworkDevice:
                 data["last_seen"]
             )
         return cls(**data)
+
+
+@dataclass(frozen=True)
+class MacFilterStatus:
+    """Etat du filtre MAC Wi-Fi d'une bande du routeur.
+
+    Attributes:
+        band: Indice de la bande (0 = 2.4 GHz, 1 = 5 GHz).
+        mode: Mode du filtre ('allow', 'deny' ou 'disabled').
+        macs: Adresses MAC de la liste, normalisees en
+            minuscules.
+    """
+
+    band: int
+    mode: str
+    macs: tuple[str, ...] = ()

@@ -14,12 +14,16 @@ from linuxtools.logging.base import Logger
 from linuxtools.network.router._nvram import (
     _NVRAM_KEY_RE,
 )
+from linuxtools.network.validators import validate_mac
 
 _LAN_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
 ]
+
+_MAC_FILTER_MODES = frozenset({"allow", "deny", "disabled"})
+_MAC_FILTER_BANDS = frozenset({0, 1})
 
 
 def _validate_router_url(url: str) -> None:
@@ -472,4 +476,88 @@ class AsusRouterClient:
         if self._logger:
             self._logger.log_info(
                 "Reservations DHCP appliquees sur le routeur"
+            )
+
+    def set_mac_filter(
+        self,
+        mode: str,
+        mac_list: list[str],
+        bands: list[int],
+    ) -> None:
+        """Configure le filtre MAC Wi-Fi du routeur.
+
+        Envoie wl{band}_macmode et wl{band}_maclist_x pour
+        chaque bande specifiee.
+
+        Args:
+            mode: Mode du filtre — 'allow', 'deny' ou
+                'disabled'.
+            mac_list: Adresses MAC (validees et normalisees
+                via validate_mac avant envoi).
+            bands: Indices des bandes a configurer (0 ou 1).
+
+        Raises:
+            ValueError: Si mode, bands ou une adresse MAC
+                sont invalides.
+            RouterAuthError: Si non authentifie.
+            RuntimeError: Si l'envoi echoue.
+        """
+        if mode not in _MAC_FILTER_MODES:
+            raise ValueError(
+                f"Mode de filtre invalide : {mode!r}"
+            )
+        if not bands or not all(
+            b in _MAC_FILTER_BANDS for b in bands
+        ):
+            raise ValueError(
+                f"Bandes Wi-Fi invalides : {bands!r}"
+            )
+        macs = [validate_mac(mac) for mac in mac_list]
+        token = self._require_token()
+        payload: dict[str, str] = {
+            "current_page": (
+                "Advanced_WAdvanced_Content.asp"
+            ),
+            "next_page": "",
+            "action_mode": "apply",
+            "action_script": "restart_wireless",
+            "action_wait": "10",
+        }
+        maclist_str = " ".join(
+            mac.upper() for mac in macs
+        )
+        for band in bands:
+            payload[f"wl{band}_macmode"] = mode
+            payload[f"wl{band}_maclist_x"] = maclist_str
+        data = urllib.parse.urlencode(
+            payload
+        ).encode("ascii")
+        req = urllib.request.Request(
+            f"{self._config.url}/start_apply.htm",
+            data=data,
+            headers={
+                **self._HEADERS,
+                "Cookie": f"asus_token={token}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(
+                req,
+                timeout=self._config.timeout,  # nosec B310
+                context=self._ssl_context,
+            ) as resp:
+                status = resp.status
+        except Exception as exc:
+            raise RuntimeError(
+                f"Echec configuration filtre MAC : {exc}"
+            ) from exc
+        if status not in (200, 302):
+            raise RuntimeError(
+                f"Reponse inattendue : HTTP {status}"
+            )
+        if self._logger:
+            self._logger.log_info(
+                f"Filtre MAC configure : mode={mode}, "
+                f"{len(macs)} adresse(s), bandes={bands}"
             )

@@ -5,7 +5,10 @@ from datetime import datetime
 
 import pytest
 
-from linuxtools.network.models import NetworkDevice
+from linuxtools.network.models import (
+    MacFilterStatus,
+    NetworkDevice,
+)
 
 
 class TestNetworkDevice:
@@ -182,3 +185,25 @@ class TestNetworkDevice:
         restored = NetworkDevice.from_dict(device.to_dict())
         assert restored.ip == ""
         assert restored.hostname == "Thermomix"
+
+
+class TestMacFilterStatus:
+    """Tests pour MacFilterStatus."""
+
+    def test_mac_filter_status_creation(self) -> None:
+        """Creation avec tous les champs, immutabilite."""
+        status = MacFilterStatus(
+            band=0,
+            mode="allow",
+            macs=("aa:bb:cc:dd:ee:ff",),
+        )
+        assert status.band == 0
+        assert status.mode == "allow"
+        assert status.macs == ("aa:bb:cc:dd:ee:ff",)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            status.mode = "deny"  # type: ignore[misc]
+
+    def test_mac_filter_status_macs_defaut_vide(self) -> None:
+        """macs vaut un tuple vide par defaut."""
+        status = MacFilterStatus(band=1, mode="disabled")
+        assert status.macs == ()
