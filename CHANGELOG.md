@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.17.1] - 2026-08-13
+
+### Corrigé
+
+- **`AsusRouterDhcpManager.read_reservations()` retournait 0 réservation
+  alors que le routeur en avait bien** — `_parse_nvram_reservations`
+  (`_nvram.py`) ne décodait pas les entités HTML `&#60`/`&#62` (sans `;`
+  terminal) que le firmware ASUS utilise pour encoder `<`/`>` dans la
+  réponse JSON du hook `nvram_get`. Même décodage littéral déjà appliqué à
+  `_parse_custom_clientlist`, désormais répercuté ici. Faux négatif
+  découvert en conditions réelles : un `push-dhcp` réussi (12 réservations)
+  était rapporté comme vide par `read_reservations()`.
+
 ## [1.17.0] - 2026-08-13
 
 ### Ajouté
