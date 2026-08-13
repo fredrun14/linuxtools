@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.17.0] - 2026-08-13
+
+### Ajouté
+
+- **`RouterConfig.verify_tls` (défaut `False`)** — `AsusRouterClient`
+  construit désormais un contexte SSL permissif par défaut sur ses 4 appels
+  HTTPS (`login`, `logout`, `_hook`, `set_static_reservations`), pour
+  fonctionner avec le certificat auto-signé des interfaces d'admin des
+  routeurs grand public (ASUS/Merlin inclus). L'URL reste restreinte aux
+  plages LAN privées par `_validate_router_url()` (protection SSRF
+  inchangée). Un déploiement avec certificat valide peut repasser en
+  vérification stricte via `verify_tls=True`.
+
 ## [1.16.0] - 2026-08-13
 
 ### Changements incompatibles

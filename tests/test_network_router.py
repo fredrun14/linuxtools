@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import json
 import socket
+import ssl
 
 import pytest
 
@@ -741,6 +742,10 @@ class TestRouterConfigValidation:
         assert config.url == "https://192.168.50.1"
         assert config.timeout == 15
 
+    def test_router_config_verify_tls_defaut_false(self) -> None:
+        """verify_tls vaut False par defaut (certificat auto-signe)."""
+        assert RouterConfig().verify_tls is False
+
 
 # ---------------------------------------------------------------------------
 # Tests : helpers ip
@@ -824,6 +829,47 @@ class TestAsusRouterClientMocked:
 
         assert client._token == "tok123"
         logger.log_info.assert_called_once()
+
+    def test_client_ssl_context_desactive_par_defaut(self) -> None:
+        """Le contexte SSL desactive la verification par defaut."""
+        client = AsusRouterClient(
+            RouterConfig(url="https://192.168.50.1:8443")
+        )
+        assert client._ssl_context is not None
+        assert client._ssl_context.verify_mode == ssl.CERT_NONE
+
+    def test_client_ssl_context_none_si_verify_tls_true(self) -> None:
+        """Le contexte SSL vaut None quand verify_tls est True."""
+        client = AsusRouterClient(
+            RouterConfig(
+                url="https://192.168.50.1:8443",
+                verify_tls=True,
+            )
+        )
+        assert client._ssl_context is None
+
+    def test_login_passe_le_contexte_ssl_a_urlopen(
+        self, router_config: RouterConfig
+    ) -> None:
+        """login() transmet le contexte SSL du client a urlopen()."""
+        client, _ = self._make_client(router_config)
+
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.read.return_value = json.dumps(
+            {"asus_token": "tok123"}
+        ).encode("utf-8")
+
+        with patch(
+            "urllib.request.urlopen", return_value=mock_resp
+        ) as mock_urlopen:
+            client.login("admin", "secret")
+
+        assert (
+            mock_urlopen.call_args.kwargs["context"]
+            is client._ssl_context
+        )
 
     def test_login_echec_connexion(self, router_config: RouterConfig) -> None:
         """login() lève RouterAuthError en cas d'erreur réseau."""
