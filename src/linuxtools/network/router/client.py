@@ -4,6 +4,7 @@ import base64
 import ipaddress
 import json
 import socket
+import ssl
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -98,12 +99,22 @@ class RouterConfig:
             ASUS_ROUTER_USER / ASUS_ROUTER_PASSWORD est
             appliquee par l'appelant (ex. CredentialChain),
             pas par RouterConfig elle-meme.
+        verify_tls: Verifier le certificat TLS en HTTPS.
+            False par defaut : les interfaces d'admin des
+            routeurs grand public (ASUS/Merlin inclus)
+            utilisent un certificat auto-signe, jamais
+            renouvele par une CA publique. L'URL reste
+            restreinte aux plages LAN privees par
+            _validate_router_url(), ce qui limite le risque
+            d'une verification desactivee a une usurpation
+            deja possible sur le reseau local lui-meme.
     """
 
     url: str = "http://192.168.50.1"
     timeout: int = 30
     username: str = "admin"
     password: str = ""
+    verify_tls: bool = False
 
     def __post_init__(self) -> None:
         """Valide la configuration.
@@ -151,6 +162,35 @@ class AsusRouterClient:
         self._config = config
         self._logger = logger
         self._token: str | None = None
+        self._ssl_context: ssl.SSLContext | None = (
+            self._build_ssl_context(config.verify_tls)
+        )
+
+    @staticmethod
+    def _build_ssl_context(
+        verify_tls: bool,
+    ) -> ssl.SSLContext | None:
+        """Construit le contexte SSL pour les appels HTTPS.
+
+        Args:
+            verify_tls: Si False, desactive la verification
+                du certificat (cas normal d'un certificat
+                auto-signe sur une interface d'admin LAN).
+
+        Returns:
+            Contexte SSL permissif si verify_tls est False,
+            sinon None (urlopen utilise alors le contexte
+            systeme par defaut, qui verifie normalement).
+        """
+        if verify_tls:
+            return None
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE  # nosec B323 B501 -
+        # interface d'admin routeur LAN, certificat auto-signe,
+        # URL deja restreinte aux plages privees (SSRF, cf.
+        # _validate_router_url) : cf. plan TODO-20260813-2000.
+        return context
 
     def login(
         self, username: str, password: str
@@ -186,7 +226,9 @@ class AsusRouterClient:
         )
         try:
             with urllib.request.urlopen(
-                req, timeout=self._config.timeout  # nosec B310
+                req,
+                timeout=self._config.timeout,  # nosec B310
+                context=self._ssl_context,
             ) as resp:
                 body = json.loads(
                     resp.read().decode("utf-8")
@@ -229,7 +271,9 @@ class AsusRouterClient:
         )
         try:
             urllib.request.urlopen(
-                req, timeout=self._config.timeout  # nosec B310
+                req,
+                timeout=self._config.timeout,  # nosec B310
+                context=self._ssl_context,
             )
         except Exception:  # nosec B110
             pass
@@ -279,7 +323,9 @@ class AsusRouterClient:
         )
         try:
             with urllib.request.urlopen(
-                req, timeout=self._config.timeout  # nosec B310
+                req,
+                timeout=self._config.timeout,  # nosec B310
+                context=self._ssl_context,
             ) as resp:
                 result: dict[str, Any] = json.loads(
                     resp.read().decode("utf-8")
@@ -410,7 +456,9 @@ class AsusRouterClient:
         )
         try:
             with urllib.request.urlopen(
-                req, timeout=self._config.timeout  # nosec B310
+                req,
+                timeout=self._config.timeout,  # nosec B310
+                context=self._ssl_context,
             ) as resp:
                 status = resp.status
         except Exception as exc:
