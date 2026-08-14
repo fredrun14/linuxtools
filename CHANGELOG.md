@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.19.1] - 2026-08-14
+
+### Corrigé
+- Dépendance `webapitools` déclarée via URL git directe au lieu d'une
+  contrainte de version (`webapitools` n'est publié sur aucun index de
+  paquets) — `linuxtools >= 1.19.0` était installable en développement
+  local (`uv sync` avec dépôt frère `../webapitools`) mais pas comme
+  dépendance externe d'un autre projet (`pip`/`uv` cherchaient
+  `webapitools` sur PyPI et échouaient). `[tool.uv.sources]` reste actif
+  pour le développement local, inchangé.
+
 ## [1.19.0] - 2026-08-14
 
 ### Modifié
