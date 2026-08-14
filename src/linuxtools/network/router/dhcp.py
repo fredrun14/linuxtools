@@ -1,5 +1,8 @@
 """Gestionnaire DHCP avec push direct vers le routeur ASUS."""
 
+from webapitools import AsusRouterClient
+from webapitools.core.exceptions import AuthError
+
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import RouterDhcpManager
 from linuxtools.network.config import NetworkConfig
@@ -9,7 +12,7 @@ from linuxtools.network.router._nvram import (
     _parse_nvram_reservations,
 )
 from linuxtools.network.router.client import (
-    AsusRouterClient,
+    RouterAuthError,
     RouterConfig,
 )
 
@@ -42,8 +45,16 @@ class AsusRouterDhcpManager(RouterDhcpManager):
         self._config = config
         self._router_config = router_config
         self._logger = logger
+        # logger non transmis au client webapitools : son parametre
+        # `logger` attend un logging.Logger (stdlib), incompatible
+        # avec l'ABC linuxtools.logging.base.Logger. Le logging propre
+        # a cet adaptateur (self._logger) reste inchange ci-dessous.
         self._client = client or AsusRouterClient(
-            router_config, logger=logger
+            router_config.url,
+            router_config.username,
+            router_config.password,
+            verify_tls=router_config.verify_tls,
+            timeout=router_config.timeout,
         )
 
     def generate_reservations(
@@ -112,10 +123,10 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             RouterAuthError: Si l'authentification echoue.
             RuntimeError: Si l'envoi echoue.
         """
-        self._client.login(
-            self._router_config.username,
-            self._router_config.password,
-        )
+        try:
+            self._client.login()
+        except AuthError as exc:
+            raise RouterAuthError(str(exc)) from exc
         try:
             dhcp_cfg = self._client.get_nvram(
                 "dhcp_enable_x",
@@ -152,10 +163,10 @@ class AsusRouterDhcpManager(RouterDhcpManager):
         Raises:
             RouterAuthError: Si l'authentification echoue.
         """
-        self._client.login(
-            self._router_config.username,
-            self._router_config.password,
-        )
+        try:
+            self._client.login()
+        except AuthError as exc:
+            raise RouterAuthError(str(exc)) from exc
         try:
             nvram = self._client.get_nvram(
                 "dhcp_staticlist",

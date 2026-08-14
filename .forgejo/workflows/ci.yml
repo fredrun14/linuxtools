@@ -43,22 +43,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      # [tool.uv.sources] résout webapitools en chemin ../webapitools :
+      # il faut un dépôt FRÈRE du répertoire de travail. Clone anonyme
+      # en HTTPS : webapitools est public sur ce Forgejo, aucun secret
+      # requis. Motif repris tel quel de webapitools/.forgejo/workflows/
+      # ci.yml (jobs test/type), qui résout le même besoin en sens
+      # inverse (../linuxtools).
+      #
+      # ⚠ C'est le HEAD de master qui est cloné, pas une version
+      # épinglée : une évolution incompatible de webapitools rendra
+      # cette CI rouge sans le moindre commit ici — même compromis
+      # assumé que côté webapitools.
+      - name: Cloner webapitools (dépôt frère)
+        run: >-
+          git clone --depth 1
+          https://git.ricfasohel.fr/fred/webapitools.git ../webapitools
+
+      - name: Install uv (+ Python ${{ matrix.python-version }})
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install uv
-          pip install -e ".[dev]"
+      - name: Synchroniser les dépendances (+ dev)
+        run: uv sync --extra dev
 
       - name: Type check (mypy strict)
-        run: mypy src/linuxtools/ tests/
+        run: uv run mypy src/linuxtools/ tests/
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: uv run pytest tests/ -v
 
   build:
     runs-on: ubuntu-latest

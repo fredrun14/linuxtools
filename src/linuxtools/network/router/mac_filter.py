@@ -1,5 +1,8 @@
 """Gestionnaire de filtre MAC Wi-Fi pour routeur ASUS."""
 
+from webapitools import AsusRouterClient
+from webapitools.core.exceptions import AuthError
+
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import MacFilterManager
 from linuxtools.network.models import (
@@ -7,7 +10,7 @@ from linuxtools.network.models import (
     NetworkDevice,
 )
 from linuxtools.network.router.client import (
-    AsusRouterClient,
+    RouterAuthError,
     RouterConfig,
 )
 
@@ -36,8 +39,16 @@ class AsusRouterMacFilterManager(MacFilterManager):
         """
         self._router_config = router_config
         self._logger = logger
+        # logger non transmis au client webapitools : son parametre
+        # `logger` attend un logging.Logger (stdlib), incompatible
+        # avec l'ABC linuxtools.logging.base.Logger. Le logging propre
+        # a cet adaptateur (self._logger) reste inchange ci-dessous.
         self._client = client or AsusRouterClient(
-            router_config, logger=logger
+            router_config.url,
+            router_config.username,
+            router_config.password,
+            verify_tls=router_config.verify_tls,
+            timeout=router_config.timeout,
         )
 
     def apply_mac_filter(
@@ -59,10 +70,10 @@ class AsusRouterMacFilterManager(MacFilterManager):
             RouterAuthError: Si authentification echoue.
             RuntimeError: Si l'envoi echoue.
         """
-        self._client.login(
-            self._router_config.username,
-            self._router_config.password,
-        )
+        try:
+            self._client.login()
+        except AuthError as exc:
+            raise RouterAuthError(str(exc)) from exc
         try:
             macs = [d.mac for d in devices]
             self._client.set_mac_filter(
@@ -86,11 +97,14 @@ class AsusRouterMacFilterManager(MacFilterManager):
 
         Returns:
             Liste de MacFilterStatus, une entree par bande.
+
+        Raises:
+            RouterAuthError: Si l'authentification echoue.
         """
-        self._client.login(
-            self._router_config.username,
-            self._router_config.password,
-        )
+        try:
+            self._client.login()
+        except AuthError as exc:
+            raise RouterAuthError(str(exc)) from exc
         try:
             keys: list[str] = []
             for band in bands:

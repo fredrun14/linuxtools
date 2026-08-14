@@ -2,27 +2,29 @@
 
 Valide en particulier que les appareils offline (isOnline==0)
 sont bien inclus dans les resultats du scan.
+
+``AsusRouterClient`` est desormais fourni par ``webapitools`` (temps
+2/3 du chantier cross-repo) : les tests de son transport HTTP bas
+niveau (login/logout/get_nvram/set_mac_filter, contexte SSL, urllib)
+vivent cote ``webapitools`` (``test_asus_router.py``), pas ici. Ce
+fichier ne teste plus que les 3 adaptateurs metier de linuxtools, en
+injectant un ``AsusRouterClient`` mocke.
 """
 
+import socket
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import json
-import socket
-import ssl
-import urllib.parse
-
 import pytest
+from webapitools.core.exceptions import AuthError
 
-from linuxtools.network.models import MacFilterStatus, NetworkDevice
-from linuxtools.network.vendors import _infer_type_from_vendor
-
-from linuxtools.network.config import NetworkConfig, DhcpRange
+from linuxtools.network.config import DhcpRange, NetworkConfig
 from linuxtools.network.ip_utils import (
     _int_to_ip,
     _ip_to_int,
     _next_available_ip,
 )
+from linuxtools.network.models import MacFilterStatus, NetworkDevice
 from linuxtools.network.router import (
     AsusRouterClient,
     AsusRouterDhcpManager,
@@ -35,11 +37,12 @@ from linuxtools.network.router._nvram import (
     _parse_custom_clientlist,
     _parse_nvram_reservations,
 )
-
+from linuxtools.network.vendors import _infer_type_from_vendor
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def router_config() -> RouterConfig:
@@ -66,7 +69,7 @@ def network_config() -> NetworkConfig:
 
 @pytest.fixture
 def mock_client() -> MagicMock:
-    """Client HTTP mocke."""
+    """Client HTTP mocke (spec sur webapitools.AsusRouterClient)."""
     return MagicMock(spec=AsusRouterClient)
 
 
@@ -79,71 +82,6 @@ def scanner(
     return AsusRouterScanner(
         router_config, client=mock_client
     )
-
-
-# ---------------------------------------------------------------------------
-# Donnees de test
-# ---------------------------------------------------------------------------
-
-_CLIENTS_ONLINE_ONLY = {
-    "48:b0:2d:03:1e:ea": {
-        "ip": "192.168.50.3",
-        "isOnline": "1",
-        "nickName": "Shield",
-        "vendor": "NVIDIA Corporation",
-        "dpiDevice": "AndroidTV",
-        "ipMethod": "Manual",
-    },
-}
-
-_CLIENTS_MIXED = {
-    "48:b0:2d:03:1e:ea": {
-        "ip": "192.168.50.3",
-        "isOnline": "1",
-        "nickName": "Shield",
-        "vendor": "NVIDIA Corporation",
-        "dpiDevice": "AndroidTV",
-        "ipMethod": "Manual",
-    },
-    "58:16:d7:f1:77:6e": {
-        "ip": "192.168.50.7",
-        "isOnline": "0",
-        "nickName": "Thermomix",
-        "vendor": "Vorwerk",
-        "dpiDevice": "",
-        "ipMethod": "Manual",
-    },
-    "e2:b7:be:2b:bd:2f": {
-        "ip": "192.168.50.15",
-        "isOnline": "0",
-        "nickName": "NanouIphone",
-        "vendor": "Apple",
-        "dpiDevice": "iPhone",
-        "ipMethod": "",
-    },
-}
-
-_CLIENTS_OFFLINE_NO_IP = {
-    "dc:46:28:2f:ae:f4": {
-        "ip": "0.0.0.0",
-        "isOnline": "0",
-        "nickName": "Asustuf5G",
-        "vendor": "ASUSTeK",
-        "dpiDevice": "",
-        "ipMethod": "Manual",
-    },
-}
-
-_CLIENTS_OFFLINE_STATIC_ONLY = {
-    "7c:4d:8f:4c:a4:66": {
-        "ip": "0.0.0.0",
-        "isOnline": "0",
-        "nickName": "print",
-        "vendor": "HP",
-        "dpiDevice": "",
-        "ipMethod": "Manual",
-    },
-}
 
 
 # ---------------------------------------------------------------------------
@@ -359,106 +297,6 @@ class TestMergeOfflineClients:
             raw, custom, leases, reservations
         )
         assert len(result) == 2
-
-
-# ---------------------------------------------------------------------------
-# Tests : AsusRouterClient.get_clients
-# ---------------------------------------------------------------------------
-
-class TestAsusRouterClientGetClients:
-    """Tests pour get_clients() sans filtre isOnline."""
-
-    def _make_client(
-        self,
-        router_config: RouterConfig,
-        raw_data: dict[str, Any],
-    ) -> AsusRouterClient:
-        """Cree un client avec _hook mocke."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
-        # le test de l'appel HTTP, cf. doctrine mypy du projet.
-        client._hook = MagicMock(  # type: ignore[method-assign]
-            return_value={"get_clientlist": raw_data}
-        )
-        return client
-
-    def test_retourne_appareils_online(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Les appareils isOnline==1 sont toujours retournes."""
-        client = self._make_client(
-            router_config, _CLIENTS_ONLINE_ONLY
-        )
-        result = client.get_clients()
-        assert len(result) == 1
-        assert result[0]["mac"] == "48:b0:2d:03:1e:ea"
-
-    def test_retourne_appareils_offline(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Les appareils isOnline==0 sont desormais inclus."""
-        client = self._make_client(
-            router_config, _CLIENTS_MIXED
-        )
-        result = client.get_clients()
-        macs = {r["mac"] for r in result}
-        assert "58:16:d7:f1:77:6e" in macs
-        assert "e2:b7:be:2b:bd:2f" in macs
-
-    def test_retourne_online_et_offline(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Online et offline sont retournes ensemble."""
-        client = self._make_client(
-            router_config, _CLIENTS_MIXED
-        )
-        result = client.get_clients()
-        assert len(result) == 3
-
-    def test_exclut_mac_invalide(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Les entrees avec MAC de mauvaise longueur sont ignorees."""
-        data = {
-            "INVALID": {"ip": "1.2.3.4", "isOnline": "0"},
-            **_CLIENTS_ONLINE_ONLY,
-        }
-        client = self._make_client(router_config, data)
-        result = client.get_clients()
-        assert all(
-            len(r["mac"]) == 17 for r in result
-        )
-
-    def test_exclut_valeur_non_dict(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Les valeurs non-dict sont ignorees."""
-        data = {
-            "48:b0:2d:03:1e:ea": "not-a-dict",
-            "58:16:d7:f1:77:6e": {
-                "ip": "192.168.50.7",
-                "isOnline": "0",
-                "nickName": "Thermomix",
-            },
-        }
-        client = self._make_client(router_config, data)
-        result = client.get_clients()
-        assert len(result) == 1
-
-    def test_hook_retourne_non_dict_retourne_vide(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Si le hook retourne une valeur invalide, liste vide."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
-        # le test de l'appel HTTP, cf. doctrine mypy du projet.
-        client._hook = MagicMock(  # type: ignore[method-assign]
-            return_value={"get_clientlist": "invalid"}
-        )
-        result = client.get_clients()
-        assert result == []
 
 
 # ---------------------------------------------------------------------------
@@ -734,13 +572,17 @@ class TestAsusRouterScannerScan:
         assert result[0].fixed_ip == "192.168.50.20"
         assert result[0].hostname == "print"
 
-    def test_scan_utilise_credentials_du_routerconfig(
+    def test_scan_appelle_login_sans_argument(
         self,
         scanner: AsusRouterScanner,
         mock_client: MagicMock,
         network_config: NetworkConfig,
     ) -> None:
-        """scan() utilise directement les credentials de RouterConfig."""
+        """scan() appelle login() sans argument.
+
+        Les credentials sont passes au constructeur du client
+        webapitools, pas a login().
+        """
         mock_client.get_clients.return_value = []
         mock_client.get_dhcp_leases.return_value = {}
         mock_client.get_nvram.return_value = {
@@ -751,9 +593,7 @@ class TestAsusRouterScannerScan:
 
         scanner.scan(network_config)
 
-        mock_client.login.assert_called_once_with(
-            "admin", "secret"
-        )
+        mock_client.login.assert_called_once_with()
 
     def test_scan_appelle_logout_meme_en_cas_erreur(
         self,
@@ -847,190 +687,6 @@ class TestIpHelpers:
         assert _infer_type_from_vendor("Apple Inc") == "Apple"
         assert _infer_type_from_vendor("Unknown Corp") == "unknown"
         assert _infer_type_from_vendor("Raspberry Pi Foundation") == "Raspberry Pi"
-
-
-# ---------------------------------------------------------------------------
-# Tests : AsusRouterClient - login / logout / _require_token
-# ---------------------------------------------------------------------------
-
-class TestAsusRouterClientMocked:
-    """Tests pour AsusRouterClient avec urllib mocké."""
-
-    def _make_client(
-        self, router_config: RouterConfig
-    ) -> tuple[AsusRouterClient, MagicMock]:
-        """Crée un client avec logger mocké."""
-        logger = MagicMock()
-        return AsusRouterClient(router_config, logger=logger), logger
-
-    def test_require_token_sans_token_leve_erreur(
-        self, router_config: RouterConfig
-    ) -> None:
-        """_require_token() lève RouterAuthError si non authentifié."""
-        client = AsusRouterClient(router_config)
-        with pytest.raises(RouterAuthError, match="login"):
-            client._require_token()
-
-    def test_login_succes(self, router_config: RouterConfig) -> None:
-        """login() définit le token en cas de succès."""
-        client, logger = self._make_client(router_config)
-
-        mock_resp = MagicMock()
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_resp.read.return_value = json.dumps(
-            {"asus_token": "tok123"}
-        ).encode("utf-8")
-
-        with patch("urllib.request.urlopen", return_value=mock_resp):
-            client.login("admin", "secret")
-
-        assert client._token == "tok123"
-        logger.log_info.assert_called_once()
-
-    def test_client_ssl_context_desactive_par_defaut(self) -> None:
-        """Le contexte SSL desactive la verification par defaut."""
-        client = AsusRouterClient(
-            RouterConfig(url="https://192.168.50.1:8443")
-        )
-        assert client._ssl_context is not None
-        assert client._ssl_context.verify_mode == ssl.CERT_NONE
-
-    def test_client_ssl_context_none_si_verify_tls_true(self) -> None:
-        """Le contexte SSL vaut None quand verify_tls est True."""
-        client = AsusRouterClient(
-            RouterConfig(
-                url="https://192.168.50.1:8443",
-                verify_tls=True,
-            )
-        )
-        assert client._ssl_context is None
-
-    def test_login_passe_le_contexte_ssl_a_urlopen(
-        self, router_config: RouterConfig
-    ) -> None:
-        """login() transmet le contexte SSL du client a urlopen()."""
-        client, _ = self._make_client(router_config)
-
-        mock_resp = MagicMock()
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_resp.read.return_value = json.dumps(
-            {"asus_token": "tok123"}
-        ).encode("utf-8")
-
-        with patch(
-            "urllib.request.urlopen", return_value=mock_resp
-        ) as mock_urlopen:
-            client.login("admin", "secret")
-
-        assert (
-            mock_urlopen.call_args.kwargs["context"]
-            is client._ssl_context
-        )
-
-    def test_login_echec_connexion(self, router_config: RouterConfig) -> None:
-        """login() lève RouterAuthError en cas d'erreur réseau."""
-        client, _ = self._make_client(router_config)
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=Exception("Connexion refusée")
-        ):
-            with pytest.raises(RouterAuthError, match="Connexion echouee"):
-                client.login("admin", "secret")
-
-    def test_login_token_absent_leve_erreur(
-        self, router_config: RouterConfig
-    ) -> None:
-        """login() lève RouterAuthError si token absent de la réponse."""
-        client, _ = self._make_client(router_config)
-        mock_resp = MagicMock()
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_resp.read.return_value = json.dumps({}).encode("utf-8")
-        with patch("urllib.request.urlopen", return_value=mock_resp):
-            with pytest.raises(RouterAuthError, match="Token absent"):
-                client.login("admin", "secret")
-
-    def test_logout_sans_token_ne_fait_rien(
-        self, router_config: RouterConfig
-    ) -> None:
-        """logout() ne fait rien si non authentifié."""
-        client = AsusRouterClient(router_config)
-        client.logout()  # Ne doit pas lever d'exception
-
-    def test_logout_avec_token(self, router_config: RouterConfig) -> None:
-        """logout() efface le token après déconnexion."""
-        client = AsusRouterClient(router_config)
-        client._token = "tok123"
-        mock_resp = MagicMock()
-        with patch("urllib.request.urlopen", return_value=mock_resp):
-            client.logout()
-        assert client._token is None
-
-    def test_logout_ignore_exception_reseau(
-        self, router_config: RouterConfig
-    ) -> None:
-        """logout() ignore les erreurs réseau."""
-        client = AsusRouterClient(router_config)
-        client._token = "tok123"
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=Exception("timeout")
-        ):
-            client.logout()  # Ne doit pas lever d'exception
-        assert client._token is None
-
-    def test_get_dhcp_leases_parse_format_dnsmasq(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_dhcp_leases() parse le format dnsmasq correctement."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        leases_str = (
-            "1234567890 48:b0:2d:03:1e:ea 192.168.50.3 Shield *\n"
-            "1234567891 58:16:d7:f1:77:6e 192.168.50.7 Thermomix *\n"
-        )
-        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
-        # le test de l'appel HTTP, cf. doctrine mypy du projet.
-        client._hook = MagicMock(  # type: ignore[method-assign]
-            return_value={"dhcpLeaseMacList": leases_str}
-        )
-        result = client.get_dhcp_leases()
-        assert result["48:b0:2d:03:1e:ea"] == "192.168.50.3"
-        assert result["58:16:d7:f1:77:6e"] == "192.168.50.7"
-
-    def test_get_dhcp_leases_ignore_ip_etoile(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_dhcp_leases() ignore les lignes avec ip='*'."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        leases_str = "123 48:b0:2d:03:1e:ea * Shield *\n"
-        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
-        # le test de l'appel HTTP, cf. doctrine mypy du projet.
-        client._hook = MagicMock(  # type: ignore[method-assign]
-            return_value={"dhcpLeaseMacList": leases_str}
-        )
-        result = client.get_dhcp_leases()
-        assert result == {}
-
-    def test_get_nvram_retourne_dict(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_nvram() retourne le dictionnaire de variables NVRAM."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        # Monkey-patch intentionnel de _hook (méthode réelle) pour isoler
-        # le test de l'appel HTTP, cf. doctrine mypy du projet.
-        client._hook = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "dhcp_staticlist": "<AA:BB:CC:DD:EE:FF>192.168.50.10",
-                "dhcp_hostnames": ""
-            }
-        )
-        result = client.get_nvram("dhcp_staticlist", "dhcp_hostnames")
-        assert "dhcp_staticlist" in result
 
 
 # ---------------------------------------------------------------------------
@@ -1184,7 +840,7 @@ class TestAsusRouterDhcpManager:
     def test_apply_reservations_appelle_login_logout(
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
-        """apply_reservations() appelle login et logout."""
+        """apply_reservations() appelle login() (sans argument) et logout()."""
         manager, mock_client, logger = self._make_manager(
             router_config, network_config
         )
@@ -1204,7 +860,7 @@ class TestAsusRouterDhcpManager:
             )
         ]
         manager.apply_reservations(devices)
-        mock_client.login.assert_called_once()
+        mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
         logger.log_info.assert_called_once()
 
@@ -1222,7 +878,7 @@ class TestAsusRouterDhcpManager:
         result = manager.read_reservations()
         assert len(result) == 1
         assert result[0].fixed_ip == "192.168.50.10"
-        mock_client.login.assert_called_once()
+        mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
 
     def test_read_reservations_decode_entites_html(
@@ -1250,56 +906,8 @@ class TestAsusRouterDhcpManager:
         assert fixed_ips == {
             "192.168.50.41", "192.168.50.42"
         }
-        mock_client.login.assert_called_once()
+        mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
-
-
-class TestAsusRouterClientHook:
-    """Tests pour AsusRouterClient._hook() avec urllib mocke."""
-
-    def test_hook_succes_retourne_json(
-        self, router_config: RouterConfig
-    ) -> None:
-        """_hook() retourne le JSON parse depuis la reponse."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps(
-            {"get_clientlist": {}}
-        ).encode("utf-8")
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
-
-        with patch(
-            "linuxtools.network.router.client.urllib.request.urlopen",
-            return_value=mock_resp
-        ):
-            result = client._hook("get_clientlist(appobj)")
-        assert "get_clientlist" in result
-
-    def test_hook_erreur_leve_runtime_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """_hook() leve RuntimeError en cas d'erreur urllib."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-
-        with patch(
-            "linuxtools.network.router.client.urllib.request.urlopen",
-            side_effect=Exception("network error")
-        ):
-            with pytest.raises(RuntimeError, match="hook"):
-                client._hook("get_clientlist(appobj)")
-
-    def test_require_token_retourne_token(
-        self, router_config: RouterConfig
-    ) -> None:
-        """_require_token() retourne le token si present."""
-        client = AsusRouterClient(router_config)
-        client._token = "my-token"
-        token = client._require_token()
-        assert token == "my-token"
 
 
 class TestAsusRouterDhcpManagerEdgeCases:
@@ -1354,7 +962,13 @@ class TestAsusRouterDhcpManagerEdgeCases:
 
 
 class TestSecuriteRouter:
-    """Tests des corrections de securite dans router.py."""
+    """Tests des corrections de securite dans router.py.
+
+    Le transport HTTP (login/logout/get_nvram/set_mac_filter bas
+    niveau) vit desormais cote webapitools : seuls les helpers
+    restes dans linuxtools (RouterConfig, _validate_router_url,
+    _ip_to_int) sont testes ici.
+    """
 
     # --- _ip_to_int ---
 
@@ -1376,50 +990,6 @@ class TestSecuriteRouter:
         """_ip_to_int() leve ValueError pour un format non-IP."""
         with pytest.raises(ValueError):
             _ip_to_int("not.an.ip.addr")
-
-    # --- get_nvram ---
-
-    def test_get_nvram_cle_valide(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_nvram() accepte une cle NVRAM valide."""
-        client = AsusRouterClient(router_config)
-        client._token = "tok"
-        with patch.object(
-            client, "_hook", return_value={}
-        ) as mock:
-            client.get_nvram("dhcp_start")
-            mock.assert_called_once_with(
-                "nvram_get(dhcp_start)"
-            )
-
-    def test_get_nvram_cle_invalide_leve_valueerror(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_nvram() leve ValueError pour une cle NVRAM invalide."""
-        client = AsusRouterClient(router_config)
-        client._token = "tok"
-        with pytest.raises(ValueError, match="NVRAM"):
-            client.get_nvram("dhcp_start);evil(")
-
-    def test_get_nvram_cle_avec_point_invalide(
-        self, router_config: RouterConfig
-    ) -> None:
-        """get_nvram() refuse les cles avec des points."""
-        client = AsusRouterClient(router_config)
-        client._token = "tok"
-        with pytest.raises(ValueError, match="NVRAM"):
-            client.get_nvram("cle.invalide")
-
-    # --- login ---
-
-    def test_login_username_avec_colon_leve_valueerror(
-        self, router_config: RouterConfig
-    ) -> None:
-        """login() leve ValueError si username contient ':'."""
-        client = AsusRouterClient(router_config)
-        with pytest.raises(ValueError, match=":"):
-            client.login("admin:evil", "password")
 
     # --- RouterConfig URL ---
 
@@ -1447,20 +1017,6 @@ class TestSecuriteRouter:
         """RouterConfig accepte les noms de domaine."""
         cfg = RouterConfig(url="http://router.local")
         assert cfg.url == "http://router.local"
-
-    def test_login_echec_logue_erreur(
-        self, router_config: RouterConfig
-    ) -> None:
-        """login() log l'erreur via logger si connexion echoue."""
-        logger = MagicMock()
-        client = AsusRouterClient(router_config, logger=logger)
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=OSError("connexion refusee"),
-        ):
-            with pytest.raises(RouterAuthError):
-                client.login("admin", "password")
-        logger.log_error.assert_called_once()
 
     # --- SSRF : résolution DNS ---
 
@@ -1499,138 +1055,6 @@ class TestSecuriteRouter:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterClient.set_mac_filter
-# ---------------------------------------------------------------------------
-
-class TestAsusRouterClientSetMacFilter:
-    """Tests pour AsusRouterClient.set_mac_filter()."""
-
-    @staticmethod
-    def _mock_response(status: int = 200) -> MagicMock:
-        """Cree une reponse urlopen mockee avec le statut donne."""
-        mock_resp = MagicMock()
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_resp.status = status
-        return mock_resp
-
-    def test_set_mac_filter_allow_mode_construit_payload_correct(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Mode allow : payload wl0_macmode/wl0_maclist_x corrects."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-
-        with patch(
-            "urllib.request.urlopen",
-            return_value=self._mock_response(),
-        ) as mock_urlopen:
-            client.set_mac_filter(
-                "allow", ["AA:BB:CC:DD:EE:FF"], [0]
-            )
-
-        req = mock_urlopen.call_args.args[0]
-        payload = urllib.parse.parse_qs(
-            req.data.decode("ascii")
-        )
-        assert payload["wl0_macmode"] == ["allow"]
-        assert payload["wl0_maclist_x"] == [
-            "AA:BB:CC:DD:EE:FF"
-        ]
-
-    def test_set_mac_filter_deny_mode_construit_payload_correct(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Mode deny sur deux bandes : payload correct pour chacune."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-
-        with patch(
-            "urllib.request.urlopen",
-            return_value=self._mock_response(),
-        ) as mock_urlopen:
-            client.set_mac_filter(
-                "deny",
-                ["aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66"],
-                [0, 1],
-            )
-
-        req = mock_urlopen.call_args.args[0]
-        payload = urllib.parse.parse_qs(
-            req.data.decode("ascii")
-        )
-        assert payload["wl0_macmode"] == ["deny"]
-        assert payload["wl1_macmode"] == ["deny"]
-        assert payload["wl0_maclist_x"] == [
-            "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
-        ]
-        assert payload["wl1_maclist_x"] == [
-            "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
-        ]
-
-    def test_set_mac_filter_mode_invalide_leve_value_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Un mode hors {allow, deny, disabled} leve ValueError."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        with pytest.raises(ValueError, match="Mode"):
-            client.set_mac_filter(
-                "invalid", ["aa:bb:cc:dd:ee:ff"], [0]
-            )
-
-    def test_set_mac_filter_bands_vide_leve_value_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Une liste de bandes vide leve ValueError."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        with pytest.raises(ValueError, match="Bandes"):
-            client.set_mac_filter(
-                "allow", ["aa:bb:cc:dd:ee:ff"], []
-            )
-
-    def test_set_mac_filter_band_hors_plage_leve_value_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Une bande hors {0, 1} leve ValueError (defense en profondeur)."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        with pytest.raises(ValueError, match="Bandes"):
-            client.set_mac_filter(
-                "allow", ["aa:bb:cc:dd:ee:ff"], [2]
-            )
-
-    def test_set_mac_filter_mac_invalide_leve_value_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Une adresse MAC invalide leve ValueError."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        with pytest.raises(ValueError, match="MAC"):
-            client.set_mac_filter(
-                "allow", ["invalid-mac"], [0]
-            )
-
-    def test_set_mac_filter_reponse_http_inattendue_leve_runtime_error(
-        self, router_config: RouterConfig
-    ) -> None:
-        """Une reponse HTTP hors {200, 302} leve RuntimeError."""
-        client = AsusRouterClient(router_config)
-        client._token = "fake-token"
-        with patch(
-            "urllib.request.urlopen",
-            return_value=self._mock_response(status=500),
-        ):
-            with pytest.raises(
-                RuntimeError, match="Reponse inattendue"
-            ):
-                client.set_mac_filter(
-                    "allow", ["aa:bb:cc:dd:ee:ff"], [0]
-                )
-
-
-# ---------------------------------------------------------------------------
 # Tests : AsusRouterMacFilterManager
 # ---------------------------------------------------------------------------
 
@@ -1653,7 +1077,7 @@ class TestAsusRouterMacFilterManager:
     def test_asus_router_mac_filter_manager_apply_appelle_login_logout(
         self, router_config: RouterConfig
     ) -> None:
-        """apply_mac_filter() appelle login() puis logout()."""
+        """apply_mac_filter() appelle login() (sans argument) puis logout()."""
         manager, mock_client, _ = self._make_manager(
             router_config
         )
@@ -1663,9 +1087,7 @@ class TestAsusRouterMacFilterManager:
             ),
         ]
         manager.apply_mac_filter(devices, "allow", [0])
-        mock_client.login.assert_called_once_with(
-            router_config.username, router_config.password
-        )
+        mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
 
     def test_asus_router_mac_filter_manager_apply_extrait_macs_devices(
@@ -1718,13 +1140,126 @@ class TestAsusRouterMacFilterManager:
     def test_asus_router_mac_filter_manager_read_appelle_login_logout(
         self, router_config: RouterConfig
     ) -> None:
-        """read_mac_filter() appelle login() puis logout()."""
+        """read_mac_filter() appelle login() (sans argument) puis logout()."""
         manager, mock_client, _ = self._make_manager(
             router_config
         )
         mock_client.get_nvram.return_value = {}
         manager.read_mac_filter([0, 1])
-        mock_client.login.assert_called_once_with(
-            router_config.username, router_config.password
-        )
+        mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Tests : traduction AuthError (webapitools) -> RouterAuthError
+#
+# Point trouve en verification independante du temps 1 (webapitools) :
+# webapitools.AsusRouterClient.login() leve AuthError, pas
+# RouterAuthError, alors que ce dernier fait partie du contrat
+# documente sur les ABC (network/base.py). Chaque adaptateur doit
+# traduire l'exception a la frontiere.
+# ---------------------------------------------------------------------------
+
+class TestTraductionRouterAuthError:
+    """Verifie la traduction AuthError -> RouterAuthError par adaptateur."""
+
+    def test_scanner_traduit_autherror_en_routerautherror(
+        self,
+        scanner: AsusRouterScanner,
+        mock_client: MagicMock,
+        network_config: NetworkConfig,
+    ) -> None:
+        """AsusRouterScanner.scan() traduit AuthError en RouterAuthError."""
+        mock_client.login.side_effect = AuthError(
+            "Authentification refusee"
+        )
+        with pytest.raises(
+            RouterAuthError, match="Authentification refusee"
+        ):
+            scanner.scan(network_config)
+
+    def test_dhcp_manager_traduit_autherror_en_routerautherror(
+        self, router_config: RouterConfig, network_config: NetworkConfig
+    ) -> None:
+        """AsusRouterDhcpManager.apply_reservations() traduit AuthError."""
+        mock_client = MagicMock(spec=AsusRouterClient)
+        mock_client.login.side_effect = AuthError(
+            "Authentification refusee"
+        )
+        manager = AsusRouterDhcpManager(
+            config=network_config,
+            router_config=router_config,
+            client=mock_client,
+        )
+        with pytest.raises(
+            RouterAuthError, match="Authentification refusee"
+        ):
+            manager.apply_reservations([])
+
+    def test_mac_filter_manager_traduit_autherror_en_routerautherror(
+        self, router_config: RouterConfig
+    ) -> None:
+        """AsusRouterMacFilterManager.apply_mac_filter() traduit AuthError."""
+        mock_client = MagicMock(spec=AsusRouterClient)
+        mock_client.login.side_effect = AuthError(
+            "Authentification refusee"
+        )
+        manager = AsusRouterMacFilterManager(
+            router_config=router_config,
+            client=mock_client,
+        )
+        with pytest.raises(
+            RouterAuthError, match="Authentification refusee"
+        ):
+            manager.apply_mac_filter([], "allow", [0])
+
+
+# ---------------------------------------------------------------------------
+# Tests : non-regression Q-03 (re-export AsusRouterClient)
+# ---------------------------------------------------------------------------
+
+class TestReexportAsusRouterClient:
+    """Verifie le contrat Q-03 : re-export d'AsusRouterClient.
+
+    AsusRouterClient reste importable depuis
+    linuxtools.network(.router) et pointe vers la classe webapitools
+    (aucun changement pour les consommateurs existants, ex.
+    scanNetHome, temps 3/3 du chantier cross-repo).
+    """
+
+    def test_import_depuis_network_router(self) -> None:
+        """from linuxtools.network.router import AsusRouterClient."""
+        import webapitools
+
+        from linuxtools.network.router import (
+            AsusRouterClient as AsusRouterClientDepuisRouter,
+        )
+
+        assert (
+            AsusRouterClientDepuisRouter is webapitools.AsusRouterClient
+        )
+
+    def test_import_depuis_network(self) -> None:
+        """from linuxtools.network import AsusRouterClient."""
+        import webapitools
+
+        from linuxtools.network import (
+            AsusRouterClient as AsusRouterClientDepuisNetwork,
+        )
+
+        assert (
+            AsusRouterClientDepuisNetwork is webapitools.AsusRouterClient
+        )
+
+    def test_les_deux_formes_importent_la_meme_classe(self) -> None:
+        """Les deux chemins d'import retournent bien la meme classe."""
+        from linuxtools.network import (
+            AsusRouterClient as AsusRouterClientDepuisNetwork,
+        )
+        from linuxtools.network.router import (
+            AsusRouterClient as AsusRouterClientDepuisRouter,
+        )
+
+        assert (
+            AsusRouterClientDepuisNetwork is AsusRouterClientDepuisRouter
+        )
