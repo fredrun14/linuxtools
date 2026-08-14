@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.19.0] - 2026-08-14
+
+### Modifié
+
+- `AsusRouterClient` déplacé vers `webapitools` (transport HTTP factorisé
+  sur `BaseApiClient`, retry/mapping d'erreurs mutualisés). **`linuxtools`
+  gagne ici sa première dépendance de production non-stdlib**
+  (`webapitools>=0.11.1`) — jusqu'ici documentée « stdlib uniquement ».
+  Ce chantier résout la tension pour le module routeur (le transport qui
+  forçait `urllib` pur part vers `webapitools`, qui dépend déjà de
+  `requests`) au lieu de l'aggraver.
+- `linuxtools.network.router` ne garde que `RouterConfig`,
+  `RouterAuthError` et les 3 adaptateurs métier (`AsusRouterScanner`,
+  `AsusRouterDhcpManager`, `AsusRouterMacFilterManager`).
+  `AsusRouterClient` reste importable depuis `linuxtools.network(.router)`
+  (ré-export) — aucun changement pour les consommateurs existants (Q-03
+  du CDC cross-repo).
+- `webapitools.core.exceptions.AuthError` levée par
+  `AsusRouterClient.login()` est traduite en `RouterAuthError` à la
+  frontière de chacun des 3 adaptateurs (contrat documenté sur les ABC
+  `network/base.py` préservé).
+- Le `logger` (ABC `linuxtools.logging.base.Logger`) des 3 adaptateurs
+  n'est plus transmis au client `webapitools.AsusRouterClient` : son
+  paramètre `logger` attend un `logging.Logger` (stdlib), incompatible
+  avec l'ABC maison (méthodes `log_info`/`log_warning`/`log_error` vs
+  `info`/`warning`). Chaque adaptateur continue de journaliser lui-même
+  via `self._logger` ; seul le logging interne bas niveau du client HTTP
+  (`webapitools`) est désormais silencieux côté `linuxtools`.
+
 ## [1.18.0] - 2026-08-13
 
 ### Ajouté

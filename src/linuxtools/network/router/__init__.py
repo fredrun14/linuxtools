@@ -1,7 +1,8 @@
 """Package routeur ASUS — re-exports de l'API publique."""
 
+from webapitools import AsusRouterClient  # ré-export (Q-03 du CDC)
+
 from linuxtools.network.router.client import (
-    AsusRouterClient,
     RouterAuthError,
     RouterConfig,
 )
