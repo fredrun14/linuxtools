@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.21.0] - 2026-08-15
+
+### Modifié
+
+- **Typage précis de `ConfigLoader.load()` / `FileConfigLoader.load()`**
+  (`config/loader.py`) — `dict[str, Any] | Any` s'effondre en `Any` pour
+  mypy, ce qui rendait tout appel à `.load(...)` invisible au typage
+  statique, avec ou sans `schema`. Ajout d'une paire d'`@overload`
+  (nouveau `TypeVar _TSchema` non lié) : `schema=None` (ou omis) retourne
+  désormais `dict[str, Any]`, `schema=type[X]` retourne `X`. Aucun
+  changement de comportement à l'exécution — précédent comparable :
+  `ConfigurationManager.validate()` (`config/manager.py`), déjà typé sur
+  ce modèle.
+- **Impact potentiel côté consommateurs** : `linuxtools` étant `py.typed`
+  (PEP 561), les appels à `.load(...)` chez les 8 projets consommateurs
+  recevaient jusqu'ici un retour `Any` (donc non vérifié). Ils recevront
+  désormais un type précis — un usage qui présumait déjà (à tort) un
+  autre type que ce que `schema` implique peut faire échouer
+  `mypy --strict` chez ce consommateur à la prochaine mise à jour de la
+  dépendance.
+
 ## [1.20.0] - 2026-08-15
 
 ### Ajouté

@@ -5,10 +5,21 @@ import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, overload
 
 # T représente une dataclass de configuration retournée par load()
 T = TypeVar("T")
+
+# _TSchema représente le modèle Pydantic passé en `schema=` à
+# ConfigLoader.load() / FileConfigLoader.load() — distinct de T
+# ci-dessus (T est la dataclass renvoyée par ConfigFileLoader.load()).
+# Volontairement non lié (pas de bound="BaseModel") : le contrat
+# runtime (TypeError si schema n'est pas un BaseModel) est déjà
+# vérifié par FileConfigLoader._validate_with_schema, et lier au
+# typage introduirait une dépendance de typage à un extra optionnel
+# pour un gain marginal — même choix que ConfigurationManager.validate
+# (src/linuxtools/config/manager.py), TypeVar _T non lié.
+_TSchema = TypeVar("_TSchema")
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -52,11 +63,30 @@ class ConfigLoader(ABC):
     en permettant de substituer l'implémentation réelle par un mock.
     """
 
-    # ANN401 assumé pour l'instant : le retour dépend de l'argument
-    # `schema` (dict brut si None, instance du modèle sinon). Une paire
-    # d'`@overload` avec TypeVar le rendrait exprimable, mais c'est un
-    # changement de l'API de typage publique, consommée par 8 projets :
-    # à traiter dans un changement dédié, pas dans un durcissement.
+    @overload
+    @abstractmethod
+    def load(
+        self,
+        config_path: str | Path,
+        schema: None = None,
+    ) -> dict[str, Any]:
+        """Charge un fichier de configuration en dict brut (sans schema)."""
+
+    @overload
+    @abstractmethod
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type[_TSchema],
+    ) -> _TSchema:
+        """Charge un fichier de configuration et le valide via schema."""
+
+    # ANN401 assumé : signature "réelle" recouvrant les deux overloads
+    # ci-dessus — c'est elle que Python retient comme attribut de
+    # classe (les deux stubs @overload sont invisibles à l'exécution,
+    # réservés aux type checkers). Le retour effectif dépend de
+    # `schema`, ce que les deux overloads expriment pour l'appelant ;
+    # cette signature-ci reste volontairement large.
     @abstractmethod
     def load(
         self,
@@ -91,6 +121,22 @@ class FileConfigLoader(ConfigLoader):
     par l'extension du fichier. Supporte optionnellement la
     validation via un modèle Pydantic BaseModel.
     """
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: None = None,
+    ) -> dict[str, Any]:
+        """Charge un fichier de configuration en dict brut (sans schema)."""
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type[_TSchema],
+    ) -> _TSchema:
+        """Charge un fichier de configuration et le valide via schema."""
 
     # ANN401 assumé : même raison que dans `ConfigLoader.load` ci-dessus
     # (le retour dépend de `schema`), signature imposée par le contrat.
