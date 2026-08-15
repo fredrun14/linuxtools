@@ -129,7 +129,7 @@ class TestIsBlockCommented:
 
 
 class TestEnsureBlock:
-    """Vérifie les 5 comportements de ensure_block()."""
+    """Vérifie les 6 comportements de ensure_block()."""
 
     def test_retourne_false_si_bloc_deja_present(self, tmp_path: Path) -> None:
         # Arrange
@@ -302,6 +302,235 @@ class TestEnsureBlock:
         assert "[main]" in content
         assert "fastestmirror = true" in content
         assert "[commands]" in content
+
+    def test_remplace_valeur_cle_existante_sans_section(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "key = 2" in content
+        assert "key = 1" not in content
+        assert content.count("key") == 1
+
+    def test_remplace_valeur_cle_existante_dans_section(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "dnf.conf"
+        write_file(
+            path,
+            "[main]\nfastestmirror = true\n\n[updates]\nfoo = bar\n",
+        )
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block(
+            "fastestmirror = false", section="main"
+        )
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "fastestmirror = false" in content
+        assert "fastestmirror = true" not in content
+        assert "[updates]" in content
+        assert "foo = bar" in content
+
+    def test_ne_remplace_pas_cle_dans_autre_section(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "dnf.conf"
+        write_file(
+            path,
+            "[main]\nfoo = 1\n\n[updates]\nfoo = 2\n",
+        )
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("foo = 3", section="updates")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "foo = 1" in content
+        assert "foo = 3" in content
+        assert "foo = 2" not in content
+
+    def test_bloc_multiligne_ne_declenche_pas_remplacement(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2\nother = 3")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "key = 1" in content
+        assert "key = 2" in content
+        assert "other = 3" in content
+
+    def test_ne_remplace_pas_ligne_commentee(self, tmp_path: Path) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "# key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "# key = 1" in content
+        assert "key = 2" in content
+
+    def test_remplace_au_lieu_de_decommenter_si_cle_active_existe(
+        self, tmp_path: Path
+    ) -> None:
+        """Repro de la revue : plus de duplicata actif après remplacement.
+
+        Avant la correction de l'ordre des branches, le contenu
+        matchait la ligne commentée exactement en premier (branche
+        décommentage) et laissait `key = 1` intacte, produisant deux
+        lignes actives `key` — exactement le bug que le correctif
+        d'origine devait éliminer.
+        """
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "# key = 2\nkey = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        active_key_lines = [
+            ln for ln in content.splitlines() if ln.strip() == "key = 2"
+        ]
+        assert len(active_key_lines) == 1
+
+    def test_preserve_indentation_ligne_remplacee(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "    key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert "    key = 2" in content
+        assert "\nkey = 2" not in content
+
+    def test_preserve_fin_de_ligne_crlf(self, tmp_path: Path) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        path.write_bytes(b"key = 1\r\nother = 1\r\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        raw = path.read_bytes()
+        assert b"key = 2\r\n" in raw
+        assert b"\n" in raw and b"\r\n" in raw
+        # Aucune ligne ne doit se retrouver avec seulement \n (mélange)
+        assert raw.count(b"\r\n") == raw.count(b"\n")
+
+    def test_ne_remplace_que_la_premiere_cle_dupliquee(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange — fichier déjà incohérent (clé dupliquée pré-existante)
+        path = tmp_path / "config"
+        write_file(path, "key = 1\nkey = 3\n")
+        editor = SectionAwareEditor(path)
+        # Act
+        result = editor.ensure_block("key = 2")
+        # Assert
+        assert result is True
+        content = path.read_text()
+        assert content == "key = 2\nkey = 3\n"
+
+
+# ---------------------------------------------------------------------------
+# TestIsKeyReplaceable
+# ---------------------------------------------------------------------------
+
+
+class TestIsKeyReplaceable:
+    """Vérifie la détection de remplacement de clé (_is_key_replaceable)."""
+
+    def test_retourne_true_si_cle_active_differente(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act & Assert
+        assert editor._is_key_replaceable("key = 2") is True
+
+    def test_retourne_false_si_valeur_identique(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "key = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act & Assert
+        assert editor._is_key_replaceable("key = 1") is False
+
+    def test_retourne_false_si_bloc_multiligne(
+        self, tmp_path: Path
+    ) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "a = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act & Assert
+        assert editor._is_key_replaceable("a = 1\nb = 2") is False
+
+    def test_retourne_false_si_pas_de_egal(self, tmp_path: Path) -> None:
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "--flag\n")
+        editor = SectionAwareEditor(path)
+        # Act & Assert
+        assert editor._is_key_replaceable("--flag") is False
+
+    def test_retourne_false_si_fichier_absent(self, tmp_path: Path) -> None:
+        # Arrange
+        editor = make_editor(tmp_path, "absent.conf")
+        # Act & Assert
+        assert editor._is_key_replaceable("key = 2") is False
+
+    def test_retourne_true_meme_si_ligne_commentee_dupliquee(
+        self, tmp_path: Path
+    ) -> None:
+        """Verrouille la cohérence avec le nouvel ordre de ensure_block.
+
+        Une ligne commentée de contenu identique existe par ailleurs
+        (`# key = 2`) mais ne doit pas empêcher la détection du
+        remplacement, puisque `ensure_block` priorise désormais le
+        remplacement sur le décommentage (cf. point 1 de la revue).
+        """
+        # Arrange
+        path = tmp_path / "config"
+        write_file(path, "# key = 2\nkey = 1\n")
+        editor = SectionAwareEditor(path)
+        # Act & Assert
+        assert editor._is_key_replaceable("key = 2") is True
+        result = editor.ensure_block("key = 2")
+        assert result is True
+        content = path.read_text()
+        assert content.splitlines().count("key = 2") == 1
 
 
 # ---------------------------------------------------------------------------

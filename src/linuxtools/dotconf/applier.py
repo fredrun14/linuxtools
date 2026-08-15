@@ -96,10 +96,20 @@ class ConfigApplier:
         was_commented = editor.is_block_commented(
             block.content, block.section
         )
+        was_replaceable = editor._is_key_replaceable(
+            block.content, block.section
+        )
         editor.ensure_block(block.content, block.section, block.comment)
 
+        # Le remplacement de clé est prioritaire sur le décommentage
+        # dans ensure_block() (cf. line_editor.py) — le message doit
+        # refléter le même ordre, sinon un contenu à la fois commenté
+        # et remplaçable afficherait "Uncommented" alors que la ligne
+        # a en réalité été remplacée.
         first_line = block.content.splitlines()[0][:50]
-        if was_commented:
+        if was_replaceable:
+            action = f"Replaced: {first_line}"
+        elif was_commented:
             action = f"Uncommented: {first_line}"
         elif block.section:
             action = f"Added to [{block.section}]: {first_line}"

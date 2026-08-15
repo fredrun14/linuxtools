@@ -143,6 +143,24 @@ class TestConfigApplierExistingFile:
 
         assert actions == []
 
+    def test_apply_replaces_existing_key_message(
+        self, tmp_path: Path
+    ) -> None:
+        conf = tmp_path / "app.conf"
+        conf.write_text("key = 1\n", encoding="utf-8")
+        spec = ConfigSpec(
+            file_path=conf,
+            blocks=[ConfigBlock(content="key = 2")],
+        )
+
+        actions = ConfigApplier().apply(spec)
+
+        assert len(actions) == 1
+        assert "Replaced:" in actions[0]
+        content = conf.read_text(encoding="utf-8")
+        assert "key = 2" in content
+        assert "key = 1" not in content
+
     def test_apply_adds_block_to_ini_section(
         self, tmp_path: Path
     ) -> None:
