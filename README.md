@@ -2448,12 +2448,16 @@ if editor.is_block_present("fastestmirror = True", section="main"):
 if editor.is_block_commented("fastestmirror = True", section="main"):
     print("Commenté, sera décommenté")
 
-# Insérer ou décommenter un bloc (avec commentaire optionnel avant)
+# Insérer, décommenter, ou remplacer un bloc (avec commentaire optionnel avant)
 editor.ensure_block(
     "fastestmirror = True",
     section="main",
     comment="# Activer le miroir le plus rapide",
 )
+# Si "fastestmirror = False" est déjà actif ailleurs dans la section,
+# la ligne est remplacée en place (formatage préservé) plutôt que
+# dupliquée — prioritaire sur le décommentage d'une ligne commentée
+# de même contenu.
 
 # Lister les sections [section] présentes dans le fichier
 sections = editor.list_sections()  # ['main', 'plugins']
@@ -2520,6 +2524,8 @@ assert applier.apply(spec) == []
 - Crée le fichier (et les répertoires parents) s'il est absent, chmod 644
 - Ajoute les blocs manquants en fin de fichier (ou dans la `[section]` INI cible)
 - Décommente les lignes commentées (`# key = value` → `key = value`)
+- Remplace en place une clé `clé=valeur` déjà active avec une autre
+  valeur (`key = 1` → `key = 2`), au lieu de dupliquer la ligne
 - Ne touche pas aux blocs déjà présents (idempotent)
 - Retourne une liste d'actions décrivant ce qui a été modifié (vide si aucun changement)
 
@@ -2617,6 +2623,8 @@ toml_text = exporter.export_mapping({
   │  + is_block_present(content, section) → bool     │
   │  + is_block_commented(content, section) → bool   │
   │  + ensure_block(content, section, comment)       │
+  │      (remplace une clé active existante en place │
+  │       si le bloc est un `clé=valeur` mono-ligne)  │
   │  + list_sections() → list[str]                   │
   └──────────────────────────────────────────────────┘
 

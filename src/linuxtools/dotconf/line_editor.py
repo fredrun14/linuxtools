@@ -19,6 +19,7 @@ class SectionAwareEditor:
 
     _SECTION_RE: re.Pattern[str] = re.compile(r"^\[([^\]]+)\]")
     _COMMENT_PREFIXES: tuple[str, ...] = ("#", ";")
+    _KEY_VALUE_RE: re.Pattern[str] = re.compile(r"^([^=]+)=")
 
     def __init__(self, file_path: Path) -> None:
         """Initialise l'éditeur avec le chemin du fichier cible.
@@ -96,6 +97,53 @@ class SectionAwareEditor:
             content, section, self._is_commented_line
         )
 
+    def _is_key_replaceable(
+        self,
+        content: str,
+        section: str | None = None,
+    ) -> bool:
+        """Vérifie si `ensure_block(content, section)` remplacerait une clé.
+
+        Utile à l'appelant interne (ConfigApplier) pour choisir un
+        message d'action précis ("Replaced" vs "Added"/"Appended"/
+        "Uncommented") *avant* d'appeler `ensure_block`, sans dupliquer
+        sa logique de détection. Méthode privée : usage strictement
+        intra-paquet.
+
+        Cohérente avec l'ordre des branches de `ensure_block` — répond
+        True exactement quand l'étape 2 (remplacement) de `ensure_block`
+        se déclenchera, sans se soucier de l'état "commenté" : cette
+        méthode répond True même s'il existe par ailleurs une ligne
+        commentée de contenu identique, tant qu'une ligne ACTIVE de
+        même clé existe (le remplacement est prioritaire sur le
+        décommentage dans `ensure_block`).
+
+        Args:
+            content: Contenu du bloc (doit être une seule ligne
+                `clé=valeur` pour renvoyer True — un bloc multi-lignes
+                ou sans `=` renvoie toujours False).
+            section: Nom de la section INI cible, ou None pour fichier
+                plat.
+
+        Returns:
+            True si une ligne active de même clé existe déjà dans le
+            périmètre (remplacement), False sinon (y compris si le
+            fichier est absent ou si la clé est déjà exactement
+            présente — pas de remplacement nécessaire dans ce cas).
+        """
+        block_lines = self._block_lines(content)
+        if len(block_lines) != 1:
+            return False
+        key = self._extract_key(block_lines[0])
+        if key is None:
+            return False
+        lines = self._read_lines()
+        if self._block_matches(
+            content, section, self._is_active_line, lines
+        ):
+            return False
+        return self._find_key_line_index(lines, section, key) is not None
+
     def ensure_block(
         self,
         content: str,
@@ -107,10 +155,33 @@ class SectionAwareEditor:
         Comportement selon l'état du fichier :
 
         1. Bloc actif → aucune modification (retourne False).
-        2. Bloc commenté → décommente les lignes concernées (retourne True).
-        3. Fichier/bloc absent, section None → appende en fin de fichier.
-        4. Bloc absent, section existante → insère avant la section suivante.
-        5. Bloc absent, section manquante → ajoute [section] en fin de fichier.
+        2. Ligne unique `clé=valeur`, clé déjà active ailleurs dans le
+           périmètre → remplace la ligne en place (retourne True).
+           Prioritaire sur le décommentage (3) : si une ligne active de
+           même clé existe, elle est remplacée même si une ligne
+           commentée correspondant exactement au contenu existe par
+           ailleurs — sinon un remplacement laisserait coexister la
+           ligne active nouvellement décommentée et l'ancienne ligne
+           active de même clé (deux lignes actives pour une même clé).
+        3. Bloc commenté → décommente les lignes concernées (retourne True).
+        4. Fichier/bloc absent, section None → appende en fin de fichier.
+        5. Bloc absent, section existante → insère avant la section suivante.
+        6. Bloc absent, section manquante → ajoute [section] en fin de fichier.
+
+        Limites connues :
+
+        - **Directives à clé répétable** (`Environment=`, `ExecStartPre=`,
+          `export PATH=`...) : le remplacement ne distingue pas une clé
+          scalaire d'une directive répétable légitimement dupliquée —
+          une seconde `Environment=B=2` écrasera une première
+          `Environment=A=1` au lieu de coexister avec elle. Aucun spec
+          TOML des consommateurs actuels (`config-file-manager`,
+          `fedora_post_install`) n'est concerné à ce jour, mais un futur
+          spec systemd pourrait l'être.
+        - **Clé dupliquée pré-existante** : si le fichier contient déjà
+          deux lignes actives de même clé (état déjà incohérent), seule
+          la première rencontrée dans le périmètre est remplacée — pas
+          de correction rétroactive du doublon.
 
         Args:
             content: Contenu du bloc (une ou plusieurs lignes).
@@ -129,6 +200,17 @@ class SectionAwareEditor:
             return False
 
         block_lines = self._block_lines(content)
+
+        if len(block_lines) == 1:
+            key = self._extract_key(block_lines[0])
+            if key is not None:
+                idx = self._find_key_line_index(lines, section, key)
+                if idx is not None:
+                    lines[idx] = self._replace_line_preserving_format(
+                        lines[idx], block_lines[0]
+                    )
+                    self._write_lines(lines)
+                    return True
 
         if self._block_matches(
             content, section, self._is_commented_line, lines
@@ -173,21 +255,34 @@ class SectionAwareEditor:
     def _read_lines(self) -> list[str]:
         """Lit le fichier et retourne ses lignes avec fins de ligne.
 
+        Ouvre avec `newline=""` pour désactiver la traduction universal
+        newlines : les fins de ligne d'origine (`\\n`, `\\r\\n`) sont
+        préservées telles quelles, sans quoi une ligne `\\r\\n` serait
+        silencieusement convertie en `\\n` à la lecture (comportement
+        par défaut de Python en mode texte), et donc perdue avant même
+        d'atteindre `_replace_line_preserving_format`.
+
         Returns:
-            Liste de lignes (avec \\n), vide si le fichier n'existe pas.
+            Liste de lignes (avec fin de ligne d'origine), vide si le
+            fichier n'existe pas.
         """
         if not self._path.exists():
             return []
-        return self._path.read_text(encoding="utf-8").splitlines(keepends=True)
+        with self._path.open(encoding="utf-8", newline="") as f:
+            return f.readlines()
 
     def _write_lines(self, lines: list[str]) -> None:
         """Écrit les lignes dans le fichier (crée le dossier parent si besoin).
+
+        Ouvre avec `newline=""` pour écrire les fins de ligne telles
+        qu'elles apparaissent dans `lines`, sans traduction.
 
         Args:
             lines: Lignes à écrire (avec fins de ligne).
         """
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text("".join(lines), encoding="utf-8")
+        with self._path.open("w", encoding="utf-8", newline="") as f:
+            f.write("".join(lines))
 
     def _find_section_range(
         self,
@@ -269,6 +364,95 @@ class SectionAwareEditor:
                     result[i] = self._uncomment_line(result[i])
                     break
         return result
+
+    def _extract_key(self, line: str) -> str | None:
+        """Extrait la clé d'une ligne `clé = valeur`, si le motif matche.
+
+        Args:
+            line: Ligne à analyser (avec ou sans fin de ligne).
+
+        Returns:
+            La clé strippée si la ligne contient un `=`, None sinon
+            (ligne plate type `--flag`, ligne de section `[nom]`,
+            etc.).
+        """
+        match = self._KEY_VALUE_RE.match(line.strip())
+        if match is None:
+            return None
+        return match.group(1).strip()
+
+    def _is_comment(self, line: str) -> bool:
+        """Vérifie si une ligne est un commentaire (préfixe # ou ;).
+
+        Args:
+            line: Ligne à analyser.
+
+        Returns:
+            True si la ligne strippée commence par un préfixe de
+            commentaire.
+        """
+        stripped = line.strip()
+        return any(
+            stripped.startswith(prefix)
+            for prefix in self._COMMENT_PREFIXES
+        )
+
+    def _find_key_line_index(
+        self,
+        lines: list[str],
+        section: str | None,
+        key: str,
+    ) -> int | None:
+        """Localise l'index d'une ligne active de clé donnée dans le périmètre.
+
+        Args:
+            lines: Toutes les lignes du fichier.
+            section: Section cible, ou None pour tout le fichier.
+            key: Clé recherchée (déjà strippée).
+
+        Returns:
+            Index dans `lines` de la première ligne active de même
+            clé, ou None si absente, si la section n'existe pas, ou si
+            aucune ligne du périmètre n'a de clé (lignes plates).
+        """
+        if section is None:
+            start, end = 0, len(lines)
+        else:
+            start, end = self._find_section_range(lines, section)
+            if start == -1:
+                return None
+        for i in range(start, end):
+            if self._is_comment(lines[i]):
+                continue
+            if self._extract_key(lines[i]) == key:
+                return i
+        return None
+
+    def _replace_line_preserving_format(
+        self,
+        original: str,
+        new_content: str,
+    ) -> str:
+        """Remplace le contenu d'une ligne en conservant sa mise en forme.
+
+        Args:
+            original: Ligne existante (avec indentation et fin de ligne
+                d'origine, ex. `"    key = 1\\r\\n"`).
+            new_content: Nouveau contenu de la ligne (stripé, sans
+                indentation ni fin de ligne, ex. `"key = 2"`).
+
+        Returns:
+            La ligne reformée avec l'indentation d'origine de `original`
+            et sa fin de ligne d'origine (`\\r\\n`, `\\n` ou aucune).
+        """
+        if original.endswith("\r\n"):
+            newline, body = "\r\n", original[:-2]
+        elif original.endswith("\n"):
+            newline, body = "\n", original[:-1]
+        else:
+            newline, body = "", original
+        leading_ws = body[: len(body) - len(body.lstrip())]
+        return leading_ws + new_content + newline
 
     def _is_active_line(self, line: str, target: str) -> bool:
         """Vérifie si une ligne correspond à la cible (active, non commentée).

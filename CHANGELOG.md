@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.21.1] - 2026-08-15
+
+### Corrigé
+
+- **`SectionAwareEditor.ensure_block()` (`dotconf/line_editor.py`)** —
+  appliquer une nouvelle valeur sur une clé `clé=valeur` déjà active
+  (ex. `key = 2` alors que `key = 1` est présent) ajoutait une seconde
+  ligne au lieu de remplacer la première : le fichier se retrouvait
+  avec deux lignes actives pour la même clé, la valeur effective
+  dépendant alors de l'ordre de lecture du programme consommateur.
+  Le même bug se produisait aussi via le chemin décommentage
+  (ex. `# key = 2\nkey = 1\n` + `ensure_block("key = 2")` matchait la
+  ligne commentée en premier et décommentait au lieu de remplacer,
+  laissant deux lignes actives `key`). `ensure_block` détecte
+  désormais ce cas (bloc mono-ligne avec `=`, clé déjà présente sur
+  une ligne active du périmètre — fichier entier ou section ciblée)
+  et remplace la ligne existante en place au lieu d'en ajouter une
+  seconde ou de décommenter une ligne obsolète — ce remplacement est
+  maintenant prioritaire sur le décommentage. Le formatage de la
+  ligne remplacée (indentation, fin de ligne CRLF/LF) est préservé.
+  Nouvelle méthode privée `_is_key_replaceable(content, section)`
+  (usage intra-paquet) pour interroger ce comportement sans dupliquer
+  sa logique de détection.
+- `ConfigApplier._apply_block` (`dotconf/applier.py`) émet désormais
+  `"Replaced: ..."` (au lieu de `"Added to [...]"` / `"Appended:"` /
+  `"Uncommented:"`) quand ce remplacement a eu lieu, pour que le log
+  reflète la réalité.
+
 ## [1.21.0] - 2026-08-15
 
 ### Modifié
