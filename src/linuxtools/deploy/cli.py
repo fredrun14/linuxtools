@@ -18,11 +18,14 @@ from typing import Any
 from linuxtools.cli.base import CliCommand
 from linuxtools.cli.dry_run import add_dry_run_argument
 from linuxtools.deploy.deployer import Deployer
+from linuxtools.deploy.discovery import find_project_source
+from linuxtools.deploy.exceptions import DeployError
 from linuxtools.deploy.models import (
     DeployConfig,
     DeployTarget,
     VerificationSpec,
 )
+from linuxtools.deploy.version_checker import check_target_version
 from linuxtools.logging.base import Logger
 
 
@@ -176,3 +179,112 @@ class DeployCommand(CliCommand):
         report = deployer.deploy(config)
         print(report.format_summary())
         sys.exit(0 if report.success else 1)
+
+
+class CheckVersionCommand(CliCommand):
+    """Sous-commande `check-version` : compare source et cible sans déployer.
+
+    Attributes:
+        _logger: Logger optionnel, propagé à check_target_version.
+    """
+
+    def __init__(self, logger: Logger | None = None) -> None:
+        """Initialise la commande avec un logger optionnel.
+
+        Args:
+            logger: Logger optionnel, propagé à check_target_version.
+        """
+        self._logger = logger
+
+    @property
+    def name(self) -> str:
+        """Retourne le nom de la sous-commande."""
+        return "check-version"
+
+    # ANN401 assumé : même justification que DeployCommand.register.
+    def register(self, subparsers: Any) -> None:  # noqa: ANN401
+        """Enregistre la commande check-version et ses arguments.
+
+        Args:
+            subparsers: Objet retourné par
+                ``ArgumentParser.add_subparsers()``.
+        """
+        parser = subparsers.add_parser(
+            self.name,
+            help=(
+                "Compare la version source à la version installée "
+                "sur une cible, sans déployer."
+            ),
+        )
+        parser.add_argument(
+            "--source",
+            type=Path,
+            default=None,
+            help=(
+                "Répertoire source local (auto-détecté depuis le "
+                "cwd si omis)."
+            ),
+        )
+        parser.add_argument(
+            "--venv",
+            type=Path,
+            required=True,
+            help="Venv cible sur l'hôte.",
+        )
+        parser.add_argument(
+            "--host",
+            default=None,
+            help="Hôte distant (omis = vérif locale).",
+        )
+        parser.add_argument(
+            "--user",
+            default=None,
+            help="Utilisateur SSH (ignoré si --host est omis).",
+        )
+        parser.add_argument(
+            "--ssh-option",
+            action="append",
+            default=[],
+            dest="ssh_option",
+            help="Option ssh supplémentaire (répétable).",
+        )
+
+    def execute(self, args: argparse.Namespace) -> None:
+        """Compare la version source à la version installée sur la cible.
+
+        Args:
+            args: Namespace argparse après parse_args().
+
+        Sort avec le code 0 si la cible est à jour, 1 si elle est
+        obsolète (ou le paquet non installé), 2 en cas d'erreur
+        (source introuvable, ``pyproject.toml`` illisible).
+        """
+        source_dir = args.source or find_project_source()
+        if source_dir is None:
+            print(
+                "Erreur : source_dir introuvable : aucun "
+                "pyproject.toml en remontant depuis le cwd"
+            )
+            sys.exit(2)
+
+        target = DeployTarget(
+            host=args.host,
+            user=args.user,
+            ssh_options=tuple(args.ssh_option),
+        )
+
+        try:
+            result = check_target_version(
+                source_dir, args.venv, target, logger=self._logger
+            )
+        except DeployError as exc:
+            print(f"Erreur : {exc}")
+            sys.exit(2)
+
+        status = "✓ à jour" if result.up_to_date else "✗ obsolète"
+        installed = result.installed_version or "(non installé)"
+        print(
+            f"{status} — {result.package} : "
+            f"source={result.source_version} installé={installed}"
+        )
+        sys.exit(0 if result.up_to_date else 1)

@@ -20,7 +20,8 @@ Modules disponibles:
 - cli: Framework CLI Command Pattern (CliCommand, CliApplication)
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 - deploy: Déployeur/updateur d'outil Python sur hôte, local ou
-  distant via SSH (Deployer, DeployConfig, DeployCommand)
+  distant via SSH (Deployer, DeployConfig, DeployCommand,
+  check_target_version)
 - distro: Helpers spécifiques à une distribution (fedora_version) —
   seul module lié à une distribution, isolé volontairement
 """
@@ -65,6 +66,7 @@ from linuxtools.credentials import (
 )
 from linuxtools.deploy import (
     CheckResult,
+    CheckVersionCommand,
     DeployCommand,
     DeployConfig,
     Deployer,
@@ -77,8 +79,12 @@ from linuxtools.deploy import (
     Transport,
     VenvInstaller,
     VerificationSpec,
+    VersionChecker,
+    VersionCheckResult,
+    check_target_version,
     find_editable_source,
     find_project_source,
+    read_source_version,
 )
 from linuxtools.distro import (
     fedora_version,
@@ -425,8 +431,14 @@ __all__ = [
     # Deploy - Installation et vérification
     "VenvInstaller",
     "InstallVerifier",
+    # Deploy - Vérification de version
+    "VersionChecker",
+    "VersionCheckResult",
+    "check_target_version",
+    "read_source_version",
     # Deploy - CLI
     "DeployCommand",
+    "CheckVersionCommand",
     # Deploy - Auto-détection
     "find_project_source",
     "find_editable_source",

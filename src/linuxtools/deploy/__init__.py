@@ -82,7 +82,7 @@ Example:
         print(report.format_summary())
 """
 
-from linuxtools.deploy.cli import DeployCommand
+from linuxtools.deploy.cli import CheckVersionCommand, DeployCommand
 from linuxtools.deploy.config_deployer import ConfigDeployer
 from linuxtools.deploy.content_writer import deposit_content
 from linuxtools.deploy.deployer import Deployer
@@ -101,6 +101,7 @@ from linuxtools.deploy.models import (
     SecretsSpec,
     TimerDeploySpec,
     VerificationSpec,
+    VersionCheckResult,
 )
 from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
@@ -108,9 +109,15 @@ from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.deploy.version_checker import (
+    VersionChecker,
+    check_target_version,
+    read_source_version,
+)
 
 __all__ = [
     "CheckResult",
+    "CheckVersionCommand",
     "ConfigDeploySpec",
     "ConfigDeployer",
     "DeployCommand",
@@ -130,7 +137,11 @@ __all__ = [
     "Transport",
     "VenvInstaller",
     "VerificationSpec",
+    "VersionChecker",
+    "VersionCheckResult",
+    "check_target_version",
     "deposit_content",
     "find_editable_source",
     "find_project_source",
+    "read_source_version",
 ]

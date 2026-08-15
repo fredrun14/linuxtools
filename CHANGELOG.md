@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.20.0] - 2026-08-15
+
+### Ajouté
+
+- Module `deploy.version_checker` : compare la version du
+  `pyproject.toml` source local à la version effectivement installée
+  dans le venv cible (locale ou distante via SSH), sans jamais
+  déclencher de déploiement — la fonction informe, elle ne décide
+  pas. `read_source_version(source_dir)` lit `[project].name` et
+  `[project].version` via `tomllib` ; `VersionChecker.check(...)`
+  interroge la cible via `importlib.metadata.version` (exécuté dans
+  le Python du venv cible, via `CommandExecutor.probe` — reste
+  utilisable en dry-run) ; `check_target_version(...)` est la façade
+  combinant les deux, symétrique de `Deployer.for_target`.
+- Nouvelle dataclass `VersionCheckResult` (`package`,
+  `source_version`, `installed_version`, `up_to_date`).
+- Sous-commande CLI `deploy check-version` (`CheckVersionCommand`),
+  qui sort en code 0 si la cible est à jour, 1 si elle est obsolète
+  (ou le paquet non installé), 2 en cas d'erreur (source introuvable,
+  `pyproject.toml` illisible).
+
 ## [1.19.1] - 2026-08-14
 
 ### Corrigé
