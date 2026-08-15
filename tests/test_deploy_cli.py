@@ -7,8 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from linuxtools.deploy.cli import DeployCommand
-from linuxtools.deploy.models import DeployPhase, DeployReport
+from linuxtools.deploy.cli import CheckVersionCommand, DeployCommand
+from linuxtools.deploy.exceptions import DeployError
+from linuxtools.deploy.models import (
+    DeployPhase,
+    DeployReport,
+    VersionCheckResult,
+)
 
 
 def _make_parser(command: DeployCommand) -> argparse.ArgumentParser:
@@ -221,3 +226,159 @@ class TestDeployCommandExecute:
 
         out = capsys.readouterr().out
         assert "Succès" in out
+
+
+def _make_check_version_parser(
+    command: CheckVersionCommand,
+) -> argparse.ArgumentParser:
+    """Construit un ArgumentParser avec check-version enregistrée."""
+    parser = argparse.ArgumentParser(prog="test")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    command.register(subparsers)
+    return parser
+
+
+class TestCheckVersionCommandName:
+    """Tests pour la propriété name."""
+
+    def test_name_est_check_version(self) -> None:
+        """Le nom de la sous-commande est 'check-version'."""
+        assert CheckVersionCommand().name == "check-version"
+
+
+class TestCheckVersionCommandRegister:
+    """Tests pour register() : arguments argparse."""
+
+    def test_venv_est_requis(self) -> None:
+        """--venv est requis (SystemExit si absent)."""
+        parser = _make_check_version_parser(CheckVersionCommand())
+        with pytest.raises(SystemExit):
+            parser.parse_args(["check-version"])
+
+    def test_parse_arguments_minimaux(self) -> None:
+        """Parse avec seulement --venv requis."""
+        parser = _make_check_version_parser(CheckVersionCommand())
+        args = parser.parse_args(
+            ["check-version", "--venv", "/opt/app/venv"]
+        )
+        assert args.venv == Path("/opt/app/venv")
+        assert args.source is None
+        assert args.host is None
+        assert args.user is None
+        assert args.ssh_option == []
+
+    def test_options_repetables(self) -> None:
+        """--ssh-option est répétable."""
+        parser = _make_check_version_parser(CheckVersionCommand())
+        args = parser.parse_args(
+            [
+                "check-version",
+                "--venv", "/opt/app/venv",
+                "--host", "srv01",
+                "--user", "deploy",
+                "--ssh-option=-p",
+                "--ssh-option=2222",
+            ]
+        )
+        assert args.host == "srv01"
+        assert args.user == "deploy"
+        assert args.ssh_option == ["-p", "2222"]
+
+
+class TestCheckVersionCommandExecute:
+    """Tests pour execute() : délégation à check_target_version."""
+
+    def _base_args(self, **overrides: Any) -> argparse.Namespace:
+        """Construit un Namespace minimal valide, avec overrides."""
+        base: dict[str, Any] = {
+            "source": Path("/home/user/mon-outil"),
+            "venv": Path("/opt/app/venv"),
+            "host": None,
+            "user": None,
+            "ssh_option": [],
+        }
+        base.update(overrides)
+        return argparse.Namespace(**base)
+
+    @patch("linuxtools.deploy.cli.check_target_version")
+    def test_execute_exit_0_si_a_jour(
+        self, mock_check: MagicMock
+    ) -> None:
+        """Cible à jour -> sys.exit(0)."""
+        mock_check.return_value = VersionCheckResult(
+            package="mon-outil",
+            source_version="1.2.3",
+            installed_version="1.2.3",
+            up_to_date=True,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            CheckVersionCommand().execute(self._base_args())
+
+        assert exc_info.value.code == 0
+
+    @patch("linuxtools.deploy.cli.check_target_version")
+    def test_execute_exit_1_si_obsolete_ou_absent(
+        self, mock_check: MagicMock
+    ) -> None:
+        """Cible obsolète ou paquet absent -> sys.exit(1)."""
+        mock_check.return_value = VersionCheckResult(
+            package="mon-outil",
+            source_version="1.2.3",
+            installed_version=None,
+            up_to_date=False,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            CheckVersionCommand().execute(self._base_args())
+
+        assert exc_info.value.code == 1
+
+    @patch("linuxtools.deploy.cli.find_project_source")
+    def test_execute_exit_2_si_source_introuvable(
+        self, mock_find_source: MagicMock
+    ) -> None:
+        """Source introuvable (ni --source ni auto-détection) ->
+        sys.exit(2) (erreur, pas verdict "obsolète")."""
+        mock_find_source.return_value = None
+
+        with pytest.raises(SystemExit) as exc_info:
+            CheckVersionCommand().execute(
+                self._base_args(source=None)
+            )
+
+        assert exc_info.value.code == 2
+
+    @patch("linuxtools.deploy.cli.check_target_version")
+    def test_execute_exit_2_si_deployerror(
+        self, mock_check: MagicMock
+    ) -> None:
+        """check_target_version lève DeployError -> sys.exit(2), pas
+        de traceback brut."""
+        mock_check.side_effect = DeployError(
+            "pyproject.toml illisible : Permission denied"
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            CheckVersionCommand().execute(self._base_args())
+
+        assert exc_info.value.code == 2
+
+    @patch("linuxtools.deploy.cli.Deployer")
+    @patch("linuxtools.deploy.cli.check_target_version")
+    def test_execute_n_instancie_jamais_deployer(
+        self, mock_check: MagicMock, mock_deployer_cls: MagicMock
+    ) -> None:
+        """CheckVersionCommand.execute() ne construit jamais de
+        Deployer : c'est une lecture seule, pas un déploiement."""
+        mock_check.return_value = VersionCheckResult(
+            package="mon-outil",
+            source_version="1.2.3",
+            installed_version="1.2.3",
+            up_to_date=True,
+        )
+
+        with pytest.raises(SystemExit):
+            CheckVersionCommand().execute(self._base_args())
+
+        mock_deployer_cls.for_target.assert_not_called()

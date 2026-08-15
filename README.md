@@ -333,8 +333,9 @@ linuxtools/
 │   │   ├── transport.py         # Transport (ABC) + RsyncTransport
 │   │   ├── venv_installer.py    # VenvInstaller (backup/install/restore/prune)
 │   │   ├── verifier.py          # InstallVerifier (imports/subcmds/régression)
+│   │   ├── version_checker.py   # VersionChecker, check_target_version, read_source_version
 │   │   ├── deployer.py          # Deployer (orchestrateur 4 phases + rollback)
-│   │   └── cli.py               # DeployCommand (CliCommand)
+│   │   └── cli.py               # DeployCommand, CheckVersionCommand (CliCommand)
 │   ├── identity/
 │   │   ├── __init__.py
 │   │   ├── base.py              # ABCs GroupManagerBase, UserManagerBase
@@ -420,6 +421,7 @@ linuxtools/
 │   ├── test_deploy_transport.py
 │   ├── test_deploy_venv_installer.py
 │   ├── test_deploy_verifier.py
+│   ├── test_deploy_version_checker.py
 │   ├── test_deploy_deployer.py
 │   ├── test_deploy_cli.py
 │   ├── test_notification.py
@@ -1929,6 +1931,35 @@ mon-outil deploy --host pve --user root --ssh-option -p --ssh-option 2222 \
     --cli-bin mon-outil --import mon_outil --subcommand list --dry-run
 ```
 
+#### Vérifier la version d'une cible sans déployer
+
+`check_target_version` compare la version du `pyproject.toml` source
+local à celle effectivement installée dans le venv cible (locale ou
+distante) — sans jamais déclencher de déploiement (la fonction
+informe, elle ne décide pas).
+
+```python
+from pathlib import Path
+from linuxtools import check_target_version, DeployTarget
+
+result = check_target_version(
+    source_dir=Path("/home/user/mon-outil"),
+    venv_path=Path("/opt/mon-outil/venv"),
+    target=DeployTarget(host="pve", user="root"),  # None = local
+)
+print(result.up_to_date, result.installed_version)
+```
+
+Sous-commande CLI dédiée `check-version` (même `CliCommand`
+qu'au-dessus), qui sort en code 0 si la cible est à jour, 1 si elle
+est obsolète, 2 en cas d'erreur (source introuvable, pyproject.toml
+illisible) :
+
+```bash
+mon-outil check-version --host pve --user root \
+    --venv /opt/mon-outil/venv
+```
+
 ### Documentation API
 
 | ABC (Interface) | Implémentation | Description |
@@ -1936,8 +1967,10 @@ mon-outil deploy --host pve --user root --ssh-option -p --ssh-option 2222 \
 | `CommandExecutor` | `SshCommandExecutor` | Exécute à distance via `ssh` (wrap `shlex`-safe), délègue au `LinuxCommandExecutor` local |
 | `Transport` | `RsyncTransport` | Achemine le source vers la cible via `rsync` (local ou `user@host:`) |
 | `CliCommand` | `DeployCommand` | Sous-commande `deploy` enregistrable dans un `CliApplication` |
+| `CliCommand` | `CheckVersionCommand` | Sous-commande `check-version` : compare source/cible sans déployer |
 | — | `VenvInstaller` | Backup, (ré)install `pip`, restauration et purge du venv cible |
 | — | `InstallVerifier` | Exécute les vérifications déclaratives (imports, sous-commandes, non-régression) |
+| — | `VersionChecker` | Compare une version source à la version installée sur la cible (`importlib.metadata`) |
 | — | `Deployer` | Orchestrateur des 4 phases + rollback (`Deployer.for_target(...)`) |
 
 **Fonctions de découverte** (`source_dir` optionnel) :
@@ -1946,6 +1979,8 @@ mon-outil deploy --host pve --user root --ssh-option -p --ssh-option 2222 \
 |----------|-------------|
 | `find_project_source(start=None)` | Remonte jusqu'au premier `pyproject.toml` (boucle robuste, sans profondeur fixe) |
 | `find_editable_source(distribution)` | Localise le source d'une distribution installée en mode éditable (`direct_url.json`) |
+| `read_source_version(source_dir)` | Lit `(package_name, version)` dans `[project]` du `pyproject.toml` source |
+| `check_target_version(source_dir, venv_path, target=None, package=None, logger=None)` | Façade : compare version source et version installée sur la cible en un appel |
 
 **Dataclasses / enum** :
 
@@ -1956,6 +1991,7 @@ mon-outil deploy --host pve --user root --ssh-option -p --ssh-option 2222 \
 | `VerificationSpec` | Vérifs déclaratives (imports, sous-commandes, commande de non-régression) |
 | `DeployReport` | Compte rendu (`success`, `phase_reached`, `checks`, `rolled_back`, `format_summary()`) |
 | `CheckResult` | Résultat d'une vérification unitaire (`label`, `ok`, `detail`) |
+| `VersionCheckResult` | Résultat de comparaison de version (`package`, `source_version`, `installed_version`, `up_to_date`) |
 | `DeployPhase` | Enum des phases : `TRANSPORT`, `BACKUP`, `INSTALL`, `VERIFY`, `ROLLBACK`, `DONE` |
 | `DeployError` | Exception levée si le backup obligatoire échoue (pas d'install sans filet) |
 

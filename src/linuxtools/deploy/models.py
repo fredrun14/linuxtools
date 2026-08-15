@@ -210,6 +210,26 @@ class CheckResult:
 
 
 @dataclass(frozen=True)
+class VersionCheckResult:
+    """Résultat de la comparaison de version source vs cible.
+
+    Attributes:
+        package: Nom du paquet comparé (lu dans le pyproject.toml
+            source, table [project].name).
+        source_version: Version du pyproject.toml source local.
+        installed_version: Version installée dans le venv cible, ou
+            None si le paquet n'est pas installé (venv absent ou
+            jamais déployé).
+        up_to_date: True si installed_version == source_version.
+    """
+
+    package: str
+    source_version: str
+    installed_version: str | None
+    up_to_date: bool
+
+
+@dataclass(frozen=True)
 class DeployReport:
     """Compte rendu complet d'un déploiement.
 
