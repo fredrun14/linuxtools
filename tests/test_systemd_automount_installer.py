@@ -2,7 +2,7 @@
 
 import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, overload
 from unittest.mock import Mock
 
 from linuxtools import (
@@ -12,12 +12,34 @@ from linuxtools import (
 )
 from linuxtools.config import ConfigLoader
 
+# ConfigLoader.load() est désormais surchargé (schema=None -> dict,
+# schema=type[_T] -> _T). mypy --strict exige que ce Mock reproduise
+# le même triplet @overload/implémentation (erreur [override] sinon) :
+# une signature unique, même large, n'est pas reconnue comme
+# compatible avec une base surchargée par le vérificateur de
+# surcharge de mypy.
+_TSchema = TypeVar("_TSchema")
+
 
 class MockConfigLoader(ConfigLoader):
     """Mock du ConfigLoader retournant un dictionnaire fixe."""
 
     def __init__(self, config: dict[str, Any]):
         self._config = config
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: None = None,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type[_TSchema],
+    ) -> _TSchema: ...
 
     def load(
         self,

@@ -120,9 +120,13 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
             # Passage volontaire d'un type incorrect (str au lieu de
             # type | None) : ce test vérifie la garde runtime destinée
             # aux appelants non typés, documentée dans
-            # FileConfigLoader._validate_with_schema.
+            # FileConfigLoader._validate_with_schema. Code d'erreur
+            # mypy [call-overload] (et non [arg-type]) depuis l'ajout
+            # des @overload sur load() : aucun overload ne matche un
+            # schema de type str, ce qui est précisément le cas testé.
             self.loader.load(
-                path, schema="SampleConfig"  # type: ignore[arg-type]
+                path,
+                schema="SampleConfig",  # type: ignore[call-overload]
             )
 
 
