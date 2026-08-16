@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.22.0] - 2026-08-16
+
+### Ajouté
+
+- Module `deploy.usb_export` : prépare une clé USB de déploiement
+  offline pour un projet consommateur, sans dépendre d'un hôte
+  joignable (à la différence de `Deployer`/`DeployTarget`). Deux
+  modes : `"sources"` (copie du binaire `uv`, des sources du projet
+  et de `linuxtools` détecté en éditable, + script `install.sh`
+  généré appelant `uv tool install` — réseau requis sur la machine
+  cible) et `"venv"` (venv Python autonome précompilé via `uv venv` +
+  `uv pip install`, copié sans symlink résiduel — non-régression
+  exFAT/FAT/NTFS —, + script `run.sh` généré, aucun réseau requis sur
+  la cible).
+- Nouvelles dataclasses `UsbExportConfig` (`target_dir`, `mode`,
+  `project_src`, `user_config_dir`, `cli_entry_point`, `dry_run`) et
+  `UsbExportReport` (`created_paths`, `warnings`), et classe
+  `UsbExporter` (`executor`/`logger` injectés).
+- `UsbExportConfig.target_dir` est utilisé tel quel, sans
+  sous-répertoire imposé — rupture volontaire avec l'outil dont la
+  logique a été généralisée (`fedora_post_install.UsbExportManager`,
+  qui imposait un sous-répertoire `fpi/`) : c'est à l'appelant de
+  choisir un sous-dossier dédié.
+- `UsbExportConfig.cli_entry_point` (`"paquet.module:fonction"`) est
+  **requis** en mode `"venv"` — `linuxtools` ne devine pas le point
+  d'entrée d'un projet consommateur quelconque ; absence du champ en
+  mode `"venv"` lève `ValidationError` explicitement.
+- Réutilise `deploy.discovery` (`find_project_source`,
+  `find_editable_source`), `deploy.content_writer.deposit_content`
+  et `filesystem.backup` (`copytree_secure`, `LinuxFileBackup`) —
+  aucune primitive dupliquée.
+
 ## [1.21.1] - 2026-08-15
 
 ### Corrigé
