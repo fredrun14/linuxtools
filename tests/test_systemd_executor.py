@@ -1,5 +1,6 @@
 """Tests pour le module systemd.executor."""
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -398,6 +399,203 @@ class TestSystemdExecutorSansExecutorInjecte:
         logger = MagicMock()
         executor = SystemdExecutor(logger)
         assert isinstance(executor._executor, LinuxCommandExecutor)
+
+
+class TestSystemdExecutorListUnits:
+    """Tests pour SystemdExecutor.list_units()."""
+
+    def _make_executor(
+        self,
+    ) -> tuple[SystemdExecutor, MagicMock]:
+        """Crée un executor avec un CommandExecutor mocké.
+
+        Le logger n'est pas retourné : aucun test de cette classe ne
+        s'appuie dessus (ils ne vérifient que le CommandExecutor et
+        le résultat de list_units()).
+        """
+        logger = MagicMock()
+        command_executor = MagicMock()
+        return SystemdExecutor(logger, command_executor), command_executor
+
+    def test_list_units_json_valide(self) -> None:
+        """list_units() parse une réponse JSON à plusieurs unités."""
+        executor, command_executor = self._make_executor()
+        json_stdout = json.dumps([
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "Backup service",
+            },
+            {
+                "unit": "sshd.service",
+                "load": "loaded",
+                "active": "inactive",
+                "sub": "dead",
+                "description": "OpenSSH server",
+            },
+        ])
+        command_executor.run.return_value = _result(stdout=json_stdout)
+        units = executor.list_units()
+        assert units == [
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "Backup service",
+            },
+            {
+                "unit": "sshd.service",
+                "load": "loaded",
+                "active": "inactive",
+                "sub": "dead",
+                "description": "OpenSSH server",
+            },
+        ]
+
+    def test_list_units_json_vide(self) -> None:
+        """list_units() retourne [] si le JSON est une liste vide."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(stdout="[]")
+        units = executor.list_units()
+        assert units == []
+
+    def test_list_units_fallback_texte(self) -> None:
+        """list_units() bascule sur le fallback texte si JSON non géré.
+
+        Vérifie que la 2ᵉ commande (--no-legend --plain) est bien
+        appelée et parsée correctement, y compris une description
+        contenant des espaces.
+        """
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(
+                stdout=(
+                    "backup.service loaded active running "
+                    "Service de sauvegarde quotidienne\n"
+                )
+            ),
+        ]
+        units = executor.list_units()
+        assert units == [{
+            "unit": "backup.service",
+            "load": "loaded",
+            "active": "active",
+            "sub": "running",
+            "description": "Service de sauvegarde quotidienne",
+        }]
+        second_call_args = command_executor.run.call_args_list[1][0][0]
+        assert "--no-legend" in second_call_args
+        assert "--plain" in second_call_args
+        assert "--output=json" not in second_call_args
+
+    def test_list_units_fallback_texte_json_invalide(self) -> None:
+        """list_units() bascule sur le fallback si le JSON est invalide.
+
+        Cas distinct de return_code != 0 : ici return_code == 0 mais
+        stdout n'est pas du JSON valide (couvre json.JSONDecodeError).
+        """
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=0, stdout="pas du json"),
+            _result(
+                stdout="backup.service loaded active running Backup\n"
+            ),
+        ]
+        units = executor.list_units()
+        assert units == [{
+            "unit": "backup.service",
+            "load": "loaded",
+            "active": "active",
+            "sub": "running",
+            "description": "Backup",
+        }]
+
+    def test_list_units_erreur_subprocess(self) -> None:
+        """list_units() lève RuntimeError si systemctl échoue (JSON)."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(
+            return_code=1, stderr="erreur inconnue"
+        )
+        with pytest.raises(RuntimeError, match="erreur inconnue"):
+            executor.list_units()
+
+    def test_list_units_erreur_subprocess_fallback(self) -> None:
+        """list_units() lève RuntimeError si le fallback texte échoue."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(return_code=1, stderr="erreur fallback"),
+        ]
+        with pytest.raises(RuntimeError, match="erreur fallback"):
+            executor.list_units()
+
+    def test_list_units_fallback_ligne_sans_description(self) -> None:
+        """Une ligne texte sans description donne description vide."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(stdout="backup.service loaded active running\n"),
+        ]
+        units = executor.list_units()
+        assert units == [{
+            "unit": "backup.service",
+            "load": "loaded",
+            "active": "active",
+            "sub": "running",
+            "description": "",
+        }]
+
+    def test_list_units_fallback_ligne_malformee(self) -> None:
+        """Les lignes vides ou à moins de 4 tokens sont ignorées.
+
+        Couvre le fallback texte (``_list_units_text_fallback()``) :
+        une ligne vide est ignorée, tout comme une ligne dont le
+        split produit moins de 4 tokens (ex: nom d'unité seul, ou nom
+        d'unité + load sans active/sub) — sans lever d'exception. Une
+        ligne valide au milieu confirme que le parsing continue
+        normalement après les lignes malformées.
+        """
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(
+                stdout=(
+                    "foo.service\n"
+                    "\n"
+                    "bar.service loaded\n"
+                    "backup.service loaded active running Backup\n"
+                )
+            ),
+        ]
+        units = executor.list_units()
+        assert units == [{
+            "unit": "backup.service",
+            "load": "loaded",
+            "active": "active",
+            "sub": "running",
+            "description": "Backup",
+        }]
+
+    def test_list_units_user_executor_ajoute_flag_user(self) -> None:
+        """UserSystemdExecutor hérite list_units() avec --user."""
+        logger = MagicMock()
+        command_executor = MagicMock()
+        executor = UserSystemdExecutor(logger, command_executor)
+        command_executor.run.return_value = _result(stdout="[]")
+        executor.list_units()
+        command_executor.run.assert_called_once_with(
+            [
+                "systemctl",
+                "--user",
+                "list-units",
+                "--no-pager",
+                "--output=json",
+            ]
+        )
 
 
 class TestUserSystemdExecutorMocked:

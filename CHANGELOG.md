@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.23.0] - 2026-08-16
+
+### Ajouté
+
+- `SystemdExecutor.list_units()` : liste toutes les unités systemd
+  connues (`systemctl list-units --output=json`, pass-through direct
+  des clés `unit`/`load`/`active`/`sub`/`description`), avec fallback
+  sur un parsing texte (`--no-legend --plain`) si le JSON n'est pas
+  supporté par la version de systemd installée — même stratégie que
+  `list_timers()` côté managers de timer. `UserSystemdExecutor`
+  hérite la méthode sans modification (seule `_run_systemctl` ajoute
+  `--user`).
+
 ## [1.22.0] - 2026-08-16
 
 ### Ajouté
