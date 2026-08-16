@@ -329,6 +329,7 @@ linuxtools/
 │   │   ├── models.py            # DeployConfig, DeployTarget, VerificationSpec, DeployReport, DeployPhase
 │   │   ├── exceptions.py        # DeployError
 │   │   ├── discovery.py         # find_project_source, find_editable_source
+│   │   ├── usb_export.py        # UsbExporter (clé USB offline, modes sources/venv)
 │   │   ├── ssh_executor.py      # SshCommandExecutor (CommandExecutor via ssh)
 │   │   ├── transport.py         # Transport (ABC) + RsyncTransport
 │   │   ├── venv_installer.py    # VenvInstaller (backup/install/restore/prune)

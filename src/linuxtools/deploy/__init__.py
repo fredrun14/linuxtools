@@ -80,6 +80,22 @@ Example:
             )
         )
         print(report.format_summary())
+
+    Préparation d'une clé USB de déploiement offline (aucun hôte
+    distant — voir `usb_export.py` pour le détail des deux modes) :
+
+        from pathlib import Path
+        from linuxtools.deploy import UsbExportConfig, UsbExporter
+        from linuxtools.commands import LinuxCommandExecutor
+
+        exporter = UsbExporter(LinuxCommandExecutor())
+        report = exporter.export(
+            UsbExportConfig(
+                target_dir=Path("/run/media/user/USB/mon-outil"),
+                mode="sources",
+            )
+        )
+        print(report.created_paths)
 """
 
 from linuxtools.deploy.cli import CheckVersionCommand, DeployCommand
@@ -107,6 +123,12 @@ from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
 from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
+from linuxtools.deploy.usb_export import (
+    UsbExportConfig,
+    UsbExporter,
+    UsbExportMode,
+    UsbExportReport,
+)
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
 from linuxtools.deploy.version_checker import (
@@ -135,6 +157,10 @@ __all__ = [
     "TimerDeploySpec",
     "TimerDeployer",
     "Transport",
+    "UsbExportConfig",
+    "UsbExportMode",
+    "UsbExportReport",
+    "UsbExporter",
     "VenvInstaller",
     "VerificationSpec",
     "VersionChecker",
