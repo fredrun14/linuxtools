@@ -1,5 +1,6 @@
 """Exécuteur de commandes systemctl."""
 
+import json
 from typing import ClassVar
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
@@ -291,6 +292,85 @@ class SystemdExecutor:
         validate_full_unit_name(unit_name)
         result = self._run_systemctl(["is-enabled", unit_name])
         return result.stdout.strip() == "masked"
+
+    def list_units(self) -> list[dict[str, str]]:
+        """Liste toutes les unités systemd connues.
+
+        Utilise ``--output=json`` pour un parsing fiable, avec
+        fallback sur le parsing texte si le format JSON n'est pas
+        supporté par la version de systemd installée — même
+        stratégie que ``list_timers()`` côté managers de timer.
+
+        Returns:
+            Liste de dictionnaires (``unit``, ``load``, ``active``,
+            ``sub``, ``description``) — pass-through direct du
+            schéma de ``systemctl list-units --output=json``.
+
+        Raises:
+            RuntimeError: Si l'exécution de systemctl échoue pour
+                une raison autre que l'absence de support JSON.
+        """
+        result = self._run_systemctl(
+            ["list-units", "--no-pager", "--output=json"]
+        )
+
+        if result.return_code != 0:
+            if "unknown option" in result.stderr.lower() \
+                    or "invalid option" in result.stderr.lower():
+                return self._list_units_text_fallback()
+            raise RuntimeError(
+                f"Erreur systemctl list-units : {result.stderr}"
+            )
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return self._list_units_text_fallback()
+
+        units = []
+        for entry in data:
+            units.append({
+                "unit": entry.get("unit", ""),
+                "load": entry.get("load", ""),
+                "active": entry.get("active", ""),
+                "sub": entry.get("sub", ""),
+                "description": entry.get("description", ""),
+            })
+        return units
+
+    def _list_units_text_fallback(self) -> list[dict[str, str]]:
+        """Fallback texte pour list_units sur vieux systemd.
+
+        Returns:
+            Liste de dictionnaires (mêmes clés que list_units()).
+
+        Raises:
+            RuntimeError: Si l'exécution de systemctl échoue.
+        """
+        result = self._run_systemctl(
+            ["list-units", "--no-pager", "--no-legend", "--plain"]
+        )
+
+        if result.return_code != 0:
+            raise RuntimeError(
+                f"Erreur systemctl list-units : {result.stderr}"
+            )
+
+        units = []
+        for line in result.stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            parts = line.split(maxsplit=4)
+            if len(parts) < 4:
+                continue
+            units.append({
+                "unit": parts[0],
+                "load": parts[1],
+                "active": parts[2],
+                "sub": parts[3],
+                "description": parts[4] if len(parts) > 4 else "",
+            })
+        return units
 
     def mask_unit(self, unit_name: str) -> bool:
         """Masque une unité systemd.
