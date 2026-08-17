@@ -52,8 +52,7 @@ class SectionAwareEditor:
         if search_lines is None:
             return False
         return all(
-            any(predicate(fl, bl) for fl in search_lines)
-            for bl in block_lines
+            any(predicate(fl, bl) for fl in search_lines) for bl in block_lines
         )
 
     def is_block_present(
@@ -74,9 +73,7 @@ class SectionAwareEditor:
             True si toutes les lignes du bloc sont présentes et non commentées.
             False si le fichier n'existe pas ou si une ligne manque.
         """
-        return self._block_matches(
-            content, section, self._is_active_line
-        )
+        return self._block_matches(content, section, self._is_active_line)
 
     def is_block_commented(
         self,
@@ -93,9 +90,7 @@ class SectionAwareEditor:
             True si toutes les lignes du bloc existent sous forme commentée.
             False si le fichier n'existe pas ou si les lignes sont absentes.
         """
-        return self._block_matches(
-            content, section, self._is_commented_line
-        )
+        return self._block_matches(content, section, self._is_commented_line)
 
     def _is_key_replaceable(
         self,
@@ -138,9 +133,7 @@ class SectionAwareEditor:
         if key is None:
             return False
         lines = self._read_lines()
-        if self._block_matches(
-            content, section, self._is_active_line, lines
-        ):
+        if self._block_matches(content, section, self._is_active_line, lines):
             return False
         return self._find_key_line_index(lines, section, key) is not None
 
@@ -393,8 +386,7 @@ class SectionAwareEditor:
         """
         stripped = line.strip()
         return any(
-            stripped.startswith(prefix)
-            for prefix in self._COMMENT_PREFIXES
+            stripped.startswith(prefix) for prefix in self._COMMENT_PREFIXES
         )
 
     def _find_key_line_index(
@@ -480,7 +472,7 @@ class SectionAwareEditor:
         stripped = line.strip()
         for prefix in self._COMMENT_PREFIXES:
             if stripped.startswith(prefix):
-                candidate = stripped[len(prefix):].strip()
+                candidate = stripped[len(prefix) :].strip()
                 if candidate == target:
                     return True
         return False
@@ -498,7 +490,7 @@ class SectionAwareEditor:
         stripped = line.strip()
         for prefix in self._COMMENT_PREFIXES:
             if stripped.startswith(prefix):
-                uncommented = stripped[len(prefix):]
+                uncommented = stripped[len(prefix) :]
                 if uncommented.startswith(" "):
                     uncommented = uncommented[1:]
                 return uncommented + ending

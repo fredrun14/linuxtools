@@ -64,7 +64,7 @@ class NotificationConfig:
             Code bash de la fonction send_notification().
         """
         app_q = shlex.quote(self.app_name)
-        return f'''send_notification() {{
+        return f"""send_notification() {{
     local title="$1"
     local message="$2"
     local icon="$3"
@@ -85,7 +85,7 @@ class NotificationConfig:
     done
     # Attendre brièvement que les notifications soient envoyées
     sleep 1
-}}'''
+}}"""
 
     def _to_bash_call(self, message: str, icon: str) -> str:
         """Génère une ligne d'appel bash send_notification.

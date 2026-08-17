@@ -61,6 +61,7 @@ class KeyringCredentialProvider(CredentialStore):
         """
         try:
             import keyring  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -82,6 +83,7 @@ class KeyringCredentialProvider(CredentialStore):
             return self._backend
         try:
             import keyring
+
             return keyring
         except ImportError:
             raise CredentialProviderUnavailableError(

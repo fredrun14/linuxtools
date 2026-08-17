@@ -89,9 +89,7 @@ class ConfigLoader(ABC):
     # cette signature-ci reste volontairement large.
     @abstractmethod
     def load(
-        self,
-        config_path: str | Path,
-        schema: type | None = None
+        self, config_path: str | Path, schema: type | None = None
     ) -> dict[str, Any] | Any:  # noqa: ANN401
         """Charge un fichier de configuration.
 
@@ -141,9 +139,7 @@ class FileConfigLoader(ConfigLoader):
     # ANN401 assumé : même raison que dans `ConfigLoader.load` ci-dessus
     # (le retour dépend de `schema`), signature imposée par le contrat.
     def load(
-        self,
-        config_path: str | Path,
-        schema: type | None = None
+        self, config_path: str | Path, schema: type | None = None
     ) -> dict[str, Any] | Any:  # noqa: ANN401
         """Charge un fichier de configuration TOML ou JSON.
 
@@ -177,8 +173,7 @@ class FileConfigLoader(ConfigLoader):
         if loader_fn is None:
             supported = ", ".join(_LOADERS)
             raise ValueError(
-                f"Extension non supportée: {suffix}. "
-                f"Utilisez {supported}"
+                f"Extension non supportée: {suffix}. Utilisez {supported}"
             )
 
         raw_config = loader_fn(path)
@@ -192,9 +187,7 @@ class FileConfigLoader(ConfigLoader):
     # l'appelant. Pydantic est un extra optionnel, donc `BaseModel` ne
     # peut pas être importé au niveau module pour borner un TypeVar.
     @staticmethod
-    def _validate_with_schema(
-        data: dict[str, Any], schema: object
-    ) -> Any:  # noqa: ANN401
+    def _validate_with_schema(data: dict[str, Any], schema: object) -> Any:  # noqa: ANN401
         """Valide un dict via un modèle Pydantic.
 
         `schema` est typé `object` et non `type` : c'est une frontière
@@ -225,10 +218,7 @@ class FileConfigLoader(ConfigLoader):
                 "pip install linuxtools[validation]"
             ) from err
 
-        if not (
-            isinstance(schema, type)
-            and issubclass(schema, BaseModel)
-        ):
+        if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
             raise TypeError(
                 f"Le schema doit être une sous-classe de "
                 f"pydantic.BaseModel, reçu: {schema}"
@@ -261,7 +251,7 @@ class ConfigFileLoader(ABC, Generic[T]):
     def __init__(
         self,
         config_path: str | Path,
-        config_loader: ConfigLoader | None = None
+        config_loader: ConfigLoader | None = None,
     ) -> None:
         """Initialise le loader en chargeant le fichier de configuration.
 

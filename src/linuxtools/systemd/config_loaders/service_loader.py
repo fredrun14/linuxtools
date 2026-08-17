@@ -89,9 +89,7 @@ class ServiceConfigLoader(ConfigFileLoader[ServiceConfig]):
         )
 
     def load_with_exec_override(
-        self,
-        exec_start: str,
-        section: str | None = None
+        self, exec_start: str, section: str | None = None
     ) -> ServiceConfig:
         """Charge un ServiceConfig avec un exec_start personnalisé.
 

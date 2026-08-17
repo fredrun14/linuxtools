@@ -5,7 +5,6 @@ pour allouer des adresses IP fixes et exporter la configuration
 dnsmasq.
 """
 
-
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import (
     DhcpReservationManager,
@@ -53,22 +52,15 @@ class LinuxDhcpReservationManager(DhcpReservationManager):
                 ou est epuisee.
         """
         if self._config.dhcp_range is None:
-            raise ValueError(
-                "Plage DHCP non configuree"
-            )
-        result = _allocate_fixed_ips(
-            devices, self._config.dhcp_range
-        )
+            raise ValueError("Plage DHCP non configuree")
+        result = _allocate_fixed_ips(devices, self._config.dhcp_range)
         if self._logger:
             self._logger.log_info(
-                f"Reservations DHCP : {len(result)} "
-                f"peripherique(s)"
+                f"Reservations DHCP : {len(result)} peripherique(s)"
             )
         return result
 
-    def export_reservations(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def export_reservations(self, devices: list[NetworkDevice]) -> str:
         """Exporte les reservations au format dnsmasq.
 
         Args:

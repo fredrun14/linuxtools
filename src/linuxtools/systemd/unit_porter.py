@@ -147,9 +147,9 @@ class SystemdUnitExporter:
                 continue
             if "=" in stripped and current_section:
                 key, _, value = stripped.partition("=")
-                result[current_section].setdefault(
-                    key.strip(), []
-                ).append(value.strip())
+                result[current_section].setdefault(key.strip(), []).append(
+                    value.strip()
+                )
         return result
 
     @staticmethod
@@ -186,9 +186,7 @@ class SystemdUnitExporter:
             lines.append(f"[{section}]")
             for key, values in keys.items():
                 if len(values) == 1:
-                    lines.append(
-                        f'{key} = "{_toml_escape(values[0])}"'
-                    )
+                    lines.append(f'{key} = "{_toml_escape(values[0])}"')
                 else:
                     items_str = ", ".join(
                         f'"{_toml_escape(v)}"' for v in values
@@ -281,9 +279,7 @@ class SystemdUnitRestorer:
         ini_content = self.to_ini(data, unit_type)
 
         if dry_run:
-            self._logger.log_info(
-                f"[dry-run] {unit_name} ← {toml_path.name}"
-            )
+            self._logger.log_info(f"[dry-run] {unit_name} ← {toml_path.name}")
             return (True, "")
 
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -291,9 +287,7 @@ class SystemdUnitRestorer:
         try:
             write_text_secure(str(dest), ini_content)
         except OSError as exc:
-            self._logger.log_error(
-                f"Écriture de {dest} refusée : {exc}"
-            )
+            self._logger.log_error(f"Écriture de {dest} refusée : {exc}")
             return (False, "")
         self._logger.log_info(f"{unit_name} → {dest}")
 
@@ -314,13 +308,9 @@ class SystemdUnitRestorer:
             Tuple (data, unit_type, enabled, requires_exec) ou None si erreur.
         """
         try:
-            data = tomllib.loads(
-                toml_path.read_text(encoding="utf-8")
-            )
+            data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
         except (OSError, tomllib.TOMLDecodeError) as exc:
-            self._logger.log_error(
-                f"{toml_path.name} illisible : {exc}"
-            )
+            self._logger.log_error(f"{toml_path.name} illisible : {exc}")
             return None
         meta = data.get("meta", {})
         unit_type = str(meta.get("unit_type", ""))
@@ -420,9 +410,7 @@ class SystemdUnitRestorer:
             return p.exists()
         return shutil.which(path_or_name) is not None
 
-    def _run_systemctl_fallback(
-        self, *args: str, user: bool = False
-    ) -> None:
+    def _run_systemctl_fallback(self, *args: str, user: bool = False) -> None:
         """Exécute systemctl en fallback sans executor injecté.
 
         Args:

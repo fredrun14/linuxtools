@@ -1,4 +1,5 @@
 """Constantes ANSI pour la colorisation de la sortie console."""
+
 from enum import StrEnum
 
 

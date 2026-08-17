@@ -86,9 +86,7 @@ class SystemdExecutor:
                 f"{result.stderr}"
             )
             return False
-        self.logger.log_info(
-            f"Systemd{self._label} rechargé avec succès."
-        )
+        self.logger.log_info(f"Systemd{self._label} rechargé avec succès.")
         return True
 
     def enable_unit(self, unit_name: str, now: bool = True) -> bool:
@@ -146,8 +144,7 @@ class SystemdExecutor:
         if not result.success:
             if ignore_errors:
                 self.logger.log_warning(
-                    f"Impossible de désactiver {unit_name}: "
-                    f"{result.stderr}"
+                    f"Impossible de désactiver {unit_name}: {result.stderr}"
                 )
                 return True
             self.logger.log_error(
@@ -195,7 +192,8 @@ class SystemdExecutor:
         """
         validate_full_unit_name(unit_name)
         return self._simple_action(
-            "start", unit_name,
+            "start",
+            unit_name,
             f"Unité {unit_name} démarrée.",
             f"Erreur lors du démarrage de {unit_name}",
         )
@@ -212,7 +210,8 @@ class SystemdExecutor:
         """
         validate_full_unit_name(unit_name)
         return self._simple_action(
-            "stop", unit_name,
+            "stop",
+            unit_name,
             f"Unité {unit_name} arrêtée.",
             f"Erreur lors de l'arrêt de {unit_name}",
         )
@@ -229,7 +228,8 @@ class SystemdExecutor:
         """
         validate_full_unit_name(unit_name)
         return self._simple_action(
-            "restart", unit_name,
+            "restart",
+            unit_name,
             f"Unité {unit_name} redémarrée.",
             f"Erreur lors du redémarrage de {unit_name}",
         )
@@ -315,8 +315,10 @@ class SystemdExecutor:
         )
 
         if result.return_code != 0:
-            if "unknown option" in result.stderr.lower() \
-                    or "invalid option" in result.stderr.lower():
+            if (
+                "unknown option" in result.stderr.lower()
+                or "invalid option" in result.stderr.lower()
+            ):
                 return self._list_units_text_fallback()
             raise RuntimeError(
                 f"Erreur systemctl list-units : {result.stderr}"
@@ -329,13 +331,15 @@ class SystemdExecutor:
 
         units = []
         for entry in data:
-            units.append({
-                "unit": entry.get("unit", ""),
-                "load": entry.get("load", ""),
-                "active": entry.get("active", ""),
-                "sub": entry.get("sub", ""),
-                "description": entry.get("description", ""),
-            })
+            units.append(
+                {
+                    "unit": entry.get("unit", ""),
+                    "load": entry.get("load", ""),
+                    "active": entry.get("active", ""),
+                    "sub": entry.get("sub", ""),
+                    "description": entry.get("description", ""),
+                }
+            )
         return units
 
     def _list_units_text_fallback(self) -> list[dict[str, str]]:
@@ -363,13 +367,15 @@ class SystemdExecutor:
             parts = line.split(maxsplit=4)
             if len(parts) < 4:
                 continue
-            units.append({
-                "unit": parts[0],
-                "load": parts[1],
-                "active": parts[2],
-                "sub": parts[3],
-                "description": parts[4] if len(parts) > 4 else "",
-            })
+            units.append(
+                {
+                    "unit": parts[0],
+                    "load": parts[1],
+                    "active": parts[2],
+                    "sub": parts[3],
+                    "description": parts[4] if len(parts) > 4 else "",
+                }
+            )
         return units
 
     def mask_unit(self, unit_name: str) -> bool:
@@ -384,7 +390,8 @@ class SystemdExecutor:
         """
         validate_full_unit_name(unit_name)
         return self._simple_action(
-            "mask", unit_name,
+            "mask",
+            unit_name,
             f"Unité {unit_name} masquée.",
             f"Erreur lors du masquage de {unit_name}",
         )
@@ -401,7 +408,8 @@ class SystemdExecutor:
         """
         validate_full_unit_name(unit_name)
         return self._simple_action(
-            "unmask", unit_name,
+            "unmask",
+            unit_name,
             f"Unité {unit_name} démasquée.",
             f"Erreur lors du démasquage de {unit_name}",
         )

@@ -38,9 +38,7 @@ class ScriptChecker(ABC):
     """
 
     @abstractmethod
-    def check_python(
-        self, required_version: str | None = None
-    ) -> bool:
+    def check_python(self, required_version: str | None = None) -> bool:
         """Vérifie que python3 est disponible et suffisamment récent.
 
         Args:
@@ -77,9 +75,7 @@ class ScriptChecker(ABC):
         ...
 
     @abstractmethod
-    def read_pyproject(
-        self, pyproject_path: Path
-    ) -> dict[str, object]:
+    def read_pyproject(self, pyproject_path: Path) -> dict[str, object]:
         """Lit et valide un fichier pyproject.toml (PEP 621).
 
         Args:
@@ -101,9 +97,7 @@ class ScriptChecker(ABC):
         pyproject_path: Path,
         venv_path: Path | None,
         check_extras: list[str],
-    ) -> tuple[
-        list[MissingDependency], list[InstalledDependency], int, str
-    ]:
+    ) -> tuple[list[MissingDependency], list[InstalledDependency], int, str]:
         """Vérifie les dépendances déclarées dans pyproject.toml.
 
         Args:
@@ -153,9 +147,7 @@ class LinuxScriptChecker(ScriptChecker):
         self._executor = executor
         self._logger = logger
 
-    def check_python(
-        self, required_version: str | None = None
-    ) -> bool:
+    def check_python(self, required_version: str | None = None) -> bool:
         """Vérifie que /usr/bin/python3 est disponible et récent.
 
         Args:
@@ -164,9 +156,7 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si python3 satisfait la version requise.
         """
-        exists = self._executor.probe(
-            ["test", "-f", self._PYTHON_EXEC]
-        )
+        exists = self._executor.probe(["test", "-f", self._PYTHON_EXEC])
         if not exists.success:
             if self._logger:
                 self._logger.log_error(
@@ -174,14 +164,10 @@ class LinuxScriptChecker(ScriptChecker):
                 )
             return False
 
-        result = self._executor.probe(
-            [self._PYTHON_EXEC, "--version"]
-        )
+        result = self._executor.probe([self._PYTHON_EXEC, "--version"])
         if not result.success:
             if self._logger:
-                self._logger.log_error(
-                    "Impossible d'interroger python3"
-                )
+                self._logger.log_error("Impossible d'interroger python3")
             return False
 
         if required_version is None:
@@ -191,9 +177,7 @@ class LinuxScriptChecker(ScriptChecker):
         try:
             parts = version_str.split()[1].split(".")
             current = tuple(int(p) for p in parts[:2])
-            required = tuple(
-                int(p) for p in required_version.split(".")[:2]
-            )
+            required = tuple(int(p) for p in required_version.split(".")[:2])
         except (IndexError, ValueError):
             if self._logger:
                 self._logger.log_info(
@@ -222,14 +206,10 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si le script existe et est syntaxiquement correct.
         """
-        exists = self._executor.probe(
-            ["test", "-f", str(script_path)]
-        )
+        exists = self._executor.probe(["test", "-f", str(script_path)])
         if not exists.success:
             if self._logger:
-                self._logger.log_error(
-                    f"Script introuvable : {script_path}"
-                )
+                self._logger.log_error(f"Script introuvable : {script_path}")
             return False
 
         result = self._executor.run(
@@ -257,20 +237,14 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             True si le venv existe et son interpréteur répond.
         """
-        exists = self._executor.probe(
-            ["test", "-d", str(venv_path)]
-        )
+        exists = self._executor.probe(["test", "-d", str(venv_path)])
         if not exists.success:
             if self._logger:
-                self._logger.log_error(
-                    f"Venv introuvable : {venv_path}"
-                )
+                self._logger.log_error(f"Venv introuvable : {venv_path}")
             return False
 
         python_bin = venv_path / "bin" / "python"
-        python_exists = self._executor.probe(
-            ["test", "-f", str(python_bin)]
-        )
+        python_exists = self._executor.probe(["test", "-f", str(python_bin)])
         if not python_exists.success:
             if self._logger:
                 self._logger.log_error(
@@ -278,9 +252,7 @@ class LinuxScriptChecker(ScriptChecker):
                 )
             return False
 
-        result = self._executor.probe(
-            [str(python_bin), "--version"]
-        )
+        result = self._executor.probe([str(python_bin), "--version"])
         if not result.success:
             if self._logger:
                 self._logger.log_error(
@@ -292,9 +264,7 @@ class LinuxScriptChecker(ScriptChecker):
             self._logger.log_info(f"Venv OK : {venv_path}")
         return True
 
-    def read_pyproject(
-        self, pyproject_path: Path
-    ) -> dict[str, object]:
+    def read_pyproject(self, pyproject_path: Path) -> dict[str, object]:
         """Lit et valide un fichier pyproject.toml (PEP 621).
 
         Lecture strictement locale (via `open()`) : le fichier doit
@@ -333,9 +303,7 @@ class LinuxScriptChecker(ScriptChecker):
             "version": project.get("version", ""),
             "requires_python": project.get("requires-python"),
             "dependencies": project.get("dependencies", []),
-            "optional_dependencies": project.get(
-                "optional-dependencies", {}
-            ),
+            "optional_dependencies": project.get("optional-dependencies", {}),
             "scripts": project.get("scripts", {}),
         }
 
@@ -368,9 +336,7 @@ class LinuxScriptChecker(ScriptChecker):
                 deps += opt[extra]
 
         pip_cmd = (
-            str(venv_path / "bin" / "pip")
-            if venv_path is not None
-            else "pip3"
+            str(venv_path / "bin" / "pip") if venv_path is not None else "pip3"
         )
 
         missing: list[MissingDependency] = []
@@ -381,9 +347,7 @@ class LinuxScriptChecker(ScriptChecker):
             location = self._is_installed(pkg, pip_cmd)
             if location is None:
                 missing.append(
-                    MissingDependency(
-                        package=pkg, required=constraint
-                    )
+                    MissingDependency(package=pkg, required=constraint)
                 )
             else:
                 installed.append(
@@ -391,9 +355,7 @@ class LinuxScriptChecker(ScriptChecker):
                 )
 
         if venv_path is not None:
-            install_cmd = (
-                f"{pip_cmd} install -e '{pyproject_path.parent}'"
-            )
+            install_cmd = f"{pip_cmd} install -e '{pyproject_path.parent}'"
         else:
             install_cmd = (
                 f"uv tool install --editable '{pyproject_path.parent}'"
@@ -439,9 +401,7 @@ class LinuxScriptChecker(ScriptChecker):
         Returns:
             Chemin d'installation si trouvé, None sinon.
         """
-        result = self._executor.probe(
-            [pip_cmd, "show", pkg], timeout=60
-        )
+        result = self._executor.probe([pip_cmd, "show", pkg], timeout=60)
         if result.success:
             for line in result.stdout.splitlines():
                 if line.startswith("Location:"):

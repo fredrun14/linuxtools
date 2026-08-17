@@ -41,21 +41,15 @@ def read_source_version(source_dir: Path) -> tuple[str, str]:
     """
     path = source_dir / "pyproject.toml"
     if not path.is_file():
-        raise DeployError(
-            f"pyproject.toml introuvable dans {source_dir}"
-        )
+        raise DeployError(f"pyproject.toml introuvable dans {source_dir}")
 
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
     except tomllib.TOMLDecodeError as exc:
-        raise DeployError(
-            f"pyproject.toml illisible : {exc}"
-        ) from exc
+        raise DeployError(f"pyproject.toml illisible : {exc}") from exc
     except OSError as exc:
-        raise DeployError(
-            f"pyproject.toml illisible : {exc}"
-        ) from exc
+        raise DeployError(f"pyproject.toml illisible : {exc}") from exc
 
     project_table = data.get("project", {})
     name = project_table.get("name")

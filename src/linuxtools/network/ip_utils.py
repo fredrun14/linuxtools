@@ -23,9 +23,7 @@ def _ip_to_int(ip: str) -> int:
     try:
         return int(ipaddress.IPv4Address(ip))
     except ipaddress.AddressValueError as exc:
-        raise ValueError(
-            f"Adresse IPv4 invalide : {ip!r}"
-        ) from exc
+        raise ValueError(f"Adresse IPv4 invalide : {ip!r}") from exc
 
 
 def _int_to_ip(num: int) -> str:
@@ -40,9 +38,7 @@ def _int_to_ip(num: int) -> str:
     return str(ipaddress.IPv4Address(num))
 
 
-def _iter_free_ips(
-    start: str, end: str, used_ips: set[str]
-) -> Iterator[str]:
+def _iter_free_ips(start: str, end: str, used_ips: set[str]) -> Iterator[str]:
     """Itere sur les IP libres dans la plage [start, end].
 
     Args:
@@ -74,9 +70,7 @@ def _next_available_ip(
         Prochaine IP disponible ou None si plage epuisee.
     """
     return next(
-        _iter_free_ips(
-            dhcp_range.start, dhcp_range.end, used_ips
-        ),
+        _iter_free_ips(dhcp_range.start, dhcp_range.end, used_ips),
         None,
     )
 
@@ -98,9 +92,7 @@ def _allocate_fixed_ips(
         ValueError: Si la plage DHCP est epuisee.
     """
     used_ips: set[str] = {
-        d.fixed_ip
-        for d in devices
-        if d.fixed_ip is not None
+        d.fixed_ip for d in devices if d.fixed_ip is not None
     }
     result = []
     for device in devices:
@@ -109,11 +101,7 @@ def _allocate_fixed_ips(
             continue
         ip = _next_available_ip(dhcp_range, used_ips)
         if ip is None:
-            raise ValueError(
-                "Plage DHCP epuisee : plus d'IP disponibles"
-            )
+            raise ValueError("Plage DHCP epuisee : plus d'IP disponibles")
         used_ips.add(ip)
-        result.append(
-            dataclasses.replace(device, fixed_ip=ip)
-        )
+        result.append(dataclasses.replace(device, fixed_ip=ip))
     return result

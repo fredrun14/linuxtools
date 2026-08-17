@@ -82,6 +82,5 @@ class NetworkConfig:
         validate_cidr(self.cidr)
         if self.scan_bandwidth <= 0:
             raise ValueError(
-                f"scan_bandwidth invalide : "
-                f"{self.scan_bandwidth}"
+                f"scan_bandwidth invalide : {self.scan_bandwidth}"
             )

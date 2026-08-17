@@ -77,9 +77,7 @@ class RsyncTransport(Transport):
                 sur une cible SSH distante — requiert rsync >= 3.2.3).
             timeout: Timeout en secondes pour l'appel rsync.
         """
-        self._local = local_executor or LinuxCommandExecutor(
-            logger=logger
-        )
+        self._local = local_executor or LinuxCommandExecutor(logger=logger)
         self._logger = logger
         self._extra_options = extra_options
         self._timeout = timeout
@@ -90,9 +88,7 @@ class RsyncTransport(Transport):
             self._logger.log_info(message)
 
     @staticmethod
-    def _build_destination(
-        dest_dir: Path, target: DeployTarget
-    ) -> str:
+    def _build_destination(dest_dir: Path, target: DeployTarget) -> str:
         """Construit la destination rsync (locale ou distante).
 
         Args:

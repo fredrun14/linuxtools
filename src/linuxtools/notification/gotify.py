@@ -69,9 +69,7 @@ class GotifyNotifier(Notifier):
                 si token est vide.
         """
         if not base_url.startswith(("http://", "https://")):
-            raise ValueError(
-                "base_url doit commencer par http:// ou https://"
-            )
+            raise ValueError("base_url doit commencer par http:// ou https://")
         if not token:
             raise ValueError("token est requis")
         self._base_url = base_url.rstrip("/")

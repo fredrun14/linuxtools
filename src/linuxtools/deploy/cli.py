@@ -76,8 +76,7 @@ class DeployCommand(CliCommand):
             type=Path,
             default=None,
             help=(
-                "Répertoire source local (auto-détecté depuis le "
-                "cwd si omis)."
+                "Répertoire source local (auto-détecté depuis le cwd si omis)."
             ),
         )
         parser.add_argument(
@@ -128,8 +127,7 @@ class DeployCommand(CliCommand):
             action="append",
             default=[],
             dest="subcommands",
-            help="Sous-commande attendue, testée via --help "
-            "(répétable).",
+            help="Sous-commande attendue, testée via --help (répétable).",
         )
         parser.add_argument(
             "--regression",
@@ -221,8 +219,7 @@ class CheckVersionCommand(CliCommand):
             type=Path,
             default=None,
             help=(
-                "Répertoire source local (auto-détecté depuis le "
-                "cwd si omis)."
+                "Répertoire source local (auto-détecté depuis le cwd si omis)."
             ),
         )
         parser.add_argument(

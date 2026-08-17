@@ -23,11 +23,7 @@ class LinuxMountUnitManager(MountUnitManager):
         SYSTEMD_UNIT_PATH: Chemin du répertoire des unités systemd.
     """
 
-    def __init__(
-        self,
-        logger: Logger,
-        executor: SystemdExecutor
-    ) -> None:
+    def __init__(self, logger: Logger, executor: SystemdExecutor) -> None:
         """
         Initialise le gestionnaire d'unités mount.
 
@@ -70,7 +66,7 @@ class LinuxMountUnitManager(MountUnitManager):
         self,
         config: MountConfig,
         with_automount: bool = False,
-        automount_timeout: int = 0
+        automount_timeout: int = 0,
     ) -> bool:
         """
         Installe une unité .mount (et optionnellement .automount).
@@ -98,12 +94,11 @@ class LinuxMountUnitManager(MountUnitManager):
             automount_config = AutomountConfig(
                 description=config.description,
                 where=config.where,
-                timeout_idle_sec=automount_timeout
+                timeout_idle_sec=automount_timeout,
             )
             automount_content = automount_config.to_unit_file()
             if not self._write_unit_file(
-                f"{automount_config.unit_name}.automount",
-                automount_content
+                f"{automount_config.unit_name}.automount", automount_content
             ):
                 return False
 
@@ -111,15 +106,11 @@ class LinuxMountUnitManager(MountUnitManager):
         if not self.reload_systemd():
             return False
 
-        self.logger.log_info(
-            f"Unité de montage installée pour {config.where}"
-        )
+        self.logger.log_info(f"Unité de montage installée pour {config.where}")
         return True
 
     def enable_mount(
-        self,
-        mount_path: str,
-        with_automount: bool = False
+        self, mount_path: str, with_automount: bool = False
     ) -> bool:
         """
         Active une unité .mount (ou .automount si spécifié).

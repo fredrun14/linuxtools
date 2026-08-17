@@ -62,6 +62,7 @@ __all__ = [
 # Helpers d'écriture sécurisée (O_NOFOLLOW)
 # =============================================================================
 
+
 def _write_unit_content(
     unit_path: str,
     content: str,
@@ -97,18 +98,14 @@ def _write_unit_content(
                 "Exécution en tant que root requise."
             )
         else:
-            logger.log_error(
-                f"Erreur lors de l'écriture de {unit_path}: {e}"
-            )
+            logger.log_error(f"Erreur lors de l'écriture de {unit_path}: {e}")
         return False
     try:
         os.fchmod(fd, 0o644)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(content)
     except OSError as e:
-        logger.log_error(
-            f"Erreur lors de l'écriture de {unit_path}: {e}"
-        )
+        logger.log_error(f"Erreur lors de l'écriture de {unit_path}: {e}")
         return False
     logger.log_info(f"Fichier unit{log_label} créé: {unit_path}")
     return True
@@ -142,9 +139,7 @@ def _remove_unit_content(
         )
         return False
     except OSError as e:
-        logger.log_error(
-            f"Erreur lors de la suppression de {unit_path}: {e}"
-        )
+        logger.log_error(f"Erreur lors de la suppression de {unit_path}: {e}")
         return False
     return True
 
@@ -176,8 +171,7 @@ def _write_unit_content_remote(
     chmod_result = executor.run_raw(["chmod", "644", unit_path])
     if not chmod_result.success:
         logger.log_error(
-            f"Échec du chmod distant de {unit_path}: "
-            f"{chmod_result.stderr}"
+            f"Échec du chmod distant de {unit_path}: {chmod_result.stderr}"
         )
         return False
     logger.log_info(f"Fichier unit (distant) créé: {unit_path}")
@@ -203,8 +197,7 @@ def _remove_unit_content_remote(
     result = executor.run_raw(["rm", "-f", unit_path])
     if not result.success:
         logger.log_error(
-            f"Échec de la suppression distante de {unit_path}: "
-            f"{result.stderr}"
+            f"Échec de la suppression distante de {unit_path}: {result.stderr}"
         )
         return False
     logger.log_info(f"Fichier unit (distant) supprimé: {unit_path}")
@@ -214,6 +207,7 @@ def _remove_unit_content_remote(
 # =============================================================================
 # Mixins de comportement partagé système ↔ utilisateur
 # =============================================================================
+
 
 class _ServiceOperationsHost(Protocol):
     """Contrat d'interface requis par _ServiceOperationsMixin.
@@ -226,27 +220,17 @@ class _ServiceOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool:
-        ...
+    def enable(self, unit_name: str) -> bool: ...
 
-    def disable(
-        self, unit_name: str, ignore_errors: bool = False
-    ) -> bool:
-        ...
+    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
 
-    def get_status(self, unit_name: str) -> "str":
-        ...
+    def get_status(self, unit_name: str) -> "str": ...
 
-    def reload_systemd(self) -> bool:
-        ...
+    def reload_systemd(self) -> bool: ...
 
-    def _write_unit_file(
-        self, unit_name: str, content: str
-    ) -> bool:
-        ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
 
-    def _remove_unit_file(self, unit_name: str) -> bool:
-        ...
+    def _remove_unit_file(self, unit_name: str) -> bool: ...
 
 
 class _ServiceOperationsMixin:
@@ -264,29 +248,19 @@ class _ServiceOperationsMixin:
         logger: "Logger"
         executor: "SystemdExecutor"
 
-        def enable(self, unit_name: str) -> bool:
-            ...
+        def enable(self, unit_name: str) -> bool: ...
 
         def disable(
             self, unit_name: str, ignore_errors: bool = False
-        ) -> bool:
-            ...
+        ) -> bool: ...
 
-        def get_status(
-            self, unit_name: str
-        ) -> "str":
-            ...
+        def get_status(self, unit_name: str) -> "str": ...
 
-        def reload_systemd(self) -> bool:
-            ...
+        def reload_systemd(self) -> bool: ...
 
-        def _write_unit_file(
-            self, unit_name: str, content: str
-        ) -> bool:
-            ...
+        def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
 
-        def _remove_unit_file(self, unit_name: str) -> bool:
-            ...
+        def _remove_unit_file(self, unit_name: str) -> bool: ...
 
     @staticmethod
     def _extract_service_name_from_config(config: ServiceConfig) -> str:
@@ -298,13 +272,11 @@ class _ServiceOperationsMixin:
         Returns:
             Nom du service dérivé du binaire exec_start.
         """
-        return os.path.basename(
-            shlex.split(config.exec_start)[0]
-        ).replace(".", "-")
+        return os.path.basename(shlex.split(config.exec_start)[0]).replace(
+            ".", "-"
+        )
 
-    def _validated_service_file(
-        self, service_name: str
-    ) -> "str | None":
+    def _validated_service_file(self, service_name: str) -> "str | None":
         """Valide le nom de service et retourne le nom de fichier unit.
 
         Args:
@@ -316,9 +288,7 @@ class _ServiceOperationsMixin:
         try:
             validate_service_name(service_name)
         except ValueError as e:
-            self.logger.log_error(
-                f"Nom de service invalide : {e}"
-            )
+            self.logger.log_error(f"Nom de service invalide : {e}")
             return None
         return f"{service_name}.service"
 
@@ -335,15 +305,11 @@ class _ServiceOperationsMixin:
         service_file = self._validated_service_file(service_name)
         if service_file is None:
             return False
-        if not self._write_unit_file(
-            service_file, config.to_unit_file()
-        ):
+        if not self._write_unit_file(service_file, config.to_unit_file()):
             return False
         if not self.reload_systemd():
             return False
-        self.logger.log_info(
-            f"{self._service_label} {service_file} installé"
-        )
+        self.logger.log_info(f"{self._service_label} {service_file} installé")
         return True
 
     def install_service_unit_with_name(
@@ -361,15 +327,11 @@ class _ServiceOperationsMixin:
         service_file = self._validated_service_file(service_name)
         if service_file is None:
             return False
-        if not self._write_unit_file(
-            service_file, config.to_unit_file()
-        ):
+        if not self._write_unit_file(service_file, config.to_unit_file()):
             return False
         if not self.reload_systemd():
             return False
-        self.logger.log_info(
-            f"{self._service_label} {service_file} installé"
-        )
+        self.logger.log_info(f"{self._service_label} {service_file} installé")
         return True
 
     def start_service(self, service_name: str) -> bool:
@@ -382,9 +344,7 @@ class _ServiceOperationsMixin:
             True si succès, False sinon.
         """
         validate_service_name(service_name)
-        return self.executor.start_unit(
-            f"{service_name}.service"
-        )
+        return self.executor.start_unit(f"{service_name}.service")
 
     def stop_service(self, service_name: str) -> bool:
         """Arrête un service.
@@ -396,9 +356,7 @@ class _ServiceOperationsMixin:
             True si succès, False sinon.
         """
         validate_service_name(service_name)
-        return self.executor.stop_unit(
-            f"{service_name}.service"
-        )
+        return self.executor.stop_unit(f"{service_name}.service")
 
     def restart_service(self, service_name: str) -> bool:
         """Redémarre un service.
@@ -410,9 +368,7 @@ class _ServiceOperationsMixin:
             True si succès, False sinon.
         """
         validate_service_name(service_name)
-        return self.executor.restart_unit(
-            f"{service_name}.service"
-        )
+        return self.executor.restart_unit(f"{service_name}.service")
 
     def enable_service(self, service_name: str) -> bool:
         """Active un service.
@@ -424,9 +380,7 @@ class _ServiceOperationsMixin:
             True si succès, False sinon.
         """
         validate_service_name(service_name)
-        return self.enable(
-            f"{service_name}.service"
-        )
+        return self.enable(f"{service_name}.service")
 
     def disable_service(self, service_name: str) -> bool:
         """Désactive un service.
@@ -438,9 +392,7 @@ class _ServiceOperationsMixin:
             True si succès, False sinon.
         """
         validate_service_name(service_name)
-        return self.disable(
-            f"{service_name}.service"
-        )
+        return self.disable(f"{service_name}.service")
 
     def remove_service_unit(self, service_name: str) -> bool:
         """Supprime un fichier .service.
@@ -458,9 +410,7 @@ class _ServiceOperationsMixin:
                 "(service peut-être déjà inactif) — "
                 "suppression du fichier unit quand même"
             )
-        if not self._remove_unit_file(
-            f"{service_name}.service"
-        ):
+        if not self._remove_unit_file(f"{service_name}.service"):
             return False
         self.reload_systemd()
         self.logger.log_info(
@@ -478,9 +428,7 @@ class _ServiceOperationsMixin:
             Statut du service, ou chaîne vide si erreur.
         """
         validate_service_name(service_name)
-        return self.get_status(
-            f"{service_name}.service"
-        )
+        return self.get_status(f"{service_name}.service")
 
     def is_service_active(self, service_name: str) -> bool:
         """Vérifie si un service est actif.
@@ -503,9 +451,7 @@ class _ServiceOperationsMixin:
             True si activé, False sinon.
         """
         validate_service_name(service_name)
-        return self.executor.is_enabled(
-            f"{service_name}.service"
-        )
+        return self.executor.is_enabled(f"{service_name}.service")
 
 
 class _TimerOperationsHost(Protocol):
@@ -519,27 +465,17 @@ class _TimerOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool:
-        ...
+    def enable(self, unit_name: str) -> bool: ...
 
-    def disable(
-        self, unit_name: str, ignore_errors: bool = False
-    ) -> bool:
-        ...
+    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
 
-    def get_status(self, unit_name: str) -> "str":
-        ...
+    def get_status(self, unit_name: str) -> "str": ...
 
-    def reload_systemd(self) -> bool:
-        ...
+    def reload_systemd(self) -> bool: ...
 
-    def _write_unit_file(
-        self, unit_name: str, content: str
-    ) -> bool:
-        ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
 
-    def _remove_unit_file(self, unit_name: str) -> bool:
-        ...
+    def _remove_unit_file(self, unit_name: str) -> bool: ...
 
 
 class _TimerOperationsMixin:
@@ -557,29 +493,19 @@ class _TimerOperationsMixin:
         logger: "Logger"
         executor: "SystemdExecutor"
 
-        def enable(self, unit_name: str) -> bool:
-            ...
+        def enable(self, unit_name: str) -> bool: ...
 
         def disable(
             self, unit_name: str, ignore_errors: bool = False
-        ) -> bool:
-            ...
+        ) -> bool: ...
 
-        def get_status(
-            self, unit_name: str
-        ) -> "str":
-            ...
+        def get_status(self, unit_name: str) -> "str": ...
 
-        def reload_systemd(self) -> bool:
-            ...
+        def reload_systemd(self) -> bool: ...
 
-        def _write_unit_file(
-            self, unit_name: str, content: str
-        ) -> bool:
-            ...
+        def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
 
-        def _remove_unit_file(self, unit_name: str) -> bool:
-            ...
+        def _remove_unit_file(self, unit_name: str) -> bool: ...
 
     def install_timer_unit(self, config: TimerConfig) -> bool:
         """Installe une unité .timer.
@@ -591,9 +517,7 @@ class _TimerOperationsMixin:
             True si succès, False sinon.
         """
         timer_file = f"{config.timer_name}.timer"
-        if not self._write_unit_file(
-            timer_file, config.to_unit_file()
-        ):
+        if not self._write_unit_file(timer_file, config.to_unit_file()):
             return False
         if not self.reload_systemd():
             return False
@@ -612,9 +536,7 @@ class _TimerOperationsMixin:
             True si succès, False sinon.
         """
         validate_unit_name(timer_name)
-        return self.enable(
-            f"{timer_name}.timer"
-        )
+        return self.enable(f"{timer_name}.timer")
 
     def disable_timer(self, timer_name: str) -> bool:
         """Désactive un timer.
@@ -626,9 +548,7 @@ class _TimerOperationsMixin:
             True si succès, False sinon.
         """
         validate_unit_name(timer_name)
-        return self.disable(
-            f"{timer_name}.timer"
-        )
+        return self.disable(f"{timer_name}.timer")
 
     def remove_timer_unit(self, timer_name: str) -> bool:
         """Supprime un fichier .timer.
@@ -646,9 +566,7 @@ class _TimerOperationsMixin:
                 "(unité peut-être déjà inactive) — "
                 "suppression du fichier unit quand même"
             )
-        if not self._remove_unit_file(
-            f"{timer_name}.timer"
-        ):
+        if not self._remove_unit_file(f"{timer_name}.timer"):
             return False
         self.reload_systemd()
         self.logger.log_info(
@@ -666,9 +584,7 @@ class _TimerOperationsMixin:
             Statut du timer, ou chaîne vide si erreur.
         """
         validate_unit_name(timer_name)
-        return self.get_status(
-            f"{timer_name}.timer"
-        )
+        return self.get_status(f"{timer_name}.timer")
 
     def list_timers(self) -> "list[dict[str, str]]":
         """Liste tous les timers actifs.
@@ -688,8 +604,10 @@ class _TimerOperationsMixin:
         )
 
         if result.return_code != 0:
-            if "unknown option" in result.stderr.lower() \
-                    or "invalid option" in result.stderr.lower():
+            if (
+                "unknown option" in result.stderr.lower()
+                or "invalid option" in result.stderr.lower()
+            ):
                 return self._list_timers_text_fallback()
             raise RuntimeError(
                 f"Erreur systemctl list-timers : {result.stderr}"
@@ -702,14 +620,16 @@ class _TimerOperationsMixin:
 
         timers = []
         for entry in data:
-            timers.append({
-                "unit": entry.get("unit", ""),
-                "activates": entry.get("activates", ""),
-                "next": entry.get("next", ""),
-                "left": entry.get("left", ""),
-                "last": entry.get("last", ""),
-                "passed": entry.get("passed", ""),
-            })
+            timers.append(
+                {
+                    "unit": entry.get("unit", ""),
+                    "activates": entry.get("activates", ""),
+                    "next": entry.get("next", ""),
+                    "left": entry.get("left", ""),
+                    "last": entry.get("last", ""),
+                    "passed": entry.get("passed", ""),
+                }
+            )
         return timers
 
     def _list_timers_text_fallback(self) -> "list[dict[str, str]]":
@@ -737,10 +657,12 @@ class _TimerOperationsMixin:
                 continue
             parts = line.split()
             if len(parts) >= 2:
-                timers.append({
-                    "unit": parts[-2],
-                    "activates": parts[-1],
-                })
+                timers.append(
+                    {
+                        "unit": parts[-2],
+                        "activates": parts[-1],
+                    }
+                )
         return timers
 
     def is_timer_active(self, timer_name: str) -> bool:
@@ -758,6 +680,7 @@ class _TimerOperationsMixin:
 # =============================================================================
 # Mixin de base commun UnitManager / UserUnitManager
 # =============================================================================
+
 
 class _BaseUnitManagerMixin:
     """Mixin portant les méthodes communes aux managers système et utilisateur.
@@ -812,9 +735,7 @@ class _BaseUnitManagerMixin:
         """
         return self.executor.enable_unit(unit_name)
 
-    def disable(
-        self, unit_name: str, ignore_errors: bool = False
-    ) -> bool:
+    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool:
         """
         Désactive une unité systemd.
 
@@ -858,6 +779,7 @@ class _BaseUnitManagerMixin:
 # Classes abstraites — gestionnaires système
 # =============================================================================
 
+
 class UnitManager(_BaseUnitManagerMixin):
     """Classe de base pour tous les gestionnaires d'unités systemd.
 
@@ -872,9 +794,7 @@ class UnitManager(_BaseUnitManagerMixin):
 
     SYSTEMD_UNIT_PATH: str = "/etc/systemd/system"
 
-    def _write_unit_file(
-        self, unit_name: str, content: str
-    ) -> bool:
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
         """Écrit un fichier unit dans le répertoire systemd.
 
         Écriture locale TOCTOU-safe (O_NOFOLLOW) si `remote_write`
@@ -936,7 +856,7 @@ class MountUnitManager(ABC, UnitManager):
         self,
         config: MountConfig,
         with_automount: bool = False,
-        automount_timeout: int = 0
+        automount_timeout: int = 0,
     ) -> bool:
         """
         Installe une unité .mount (et optionnellement .automount).
@@ -1245,6 +1165,7 @@ class ServiceUnitManager(_ServiceUnitContract, UnitManager):
 # Classes abstraites — gestionnaires utilisateur
 # =============================================================================
 
+
 class UserUnitManager(_BaseUnitManagerMixin):
     """Classe de base pour les gestionnaires d'unités systemd utilisateur.
 
@@ -1301,9 +1222,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
             )
             return False
 
-    def _write_unit_file(
-        self, unit_name: str, content: str
-    ) -> bool:
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
         """Écrit un fichier unit dans le répertoire utilisateur.
 
         Écriture locale TOCTOU-safe (O_NOFOLLOW) si `remote_write`

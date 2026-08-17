@@ -55,16 +55,23 @@ class SecurityEvent:
     )
 
 
-_CLES_SENSIBLES = frozenset({
-    "password", "passwd", "token", "secret",
-    "key", "authorization", "api_key",
-})
+_CLES_SENSIBLES = frozenset(
+    {
+        "password",
+        "passwd",
+        "token",
+        "secret",
+        "key",
+        "authorization",
+        "api_key",
+    }
+)
 
 _SEVERITY_DISPATCH: dict[str, str] = {
-    "debug":    "log_info",
-    "info":     "log_info",
-    "warning":  "log_warning",
-    "error":    "log_error",
+    "debug": "log_info",
+    "info": "log_info",
+    "warning": "log_warning",
+    "error": "log_error",
     "critical": "log_error",
 }
 

@@ -33,14 +33,11 @@ def _validate_router_url(url: str) -> None:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(
-            f"Scheme non autorise : {parsed.scheme!r}"
-            " (http ou https requis)"
+            f"Scheme non autorise : {parsed.scheme!r} (http ou https requis)"
         )
     hostname = parsed.hostname or ""
     if not hostname:
-        raise ValueError(
-            f"URL sans hostname : {url!r}"
-        )
+        raise ValueError(f"URL sans hostname : {url!r}")
     try:
         addr = ipaddress.ip_address(hostname)
     except ValueError:
@@ -115,6 +112,4 @@ class RouterConfig:
         """
         _validate_router_url(self.url)
         if self.timeout <= 0:
-            raise ValueError(
-                f"Timeout invalide : {self.timeout}"
-            )
+            raise ValueError(f"Timeout invalide : {self.timeout}")

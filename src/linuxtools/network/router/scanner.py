@@ -43,9 +43,7 @@ def _resolve_ip(
     if not ip or ip == "0.0.0.0":  # nosec B104
         ip = leases.get(mac, "")
     if not ip:
-        fixed_ip_fallback, _ = reservations.get(
-            mac, (None, None)
-        )
+        fixed_ip_fallback, _ = reservations.get(mac, (None, None))
         ip = fixed_ip_fallback or ""
     return ip
 
@@ -66,9 +64,7 @@ def _resolve_hostname(client: dict[str, Any]) -> str:
     return nickname or str(client.get("name", "")).strip()
 
 
-def _resolve_device_type(
-    client: dict[str, Any], vendor: str
-) -> str:
+def _resolve_device_type(client: dict[str, Any], vendor: str) -> str:
     """Resout le type de peripherique depuis dpiDevice ou vendor.
 
     Args:
@@ -78,9 +74,8 @@ def _resolve_device_type(
     Returns:
         Type de peripherique.
     """
-    return (
-        client.get("dpiDevice", "").strip()
-        or _infer_type_from_vendor(vendor)
+    return client.get("dpiDevice", "").strip() or _infer_type_from_vendor(
+        vendor
     )
 
 
@@ -124,9 +119,7 @@ class AsusRouterScanner(NetworkScanner):
             timeout=router_config.timeout,
         )
 
-    def scan(
-        self, config: NetworkConfig
-    ) -> list[NetworkDevice]:
+    def scan(self, config: NetworkConfig) -> list[NetworkDevice]:
         """Scanne le reseau via l'API du routeur.
 
         Args:
@@ -165,15 +158,12 @@ class AsusRouterScanner(NetworkScanner):
                 leases,
                 reservations,
             )
-            devices = self._parse_clients(
-                raw_clients, leases, reservations
-            )
+            devices = self._parse_clients(raw_clients, leases, reservations)
         finally:
             self._client.logout()
         if self._logger:
             self._logger.log_info(
-                f"Routeur : {len(devices)} "
-                f"peripherique(s) decouvert(s)"
+                f"Routeur : {len(devices)} peripherique(s) decouvert(s)"
             )
         return devices
 
@@ -204,19 +194,14 @@ class AsusRouterScanner(NetworkScanner):
         Returns:
             Liste etendue incluant les clients offline.
         """
-        online_macs: set[str] = {
-            c.get("mac", "").lower()
-            for c in raw_clients
-        }
+        online_macs: set[str] = {c.get("mac", "").lower() for c in raw_clients}
         result = list(raw_clients)
         for mac, nickname in custom_clients.items():
             if mac in online_macs:
                 continue
             ip = leases.get(mac, "")
             if not ip:
-                fixed, _ = reservations.get(
-                    mac, (None, None)
-                )
+                fixed, _ = reservations.get(mac, (None, None))
                 ip = fixed or ""
             result.append(
                 {
@@ -226,11 +211,7 @@ class AsusRouterScanner(NetworkScanner):
                     "nickName": nickname,
                     "vendor": "",
                     "dpiDevice": "",
-                    "ipMethod": (
-                        "Manual"
-                        if mac in reservations
-                        else ""
-                    ),
+                    "ipMethod": ("Manual" if mac in reservations else ""),
                 }
             )
         return result
@@ -267,12 +248,8 @@ class AsusRouterScanner(NetworkScanner):
             hostname = _resolve_hostname(client)
             vendor = client.get("vendor", "")
             device_type = _resolve_device_type(client, vendor)
-            fixed_ip, dns_name = reservations.get(
-                mac, (None, None)
-            )
-            if not fixed_ip and (
-                client.get("ipMethod", "") == "Manual"
-            ):
+            fixed_ip, dns_name = reservations.get(mac, (None, None))
+            if not fixed_ip and (client.get("ipMethod", "") == "Manual"):
                 fixed_ip = ip
             try:
                 devices.append(

@@ -70,4 +70,4 @@ def find_editable_source(distribution: str) -> Path | None:
     if not url.startswith("file://"):
         return None
 
-    return Path(url[len("file://"):])
+    return Path(url[len("file://") :])

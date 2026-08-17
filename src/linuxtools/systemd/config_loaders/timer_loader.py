@@ -81,9 +81,7 @@ class TimerConfigLoader(ConfigFileLoader[TimerConfig]):
         )
 
     def load_for_service(
-        self,
-        service_name: str,
-        section: str | None = None
+        self, service_name: str, section: str | None = None
     ) -> TimerConfig:
         """Charge un TimerConfig pour un service spécifique.
 

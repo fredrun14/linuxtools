@@ -11,7 +11,7 @@ from linuxtools.dotconf.spec import ConfigBlock
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 # En-tête de section INI — tolère les espaces autour des crochets.
-_SECTION_RE = re.compile(r'^\s*\[([^\]]+)\]\s*$')
+_SECTION_RE = re.compile(r"^\s*\[([^\]]+)\]\s*$")
 
 
 class ConfTomlExporter:
@@ -144,16 +144,10 @@ class ConfTomlExporter:
         for block in blocks:
             parts.append("[[target.content]]")
             if block.comment:
-                parts.append(
-                    f'comment = "{self._toml_escape(block.comment)}"'
-                )
-            parts.append(
-                f'content = "{self._toml_escape(block.content)}"'
-            )
+                parts.append(f'comment = "{self._toml_escape(block.comment)}"')
+            parts.append(f'content = "{self._toml_escape(block.content)}"')
             if block.section is not None:
-                parts.append(
-                    f'section = "{self._toml_escape(block.section)}"'
-                )
+                parts.append(f'section = "{self._toml_escape(block.section)}"')
             parts.append("")
         return "\n".join(parts)
 
@@ -223,13 +217,10 @@ class ConfTomlExporter:
             caractères de contrôle (ex. ESC) échappés.
         """
         value = (
-            value
-            .replace("\\", "\\\\")
+            value.replace("\\", "\\\\")
             .replace('"', '\\"')
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
         )
-        return _CONTROL_CHARS.sub(
-            lambda m: f"\\u{ord(m.group()):04x}", value
-        )
+        return _CONTROL_CHARS.sub(lambda m: f"\\u{ord(m.group()):04x}", value)

@@ -71,8 +71,7 @@ class DotEnvCredentialProvider(CredentialProvider):
         if not self._dotenv_path.exists():
             if self._logger:
                 self._logger.log_warning(
-                    f"Fichier .env introuvable : "
-                    f"{self._dotenv_path}"
+                    f"Fichier .env introuvable : {self._dotenv_path}"
                 )
             return False
         self._check_permissions()

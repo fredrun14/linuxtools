@@ -123,9 +123,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
             dest_file = dest / rel_path
             if not dest_file.exists():
                 if self._logger:
-                    self._logger.log_error(
-                        f"Fichier manquant: {dest_file}"
-                    )
+                    self._logger.log_error(f"Fichier manquant: {dest_file}")
                 return False, count
             if not self.verify_file(source_file, dest_file):
                 if self._logger:
@@ -163,9 +161,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
                 source_path, destination_path, dest_subdir
             )
             if self._logger:
-                self._logger.log_info(
-                    f"Vérification: {source_path} -> {dest}"
-                )
+                self._logger.log_info(f"Vérification: {source_path} -> {dest}")
             ok, count = self._verify_tree(source_path, dest)
             if not ok:
                 return False
@@ -176,15 +172,13 @@ class SHA256IntegrityChecker(IntegrityChecker):
                     )
             if self._logger:
                 self._logger.log_info(
-                    f"Vérification terminée : {count}"
-                    " fichier(s) vérifié(s)."
+                    f"Vérification terminée : {count} fichier(s) vérifié(s)."
                 )
             return True
         except (OSError, ValueError) as e:
             if self._logger:
                 self._logger.log_error(
-                    "Erreur lors de la vérification"
-                    f" d'intégrité: {e}"
+                    f"Erreur lors de la vérification d'intégrité: {e}"
                 )
             return False
 
@@ -243,13 +237,9 @@ class SHA256IntegrityChecker(IntegrityChecker):
         """
         source_path = Path(source)
         destination_path = Path(destination)
-        dest = self._resolve_dest(
-            source_path, destination_path, dest_subdir
-        )
+        dest = self._resolve_dest(source_path, destination_path, dest_subdir)
         if self._logger:
-            self._logger.log_info(
-                f"Vérification: {source_path} -> {dest}"
-            )
+            self._logger.log_info(f"Vérification: {source_path} -> {dest}")
         count = 0
         for source_file in source_path.rglob("*"):
             if not source_file.is_file():
@@ -261,9 +251,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
             self.verify_file_or_raise(source_file, dest_file)
             count += 1
         if count == 0 and self._logger:
-            self._logger.log_warning(
-                "Aucun fichier vérifié (source vide ?)."
-            )
+            self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
         if self._logger:
             self._logger.log_info(
                 f"Vérification terminée : {count} fichier(s) vérifié(s)."

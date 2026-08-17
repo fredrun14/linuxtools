@@ -78,23 +78,16 @@ class JournaldNotifier(Notifier):
             (
                 self._encode_field("MESSAGE", notification.message),
                 self._encode_field("PRIORITY", str(priority)),
-                self._encode_field(
-                    "SYSLOG_IDENTIFIER", self._app_name
-                ),
-                self._encode_field(
-                    "NOTIFICATION_TITLE", notification.title
-                ),
+                self._encode_field("SYSLOG_IDENTIFIER", self._app_name),
+                self._encode_field("NOTIFICATION_TITLE", notification.title),
             )
         )
         try:
-            with socket.socket(
-                socket.AF_UNIX, socket.SOCK_DGRAM
-            ) as sock:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
                 sock.sendto(payload, self._socket_path)
         except OSError as exc:
             raise NotificationSendError(
-                f"Écriture journald impossible"
-                f" ({self._socket_path}) : {exc}"
+                f"Écriture journald impossible ({self._socket_path}) : {exc}"
             ) from exc
 
     @staticmethod

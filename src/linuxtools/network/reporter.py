@@ -27,6 +27,7 @@ def _sort_by_ip(
     Returns:
         Liste triee.
     """
+
     def _key(
         d: NetworkDevice,
     ) -> tuple[int, list[int], str]:
@@ -44,9 +45,7 @@ class ConsoleTableReporter(DeviceReporter):
         _logger: Logger optionnel.
     """
 
-    def __init__(
-        self, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """Initialise le reporter console.
 
         Args:
@@ -54,9 +53,7 @@ class ConsoleTableReporter(DeviceReporter):
         """
         self._logger = logger
 
-    def report(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def report(self, devices: list[NetworkDevice]) -> str:
         """Genere un tableau formate des peripheriques.
 
         Args:
@@ -75,9 +72,7 @@ class ConsoleTableReporter(DeviceReporter):
             ("DNS", 20),
             ("Connu", 5),
         ]
-        header = "".join(
-            name.ljust(width) for name, width in cols
-        )
+        header = "".join(name.ljust(width) for name, width in cols)
         sep = "".join("-" * width for _, width in cols)
         lines = [header, sep]
 
@@ -94,8 +89,7 @@ class ConsoleTableReporter(DeviceReporter):
                     + d.device_type.ljust(8)
                     + (d.fixed_ip or "").ljust(16)
                     + (d.dns_name or "")[:19].ljust(20)
-                    + ("Oui" if d.is_known
-                       else "Non").ljust(5)
+                    + ("Oui" if d.is_known else "Non").ljust(5)
                 )
                 lines.append(line)
 
@@ -104,8 +98,7 @@ class ConsoleTableReporter(DeviceReporter):
         nouveaux = total - connus
         lines.append(sep)
         lines.append(
-            f"Total : {total} | Connus : {connus} | "
-            f"Nouveaux : {nouveaux}"
+            f"Total : {total} | Connus : {connus} | Nouveaux : {nouveaux}"
         )
         return "\n".join(lines) + "\n"
 
@@ -118,14 +111,20 @@ class CsvReporter(DeviceReporter):
     """
 
     FIELDNAMES = [
-        "ip", "mac", "hostname", "vendor",
-        "device_type", "is_known", "fixed_ip",
-        "dns_name", "first_seen", "last_seen", "notes",
+        "ip",
+        "mac",
+        "hostname",
+        "vendor",
+        "device_type",
+        "is_known",
+        "fixed_ip",
+        "dns_name",
+        "first_seen",
+        "last_seen",
+        "notes",
     ]
 
-    def __init__(
-        self, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """Initialise le reporter CSV.
 
         Args:
@@ -133,9 +132,7 @@ class CsvReporter(DeviceReporter):
         """
         self._logger = logger
 
-    def report(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def report(self, devices: list[NetworkDevice]) -> str:
         """Genere un rapport CSV des peripheriques.
 
         Args:
@@ -148,19 +145,21 @@ class CsvReporter(DeviceReporter):
         writer = csv.writer(output)
         writer.writerow(self.FIELDNAMES)
         for d in devices:
-            writer.writerow([
-                d.ip,
-                d.mac,
-                d.hostname,
-                d.vendor,
-                d.device_type,
-                d.is_known,
-                d.fixed_ip or "",
-                d.dns_name or "",
-                d.first_seen.isoformat(),
-                d.last_seen.isoformat(),
-                d.notes,
-            ])
+            writer.writerow(
+                [
+                    d.ip,
+                    d.mac,
+                    d.hostname,
+                    d.vendor,
+                    d.device_type,
+                    d.is_known,
+                    d.fixed_ip or "",
+                    d.dns_name or "",
+                    d.first_seen.isoformat(),
+                    d.last_seen.isoformat(),
+                    d.notes,
+                ]
+            )
         return output.getvalue()
 
 
@@ -171,9 +170,7 @@ class JsonReporter(DeviceReporter):
         _logger: Logger optionnel.
     """
 
-    def __init__(
-        self, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, logger: Logger | None = None) -> None:
         """Initialise le reporter JSON.
 
         Args:
@@ -181,9 +178,7 @@ class JsonReporter(DeviceReporter):
         """
         self._logger = logger
 
-    def report(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def report(self, devices: list[NetworkDevice]) -> str:
         """Genere un rapport JSON des peripheriques.
 
         Args:
@@ -240,9 +235,7 @@ class DiffReporter(DeviceReporter):
         self._disappeared = disappeared
         self._logger = logger
 
-    def report(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def report(self, devices: list[NetworkDevice]) -> str:
         """Genere un rapport des differences.
 
         Args:
@@ -257,39 +250,27 @@ class DiffReporter(DeviceReporter):
 
         if self._new_devices:
             lines.append(
-                f"=== Nouveaux peripheriques "
-                f"({len(self._new_devices)}) ==="
+                f"=== Nouveaux peripheriques ({len(self._new_devices)}) ==="
             )
             lines.extend(
-                _format_device_line(d, "+")
-                for d in self._new_devices
+                _format_device_line(d, "+") for d in self._new_devices
             )
             lines.append("")
 
         if self._disappeared:
             lines.append(
-                f"=== Peripheriques disparus "
-                f"({len(self._disappeared)}) ==="
+                f"=== Peripheriques disparus ({len(self._disappeared)}) ==="
             )
             lines.extend(
-                _format_device_line(d, "-")
-                for d in self._disappeared
+                _format_device_line(d, "-") for d in self._disappeared
             )
             lines.append("")
 
-        ip_changed = [
-            d for d in devices
-            if d.fixed_ip and d.ip != d.fixed_ip
-        ]
+        ip_changed = [d for d in devices if d.fixed_ip and d.ip != d.fixed_ip]
         if ip_changed:
-            lines.append(
-                "=== IP changee ==="
-            )
+            lines.append("=== IP changee ===")
             for d in ip_changed:
-                lines.append(
-                    f"  ~ {d.mac:<18} "
-                    f"{d.fixed_ip} -> {d.ip}"
-                )
+                lines.append(f"  ~ {d.mac:<18} {d.fixed_ip} -> {d.ip}")
             lines.append("")
 
         if not lines:

@@ -1,4 +1,5 @@
 """ConsoleErrorHandler (générique, configurable)."""
+
 import sys
 
 from linuxtools.errors.base import ErrorHandler

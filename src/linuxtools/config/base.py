@@ -73,10 +73,7 @@ class ConfigManager(ABC):
         ...
 
     @abstractmethod
-    def create_default_config(
-        self,
-        output_path: Path | None = None
-    ) -> None:
+    def create_default_config(self, output_path: Path | None = None) -> None:
         """
         Crée un fichier de configuration par défaut.
 

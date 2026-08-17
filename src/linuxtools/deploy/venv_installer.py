@@ -69,9 +69,7 @@ class VenvInstaller:
             DeployError: Si le venv existe mais que la copie de
                 sauvegarde échoue. On n'installe jamais sans filet.
         """
-        exists = self._executor.run(
-            ["test", "-d", str(venv_path)]
-        )
+        exists = self._executor.run(["test", "-d", str(venv_path)])
         if not exists.success:
             self._log(
                 f"Aucun venv existant à {venv_path} : "
@@ -80,9 +78,7 @@ class VenvInstaller:
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        backup_path = venv_path.parent / (
-            f"{venv_path.name}.bak-{timestamp}"
-        )
+        backup_path = venv_path.parent / (f"{venv_path.name}.bak-{timestamp}")
 
         result = self._executor.run(
             ["cp", "-a", str(venv_path), str(backup_path)]
@@ -93,8 +89,7 @@ class VenvInstaller:
                 f"{backup_path} : {result.stderr}"
             )
             raise DeployError(
-                f"Backup du venv {venv_path} impossible : "
-                f"{result.stderr}"
+                f"Backup du venv {venv_path} impossible : {result.stderr}"
             )
 
         self._log(f"Venv sauvegardé : {venv_path} -> {backup_path}")
@@ -125,18 +120,13 @@ class VenvInstaller:
             l'étape en échec.
         """
         if recreate:
-            version_result = self._executor.run(
-                ["python3", "--version"]
-            )
+            version_result = self._executor.run(["python3", "--version"])
             version = (
-                version_result.stdout.strip()
-                or version_result.stderr.strip()
+                version_result.stdout.strip() or version_result.stderr.strip()
             )
             self._log(f"python3 de l'hôte : {version}")
 
-            rm_result = self._executor.run(
-                ["rm", "-rf", str(venv_path)]
-            )
+            rm_result = self._executor.run(["rm", "-rf", str(venv_path)])
             if not rm_result.success:
                 self._log_error(
                     f"Échec de suppression du venv {venv_path} : "
@@ -163,14 +153,11 @@ class VenvInstaller:
             self._log(f"Installation réussie dans {venv_path}.")
         else:
             self._log_error(
-                f"Échec de l'installation dans {venv_path} : "
-                f"{result.stderr}"
+                f"Échec de l'installation dans {venv_path} : {result.stderr}"
             )
         return result
 
-    def restore_venv(
-        self, venv_path: Path, backup_path: Path
-    ) -> bool:
+    def restore_venv(self, venv_path: Path, backup_path: Path) -> bool:
         """Restaure le venv depuis une sauvegarde (rollback).
 
         Ne détruit jamais le venv en place avant d'avoir confirmé la
@@ -194,9 +181,7 @@ class VenvInstaller:
             f"{venv_path.name}.rollback-tmp-{timestamp}"
         )
 
-        exists = self._executor.run(
-            ["test", "-d", str(venv_path)]
-        )
+        exists = self._executor.run(["test", "-d", str(venv_path)])
         if exists.success:
             mv_result = self._executor.run(
                 ["mv", str(venv_path), str(guard_path)]
@@ -240,9 +225,7 @@ class VenvInstaller:
         Args:
             backup_path: Chemin du backup à supprimer.
         """
-        result = self._executor.run(
-            ["rm", "-rf", str(backup_path)]
-        )
+        result = self._executor.run(["rm", "-rf", str(backup_path)])
         if not result.success:
             self._log_error(
                 f"Échec de suppression du backup {backup_path} "

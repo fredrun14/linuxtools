@@ -2,7 +2,7 @@
 
 import re
 
-_NVRAM_KEY_RE = re.compile(r'^[a-zA-Z0-9_]{1,64}$')
+_NVRAM_KEY_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")
 
 
 def _parse_custom_clientlist(
@@ -72,32 +72,20 @@ def _parse_nvram_reservations(
     Returns:
         Dict {mac_lowercase: (fixed_ip, dns_name)}.
     """
-    static_list = static_list.replace(
-        "&#60", "<"
-    ).replace("&#62", ">")
-    hostnames_str = hostnames_str.replace(
-        "&#60", "<"
-    ).replace("&#62", ">")
+    static_list = static_list.replace("&#60", "<").replace("&#62", ">")
+    hostnames_str = hostnames_str.replace("&#60", "<").replace("&#62", ">")
     hostnames: dict[str, str] = {
         m.group(1).lower(): m.group(2).split(">")[0]
-        for m in re.finditer(
-            r"<([^>]+)>([^<]*)", hostnames_str
-        )
+        for m in re.finditer(r"<([^>]+)>([^<]*)", hostnames_str)
     }
     result: dict[str, tuple[str, str]] = {}
-    for match in re.finditer(
-        r"<([^>]+)>([^<]*)", static_list
-    ):
+    for match in re.finditer(r"<([^>]+)>([^<]*)", static_list):
         mac = match.group(1).lower()
         # Format nouveau : IP>DNS>HOSTNAME — on prend le 1er champ
         fields = match.group(2).split(">")
         ip = fields[0].strip()
         # Le nom DNS peut etre dans le champ 4 (index 3)
-        dns_from_nvram = (
-            fields[3].strip()
-            if len(fields) > 3
-            else ""
-        )
+        dns_from_nvram = fields[3].strip() if len(fields) > 3 else ""
         if ip:
             result[mac] = (
                 ip,

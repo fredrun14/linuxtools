@@ -100,8 +100,7 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
         )
 
     def load_without_notification(
-        self,
-        section: str | None = None
+        self, section: str | None = None
     ) -> BashScriptConfig:
         """Charge un BashScriptConfig sans notification.
 

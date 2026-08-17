@@ -168,16 +168,10 @@ class PythonCliConfig:
                 deploy_type est invalide.
         """
         if not self.name or not self.name.strip():
+            raise ValueError("name est requis et ne peut pas être vide")
+        if not _NOM_VALIDE.match(self.name) or self.name in {".", ".."}:
             raise ValueError(
-                "name est requis et ne peut pas être vide"
-            )
-        if (
-            not _NOM_VALIDE.match(self.name)
-            or self.name in {".", ".."}
-        ):
-            raise ValueError(
-                "name invalide (caractères interdits) : "
-                f"{self.name!r}"
+                f"name invalide (caractères interdits) : {self.name!r}"
             )
         if self.deploy_type not in ("system", "user"):
             raise ValueError(
