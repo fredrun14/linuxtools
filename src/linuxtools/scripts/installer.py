@@ -109,7 +109,7 @@ class BashScriptInstaller(ScriptInstaller):
         self,
         logger: Logger | None = None,
         file_manager: FileManager = None,  # type: ignore[assignment]
-        default_mode: int = 0o755
+        default_mode: int = 0o755,
     ) -> None:
         """Initialise l'installateur avec ses dépendances.
 
@@ -152,18 +152,14 @@ class BashScriptInstaller(ScriptInstaller):
 
         if not self._file_manager.create_file(path, script_content):
             if self._logger:
-                self._logger.log_error(
-                    f"Impossible de créer le script {path}"
-                )
+                self._logger.log_error(f"Impossible de créer le script {path}")
             return False
 
         if not self._set_executable(path):
             return False
 
         if self._logger:
-            self._logger.log_info(
-                f"Script {path} installé avec succès."
-            )
+            self._logger.log_info(f"Script {path} installé avec succès.")
         return True
 
     def exists(self, path: str) -> bool:
@@ -374,17 +370,14 @@ class LinuxCliInstaller(CliInstaller):
         """
         if not self._checker.check_python():
             return self._failure(
-                config, paths.bin_path,
-                warnings=[
-                    "python3 indisponible ou version insuffisante"
-                ],
+                config,
+                paths.bin_path,
+                warnings=["python3 indisponible ou version insuffisante"],
             ), None
 
         pyproject_path = config.source_dir / "pyproject.toml"
         try:
-            pyproject_data = self._checker.read_pyproject(
-                pyproject_path
-            )
+            pyproject_data = self._checker.read_pyproject(pyproject_path)
         except (FileNotFoundError, ValueError) as exc:
             if self._logger:
                 self._logger.log_error(str(exc))
@@ -423,9 +416,8 @@ class LinuxCliInstaller(CliInstaller):
             InstallReport d'échec si le wrapper est refusé ou non
             écrit, None si aucun wrapper ou wrapper écrit avec succès.
         """
-        needs_wrapper = (
-            config.generate_wrapper
-            and not pyproject_data.get("scripts")
+        needs_wrapper = config.generate_wrapper and not pyproject_data.get(
+            "scripts"
         )
         if not needs_wrapper:
             return None
@@ -444,26 +436,28 @@ class LinuxCliInstaller(CliInstaller):
             answer = input().strip().lower()
             if answer not in ("o", "oui", "y", "yes"):
                 return self._failure(
-                    config, paths.bin_path,
-                    missing=missing, installed=installed,
-                    total=total, install_cmd=install_cmd,
+                    config,
+                    paths.bin_path,
+                    missing=missing,
+                    installed=installed,
+                    total=total,
+                    install_cmd=install_cmd,
                     warnings=["Wrapper refusé par l'utilisateur"],
                 )
 
-        wrapper_content = self._generate_wrapper_content(
-            config, paths
-        )
+        wrapper_content = self._generate_wrapper_content(config, paths)
         try:
             self._write_wrapper(wrapper_content, paths.bin_path)
         except OSError as exc:
             if self._logger:
-                self._logger.log_error(
-                    f"Échec écriture wrapper : {exc}"
-                )
+                self._logger.log_error(f"Échec écriture wrapper : {exc}")
             return self._failure(
-                config, paths.bin_path,
-                missing=missing, installed=installed,
-                total=total, install_cmd=install_cmd,
+                config,
+                paths.bin_path,
+                missing=missing,
+                installed=installed,
+                total=total,
+                install_cmd=install_cmd,
                 warnings=warnings + [f"Wrapper non écrit : {exc}"],
             )
         return None
@@ -486,9 +480,7 @@ class LinuxCliInstaller(CliInstaller):
         paths = ScriptPaths(config.name, config.deploy_type)
         warnings: list[str] = []
 
-        failure, pyproject_data = self._check_preconditions(
-            config, paths
-        )
+        failure, pyproject_data = self._check_preconditions(config, paths)
         if failure is not None:
             return failure
 
@@ -499,29 +491,34 @@ class LinuxCliInstaller(CliInstaller):
             )
         )
         if missing:
-            warnings.append(
-                f"{len(missing)}/{total} dépendances manquantes"
-            )
+            warnings.append(f"{len(missing)}/{total} dépendances manquantes")
 
         if config.venv_path:
             if not self._checker.check_venv(config.venv_path):
-                warnings.append(
-                    f"Venv inaccessible : {config.venv_path}"
-                )
+                warnings.append(f"Venv inaccessible : {config.venv_path}")
 
         failure = self._handle_wrapper(
-            config, paths, pyproject_data,  # type: ignore[arg-type]
-            missing, installed, total, install_cmd,
-            warnings, confirm_wrapper,
+            config,
+            paths,
+            pyproject_data,  # type: ignore[arg-type]
+            missing,
+            installed,
+            total,
+            install_cmd,
+            warnings,
+            confirm_wrapper,
         )
         if failure is not None:
             return failure
 
         if not self._run_uv_install(config):
             return self._failure(
-                config, paths.bin_path,
-                missing=missing, installed=installed,
-                total=total, install_cmd=install_cmd,
+                config,
+                paths.bin_path,
+                missing=missing,
+                installed=installed,
+                total=total,
+                install_cmd=install_cmd,
                 warnings=warnings + ["Échec de uv tool install"],
             )
 
@@ -589,9 +586,7 @@ class LinuxCliInstaller(CliInstaller):
             filtered.append(line)
         return "".join(filtered)
 
-    def _write_wrapper(
-        self, content: str, target_path: Path
-    ) -> None:
+    def _write_wrapper(self, content: str, target_path: Path) -> None:
         """Écrit le wrapper bash sur disque (TOCTOU-safe, local/distant).
 
         Séquence entièrement exécutée via `self._executor` (aucun
@@ -626,39 +621,28 @@ class LinuxCliInstaller(CliInstaller):
         tmp_path = mktemp_result.stdout.strip()
 
         try:
-            write_result = self._executor.run(
-                ["tee", tmp_path], stdin=content
-            )
+            write_result = self._executor.run(["tee", tmp_path], stdin=content)
             if not write_result.success:
                 raise OSError(
-                    f"Échec écriture wrapper : "
-                    f"{write_result.stderr.strip()}"
+                    f"Échec écriture wrapper : {write_result.stderr.strip()}"
                 )
 
-            chmod_result = self._executor.run(
-                ["chmod", "0755", tmp_path]
-            )
+            chmod_result = self._executor.run(["chmod", "0755", tmp_path])
             if not chmod_result.success:
                 raise OSError(
-                    f"Échec chmod wrapper : "
-                    f"{chmod_result.stderr.strip()}"
+                    f"Échec chmod wrapper : {chmod_result.stderr.strip()}"
                 )
 
             symlink_check = self._executor.probe(
                 ["test", "-L", str(target_path)]
             )
             if symlink_check.success:
-                raise OSError(
-                    f"{target_path} est un lien symbolique, refusé"
-                )
+                raise OSError(f"{target_path} est un lien symbolique, refusé")
 
-            mv_result = self._executor.run(
-                ["mv", tmp_path, str(target_path)]
-            )
+            mv_result = self._executor.run(["mv", tmp_path, str(target_path)])
             if not mv_result.success:
                 raise OSError(
-                    f"Échec déplacement wrapper : "
-                    f"{mv_result.stderr.strip()}"
+                    f"Échec déplacement wrapper : {mv_result.stderr.strip()}"
                 )
         except OSError:
             self._executor.run(["rm", "-f", tmp_path])
@@ -742,8 +726,7 @@ class LinuxCliInstaller(CliInstaller):
         if not result.success:
             if self._logger:
                 self._logger.log_warning(
-                    "Impossible de déterminer l'UID cible, "
-                    "on suppose non-root"
+                    "Impossible de déterminer l'UID cible, on suppose non-root"
                 )
             return False
         return result.stdout.strip() == "0"
@@ -769,20 +752,26 @@ class LinuxCliInstaller(CliInstaller):
 
         if config.deploy_type == "system":
             base = [
-                "env", "UV_TOOL_BIN_DIR=/usr/local/bin",
-                uv_path, "tool", "install",
-                "--python", self._PYTHON_EXEC,
+                "env",
+                "UV_TOOL_BIN_DIR=/usr/local/bin",
+                uv_path,
+                "tool",
+                "install",
+                "--python",
+                self._PYTHON_EXEC,
                 "--editable",
                 str(config.source_dir),
             ]
             # sudo uniquement si la cible n'est pas déjà root
-            cmd = (
-                [] if self._is_target_root() else ["sudo"]
-            ) + base
+            cmd = ([] if self._is_target_root() else ["sudo"]) + base
         else:
             cmd = [
-                uv_path, "tool", "install",
-                "--force", "--editable", str(config.source_dir),
+                uv_path,
+                "tool",
+                "install",
+                "--force",
+                "--editable",
+                str(config.source_dir),
             ]
 
         result = self._executor.run(cmd, timeout=120)

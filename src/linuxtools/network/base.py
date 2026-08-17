@@ -18,9 +18,7 @@ class NetworkScanner(ABC):
     """Interface pour les scanners reseau."""
 
     @abstractmethod
-    def scan(
-        self, config: NetworkConfig
-    ) -> list[NetworkDevice]:
+    def scan(self, config: NetworkConfig) -> list[NetworkDevice]:
         """Scanne le reseau et retourne les peripheriques.
 
         Args:
@@ -45,9 +43,7 @@ class DeviceRepository(ABC):
         ...
 
     @abstractmethod
-    def save(
-        self, devices: list[NetworkDevice]
-    ) -> None:
+    def save(self, devices: list[NetworkDevice]) -> None:
         """Sauvegarde les peripheriques.
 
         Args:
@@ -56,9 +52,7 @@ class DeviceRepository(ABC):
         ...
 
     @abstractmethod
-    def find_by_mac(
-        self, mac: str
-    ) -> NetworkDevice | None:
+    def find_by_mac(self, mac: str) -> NetworkDevice | None:
         """Recherche un peripherique par adresse MAC.
 
         Args:
@@ -70,9 +64,7 @@ class DeviceRepository(ABC):
         ...
 
     @abstractmethod
-    def find_by_ip(
-        self, ip: str
-    ) -> NetworkDevice | None:
+    def find_by_ip(self, ip: str) -> NetworkDevice | None:
         """Recherche un peripherique par adresse IP.
 
         Args:
@@ -102,9 +94,7 @@ class DhcpReservationManager(ABC):
         ...
 
     @abstractmethod
-    def export_reservations(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def export_reservations(self, devices: list[NetworkDevice]) -> str:
         """Exporte les reservations au format texte.
 
         Args:
@@ -120,9 +110,7 @@ class RouterDhcpManager(DhcpReservationManager):
     """Interface DHCP avec application directe au routeur."""
 
     @abstractmethod
-    def apply_reservations(
-        self, devices: list[NetworkDevice]
-    ) -> None:
+    def apply_reservations(self, devices: list[NetworkDevice]) -> None:
         """Envoie les reservations DHCP vers le routeur.
 
         Args:
@@ -168,9 +156,7 @@ class MacFilterManager(ABC):
         ...
 
     @abstractmethod
-    def read_mac_filter(
-        self, bands: list[int]
-    ) -> list[MacFilterStatus]:
+    def read_mac_filter(self, bands: list[int]) -> list[MacFilterStatus]:
         """Lit la configuration du filtre MAC du routeur.
 
         Args:
@@ -200,9 +186,7 @@ class DnsManager(ABC):
         ...
 
     @abstractmethod
-    def generate_hosts_entries(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def generate_hosts_entries(self, devices: list[NetworkDevice]) -> str:
         """Genere les entrees pour le fichier hosts.
 
         Args:
@@ -218,9 +202,7 @@ class DeviceReporter(ABC):
     """Interface pour les rapports de peripheriques."""
 
     @abstractmethod
-    def report(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def report(self, devices: list[NetworkDevice]) -> str:
         """Genere un rapport des peripheriques.
 
         Args:

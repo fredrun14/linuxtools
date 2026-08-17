@@ -58,9 +58,7 @@ class SshCommandExecutor(CommandExecutor):
                 " (DeployTarget.host doit être renseigné)"
             )
         self._target = target
-        self._local = local_executor or LinuxCommandExecutor(
-            logger=logger
-        )
+        self._local = local_executor or LinuxCommandExecutor(logger=logger)
         self._logger = logger
 
     def _wrap(
@@ -94,8 +92,7 @@ class SshCommandExecutor(CommandExecutor):
             segments.append(f"cd {shlex.quote(cwd)}")
         if env:
             exports = " ".join(
-                f"{key}={shlex.quote(value)}"
-                for key, value in env.items()
+                f"{key}={shlex.quote(value)}" for key, value in env.items()
             )
             segments.append(f"export {exports}")
         segments.append(shlex.join(command))

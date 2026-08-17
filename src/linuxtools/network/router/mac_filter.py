@@ -76,9 +76,7 @@ class AsusRouterMacFilterManager(MacFilterManager):
             raise RouterAuthError(str(exc)) from exc
         try:
             macs = [d.mac for d in devices]
-            self._client.set_mac_filter(
-                mode, macs, bands
-            )
+            self._client.set_mac_filter(mode, macs, bands)
         finally:
             self._client.logout()
         if self._logger:
@@ -87,9 +85,7 @@ class AsusRouterMacFilterManager(MacFilterManager):
                 f"appareil(s), mode={mode}"
             )
 
-    def read_mac_filter(
-        self, bands: list[int]
-    ) -> list[MacFilterStatus]:
+    def read_mac_filter(self, bands: list[int]) -> list[MacFilterStatus]:
         """Lit la config du filtre MAC depuis le routeur.
 
         Args:
@@ -115,20 +111,8 @@ class AsusRouterMacFilterManager(MacFilterManager):
             self._client.logout()
         result: list[MacFilterStatus] = []
         for band in bands:
-            mode = nvram.get(
-                f"wl{band}_macmode", "disabled"
-            )
-            raw_macs = nvram.get(
-                f"wl{band}_maclist_x", ""
-            )
-            macs = tuple(
-                m.lower()
-                for m in raw_macs.split()
-                if m
-            )
-            result.append(
-                MacFilterStatus(
-                    band=band, mode=mode, macs=macs
-                )
-            )
+            mode = nvram.get(f"wl{band}_macmode", "disabled")
+            raw_macs = nvram.get(f"wl{band}_maclist_x", "")
+            macs = tuple(m.lower() for m in raw_macs.split() if m)
+            result.append(MacFilterStatus(band=band, mode=mode, macs=macs))
         return result

@@ -73,22 +73,15 @@ class AsusRouterDhcpManager(RouterDhcpManager):
                 epuisee.
         """
         if self._config.dhcp_range is None:
-            raise ValueError(
-                "Plage DHCP non configuree"
-            )
-        result = _allocate_fixed_ips(
-            devices, self._config.dhcp_range
-        )
+            raise ValueError("Plage DHCP non configuree")
+        result = _allocate_fixed_ips(devices, self._config.dhcp_range)
         if self._logger:
             self._logger.log_info(
-                f"Reservations DHCP : {len(result)} "
-                f"peripherique(s)"
+                f"Reservations DHCP : {len(result)} peripherique(s)"
             )
         return result
 
-    def export_reservations(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def export_reservations(self, devices: list[NetworkDevice]) -> str:
         """Exporte les reservations au format NVRAM ASUS.
 
         Format : <MAC>IP<MAC>IP...
@@ -108,9 +101,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             parts.append(f"<{mac}>{device.fixed_ip}")
         return "".join(parts)
 
-    def apply_reservations(
-        self, devices: list[NetworkDevice]
-    ) -> None:
+    def apply_reservations(self, devices: list[NetworkDevice]) -> None:
         """Envoie les reservations DHCP vers le routeur.
 
         Lit la configuration DHCP actuelle du routeur avant
@@ -135,23 +126,16 @@ class AsusRouterDhcpManager(RouterDhcpManager):
                 "dhcp_lease",
                 "dhcp_static_x",
             )
-            static_list, hostnames = (
-                self._build_nvram_strings(devices)
-            )
+            static_list, hostnames = self._build_nvram_strings(devices)
             self._client.set_static_reservations(
                 static_list, hostnames, dhcp_cfg
             )
         finally:
             self._client.logout()
         if self._logger:
-            count = sum(
-                1
-                for d in devices
-                if d.fixed_ip is not None
-            )
+            count = sum(1 for d in devices if d.fixed_ip is not None)
             self._logger.log_info(
-                f"{count} reservation(s) DHCP "
-                f"appliquee(s) sur le routeur"
+                f"{count} reservation(s) DHCP appliquee(s) sur le routeur"
             )
 
     def read_reservations(self) -> list[NetworkDevice]:
@@ -197,9 +181,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             if device.fixed_ip is None:
                 continue
             mac = device.mac.upper()
-            static_parts.append(
-                f"<{mac}>{device.fixed_ip}"
-            )
+            static_parts.append(f"<{mac}>{device.fixed_ip}")
             name = device.hostname or device.dns_name
             if name:
                 hostname_parts.append(f"<{mac}>{name}")
@@ -222,9 +204,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
         Returns:
             Liste de NetworkDevice.
         """
-        reservations = _parse_nvram_reservations(
-            static_list, hostnames_str
-        )
+        reservations = _parse_nvram_reservations(static_list, hostnames_str)
         devices: list[NetworkDevice] = []
         for mac, (ip, hostname) in reservations.items():
             try:

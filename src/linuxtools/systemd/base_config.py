@@ -57,9 +57,9 @@ class MountConfig(BaseSystemdConfig):
         options: Options de montage (défaut: chaîne vide).
     """
 
-    _DEVICE_FS: ClassVar[frozenset[str]] = frozenset({
-        "ext4", "ext3", "xfs", "btrfs", "vfat", "ntfs"
-    })
+    _DEVICE_FS: ClassVar[frozenset[str]] = frozenset(
+        {"ext4", "ext3", "xfs", "btrfs", "vfat", "ntfs"}
+    )
 
     what: str
     where: str
@@ -124,7 +124,8 @@ class MountConfig(BaseSystemdConfig):
         fs_type = reject_control_chars(self.type, "type")
         options_line = (
             f"Options={reject_control_chars(self.options, 'options')}\n"
-            if self.options else ""
+            if self.options
+            else ""
         )
         return f"""[Unit]
 Description={desc}
@@ -264,27 +265,38 @@ class TimerConfig(BaseSystemdConfig):
             f"Unit={reject_control_chars(self.unit, 'unit')}",
         ]
 
-        lines.extend(filter(None, [
-            _optional_line("OnCalendar", self.on_calendar, "on_calendar"),
-            _optional_line("OnBootSec", self.on_boot_sec, "on_boot_sec"),
-            _optional_line(
-                "OnUnitActiveSec",
-                self.on_unit_active_sec,
-                "on_unit_active_sec",
-            ),
-            "Persistent=true" if self.persistent else None,
-            _optional_line(
-                "RandomizedDelaySec",
-                self.randomized_delay_sec,
-                "randomized_delay_sec",
-            ),
-        ]))
+        lines.extend(
+            filter(
+                None,
+                [
+                    _optional_line(
+                        "OnCalendar", self.on_calendar, "on_calendar"
+                    ),
+                    _optional_line(
+                        "OnBootSec", self.on_boot_sec, "on_boot_sec"
+                    ),
+                    _optional_line(
+                        "OnUnitActiveSec",
+                        self.on_unit_active_sec,
+                        "on_unit_active_sec",
+                    ),
+                    "Persistent=true" if self.persistent else None,
+                    _optional_line(
+                        "RandomizedDelaySec",
+                        self.randomized_delay_sec,
+                        "randomized_delay_sec",
+                    ),
+                ],
+            )
+        )
 
-        lines.extend([
-            "",
-            "[Install]",
-            "WantedBy=timers.target",
-        ])
+        lines.extend(
+            [
+                "",
+                "[Install]",
+                "WantedBy=timers.target",
+            ]
+        )
 
         return "\n".join(lines) + "\n"
 
@@ -315,15 +327,28 @@ class ServiceConfig(BaseSystemdConfig):
     """
 
     _VALID_TYPES: ClassVar[tuple[str, ...]] = (
-        "simple", "exec", "forking", "oneshot",
-        "dbus", "notify", "idle",
+        "simple",
+        "exec",
+        "forking",
+        "oneshot",
+        "dbus",
+        "notify",
+        "idle",
     )
     _VALID_RESTART: ClassVar[tuple[str, ...]] = (
-        "no", "always", "on-success", "on-failure",
-        "on-abnormal", "on-abort", "on-watchdog",
+        "no",
+        "always",
+        "on-success",
+        "on-failure",
+        "on-abnormal",
+        "on-abort",
+        "on-watchdog",
     )
     _VALID_PROTECT_SYSTEM: ClassVar[tuple[str, ...]] = (
-        "", "true", "full", "strict",
+        "",
+        "true",
+        "full",
+        "strict",
     )
 
     exec_start: str
@@ -377,9 +402,7 @@ class ServiceConfig(BaseSystemdConfig):
         """Valide les variables d'environnement contre l'injection."""
         for key, value in self.environment.items():
             if "\n" in key or "=" in key:
-                raise ValueError(
-                    f"Clé d'environnement invalide : {key!r}"
-                )
+                raise ValueError(f"Clé d'environnement invalide : {key!r}")
             if "\n" in value:
                 raise ValueError(
                     f"Valeur d'environnement invalide pour "
@@ -402,24 +425,28 @@ class ServiceConfig(BaseSystemdConfig):
             "",
             "[Service]",
             f"Type={self.type}",
-            f"ExecStart="
-            f"{reject_control_chars(self.exec_start, 'exec_start')}",
+            f"ExecStart={reject_control_chars(self.exec_start, 'exec_start')}",
         ]
 
-        lines.extend(filter(None, [
-            _optional_line("User", self.user, "user"),
-            _optional_line("Group", self.group, "group"),
-            _optional_line(
-                "WorkingDirectory",
-                self.working_directory,
-                "working_directory",
-            ),
-            _optional_line(
-                "EnvironmentFile",
-                self.environment_file,
-                "environment_file",
-            ),
-        ]))
+        lines.extend(
+            filter(
+                None,
+                [
+                    _optional_line("User", self.user, "user"),
+                    _optional_line("Group", self.group, "group"),
+                    _optional_line(
+                        "WorkingDirectory",
+                        self.working_directory,
+                        "working_directory",
+                    ),
+                    _optional_line(
+                        "EnvironmentFile",
+                        self.environment_file,
+                        "environment_file",
+                    ),
+                ],
+            )
+        )
 
         for key, value in self.environment.items():
             lines.append(f"Environment={key}={value}")
@@ -445,11 +472,13 @@ class ServiceConfig(BaseSystemdConfig):
             )
             lines.append(f"ReadWritePaths={joined}")
 
-        lines.extend([
-            "",
-            "[Install]",
-            f"WantedBy="
-            f"{reject_control_chars(self.wanted_by, 'wanted_by')}",
-        ])
+        lines.extend(
+            [
+                "",
+                "[Install]",
+                f"WantedBy="
+                f"{reject_control_chars(self.wanted_by, 'wanted_by')}",
+            ]
+        )
 
         return "\n".join(lines) + "\n"

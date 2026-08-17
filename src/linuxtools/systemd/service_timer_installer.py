@@ -204,9 +204,7 @@ class SystemdServiceTimerInstaller(ServiceTimerInstaller):
             KeyError: Si une section requise est absente.
             ValueError: Si une configuration est invalide.
         """
-        service_config = ServiceConfigLoader(
-            toml_path, config_loader
-        ).load()
+        service_config = ServiceConfigLoader(toml_path, config_loader).load()
         timer_config = TimerConfigLoader(
             toml_path, config_loader
         ).load_for_service(unit_name)

@@ -52,9 +52,7 @@ class LinuxIniConfigManager(IniConfigManager):
         return parser
 
     @staticmethod
-    def _save_parser(
-        parser: configparser.ConfigParser, path: Path
-    ) -> None:
+    def _save_parser(parser: configparser.ConfigParser, path: Path) -> None:
         """Écrit le parser dans path et applique chmod 0o644."""
         with open(path, "w", encoding="utf-8") as f:
             parser.write(f)
@@ -152,9 +150,7 @@ class LinuxIniConfigManager(IniConfigManager):
                 parser[section_name][key] = new_value
                 updated = True
                 if self._logger:
-                    self._logger.log_info(
-                        f"Modification : {key} mis à jour"
-                    )
+                    self._logger.log_info(f"Modification : {key} mis à jour")
 
         if updated:
             self._save_parser(parser, path)

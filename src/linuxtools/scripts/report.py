@@ -109,22 +109,17 @@ class InstallReport:
         if self.total_deps > 0:
             satisfied = self.total_deps - len(self.missing_deps)
             lines.append(
-                f"  Dépendances : {satisfied}/{self.total_deps}"
-                " satisfaites"
+                f"  Dépendances : {satisfied}/{self.total_deps} satisfaites"
             )
             for dep in self.installed_deps:
-                lines.append(
-                    f"    ✓ {dep.package}  ({dep.location})"
-                )
+                lines.append(f"    ✓ {dep.package}  ({dep.location})")
             for missing in self.missing_deps:
                 lines.append(
                     f"    ✗ {missing.package} {missing.required}"
                     f" ({missing.reason})"
                 )
             if self.install_command:
-                lines.append(
-                    f"  Commande : {self.install_command}"
-                )
+                lines.append(f"  Commande : {self.install_command}")
 
         for warning in self.warnings:
             lines.append(f"  ⚠ {warning}")

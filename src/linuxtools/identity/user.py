@@ -88,11 +88,8 @@ class LinuxUserManager(UserManagerBase):
                     f"{self._prefix} Création de l'utilisateur"
                     f" '{name}' (UID {uid})"
                 )
-            builder = (
-                CommandBuilder("useradd")
-                .with_options(
-                    ["--uid", str(uid), "--shell", shell, "--comment", comment]
-                )
+            builder = CommandBuilder("useradd").with_options(
+                ["--uid", str(uid), "--shell", shell, "--comment", comment]
             )
             if create_home:
                 builder = builder.with_flag("--create-home")

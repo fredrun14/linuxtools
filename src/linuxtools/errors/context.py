@@ -53,9 +53,7 @@ class ErrorContext:
             except Exception as e:
                 rollback_errors.append(str(e))
                 if self._logger:
-                    self._logger.log_error(
-                        f"Échec du rollback ({label}): {e}"
-                    )
+                    self._logger.log_error(f"Échec du rollback ({label}): {e}")
 
         if rollback_errors:
             if self._logger:
@@ -80,9 +78,7 @@ class ErrorContext:
             error: L'exception ayant déclenché le rollback.
         """
         if self._logger:
-            self._logger.log_error(
-                f"Erreur nécessitant rollback: {error}"
-            )
+            self._logger.log_error(f"Erreur nécessitant rollback: {error}")
 
         if self._rollback_actions:
             try:

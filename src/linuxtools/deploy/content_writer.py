@@ -48,9 +48,7 @@ def deposit_content(
             logger.log_info(f"Contenu déposé (local) : {dest_path}")
         return True
 
-    write_result = executor.run(
-        ["tee", str(dest_path)], stdin=content
-    )
+    write_result = executor.run(["tee", str(dest_path)], stdin=content)
     if not write_result.success:
         if logger is not None:
             logger.log_error(
@@ -59,9 +57,7 @@ def deposit_content(
             )
         return False
 
-    chmod_result = executor.run(
-        ["chmod", format(mode, "03o"), str(dest_path)]
-    )
+    chmod_result = executor.run(["chmod", format(mode, "03o"), str(dest_path)])
     if not chmod_result.success:
         if logger is not None:
             logger.log_error(

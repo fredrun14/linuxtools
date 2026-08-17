@@ -87,18 +87,10 @@ class NetworkDevice:
             Instance de NetworkDevice.
         """
         data = dict(data)
-        if "first_seen" in data and isinstance(
-            data["first_seen"], str
-        ):
-            data["first_seen"] = datetime.fromisoformat(
-                data["first_seen"]
-            )
-        if "last_seen" in data and isinstance(
-            data["last_seen"], str
-        ):
-            data["last_seen"] = datetime.fromisoformat(
-                data["last_seen"]
-            )
+        if "first_seen" in data and isinstance(data["first_seen"], str):
+            data["first_seen"] = datetime.fromisoformat(data["first_seen"])
+        if "last_seen" in data and isinstance(data["last_seen"], str):
+            data["last_seen"] = datetime.fromisoformat(data["last_seen"])
         return cls(**data)
 
 

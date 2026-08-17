@@ -24,8 +24,13 @@ from linuxtools.network.vendors import (
 )
 
 _SKIP_PREFIXES: tuple[str, ...] = (
-    "lo", "docker", "br-", "virbr",
-    "veth", "tun", "tap",
+    "lo",
+    "docker",
+    "br-",
+    "virbr",
+    "veth",
+    "tun",
+    "tap",
 )
 
 
@@ -54,17 +59,14 @@ def _detect_interface() -> str:
         if any(iface.startswith(p) for p in _SKIP_PREFIXES):
             continue
         try:
-            state = (
-                iface_path / "operstate"
-            ).read_text().strip()
+            state = (iface_path / "operstate").read_text().strip()
         except OSError:
             continue
         if state != "up":
             continue
-        is_wireless = (
-            (iface_path / "wireless").exists()
-            or (iface_path / "phy80211").exists()
-        )
+        is_wireless = (iface_path / "wireless").exists() or (
+            iface_path / "phy80211"
+        ).exists()
         if is_wireless:
             wireless.append(iface)
         else:
@@ -93,13 +95,9 @@ class LinuxArpScanner(NetworkScanner):
             executor: Executeur de commandes optionnel.
         """
         self._logger = logger
-        self._executor = executor or LinuxCommandExecutor(
-            logger=logger
-        )
+        self._executor = executor or LinuxCommandExecutor(logger=logger)
 
-    def scan(
-        self, config: NetworkConfig
-    ) -> list[NetworkDevice]:
+    def scan(self, config: NetworkConfig) -> list[NetworkDevice]:
         """Scanne le reseau via arp-scan.
 
         Args:
@@ -116,20 +114,15 @@ class LinuxArpScanner(NetworkScanner):
             command, timeout=config.scan_timeout
         )
         if not result.success:
-            raise RuntimeError(
-                f"Echec arp-scan : {result.stderr}"
-            )
+            raise RuntimeError(f"Echec arp-scan : {result.stderr}")
         devices = self._parse_output(result.stdout)
         if self._logger:
             self._logger.log_info(
-                f"arp-scan : {len(devices)} peripherique(s) "
-                f"decouvert(s)"
+                f"arp-scan : {len(devices)} peripherique(s) decouvert(s)"
             )
         return devices
 
-    def _build_command(
-        self, config: NetworkConfig
-    ) -> list[str]:
+    def _build_command(self, config: NetworkConfig) -> list[str]:
         """Construit la commande arp-scan.
 
         Args:
@@ -149,9 +142,7 @@ class LinuxArpScanner(NetworkScanner):
         args.append(config.cidr)
         return CommandBuilder("sudo").with_args(args).build()
 
-    def _parse_output(
-        self, stdout: str
-    ) -> list[NetworkDevice]:
+    def _parse_output(self, stdout: str) -> list[NetworkDevice]:
         """Parse la sortie d'arp-scan.
 
         Args:
@@ -181,9 +172,7 @@ class LinuxArpScanner(NetworkScanner):
                         ip=ip,
                         mac=mac,
                         vendor=vendor,
-                        device_type=_infer_type_from_vendor(
-                            vendor
-                        ),
+                        device_type=_infer_type_from_vendor(vendor),
                     )
                 )
             except ValueError:
@@ -230,13 +219,9 @@ class LinuxNmapScanner(NetworkScanner):
             executor: Executeur de commandes optionnel.
         """
         self._logger = logger
-        self._executor = executor or LinuxCommandExecutor(
-            logger=logger
-        )
+        self._executor = executor or LinuxCommandExecutor(logger=logger)
 
-    def scan(
-        self, config: NetworkConfig
-    ) -> list[NetworkDevice]:
+    def scan(self, config: NetworkConfig) -> list[NetworkDevice]:
         """Scanne le reseau via nmap.
 
         Args:
@@ -253,20 +238,15 @@ class LinuxNmapScanner(NetworkScanner):
             command, timeout=config.scan_timeout
         )
         if not result.success:
-            raise RuntimeError(
-                f"Echec nmap : {result.stderr}"
-            )
+            raise RuntimeError(f"Echec nmap : {result.stderr}")
         devices = self._parse_xml_output(result.stdout)
         if self._logger:
             self._logger.log_info(
-                f"nmap : {len(devices)} peripherique(s) "
-                f"decouvert(s)"
+                f"nmap : {len(devices)} peripherique(s) decouvert(s)"
             )
         return devices
 
-    def _build_command(
-        self, config: NetworkConfig
-    ) -> list[str]:
+    def _build_command(self, config: NetworkConfig) -> list[str]:
         """Construit la commande nmap.
 
         Args:
@@ -282,9 +262,7 @@ class LinuxNmapScanner(NetworkScanner):
         args.append(config.cidr)
         return CommandBuilder("sudo").with_args(args).build()
 
-    def _parse_xml_output(
-        self, stdout: str
-    ) -> list[NetworkDevice]:
+    def _parse_xml_output(self, stdout: str) -> list[NetworkDevice]:
         """Parse la sortie XML de nmap.
 
         Args:
@@ -298,23 +276,14 @@ class LinuxNmapScanner(NetworkScanner):
             root = ET.fromstring(stdout)  # nosec B314
         except ET.ParseError as exc:
             if self._logger:
-                self._logger.log_warning(
-                    f"Sortie nmap invalide : {exc}"
-                )
+                self._logger.log_warning(f"Sortie nmap invalide : {exc}")
             return devices
         for host in root.findall("host"):
             status = host.find("status")
-            if (
-                status is None
-                or status.get("state") != "up"
-            ):
+            if status is None or status.get("state") != "up":
                 continue
-            ip_elem = host.find(
-                "address[@addrtype='ipv4']"
-            )
-            mac_elem = host.find(
-                "address[@addrtype='mac']"
-            )
+            ip_elem = host.find("address[@addrtype='ipv4']")
+            mac_elem = host.find("address[@addrtype='mac']")
             if ip_elem is None or mac_elem is None:
                 continue
             ip = ip_elem.get("addr", "")
@@ -328,9 +297,7 @@ class LinuxNmapScanner(NetworkScanner):
                         mac=mac,
                         vendor=vendor,
                         hostname=hostname,
-                        device_type=_infer_type_from_vendor(
-                            vendor
-                        ),
+                        device_type=_infer_type_from_vendor(vendor),
                     )
                 )
             except ValueError:

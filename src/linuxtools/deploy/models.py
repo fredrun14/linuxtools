@@ -184,9 +184,7 @@ class DeployConfig:
     venv_path: Path
     remote_source_dir: Path
     target: DeployTarget = field(default_factory=DeployTarget)
-    verification: VerificationSpec = field(
-        default_factory=VerificationSpec
-    )
+    verification: VerificationSpec = field(default_factory=VerificationSpec)
     cli_bin: str | None = None
     recreate_venv: bool = False
     config_deploy: ConfigDeploySpec | None = None
@@ -265,8 +263,7 @@ class DeployReport:
         if self.checks:
             ok_count = sum(1 for c in self.checks if c.ok)
             lines.append(
-                f"  Vérifications : {ok_count}/{len(self.checks)}"
-                " passées"
+                f"  Vérifications : {ok_count}/{len(self.checks)} passées"
             )
             for check in self.checks:
                 symbol = "✓" if check.ok else "✗"

@@ -232,9 +232,7 @@ class UsbExporter:
                 )
             )
         elif entry_point is not None:
-            copied.append(
-                str(self._build_venv(config.target_dir, proj, lpu))
-            )
+            copied.append(str(self._build_venv(config.target_dir, proj, lpu)))
             copied.append(
                 self._write_run_script(config.target_dir, entry_point)
             )
@@ -280,9 +278,7 @@ class UsbExporter:
                 "en mode venv."
             )
         module, function = cli_entry_point.split(":", 1)
-        if not _MODULE_RE.match(module) or not _FUNCTION_RE.match(
-            function
-        ):
+        if not _MODULE_RE.match(module) or not _FUNCTION_RE.match(function):
             raise ValidationError(
                 "cli_entry_point invalide : 'module' et 'fonction' "
                 "doivent être des identifiants Python valides "
@@ -318,17 +314,17 @@ class UsbExporter:
             # chmod (cf. filesystem/linux.py::write_text_secure).
             fd = _open_secure(dst, os.O_RDONLY, 0o000)
             try:
-                os.fchmod(fd, 0o755)
+                # 0o755 (rwxr-xr-x) : permission standard d'un
+                # exécutable, pas un 0o777 excessif — cohérent avec
+                # le TOCTOU-safe ci-dessus (fchmod sur fd O_NOFOLLOW).
+                os.fchmod(fd, 0o755)  # nosec B103
             finally:
                 os.close(fd)
             copied.append(str(dst))
             if self._logger:
                 self._logger.log_info(f"uv → {dst}")
         else:
-            warning = (
-                "uv absent du PATH — à copier manuellement sur la "
-                "cible."
-            )
+            warning = "uv absent du PATH — à copier manuellement sur la cible."
 
         proj_dst = target_dir / proj.name
         self._copy_dir(proj, proj_dst)
@@ -361,8 +357,7 @@ class UsbExporter:
         """
         if not _PROJ_NAME_RE.match(proj_name):
             raise ValidationError(
-                "Nom de projet invalide pour install.sh : "
-                f"{proj_name!r}."
+                f"Nom de projet invalide pour install.sh : {proj_name!r}."
             )
         # `uv tool install` crée un venv d'outil isolé qui ignore le
         # site-packages système : un `uv pip install --system`
@@ -370,8 +365,7 @@ class UsbExporter:
         # plutôt via --with pour qu'il soit visible dans le venv
         # d'outil, sans dépendre du réseau.
         install_line = (
-            f'uv tool install --with "$USB/linuxtools" '
-            f'"$USB/{proj_name}"'
+            f'uv tool install --with "$USB/linuxtools" "$USB/{proj_name}"'
             if has_lpu
             else f'uv tool install "$USB/{proj_name}"'
         )
@@ -429,14 +423,10 @@ fi
         tmp_venv = tmp_root / "venv"
         try:
             if self._logger:
-                self._logger.log_info(
-                    f"Création du venv → {venv_dir}"
-                )
+                self._logger.log_info(f"Création du venv → {venv_dir}")
             result = self._executor.run(
                 CommandBuilder("uv")
-                .with_args(
-                    ["venv", "--python", "python3", str(tmp_venv)]
-                )
+                .with_args(["venv", "--python", "python3", str(tmp_venv)])
                 .build()
             )
             if result.return_code != 0:
@@ -451,9 +441,7 @@ fi
             packages.append(str(proj))
 
             if self._logger:
-                self._logger.log_info(
-                    "Installation des paquets dans le venv…"
-                )
+                self._logger.log_info("Installation des paquets dans le venv…")
             result = self._executor.run(
                 CommandBuilder("uv")
                 .with_args(
@@ -511,13 +499,13 @@ fi
             # TOCTOU-safe : fchmod sur un fd ouvert en O_NOFOLLOW.
             fd = _open_secure(entry, os.O_RDONLY, 0o000)
             try:
-                os.fchmod(fd, 0o755)
+                # 0o755 (rwxr-xr-x) : permission standard d'un
+                # exécutable de venv, pas un 0o777 excessif.
+                os.fchmod(fd, 0o755)  # nosec B103
             finally:
                 os.close(fd)
         if self._logger:
-            self._logger.log_info(
-                f"Bits d'exécution restaurés → {bin_dir}"
-            )
+            self._logger.log_info(f"Bits d'exécution restaurés → {bin_dir}")
 
     def _write_run_script(
         self, target_dir: Path, entry_point: tuple[str, str]
@@ -589,9 +577,7 @@ exec "$USB/venv/bin/python3" \\
             self._logger.log_info(f"{src} → {dst}")
         return str(dst)
 
-    def _copy_configs(
-        self, config: UsbExportConfig, proj: Path
-    ) -> str | None:
+    def _copy_configs(self, config: UsbExportConfig, proj: Path) -> str | None:
         """Copie les configs utilisateur ou projet vers target_dir.
 
         Priorité à `config.user_config_dir` s'il existe, sinon
@@ -612,9 +598,7 @@ exec "$USB/venv/bin/python3" \\
             )
         configs_src = proj / "configs"
         if configs_src.exists():
-            return self._copy_dir(
-                configs_src, config.target_dir / "configs"
-            )
+            return self._copy_dir(configs_src, config.target_dir / "configs")
         return None
 
     def _dry_run_report(
@@ -651,30 +635,18 @@ exec "$USB/venv/bin/python3" \\
                 lines.append(f"[dry-run] uv      : {uv_bin}")
             else:
                 lines.append("[dry-run] uv      : (absent du PATH)")
-            lines.append(
-                f"[dry-run] Crée  : {config.target_dir}/{proj.name}/"
-            )
+            lines.append(f"[dry-run] Crée  : {config.target_dir}/{proj.name}/")
             lines.append(
                 f"[dry-run] Crée  : {config.target_dir}/linuxtools/"
                 if lpu
                 else "[dry-run] LPU   : (ignoré)"
             )
-            lines.append(
-                f"[dry-run] Crée  : {config.target_dir}/configs/"
-            )
-            lines.append(
-                f"[dry-run] Génère: {config.target_dir}/install.sh"
-            )
+            lines.append(f"[dry-run] Crée  : {config.target_dir}/configs/")
+            lines.append(f"[dry-run] Génère: {config.target_dir}/install.sh")
         else:
-            lines.append(
-                f"[dry-run] Construit : {config.target_dir}/venv/"
-            )
-            lines.append(
-                f"[dry-run] Crée     : {config.target_dir}/configs/"
-            )
-            lines.append(
-                f"[dry-run] Génère   : {config.target_dir}/run.sh"
-            )
+            lines.append(f"[dry-run] Construit : {config.target_dir}/venv/")
+            lines.append(f"[dry-run] Crée     : {config.target_dir}/configs/")
+            lines.append(f"[dry-run] Génère   : {config.target_dir}/run.sh")
         if self._logger:
             for line in lines:
                 self._logger.log_info(line)

@@ -94,15 +94,12 @@ class LinuxFileManager(FileManager):
         try:
             write_text_secure(file_path, content)
             if self._logger:
-                self._logger.log_info(
-                    f"Fichier {file_path} créé avec succès."
-                )
+                self._logger.log_info(f"Fichier {file_path} créé avec succès.")
             return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
-                    f"Erreur lors de la création du fichier"
-                    f" {file_path}: {exc}"
+                    f"Erreur lors de la création du fichier {file_path}: {exc}"
                 )
             return False
 
@@ -139,15 +136,12 @@ class LinuxFileManager(FileManager):
             with open(file_path, encoding="utf-8") as f:
                 content = f.read()
             if self._logger:
-                self._logger.log_info(
-                    f"Fichier {file_path} lu avec succès."
-                )
+                self._logger.log_info(f"Fichier {file_path} lu avec succès.")
             return content
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
-                    f"Erreur lors de la lecture du fichier"
-                    f" {file_path}: {exc}"
+                    f"Erreur lors de la lecture du fichier {file_path}: {exc}"
                 )
             raise
 

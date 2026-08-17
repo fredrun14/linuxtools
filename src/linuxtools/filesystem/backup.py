@@ -92,7 +92,9 @@ def copytree_secure(
         raise FileExistsError(f"Destination existe déjà : {dst}")
 
     dst.mkdir(parents=True, exist_ok=dirs_exist_ok)
-    os.chmod(dst, 0o755)
+    # 0o755 (rwxr-xr-x) : permission standard d'un répertoire
+    # traversable/listable, pas un 0o777 excessif.
+    os.chmod(dst, 0o755)  # nosec B103
 
     entries = sorted(src.iterdir())
     names = [e.name for e in entries]
@@ -108,7 +110,8 @@ def copytree_secure(
             dest_entry = dst / entry.name
             if resolved.is_dir():
                 copytree_secure(
-                    resolved, dest_entry,
+                    resolved,
+                    dest_entry,
                     dirs_exist_ok=dirs_exist_ok,
                     ignore=ignore,
                     follow_symlinks=follow_symlinks,
@@ -119,7 +122,8 @@ def copytree_secure(
         dest_entry = dst / entry.name
         if entry.is_dir():
             copytree_secure(
-                entry, dest_entry,
+                entry,
+                dest_entry,
                 dirs_exist_ok=dirs_exist_ok,
                 ignore=ignore,
                 follow_symlinks=follow_symlinks,
@@ -146,9 +150,7 @@ class FileBackup(ABC):
         """
 
     @abstractmethod
-    def restore(
-        self, file_path: str | Path, backup_path: str | Path
-    ) -> None:
+    def restore(self, file_path: str | Path, backup_path: str | Path) -> None:
         """Restaure un fichier depuis sa sauvegarde.
 
         Args:
@@ -171,9 +173,7 @@ class LinuxFileBackup(FileBackup):
         """
         self._logger = logger
 
-    def backup(
-        self, file_path: str | Path, backup_path: str | Path
-    ) -> bool:
+    def backup(self, file_path: str | Path, backup_path: str | Path) -> bool:
         """Sauvegarde un fichier. Retourne False si la source est absente.
 
         Copie le contenu uniquement — les métadonnées (timestamps, ACL)
@@ -210,9 +210,7 @@ class LinuxFileBackup(FileBackup):
                 )
             raise
 
-    def restore(
-        self, file_path: str | Path, backup_path: str | Path
-    ) -> None:
+    def restore(self, file_path: str | Path, backup_path: str | Path) -> None:
         """Restaure un fichier depuis sa sauvegarde.
 
         Args:
@@ -237,7 +235,6 @@ class LinuxFileBackup(FileBackup):
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
-                    f"Erreur lors de la restauration de"
-                    f" {file_path}: {exc}"
+                    f"Erreur lors de la restauration de {file_path}: {exc}"
                 )
             raise

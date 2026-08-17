@@ -11,9 +11,7 @@ from dataclasses import dataclass, field
 def _validate_non_empty(field_name: str, value: str) -> None:
     """Leve ValueError si value est vide ou ne contient que des espaces."""
     if not value or not value.strip():
-        raise ValueError(
-            f"Le champ '{field_name}' ne peut pas etre vide."
-        )
+        raise ValueError(f"Le champ '{field_name}' ne peut pas etre vide.")
 
 
 @dataclass(frozen=True)

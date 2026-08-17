@@ -76,9 +76,7 @@ class SecretsProvisioner:
             resolved[key] = value
 
         content = (
-            "\n".join(
-                f"{key}={value}" for key, value in resolved.items()
-            )
+            "\n".join(f"{key}={value}" for key, value in resolved.items())
             + "\n"
             if resolved
             else ""

@@ -185,21 +185,13 @@ class LinuxCommandExecutor(CommandExecutor):
                 )
             )
 
-    def _log_timeout(
-        self, command: list[str], timeout: int | None
-    ) -> None:
+    def _log_timeout(self, command: list[str], timeout: int | None) -> None:
         """Logue une expiration de timeout."""
-        self._log_error(
-            f"Timeout après {timeout}s : {shlex.join(command)}"
-        )
+        self._log_error(f"Timeout après {timeout}s : {shlex.join(command)}")
 
-    def _log_returncode(
-        self, command: list[str], code: int
-    ) -> None:
+    def _log_returncode(self, command: list[str], code: int) -> None:
         """Logue un code de retour non nul."""
-        self._log_error(
-            f"Code retour {code} : {shlex.join(command)}"
-        )
+        self._log_error(f"Code retour {code} : {shlex.join(command)}")
 
     def _log_oserror(self, e: OSError) -> None:
         """Logue une erreur système OS."""
@@ -305,9 +297,7 @@ class LinuxCommandExecutor(CommandExecutor):
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=(
-                    subprocess.PIPE if stdin is not None else None
-                ),
+                stdin=(subprocess.PIPE if stdin is not None else None),
                 text=True,
                 env=effective_env,
                 cwd=cwd,
@@ -380,9 +370,7 @@ class LinuxCommandExecutor(CommandExecutor):
         effective_env = self._build_env(env)
         effective_timeout = self._resolve_timeout(timeout)
         self._emit("format_start_streaming", command)
-        stderr_target = (
-            subprocess.STDOUT if merge_stderr else subprocess.PIPE
-        )
+        stderr_target = subprocess.STDOUT if merge_stderr else subprocess.PIPE
 
         start = time.monotonic()
         stdout_lines: list[str] = []
@@ -399,11 +387,7 @@ class LinuxCommandExecutor(CommandExecutor):
                 for line in proc.stdout:
                     stripped = line.rstrip("\n")
                     stdout_lines.append(stripped)
-                    self._log(
-                        self._plain.format_line(
-                            stripped, self._is_root
-                        )
-                    )
+                    self._log(self._plain.format_line(stripped, self._is_root))
                     if self._console_formatter:
                         self._print(
                             self._console_formatter.format_line(
@@ -413,7 +397,8 @@ class LinuxCommandExecutor(CommandExecutor):
 
                 proc.wait(timeout=effective_timeout)
                 stderr = (
-                    "" if merge_stderr or proc.stderr is None
+                    ""
+                    if merge_stderr or proc.stderr is None
                     else proc.stderr.read()
                 )
 
@@ -443,7 +428,8 @@ class LinuxCommandExecutor(CommandExecutor):
             duration = time.monotonic() - start
             proc_stderr = proc.stderr  # type: ignore[possibly-undefined]
             stderr = (
-                "" if merge_stderr or proc_stderr is None
+                ""
+                if merge_stderr or proc_stderr is None
                 else proc_stderr.read()
             )
             self._log_timeout(command, effective_timeout)

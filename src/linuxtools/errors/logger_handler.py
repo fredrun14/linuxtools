@@ -1,4 +1,5 @@
 """LoggerErrorHandler."""
+
 from linuxtools.errors.base import ErrorHandler
 from linuxtools.errors.exceptions import ApplicationError
 from linuxtools.logging.base import Logger

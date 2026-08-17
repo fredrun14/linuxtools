@@ -65,9 +65,7 @@ def validate_cidr(cidr: str) -> str:
     mask = int(match.group(2))
     validate_ipv4(ip_part)
     if not 0 <= mask <= 32:
-        raise ValueError(
-            f"Masque CIDR hors plage (0-32) : {mask}"
-        )
+        raise ValueError(f"Masque CIDR hors plage (0-32) : {mask}")
     return cidr
 
 
@@ -87,12 +85,9 @@ def validate_hostname(hostname: str) -> str:
         raise ValueError("Le nom d'hote ne peut pas etre vide")
     if len(hostname) > 63:
         raise ValueError(
-            f"Nom d'hote trop long ({len(hostname)} > 63) : "
-            f"{hostname!r}"
+            f"Nom d'hote trop long ({len(hostname)} > 63) : {hostname!r}"
         )
     pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
     if not re.match(pattern, hostname):
-        raise ValueError(
-            f"Nom d'hote invalide : {hostname!r}"
-        )
+        raise ValueError(f"Nom d'hote invalide : {hostname!r}")
     return hostname

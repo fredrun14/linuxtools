@@ -93,9 +93,7 @@ class ConfigApplier:
         if editor.is_block_present(block.content, block.section):
             return None
 
-        was_commented = editor.is_block_commented(
-            block.content, block.section
-        )
+        was_commented = editor.is_block_commented(block.content, block.section)
         was_replaceable = editor._is_key_replaceable(
             block.content, block.section
         )

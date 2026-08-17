@@ -177,14 +177,10 @@ class Deployer:
         ctx.would_run_command(
             f"rsync {source_dir}/ -> {self._destination_label(config)}"
         )
-        ctx.would_run_command(
-            f"backup du venv {config.venv_path}"
-        )
+        ctx.would_run_command(f"backup du venv {config.venv_path}")
         if config.recreate_venv:
             ctx.would_run_command(f"rm -rf {config.venv_path}")
-            ctx.would_run_command(
-                f"python3 -m venv {config.venv_path}"
-            )
+            ctx.would_run_command(f"python3 -m venv {config.venv_path}")
         ctx.would_run_command(
             f"{config.venv_path}/bin/pip install --force-reinstall "
             f"{config.remote_source_dir}"
@@ -203,8 +199,7 @@ class Deployer:
             )
         if config.timer_deploy is not None:
             ctx.would_run_command(
-                "installation service+timer "
-                f"{config.timer_deploy.unit_name}"
+                f"installation service+timer {config.timer_deploy.unit_name}"
             )
         return DeployReport(
             success=True,
@@ -226,9 +221,7 @@ class Deployer:
         """
         if backup_path is None:
             return False
-        return self._installer.restore_venv(
-            config.venv_path, backup_path
-        )
+        return self._installer.restore_venv(config.venv_path, backup_path)
 
     @staticmethod
     def _rollback_failure_messages(
@@ -279,7 +272,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "target_executor non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
@@ -289,7 +283,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "ConfigDeployer non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
@@ -329,7 +324,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "target_executor non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
@@ -339,7 +335,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "SecretsProvisioner non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
@@ -353,9 +350,7 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages + (
-                    "Provisioning des secrets échoué.",
-                ),
+                messages=messages + ("Provisioning des secrets échoué.",),
             )
         return None
 
@@ -381,7 +376,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "target_executor non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
@@ -391,7 +387,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages + (
+                messages=messages
+                + (
                     "TimerDeployer non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
@@ -405,9 +402,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages + (
-                    "Installation du service+timer échouée.",
-                ),
+                messages=messages
+                + ("Installation du service+timer échouée.",),
             )
         return None
 
@@ -429,9 +425,7 @@ class Deployer:
                 phase_reached=DeployPhase.TRANSPORT,
                 messages=(source_message or "",),
             )
-        messages: tuple[str, ...] = (
-            (source_message,) if source_message else ()
-        )
+        messages: tuple[str, ...] = (source_message,) if source_message else ()
 
         if self._dry_run:
             return self._deploy_dry_run(config, source_dir, messages)
@@ -443,15 +437,12 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TRANSPORT,
-                messages=messages + (
-                    f"Transport échoué : {transport_result.stderr}",
-                ),
+                messages=messages
+                + (f"Transport échoué : {transport_result.stderr}",),
             )
 
         try:
-            backup_path = self._installer.backup_venv(
-                config.venv_path
-            )
+            backup_path = self._installer.backup_venv(config.venv_path)
         except DeployError as exc:
             return DeployReport(
                 success=False,
@@ -465,24 +456,18 @@ class Deployer:
             config.recreate_venv,
         )
         if not install_result.success:
-            rolled_back = self._rollback_if_possible(
-                config, backup_path
-            )
+            rolled_back = self._rollback_if_possible(config, backup_path)
             phase = (
-                DeployPhase.ROLLBACK
-                if rolled_back
-                else DeployPhase.INSTALL
+                DeployPhase.ROLLBACK if rolled_back else DeployPhase.INSTALL
             )
             return DeployReport(
                 success=False,
                 phase_reached=phase,
                 rolled_back=rolled_back,
                 backup_path=backup_path,
-                messages=messages + (
-                    f"Installation échouée : {install_result.stderr}",
-                ) + self._rollback_failure_messages(
-                    backup_path, rolled_back
-                ),
+                messages=messages
+                + (f"Installation échouée : {install_result.stderr}",)
+                + self._rollback_failure_messages(backup_path, rolled_back),
             )
 
         checks = tuple(
@@ -491,25 +476,17 @@ class Deployer:
             )
         )
         if not all(check.ok for check in checks):
-            rolled_back = self._rollback_if_possible(
-                config, backup_path
-            )
-            phase = (
-                DeployPhase.ROLLBACK
-                if rolled_back
-                else DeployPhase.VERIFY
-            )
+            rolled_back = self._rollback_if_possible(config, backup_path)
+            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.VERIFY
             return DeployReport(
                 success=False,
                 phase_reached=phase,
                 checks=checks,
                 rolled_back=rolled_back,
                 backup_path=backup_path,
-                messages=messages + (
-                    "Vérification post-install échouée",
-                ) + self._rollback_failure_messages(
-                    backup_path, rolled_back
-                ),
+                messages=messages
+                + ("Vérification post-install échouée",)
+                + self._rollback_failure_messages(backup_path, rolled_back),
             )
 
         if config.config_deploy is not None:

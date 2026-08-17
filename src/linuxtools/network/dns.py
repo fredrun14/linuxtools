@@ -73,17 +73,11 @@ class _BaseDnsManager(DnsManager, ABC):
                 result.append(device)
                 continue
             name = _generate_dns_name(device, domain)
-            result.append(
-                dataclasses.replace(
-                    device, dns_name=name
-                )
-            )
+            result.append(dataclasses.replace(device, dns_name=name))
         return result
 
     @abstractmethod
-    def generate_hosts_entries(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def generate_hosts_entries(self, devices: list[NetworkDevice]) -> str:
         """Genere le contenu du fichier de configuration.
 
         Args:
@@ -94,9 +88,7 @@ class _BaseDnsManager(DnsManager, ABC):
         """
 
 
-def _generate_dns_name(
-    device: NetworkDevice, domain: str
-) -> str:
+def _generate_dns_name(device: NetworkDevice, domain: str) -> str:
     """Genere un nom DNS pour un peripherique.
 
     Args:
@@ -121,9 +113,7 @@ def _generate_dns_name(
 class LinuxHostsFileManager(_BaseDnsManager):
     """Gestionnaire DNS via le fichier /etc/hosts."""
 
-    def generate_hosts_entries(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def generate_hosts_entries(self, devices: list[NetworkDevice]) -> str:
         """Genere le contenu du fichier hosts.
 
         Args:
@@ -135,8 +125,7 @@ class LinuxHostsFileManager(_BaseDnsManager):
         domain = self._config.dns.domain
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         lines = [
-            "# === Reseau local (genere par "
-            "scanNetHome) ===",
+            "# === Reseau local (genere par scanNetHome) ===",
             f"# Domaine : {domain}",
             f"# Genere le : {now}",
         ]
@@ -147,9 +136,7 @@ class LinuxHostsFileManager(_BaseDnsManager):
             fqdn = device.dns_name
             alias = fqdn.split(".")[0] if "." in fqdn else ""
             if alias:
-                lines.append(
-                    f"{ip}    {fqdn} {alias}"
-                )
+                lines.append(f"{ip}    {fqdn} {alias}")
             else:
                 lines.append(f"{ip}    {fqdn}")
         return "\n".join(lines) + "\n"
@@ -158,9 +145,7 @@ class LinuxHostsFileManager(_BaseDnsManager):
 class LinuxDnsmasqConfigGenerator(_BaseDnsManager):
     """Generateur de configuration DNS pour dnsmasq."""
 
-    def generate_hosts_entries(
-        self, devices: list[NetworkDevice]
-    ) -> str:
+    def generate_hosts_entries(self, devices: list[NetworkDevice]) -> str:
         """Genere la configuration DNS dnsmasq.
 
         Args:
@@ -178,7 +163,5 @@ class LinuxDnsmasqConfigGenerator(_BaseDnsManager):
             if not device.dns_name:
                 continue
             ip = device.fixed_ip or device.ip
-            lines.append(
-                f"address=/{device.dns_name}/{ip}"
-            )
+            lines.append(f"address=/{device.dns_name}/{ip}")
         return "\n".join(lines) + "\n"

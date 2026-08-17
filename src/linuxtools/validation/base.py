@@ -34,7 +34,5 @@ class Validator(ABC):
         """
         parent = Path(path).resolve().parent
         if not parent.exists():
-            raise ValueError(
-                f"Le répertoire {parent} n'existe pas."
-            )
+            raise ValueError(f"Le répertoire {parent} n'existe pas.")
         return parent

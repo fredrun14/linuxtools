@@ -40,6 +40,4 @@ class PathChecker(Validator):
         parent = self._resolve_parent(path)
 
         if not parent.is_dir():
-            raise ValueError(
-                f"Le chemin {parent} n'est pas un répertoire."
-            )
+            raise ValueError(f"Le chemin {parent} n'est pas un répertoire.")

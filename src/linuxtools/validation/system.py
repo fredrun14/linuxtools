@@ -59,8 +59,4 @@ class SystemCommandValidator(Validator):
             Liste des noms de commandes non trouvées.
             Liste vide si toutes sont présentes.
         """
-        return [
-            cmd
-            for cmd in self._requirements
-            if shutil.which(cmd) is None
-        ]
+        return [cmd for cmd in self._requirements if shutil.which(cmd) is None]

@@ -67,9 +67,7 @@ class InstallVerifier:
         python = str(venv_path / "bin" / "python")
         results: list[CheckResult] = []
         for module in imports:
-            result = self._executor.run(
-                [python, "-c", f"import {module}"]
-            )
+            result = self._executor.run([python, "-c", f"import {module}"])
             check = CheckResult(
                 label=f"import {module}",
                 ok=result.success,
@@ -101,9 +99,7 @@ class InstallVerifier:
         binary = str(venv_path / "bin" / cli_bin)
         results: list[CheckResult] = []
         for subcommand in subcommands:
-            result = self._executor.run(
-                [binary, subcommand, "--help"]
-            )
+            result = self._executor.run([binary, subcommand, "--help"])
             check = CheckResult(
                 label=f"sous-commande {subcommand}",
                 ok=result.success,
@@ -164,17 +160,12 @@ class InstallVerifier:
                 check = CheckResult(
                     label="sous-commandes",
                     ok=False,
-                    detail=(
-                        "cli_bin requis pour vérifier les "
-                        "sous-commandes"
-                    ),
+                    detail=("cli_bin requis pour vérifier les sous-commandes"),
                 )
                 results.append(check)
                 self._log_check(check)
 
         if spec.regression_command:
-            results.append(
-                self._check_regression(spec.regression_command)
-            )
+            results.append(self._check_regression(spec.regression_command))
 
         return results

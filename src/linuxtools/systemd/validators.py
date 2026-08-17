@@ -3,10 +3,10 @@
 import re
 
 # Nom d'unité systemd : lettres, chiffres, points, tirets, underscores, ':'
-_UNIT_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9:._-]*$')
+_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9:._-]*$")
 
 # Nom de service : plus restrictif, pas de '.' ni ':'
-_SERVICE_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$')
+_SERVICE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 # Extensions d'unités systemd autorisées
 _EXTENSIONS_VALIDES = frozenset(
@@ -34,7 +34,7 @@ def _validate_name(
     """
     if not name:
         raise ValueError(f"Le nom {entity} ne peut pas être vide")
-    if '..' in name or '/' in name:
+    if ".." in name or "/" in name:
         raise ValueError(
             f"Nom {entity} invalide (traversée interdite) : {name!r}"
         )
@@ -83,14 +83,10 @@ def validate_full_unit_name(unit_name: str) -> str:
         ValueError: Si le nom est invalide ou l'extension non autorisée.
     """
     if "." not in unit_name:
-        raise ValueError(
-            f"Nom d'unité sans extension : {unit_name!r}"
-        )
+        raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
     radical, ext = unit_name.rsplit(".", 1)
     if ext not in _EXTENSIONS_VALIDES:
-        raise ValueError(
-            f"Extension d'unité non autorisée : {ext!r}"
-        )
+        raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
     validate_unit_name(radical)
     return unit_name
 

@@ -39,6 +39,7 @@ def _render_toml(data: dict[str, Any]) -> str:
     from linuxtools.dotconf.conf_toml_exporter import (
         ConfTomlExporter,
     )
+
     return ConfTomlExporter().export_mapping(data) + "\n"
 
 
@@ -241,14 +242,11 @@ class ConfigurationManager(ConfigManager):
         if profile_name not in profiles:
             available = list(profiles.keys())
             detail = (
-                "Disponibles : " + ", ".join(
-                    f"'{p}'" for p in available
-                )
-                if available else "Aucun profil défini."
+                "Disponibles : " + ", ".join(f"'{p}'" for p in available)
+                if available
+                else "Aucun profil défini."
             )
-            raise ValueError(
-                f"Profil '{profile_name}' non trouvé. {detail}"
-            )
+            raise ValueError(f"Profil '{profile_name}' non trouvé. {detail}")
 
         profile: dict[str, Any] = profiles[profile_name].copy()
 
@@ -306,8 +304,7 @@ class ConfigurationManager(ConfigManager):
         if writer_fn is None:
             supported = ", ".join(_WRITERS)
             raise ValueError(
-                f"Extension non supportée: {suffix}. "
-                f"Utilisez {supported}"
+                f"Extension non supportée: {suffix}. Utilisez {supported}"
             )
 
         writer_fn(path, self.default_config)
@@ -349,17 +346,13 @@ class ConfigurationManager(ConfigManager):
         write_result = executor.run(["tee", dest], stdin=content)
         if not write_result.success:
             self._log_warning(
-                f"Échec du dépôt distant de {dest} : "
-                f"{write_result.stderr}"
+                f"Échec du dépôt distant de {dest} : {write_result.stderr}"
             )
             return False
-        chmod_result = executor.run(
-            ["chmod", format(mode, "03o"), dest]
-        )
+        chmod_result = executor.run(["chmod", format(mode, "03o"), dest])
         if not chmod_result.success:
             self._log_warning(
-                f"Échec du chmod distant de {dest} : "
-                f"{chmod_result.stderr}"
+                f"Échec du chmod distant de {dest} : {chmod_result.stderr}"
             )
             return False
         self._log_info(f"Configuration déposée (distant) : {dest}")

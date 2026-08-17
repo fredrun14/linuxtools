@@ -140,9 +140,7 @@ class CredentialChain(CredentialProvider):
         Returns:
             True si au moins un provider est operationnel.
         """
-        return any(
-            p.is_available() for p in self._providers
-        )
+        return any(p.is_available() for p in self._providers)
 
     @property
     def source_name(self) -> str:
@@ -180,7 +178,5 @@ class CredentialChain(CredentialProvider):
                     logger=logger,
                 )
             )
-        providers.append(
-            KeyringCredentialProvider(logger=logger)
-        )
+        providers.append(KeyringCredentialProvider(logger=logger))
         return cls(providers=providers, logger=logger)

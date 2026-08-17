@@ -47,22 +47,16 @@ class JsonDeviceRepository(DeviceRepository):
         """
         if not self._file_path.exists():
             return []
-        content = self._file_path.read_text(
-            encoding="utf-8"
-        )
+        content = self._file_path.read_text(encoding="utf-8")
         if not content.strip():
             return []
         try:
             data = json.loads(content)
         except (json.JSONDecodeError, OSError) as exc:
             if self._logger:
-                self._logger.log_warning(
-                    f"Inventaire illisible : {exc}"
-                )
+                self._logger.log_warning(f"Inventaire illisible : {exc}")
             return []
-        devices = [
-            NetworkDevice.from_dict(d) for d in data
-        ]
+        devices = [NetworkDevice.from_dict(d) for d in data]
         if self._logger:
             self._logger.log_info(
                 f"Charge {len(devices)} peripherique(s) "
@@ -70,9 +64,7 @@ class JsonDeviceRepository(DeviceRepository):
             )
         return devices
 
-    def save(
-        self, devices: list[NetworkDevice]
-    ) -> None:
+    def save(self, devices: list[NetworkDevice]) -> None:
         """Sauvegarde les peripheriques au format JSON.
 
         Args:
@@ -100,9 +92,7 @@ class JsonDeviceRepository(DeviceRepository):
                 f" dans {self._file_path}"
             )
 
-    def find_by_mac(
-        self, mac: str
-    ) -> NetworkDevice | None:
+    def find_by_mac(self, mac: str) -> NetworkDevice | None:
         """Recherche un peripherique par adresse MAC.
 
         Args:
@@ -117,9 +107,7 @@ class JsonDeviceRepository(DeviceRepository):
                 return device
         return None
 
-    def find_by_ip(
-        self, ip: str
-    ) -> NetworkDevice | None:
+    def find_by_ip(self, ip: str) -> NetworkDevice | None:
         """Recherche un peripherique par adresse IP.
 
         Args:
@@ -170,10 +158,6 @@ class JsonDeviceRepository(DeviceRepository):
                 new_devices.append(device)
                 merged.append(device)
 
-        disappeared = [
-            d
-            for d in existing
-            if d.mac not in scanned_macs
-        ]
+        disappeared = [d for d in existing if d.mac not in scanned_macs]
 
         return merged, new_devices, disappeared

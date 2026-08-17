@@ -149,9 +149,7 @@ class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):
         return True
 
     def _install_script(
-        self,
-        script_path: str,
-        script_config: BashScriptConfig
+        self, script_path: str, script_config: BashScriptConfig
     ) -> bool:
         """Installe le script bash.
 
@@ -170,9 +168,7 @@ class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):
         return True
 
     def _install_service(
-        self,
-        task_name: str,
-        service_config: ServiceConfig
+        self, task_name: str, service_config: ServiceConfig
     ) -> bool:
         """Installe le service systemd.
 

@@ -71,9 +71,7 @@ class CredentialManager:
             CredentialStoreError: si aucun store n'est configuré.
         """
         if self._store is None:
-            raise CredentialStoreError(
-                "Aucun store de secrets configuré."
-            )
+            raise CredentialStoreError("Aucun store de secrets configuré.")
         return self._store
 
     def get(
