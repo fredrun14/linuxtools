@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, assert_type
 
 from linuxtools.config import FileConfigLoader
-from tests.test_config_validation import SampleConfig
+from tests.unit.test_config_validation import SampleConfig
 
 
 def _write_json(data: dict[str, object]) -> Path:

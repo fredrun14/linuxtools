@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Hook pre-commit — bloque le commit si pycodestyle, ruff, mypy ou pytest
-# échouent.
+# Hook pre-commit — bloque le commit si ruff, ruff format, bandit, mypy ou
+# pytest échouent.
 #
 # Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
 # `make hooks` (voir Makefile) après tout clone.
@@ -13,16 +13,19 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-echo "→ pycodestyle"
-uv run pycodestyle src/linuxtools/
-
 echo "→ ruff check"
 uv run ruff check src/
+
+echo "→ ruff format --check"
+uv run ruff format --check src/
+
+echo "→ bandit"
+uv run bandit -ll -r src/linuxtools/
 
 echo "→ mypy (src + tests)"
 uv run mypy src/linuxtools/ tests/
 
-echo "→ pytest"
-uv run pytest tests/ -q
+echo "→ pytest (unitaires)"
+uv run pytest tests/unit/ -q
 
 echo "OK — commit autorisé."

@@ -1,6 +1,6 @@
 # Makefile pour linuxtools
 
-.PHONY: help install install-dev uninstall test test-verbose test-cov lint clean build all hooks
+.PHONY: help install install-dev uninstall test test-unit test-integration test-verbose test-cov lint clean build all hooks
 
 # Cible par défaut
 help:
@@ -9,6 +9,8 @@ help:
 	@echo "  make install-dev    Installer avec dépendances de développement"
 	@echo "  make uninstall      Désinstaller la bibliothèque"
 	@echo "  make test           Lancer les tests"
+	@echo "  make test-unit      Lancer uniquement les tests unitaires"
+	@echo "  make test-integration  Lancer uniquement les tests d'intégration"
 	@echo "  make test-verbose   Lancer les tests en mode verbose"
 	@echo "  make test-cov       Lancer les tests avec couverture"
 	@echo "  make lint           Vérifier le style PEP8, ruff et le typage (mypy)"
@@ -38,6 +40,12 @@ uninstall:
 test:
 	pytest tests/
 
+test-unit:
+	pytest tests/unit/ -m "not integration"
+
+test-integration:
+	pytest tests/integration/ -m integration
+
 test-verbose:
 	pytest tests/ -v
 
@@ -46,9 +54,10 @@ test-cov:
 
 # Linting
 lint:
-	pycodestyle src/linuxtools/
-	mypy src/linuxtools/ tests/
 	ruff check src/
+	ruff format --check src/
+	bandit -ll -r src/linuxtools/
+	mypy src/linuxtools/ tests/
 
 # Nettoyage
 clean:
