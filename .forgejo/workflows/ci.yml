@@ -87,10 +87,13 @@ jobs:
   test-integration:
     runs-on: ubuntu-latest
     needs: [test]
-    # Advisory tant que tests/integration/ est vide : pytest sort en erreur
-    # (exit 5, "no tests collected") sur un dossier vide, ce qui ferait
-    # échouer la CI pour rien. Repasser en bloquant (retirer cette ligne)
-    # dès qu'un premier vrai test d'intégration existe dans le dossier.
+    # Advisory tant que tests/integration/ est vide : addopts embarque
+    # --cov=src/linuxtools --cov-fail-under=90 (global, pour le job test),
+    # donc une collecte à 0 test tombe à 0 % de couverture et échoue le
+    # gate (exit 1) — d'où --no-cov ci-dessous, qui neutralise seulement
+    # cet effet de bord sans toucher à la couverture du job test. Repasser
+    # en bloquant (retirer cette ligne) dès qu'un premier vrai test
+    # d'intégration existe dans le dossier.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +113,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run integration tests
-        run: uv run pytest tests/integration/ -v -m integration
+        run: uv run pytest tests/integration/ -v -m integration --no-cov
 
   security:
     runs-on: ubuntu-latest
