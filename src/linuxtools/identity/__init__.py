@@ -12,6 +12,10 @@ Utilisateurs:
 - UserManagerBase: Interface abstraite (ensure_user, ensure_user_groups)
 - LinuxUserManager: Implémentation Linux via useradd/usermod
 
+Audit (lecture seule):
+- group_gid_drift: Détecte un écart de GID sur un groupe existant
+- user_uid_drift: Détecte un écart d'UID sur un utilisateur existant
+
 Exemple d'utilisation:
     from linuxtools import FileLogger
     from linuxtools.identity import LinuxGroupManager, LinuxUserManager
@@ -22,15 +26,25 @@ Exemple d'utilisation:
         name="appsvc", uid=1500, shell="/sbin/nologin",
         comment="Compte de service applicatif", create_home=False,
     )
+
+Exemple d'utilisation (audit d'écart, LAN/NFS) :
+    from linuxtools.identity import group_gid_drift
+
+    drift = group_gid_drift("appsvc", expected_gid=1500)
+    if drift is not None:
+        print(f"GID réel {drift} != attendu 1500 — correction requise")
 """
 
+from linuxtools.identity.audit import group_gid_drift, user_uid_drift
 from linuxtools.identity.base import GroupManagerBase, UserManagerBase
 from linuxtools.identity.group import LinuxGroupManager
 from linuxtools.identity.user import LinuxUserManager
 
 __all__ = [
+    "group_gid_drift",
     "GroupManagerBase",
     "LinuxGroupManager",
     "LinuxUserManager",
+    "user_uid_drift",
     "UserManagerBase",
 ]

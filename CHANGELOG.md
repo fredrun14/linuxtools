@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.24.0] - 2026-08-26
+
+### Ajouté
+
+- `linuxtools.identity.audit` : `group_gid_drift(name, expected_gid)` et
+  `user_uid_drift(name, expected_uid)`, deux fonctions pures en lecture
+  seule (`grp`/`pwd`) qui renvoient l'ID réel uniquement si le
+  groupe/utilisateur existe avec un ID différent de l'attendu (`None`
+  si conforme ou absent — l'absence reste un cas de création, à
+  traiter via `LinuxGroupManager.ensure_group`/`LinuxUserManager.
+  ensure_user`, déjà idempotents). Répond au besoin d'audit d'écart
+  d'UID/GID sur un LAN où plusieurs postes montent les mêmes partages
+  NFSv4 (qui ne transportent que des numéros).
+- `linuxtools.filesystem.ensure_shared_group_directory(path, group,
+  *, mode=0o2770, executor=None, logger=None)` : pose le groupe
+  propriétaire et le bit setgid sur un répertoire déjà existant de
+  façon TOCTOU-safe (``os.open`` avec ``O_NOFOLLOW`` + fchown/fchmod
+  par descripteur, même modèle que `_open_secure` dans
+  `filesystem/linux.py`), puis une ACL par défaut `g:<group>:rwx` via
+  `setfacl`. Le nom de groupe est validé par `_valider_nom` avant
+  insertion dans la chaîne ACL (anti-injection via `:`/`,`). Fenêtre
+  TOCTOU résiduelle documentée entre le chown/chmod par descripteur et
+  le `setfacl` par chemin (`setfacl` n'a pas d'équivalent par
+  descripteur) — risque jugé faible et assumé, pas traité.
+
 ## [1.23.0] - 2026-08-16
 
 ### Ajouté
