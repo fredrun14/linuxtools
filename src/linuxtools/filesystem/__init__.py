@@ -20,6 +20,12 @@ Copie récursive:
   (la création des répertoires suit les symlinks, contrairement à la
   copie des fichiers eux-mêmes — voir la note du module)
 
+ACL de répertoire partagé:
+- ensure_shared_group_directory: Pose le groupe propriétaire, le bit
+  setgid et une ACL par défaut (``g:<group>:rwx``) sur un répertoire
+  déjà existant — TOCTOU-safe pour le chown/chmod (par descripteur),
+  ``setfacl`` restant par chemin (voir la note de la fonction)
+
 Exemple d'utilisation:
     from linuxtools import FileLogger
     from linuxtools.filesystem import LinuxFileManager, LinuxFileBackup
@@ -39,8 +45,14 @@ Exemple d'utilisation (copie récursive):
     from linuxtools.filesystem import copytree_secure
 
     copytree_secure("/etc/mon-outil", "/etc/mon-outil.bak")
+
+Exemple d'utilisation (ACL de répertoire partagé):
+    from linuxtools.filesystem import ensure_shared_group_directory
+
+    ensure_shared_group_directory("/srv/partage", "partage-lan")
 """
 
+from linuxtools.filesystem.acl import ensure_shared_group_directory
 from linuxtools.filesystem.backup import (
     FileBackup,
     LinuxFileBackup,
@@ -59,4 +71,5 @@ __all__ = [
     "FileBackup",
     "LinuxFileBackup",
     "copytree_secure",
+    "ensure_shared_group_directory",
 ]
