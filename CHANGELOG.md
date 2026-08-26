@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.24.1] - 2026-08-26
+
+### Corrigé
+
+- `ensure_shared_group_directory` : l'étape ACL devient **best-effort**
+  au lieu de bloquante. Retour d'expérience réel sur un vrai NAS Proxmox
+  (partage NFSv4 monté, `1.24.0` en production) : `setfacl -d -m
+  g:<group>:rwx` échoue systématiquement sur ce type de montage (NFSv4 ne
+  transporte pas les ACL POSIX classiques), et `nfs4_setfacl` (repli
+  natif NFSv4 envisagé) échoue lui aussi sur ce serveur précis (l'export
+  côté serveur ne supporte pas non plus les ACL NFSv4 — hors périmètre
+  de `linuxtools`). La fonction essaie désormais `setfacl` puis, en cas
+  d'échec, `nfs4_setfacl` (ACE `A:fdig:<group>:RWX`, syntaxe non vérifiée
+  en conditions réelles faute d'export NFSv4 avec ACL serveur actives —
+  sans risque puisque l'appel est best-effort) ; si les deux échouent,
+  un `log_warning` explicite est émis (groupe et setgid restent posés,
+  mais les droits d'écriture des nouveaux fichiers pour le groupe
+  dépendront de l'umask du poste créateur) au lieu de lever
+  `CommandExecutionError`. Le `chown`/`chmod` (groupe + setgid), validés
+  en réel, restent inchangés et toujours bloquants.
+
 ## [1.24.0] - 2026-08-26
 
 ### Ajouté

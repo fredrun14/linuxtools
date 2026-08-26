@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from linuxtools.commands import LinuxCommandExecutor
-from linuxtools.errors import CommandExecutionError
 from linuxtools.filesystem.acl import ensure_shared_group_directory
 
 
@@ -229,12 +228,14 @@ class TestEnsureSharedGroupDirectory:
                 )
         executor.run.assert_not_called()
 
-    def test_leve_command_execution_error_si_setfacl_echoue(
+    def test_ne_leve_plus_command_execution_error_si_setfacl_echoue(
         self,
         tmp_path: Path,
         executor: MagicMock,
     ) -> None:
-        """Lève CommandExecutionError si setfacl retourne un code non nul."""
+        """L'ACL est best-effort : setfacl en échec ne lève plus rien
+        (bascule silencieuse sur nfs4_setfacl, cf. tests dédiés).
+        """
         directory = tmp_path / "partage"
         directory.mkdir()
         executor.run.return_value = _result_fail(2)
@@ -243,9 +244,71 @@ class TestEnsureSharedGroupDirectory:
             "linuxtools.filesystem.acl.grp.getgrnam",
             return_value=_mock_grp(os.getgid()),
         ):
-            with pytest.raises(CommandExecutionError, match="setfacl"):
-                ensure_shared_group_directory(
-                    directory,
-                    "partage-lan",
-                    executor=executor,
-                )
+            # Ne doit lever aucune exception, y compris quand les deux
+            # outils ACL échouent (cf. test dédié au warning ci-dessous).
+            ensure_shared_group_directory(
+                directory,
+                "partage-lan",
+                executor=executor,
+            )
+
+    def test_bascule_nfs4_setfacl_si_setfacl_echoue(
+        self,
+        tmp_path: Path,
+        executor: MagicMock,
+    ) -> None:
+        """setfacl échoue → repli sur nfs4_setfacl, qui réussit."""
+        directory = tmp_path / "partage"
+        directory.mkdir()
+        executor.run.side_effect = [_result_fail(1), _result_ok()]
+        logger = MagicMock()
+
+        with patch(
+            "linuxtools.filesystem.acl.grp.getgrnam",
+            return_value=_mock_grp(os.getgid()),
+        ):
+            ensure_shared_group_directory(
+                directory,
+                "partage-lan",
+                executor=executor,
+                logger=logger,
+            )
+
+        assert executor.run.call_count == 2
+        logger.log_info.assert_called_once()
+        logger.log_warning.assert_not_called()
+        premiere_cmd = executor.run.call_args_list[0][0][0]
+        seconde_cmd = executor.run.call_args_list[1][0][0]
+        assert premiere_cmd[0] == "setfacl"
+        assert seconde_cmd[0] == "nfs4_setfacl"
+        assert "-a" in seconde_cmd
+        assert "A:fdig:partage-lan:RWX" in seconde_cmd
+        assert str(directory) in seconde_cmd
+
+    def test_logge_warning_si_aucune_acl_disponible(
+        self,
+        tmp_path: Path,
+        executor: MagicMock,
+    ) -> None:
+        """setfacl et nfs4_setfacl échouent tous les deux → warning loggé,
+        aucune exception levée.
+        """
+        directory = tmp_path / "partage"
+        directory.mkdir()
+        executor.run.return_value = _result_fail(1)
+        logger = MagicMock()
+
+        with patch(
+            "linuxtools.filesystem.acl.grp.getgrnam",
+            return_value=_mock_grp(os.getgid()),
+        ):
+            ensure_shared_group_directory(
+                directory,
+                "partage-lan",
+                executor=executor,
+                logger=logger,
+            )
+
+        assert executor.run.call_count == 2
+        logger.log_warning.assert_called_once()
+        logger.log_info.assert_not_called()
