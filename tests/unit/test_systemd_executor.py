@@ -598,6 +598,173 @@ class TestSystemdExecutorListUnits:
         )
 
 
+class TestSystemdExecutorListUnitFiles:
+    """Tests pour SystemdExecutor.list_unit_files()."""
+
+    def _make_executor(
+        self,
+    ) -> tuple[SystemdExecutor, MagicMock]:
+        """Crée un executor avec un CommandExecutor mocké.
+
+        Le logger n'est pas retourné : aucun test de cette classe ne
+        s'appuie dessus (ils ne vérifient que le CommandExecutor et
+        le résultat de list_unit_files()).
+        """
+        logger = MagicMock()
+        command_executor = MagicMock()
+        return SystemdExecutor(logger, command_executor), command_executor
+
+    def test_list_unit_files_json_valide(self) -> None:
+        """list_unit_files() parse une réponse JSON à plusieurs entrées."""
+        executor, command_executor = self._make_executor()
+        json_stdout = json.dumps([
+            {
+                "unit_file": "backup.service",
+                "state": "enabled",
+                "preset": "disabled",
+            },
+            {
+                "unit_file": "sshd.service",
+                "state": "enabled",
+                "preset": "enabled",
+            },
+        ])
+        command_executor.run.return_value = _result(stdout=json_stdout)
+        files = executor.list_unit_files()
+        assert files == [
+            {
+                "unit_file": "backup.service",
+                "state": "enabled",
+                "preset": "disabled",
+            },
+            {
+                "unit_file": "sshd.service",
+                "state": "enabled",
+                "preset": "enabled",
+            },
+        ]
+
+    def test_list_unit_files_json_vide(self) -> None:
+        """list_unit_files() retourne [] si le JSON est une liste vide."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(stdout="[]")
+        files = executor.list_unit_files()
+        assert files == []
+
+    def test_list_unit_files_filtre_type_et_state(self) -> None:
+        """Les filtres --type/--state sont bien passés à la commande."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(stdout="[]")
+        executor.list_unit_files(unit_type="service", state="enabled")
+        args = command_executor.run.call_args[0][0]
+        assert "--type=service" in args
+        assert "--state=enabled" in args
+
+    def test_list_unit_files_sans_filtre(self) -> None:
+        """Sans paramètre, aucun --type/--state dans la commande."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(stdout="[]")
+        executor.list_unit_files()
+        args = command_executor.run.call_args[0][0]
+        assert not any(arg.startswith("--type=") for arg in args)
+        assert not any(arg.startswith("--state=") for arg in args)
+
+    def test_list_unit_files_fallback_texte(self) -> None:
+        """list_unit_files() bascule sur le fallback texte si JSON non géré.
+
+        Vérifie que la 2ᵉ commande (--no-legend, filtres propagés) est
+        bien appelée et parsée correctement (3 colonnes avec preset).
+        """
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(
+                stdout="abrt-journal-core.service enabled enabled\n"
+            ),
+        ]
+        files = executor.list_unit_files(
+            unit_type="service", state="enabled"
+        )
+        assert files == [{
+            "unit_file": "abrt-journal-core.service",
+            "state": "enabled",
+            "preset": "enabled",
+        }]
+        second_call_args = command_executor.run.call_args_list[1][0][0]
+        assert "--no-legend" in second_call_args
+        assert "--type=service" in second_call_args
+        assert "--state=enabled" in second_call_args
+        assert "--output=json" not in second_call_args
+
+    def test_list_unit_files_fallback_texte_sans_preset(self) -> None:
+        """Une ligne texte à 2 tokens donne un preset vide."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(stdout="foo.service enabled\n"),
+        ]
+        files = executor.list_unit_files()
+        assert files == [{
+            "unit_file": "foo.service",
+            "state": "enabled",
+            "preset": "",
+        }]
+
+    def test_list_unit_files_fallback_texte_json_invalide(self) -> None:
+        """list_unit_files() bascule sur le fallback si le JSON est invalide.
+
+        Cas distinct de return_code != 0 : ici return_code == 0 mais
+        stdout n'est pas du JSON valide (couvre json.JSONDecodeError).
+        """
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=0, stdout="pas du json"),
+            _result(stdout="foo.service enabled enabled\n"),
+        ]
+        files = executor.list_unit_files()
+        assert files == [{
+            "unit_file": "foo.service",
+            "state": "enabled",
+            "preset": "enabled",
+        }]
+
+    def test_list_unit_files_erreur_subprocess(self) -> None:
+        """list_unit_files() lève RuntimeError si systemctl échoue (JSON)."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.return_value = _result(
+            return_code=1, stderr="erreur inconnue"
+        )
+        with pytest.raises(RuntimeError, match="erreur inconnue"):
+            executor.list_unit_files()
+
+    def test_list_unit_files_erreur_subprocess_fallback(self) -> None:
+        """list_unit_files() lève RuntimeError si le fallback échoue."""
+        executor, command_executor = self._make_executor()
+        command_executor.run.side_effect = [
+            _result(return_code=1, stderr="Unknown option --output."),
+            _result(return_code=1, stderr="erreur fallback"),
+        ]
+        with pytest.raises(RuntimeError, match="erreur fallback"):
+            executor.list_unit_files()
+
+    def test_list_unit_files_user_executor_ajoute_flag_user(self) -> None:
+        """UserSystemdExecutor hérite list_unit_files() avec --user."""
+        logger = MagicMock()
+        command_executor = MagicMock()
+        executor = UserSystemdExecutor(logger, command_executor)
+        command_executor.run.return_value = _result(stdout="[]")
+        executor.list_unit_files()
+        command_executor.run.assert_called_once_with(
+            [
+                "systemctl",
+                "--user",
+                "list-unit-files",
+                "--no-pager",
+                "--output=json",
+            ]
+        )
+
+
 class TestUserSystemdExecutorMocked:
     """Tests pour UserSystemdExecutor avec un CommandExecutor mocké."""
 

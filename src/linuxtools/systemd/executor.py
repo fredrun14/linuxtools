@@ -378,6 +378,113 @@ class SystemdExecutor:
             )
         return units
 
+    def list_unit_files(
+        self,
+        unit_type: str | None = None,
+        state: str | None = None,
+    ) -> list[dict[str, str]]:
+        """Liste les fichiers d'unité systemd connus.
+
+        Distinct de ``list_units()`` : ``list-unit-files`` rapporte
+        tous les fichiers d'unité installés (avec leur état enabled/
+        disabled/masked et leur preset vendeur), indépendamment de ce
+        qui est actuellement chargé en mémoire.
+
+        Args:
+            unit_type: Filtre ``--type`` (ex. "service"), ou None pour
+                ne pas filtrer.
+            state: Filtre ``--state`` (ex. "enabled", "masked"), ou
+                None pour ne pas filtrer.
+
+        Returns:
+            Liste de dictionnaires (``unit_file``, ``state``,
+            ``preset``) — pass-through direct du schéma de
+            ``systemctl list-unit-files --output=json``.
+
+        Raises:
+            RuntimeError: Si l'exécution de systemctl échoue pour
+                une raison autre que l'absence de support JSON.
+        """
+        args = ["list-unit-files", "--no-pager", "--output=json"]
+        if unit_type is not None:
+            args.append(f"--type={unit_type}")
+        if state is not None:
+            args.append(f"--state={state}")
+
+        result = self._run_systemctl(args)
+
+        if result.return_code != 0:
+            if (
+                "unknown option" in result.stderr.lower()
+                or "invalid option" in result.stderr.lower()
+            ):
+                return self._list_unit_files_text_fallback(unit_type, state)
+            raise RuntimeError(
+                f"Erreur systemctl list-unit-files : {result.stderr}"
+            )
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return self._list_unit_files_text_fallback(unit_type, state)
+
+        files = []
+        for entry in data:
+            files.append(
+                {
+                    "unit_file": entry.get("unit_file", ""),
+                    "state": entry.get("state", ""),
+                    "preset": entry.get("preset", ""),
+                }
+            )
+        return files
+
+    def _list_unit_files_text_fallback(
+        self,
+        unit_type: str | None,
+        state: str | None,
+    ) -> list[dict[str, str]]:
+        """Fallback texte pour list_unit_files sur vieux systemd.
+
+        Args:
+            unit_type: Filtre ``--type``, ou None.
+            state: Filtre ``--state``, ou None.
+
+        Returns:
+            Liste de dictionnaires (mêmes clés que list_unit_files()).
+
+        Raises:
+            RuntimeError: Si l'exécution de systemctl échoue.
+        """
+        args = ["list-unit-files", "--no-pager", "--no-legend"]
+        if unit_type is not None:
+            args.append(f"--type={unit_type}")
+        if state is not None:
+            args.append(f"--state={state}")
+
+        result = self._run_systemctl(args)
+
+        if result.return_code != 0:
+            raise RuntimeError(
+                f"Erreur systemctl list-unit-files : {result.stderr}"
+            )
+
+        files = []
+        for line in result.stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            files.append(
+                {
+                    "unit_file": parts[0],
+                    "state": parts[1],
+                    "preset": parts[2] if len(parts) > 2 else "",
+                }
+            )
+        return files
+
     def mask_unit(self, unit_name: str) -> bool:
         """Masque une unité systemd.
 
