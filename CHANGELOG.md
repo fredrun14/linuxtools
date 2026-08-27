@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.25.0] - 2026-08-27
+
+### Ajouté
+
+- `SystemdExecutor.list_unit_files(unit_type=None, state=None)` :
+  liste les fichiers d'unité systemd connus (`systemctl
+  list-unit-files --output=json`, pass-through direct des clés
+  `unit_file`/`state`/`preset`), distincte de `list_units()` qui ne
+  rapporte que les unités chargées en mémoire. Filtres optionnels
+  `--type`/`--state` traduits 1:1 en flags systemctl. Fallback sur un
+  parsing texte (`--no-legend`, filtres propagés) si le JSON n'est pas
+  supporté par la version de systemd installée — même stratégie que
+  `list_units()`. `UserSystemdExecutor` hérite la méthode sans
+  modification (seule `_run_systemctl` ajoute `--user`). Répond au
+  besoin de `fedora_post_install/core/systemd_service_manager.py`, qui
+  contournait `SystemdExecutor` avec un `CommandBuilder("systemctl")`
+  brut faute de cette méthode.
+
 ## [1.24.1] - 2026-08-26
 
 ### Corrigé
