@@ -91,9 +91,14 @@ jobs:
     # --cov=src/linuxtools --cov-fail-under=90 (global, pour le job test),
     # donc une collecte à 0 test tombe à 0 % de couverture et échoue le
     # gate (exit 1) — d'où --no-cov ci-dessous, qui neutralise seulement
-    # cet effet de bord sans toucher à la couverture du job test. Repasser
-    # en bloquant (retirer cette ligne) dès qu'un premier vrai test
-    # d'intégration existe dans le dossier.
+    # cet effet de bord sans toucher à la couverture du job test.
+    # --no-cov ne neutralise PAS le second effet de bord : pytest sort en
+    # code 5 ("no tests collected") sur une collecte à 0 test, ce que
+    # tolère explicitement le `|| [ $? -eq 5 ]` du step ci-dessous — d'où
+    # le job passe au vert malgré continue-on-error (qui ne fait que
+    # l'empêcher de bloquer le merge, pas de s'afficher en rouge). Repasser
+    # en bloquant (retirer cette ligne ET le `|| [ $? -eq 5 ]`) dès qu'un
+    # premier vrai test d'intégration existe dans le dossier.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -113,7 +118,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run integration tests
-        run: uv run pytest tests/integration/ -v -m integration --no-cov
+        run: uv run pytest tests/integration/ -v -m integration --no-cov || [ $? -eq 5 ]
 
   security:
     runs-on: ubuntu-latest
