@@ -3,11 +3,17 @@
 import json
 import tempfile
 import unittest
+from pathlib import Path
+from typing import Any, TypeVar, overload
 from unittest.mock import patch
 
 from pydantic import BaseModel, field_validator
 
-from linuxtools.config import FileConfigLoader
+from linuxtools.config import ConfigLoader, FileConfigLoader
+
+# TypeVar local au module, pour les @overload de _StubLoader.load()
+# (miroir de _TSchema dans linuxtools.config.loader).
+_TSchema = TypeVar("_TSchema")
 
 
 class SampleConfig(BaseModel):
@@ -120,7 +126,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
             # Passage volontaire d'un type incorrect (str au lieu de
             # type | None) : ce test vérifie la garde runtime destinée
             # aux appelants non typés, documentée dans
-            # FileConfigLoader._validate_with_schema. Code d'erreur
+            # ConfigLoader.validate. Code d'erreur
             # mypy [call-overload] (et non [arg-type]) depuis l'ajout
             # des @overload sur load() : aucun overload ne matche un
             # schema de type str, ce qui est précisément le cas testé.
@@ -191,6 +197,52 @@ class TestConfigurationManagerValidate(unittest.TestCase):
         )
         with self.assertRaises(TypeError):
             cfg.validate(dict)
+
+
+class _StubLoader(ConfigLoader):
+    """Loader minimal qui trace l'appel à validate() pour vérifier
+    que ConfigurationManager.validate() délègue bien au loader
+    injecté plutôt qu'à un détail interne de FileConfigLoader."""
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: None = None,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def load(
+        self,
+        config_path: str | Path,
+        schema: type[_TSchema],
+    ) -> _TSchema: ...
+
+    def load(
+        self, config_path: str | Path, schema: type | None = None
+    ) -> dict[str, Any] | Any:  # noqa: ANN401
+        return {}
+
+    @staticmethod
+    def validate(data: dict[str, Any], schema: object) -> Any:  # noqa: ANN401
+        return "sentinelle-stub-loader"
+
+
+class TestConfigurationManagerValidateDelegation(unittest.TestCase):
+    """Verrouille la délégation de ConfigurationManager.validate() vers
+    le loader injecté (self._loader.validate), pas vers une
+    implémentation statique figée sur FileConfigLoader."""
+
+    def test_validate_delegue_au_loader_injecte(self) -> None:
+        """validate() retourne le résultat du loader injecté."""
+        from linuxtools.config import ConfigurationManager
+        cfg = ConfigurationManager(
+            default_config={"a": 1}, config_loader=_StubLoader()
+        )
+
+        result = cfg.validate(SampleConfig)
+
+        self.assertEqual(result, "sentinelle-stub-loader")
 
 
 if __name__ == "__main__":

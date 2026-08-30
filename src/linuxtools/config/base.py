@@ -33,10 +33,13 @@ class ConfigManager(ABC):
         """
         ...
 
-    @abstractmethod
     def get_section(self, section: str) -> dict[str, Any]:
         """
         Récupère une section complète de la configuration.
+
+        Implémentation par défaut dérivée de `get()` — une section est
+        une clé de premier niveau, sans point. Redéfinissable si une
+        implémentation a une notion de section distincte de `get`.
 
         Args:
             section: Nom de la section
@@ -44,7 +47,8 @@ class ConfigManager(ABC):
         Returns:
             Dictionnaire de la section ou dict vide
         """
-        ...
+        result: dict[str, Any] = self.get(section, {})
+        return result
 
     @abstractmethod
     def get_profile(self, profile_name: str) -> dict[str, Any]:
@@ -62,15 +66,17 @@ class ConfigManager(ABC):
         """
         ...
 
-    @abstractmethod
     def list_profiles(self) -> list[str]:
         """
         Liste tous les profils disponibles.
 
+        Implémentation par défaut dérivée de `get("profiles", {})`.
+
         Returns:
             Liste des noms de profils
         """
-        ...
+        profiles: dict[str, Any] = self.get("profiles", {})
+        return list(profiles.keys())
 
     @abstractmethod
     def create_default_config(self, output_path: Path | None = None) -> None:

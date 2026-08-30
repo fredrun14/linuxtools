@@ -15,7 +15,7 @@ T = TypeVar("T")
 # ci-dessus (T est la dataclass renvoyée par ConfigFileLoader.load()).
 # Volontairement non lié (pas de bound="BaseModel") : le contrat
 # runtime (TypeError si schema n'est pas un BaseModel) est déjà
-# vérifié par FileConfigLoader._validate_with_schema, et lier au
+# vérifié par ConfigLoader.validate, et lier au
 # typage introduirait une dépendance de typage à un extra optionnel
 # pour un gain marginal — même choix que ConfigurationManager.validate
 # (src/linuxtools/config/manager.py), TypeVar _T non lié.
@@ -110,6 +110,50 @@ class ConfigLoader(ABC):
         """
         ...  # pragma: no cover
 
+    # ANN401 assumé : retourne une instance du modèle Pydantic fourni par
+    # l'appelant. Pydantic est un extra optionnel, donc `BaseModel` ne
+    # peut pas être importé au niveau module pour borner un TypeVar.
+    @staticmethod
+    def validate(data: dict[str, Any], schema: object) -> Any:  # noqa: ANN401
+        """Valide un dict via un modèle Pydantic.
+
+        Implémentation par défaut, partagée par tous les loaders —
+        redéfinissable si un loader a besoin d'une validation
+        différente. `schema` est typé `object` et non `type` :
+        frontière d'exécution, l'API publique annonce `type | None`
+        mais un appelant non typé peut passer n'importe quoi (une
+        chaîne, une instance) et la garde ci-dessous doit rester
+        vivante pour lever TypeError.
+
+        Args:
+            data: Dictionnaire brut à valider.
+            schema: Classe Pydantic BaseModel attendue, non vérifiée
+                par le typage statique.
+
+        Returns:
+            Instance du modèle validé.
+
+        Raises:
+            ImportError: Si pydantic n'est pas installé.
+            TypeError: Si schema n'est pas un BaseModel.
+        """
+        try:
+            from pydantic import BaseModel
+        except ImportError as err:
+            raise ImportError(
+                "pydantic est requis pour la validation "
+                "de schema. Installez-le avec: "
+                "pip install linuxtools[validation]"
+            ) from err
+
+        if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
+            raise TypeError(
+                f"Le schema doit être une sous-classe de "
+                f"pydantic.BaseModel, reçu: {schema}"
+            )
+
+        return schema.model_validate(data)
+
 
 class FileConfigLoader(ConfigLoader):
     """
@@ -181,50 +225,7 @@ class FileConfigLoader(ConfigLoader):
         if schema is None:
             return raw_config
 
-        return self._validate_with_schema(raw_config, schema)
-
-    # ANN401 assumé : retourne une instance du modèle Pydantic fourni par
-    # l'appelant. Pydantic est un extra optionnel, donc `BaseModel` ne
-    # peut pas être importé au niveau module pour borner un TypeVar.
-    @staticmethod
-    def _validate_with_schema(data: dict[str, Any], schema: object) -> Any:  # noqa: ANN401
-        """Valide un dict via un modèle Pydantic.
-
-        `schema` est typé `object` et non `type` : c'est une frontière
-        d'exécution. L'API publique annonce `type | None`, mais un
-        appelant non typé peut passer n'importe quoi (une chaîne, une
-        instance) et la garde ci-dessous doit rester vivante pour lever
-        TypeError. Annoncer `type` rendrait le `isinstance` mort aux yeux
-        de mypy (redundant-expr) alors qu'il protège réellement.
-
-        Args:
-            data: Dictionnaire brut à valider.
-            schema: Classe Pydantic BaseModel attendue, non vérifiée
-                par le typage statique.
-
-        Returns:
-            Instance du modèle validé.
-
-        Raises:
-            ImportError: Si pydantic n'est pas installé.
-            TypeError: Si schema n'est pas un BaseModel.
-        """
-        try:
-            from pydantic import BaseModel
-        except ImportError as err:
-            raise ImportError(
-                "pydantic est requis pour la validation "
-                "de schema. Installez-le avec: "
-                "pip install linuxtools[validation]"
-            ) from err
-
-        if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
-            raise TypeError(
-                f"Le schema doit être une sous-classe de "
-                f"pydantic.BaseModel, reçu: {schema}"
-            )
-
-        return schema.model_validate(data)
+        return self.validate(raw_config, schema)
 
 
 class ConfigFileLoader(ABC, Generic[T]):
