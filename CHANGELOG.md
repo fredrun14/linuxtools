@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.26.1] - 2026-08-30
+
+### Corrigé
+
+- `__version__` était figé en dur (`"1.14.0"`), désynchronisé de
+  `pyproject.toml` depuis des dizaines de commits. Lu désormais
+  dynamiquement via `importlib.metadata.version("linuxtools")`, avec
+  repli `"0.0.0+unknown"` (PEP 440) si le paquet n'est pas installé
+  (import direct sans `pip install -e .`). PR #49.
+- CI : le job `test-integration` s'affichait en rouge sur chaque run
+  (11+ builds consécutifs) — `tests/integration/` est encore vide, donc
+  `pytest -m integration` collecte 0 test et sort en code 5 ("no tests
+  collected"), non couvert par le `--no-cov` déjà en place. Désormais
+  toléré explicitement (`|| [ $? -eq 5 ]`) sans masquer un vrai échec
+  futur (vérifié avec un test factice en échec). Sans impact sur
+  `automerge`, déjà protégé par `continue-on-error`. PR #50.
+
 ## [1.26.0] - 2026-08-30
 
 ### Ajouté
