@@ -154,7 +154,7 @@ Puis dans chaque script :
 
 ```python
 import linuxtools
-print(linuxtools.__version__)  # 1.6.0
+print(linuxtools.__version__)  # affiche la version installée
 ```
 
 ## 🏗️ Architecture Globale
