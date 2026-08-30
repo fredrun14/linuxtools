@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.26.0] - 2026-08-30
+
+### Ajouté
+
+- `ServiceConfig.on_failure` — nouveau champ optionnel rendu comme
+  `OnFailure=` dans la section `[Unit]` du fichier `.service` généré.
+  Permet de chaîner une notification d'échec (ex. un template
+  `notify-failure@%N.service`) sans dépendre d'un drop-in systemd créé à
+  la main hors du dépôt appelant.
+
 ## [1.25.0] - 2026-08-27
 
 ### Ajouté

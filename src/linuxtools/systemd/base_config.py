@@ -324,6 +324,11 @@ class ServiceConfig(BaseSystemdConfig):
         private_tmp: Ajoute ``PrivateTmp=true`` si True.
         read_write_paths: Chemins inscriptibles (``ReadWritePaths``) ;
             non rendu si vide.
+        on_failure: Unité déclenchée en cas d'échec du service (rendu
+            dans [Unit] comme ``OnFailure=``) ; non rendu si vide. Permet
+            de chaîner une notification (ex. un template
+            ``notify-failure@%N.service``) sans dépendre d'un drop-in
+            manuel non versionné.
     """
 
     _VALID_TYPES: ClassVar[tuple[str, ...]] = (
@@ -367,6 +372,7 @@ class ServiceConfig(BaseSystemdConfig):
     protect_home: bool = False
     private_tmp: bool = False
     read_write_paths: tuple[str, ...] = ()
+    on_failure: str = ""
 
     def __post_init__(self) -> None:
         """Valide que les champs requis sont présents et cohérents."""
@@ -422,11 +428,21 @@ class ServiceConfig(BaseSystemdConfig):
             "[Unit]",
             f"Description="
             f"{reject_control_chars(self.description, 'description')}",
-            "",
-            "[Service]",
-            f"Type={self.type}",
-            f"ExecStart={reject_control_chars(self.exec_start, 'exec_start')}",
         ]
+        on_failure_line = _optional_line(
+            "OnFailure", self.on_failure, "on_failure"
+        )
+        if on_failure_line:
+            lines.append(on_failure_line)
+        lines.extend(
+            [
+                "",
+                "[Service]",
+                f"Type={self.type}",
+                f"ExecStart="
+                f"{reject_control_chars(self.exec_start, 'exec_start')}",
+            ]
+        )
 
         lines.extend(
             filter(
