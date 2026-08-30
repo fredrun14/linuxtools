@@ -26,7 +26,16 @@ Modules disponibles:
   seul module lié à une distribution, isolé volontairement
 """
 
-__version__ = "1.14.0"
+from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+from importlib.metadata import version as _version
+
+try:
+    __version__ = _version("linuxtools")
+except _PackageNotFoundError:
+    # Paquet non installé (ex. import direct du code source sans
+    # `pip install -e .`) — repli sur une valeur explicite plutôt qu'un
+    # crash à l'import.
+    __version__ = "0.0.0+unknown"
 
 from linuxtools.cli import CliApplication, CliCommand
 from linuxtools.commands import (
