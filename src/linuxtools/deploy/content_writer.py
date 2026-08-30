@@ -1,6 +1,6 @@
 """Dépôt de contenu texte sur une cible locale ou distante.
 
-Primitive partagée par ConfigDeployer et SecretsProvisioner — écrit du
+Primitive partagée par SecretsProvisioner et usb_export — écrit du
 contenu généré en mémoire sur la cible, en TOCTOU-safe local ou via
 l'executor injecté à distance.
 """

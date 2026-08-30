@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from linuxtools.config.manager import ConfigurationManager
+from linuxtools.deploy.toml_sink import (
+    LocalDestination,
+    RemoteDestination,
+    TomlSink,
+)
 
 if TYPE_CHECKING:
     from linuxtools.commands.base import CommandExecutor
@@ -43,12 +47,10 @@ class ConfigDeployer:
         Returns:
             True si le dépôt a réussi, False sinon.
         """
-        manager = ConfigurationManager(
-            default_config=spec.data, logger=self._logger
+        destination = (
+            RemoteDestination(executor)
+            if target.is_remote
+            else LocalDestination()
         )
-        return manager.deploy_via(
-            executor,
-            spec.dest_path,
-            is_remote=target.is_remote,
-            mode=spec.mode,
-        )
+        sink = TomlSink(destination, logger=self._logger)
+        return sink.write(spec.dest_path, spec.data, mode=spec.mode)

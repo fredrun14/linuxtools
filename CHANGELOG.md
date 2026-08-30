@@ -1,5 +1,30 @@
 # Changelog
 
+## [Non publié]
+
+### Modifié
+
+- `ConfigurationManager` avait une interface superficielle (détecté par la
+  nouvelle grille « modules profonds » de l'agent `conseiller-architectural`) :
+  `get_section()`/`list_profiles()` en wrappers sur `get()` — identiques au
+  comportement précédent pour un nom de section sans point (cas normal),
+  mais `get_section()` avec un nom contenant un point se comporte
+  désormais comme un chemin pointé hérité de `get()`, pas comme un lookup
+  de clé littérale (restriction assumée et documentée dans
+  `ConfigManager.get_section`) — et `deploy_via()` détournait la classe en
+  écrivain TOML pour son unique appelant. `ConfigManager` (ABC) dégonflée
+  à 3 méthodes abstraites
+  (`get`, `get_profile`, `create_default_config`) ; `deploy_via()`
+  supprimée, remplacée par `TomlSink`/`LocalDestination`/`RemoteDestination`
+  (nouveau `deploy/toml_sink.py`), qui rend l'incohérence
+  executor/cible-distante structurellement irreprésentable ;
+  `ConfigurationManager.validate()` route désormais par le loader injecté
+  (`ConfigLoader.validate()`, méthode concrète) plutôt que par un privé
+  d'une autre classe. `ConfigDeployer` n'instancie plus de
+  `ConfigurationManager`. **Breaking change interne** : `deploy_via()`
+  disparaît sans dépréciation (vérifié : aucun consommateur externe ne
+  l'utilisait).
+
 ## [1.26.1] - 2026-08-30
 
 ### Corrigé

@@ -2,14 +2,12 @@
 
 import json
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, TypeVar
 
-from linuxtools.commands.base import CommandExecutor
 from linuxtools.config.base import ConfigManager
 from linuxtools.config.loader import ConfigLoader, FileConfigLoader
-from linuxtools.filesystem.linux import write_text_secure
 from linuxtools.logging.base import Logger
 
 _T = TypeVar("_T")
@@ -81,6 +79,7 @@ class ConfigurationManager(ConfigManager):
         search_paths: list[str | Path] | None = None,
         config_loader: ConfigLoader | None = None,
         logger: Logger | None = None,
+        path_keys: Sequence[str] = _PATH_KEYS,
     ) -> None:
         """
         Initialise le gestionnaire de configuration.
@@ -93,11 +92,17 @@ class ConfigurationManager(ConfigManager):
                 Si non fourni, utilise FileConfigLoader par défaut.
             logger: Logger optionnel pour tracer les erreurs de
                 chargement. Si None, les erreurs sont silencieuses.
+            path_keys: Clés de `get_profile()` dont la valeur est
+                expansée comme un chemin (`~` résolu). Défaut :
+                `("source", "destination", "path")`, vocabulaire d'un
+                outil de sauvegarde — à surcharger si le domaine de
+                l'appelant utilise d'autres noms (ex. "log_dir").
         """
         self.default_config = default_config or {}
         self.search_paths = search_paths or []
         self._loader = config_loader or FileConfigLoader()
         self._logger = logger
+        self._path_keys = tuple(path_keys)
 
         if config_path is None and self.search_paths:
             config_path = self._find_config_file()
@@ -211,19 +216,6 @@ class ConfigurationManager(ConfigManager):
 
         return value
 
-    def get_section(self, section: str) -> dict[str, Any]:
-        """
-        Récupère une section complète de la configuration.
-
-        Args:
-            section: Nom de la section
-
-        Returns:
-            Dictionnaire de la section ou dict vide
-        """
-        result: dict[str, Any] = self.config.get(section, {})
-        return result
-
     def get_profile(self, profile_name: str) -> dict[str, Any]:
         """
         Récupère un profil de la configuration.
@@ -250,19 +242,18 @@ class ConfigurationManager(ConfigManager):
 
         profile: dict[str, Any] = profiles[profile_name].copy()
 
-        for key in _PATH_KEYS:
+        for key in self._path_keys:
             if key in profile:
                 profile[key] = str(Path(profile[key]).expanduser())
 
         return profile
 
-    def list_profiles(self) -> list[str]:
-        """Liste tous les profils disponibles."""
-        profiles: dict[str, Any] = self.get("profiles", {})
-        return list(profiles.keys())
-
     def validate(self, schema: type[_T]) -> _T:
         """Valide la configuration chargée via un modèle Pydantic.
+
+        Délègue au loader injecté (`self._loader.validate`), qui expose
+        cette opération sur le contrat `ConfigLoader` — plus d'accès
+        direct à un détail interne de `FileConfigLoader`.
 
         Args:
             schema: Classe Pydantic BaseModel pour la validation.
@@ -276,9 +267,7 @@ class ConfigurationManager(ConfigManager):
             pydantic.ValidationError: Si la config ne respecte pas
                 le schema.
         """
-        result: _T = FileConfigLoader._validate_with_schema(
-            self.config, schema
-        )
+        result: _T = self._loader.validate(self.config, schema)
         return result
 
     def create_default_config(
@@ -309,51 +298,3 @@ class ConfigurationManager(ConfigManager):
 
         writer_fn(path, self.default_config)
         self._log_info(f"Configuration créée : {path}")
-
-    def deploy_via(
-        self,
-        executor: CommandExecutor,
-        dest_path: str | Path,
-        *,
-        is_remote: bool,
-        mode: int = 0o644,
-    ) -> bool:
-        """Dépose la configuration effective sur une cible (locale ou SSH).
-
-        Rend `self.config` en TOML puis l'écrit sur `dest_path` — en
-        local via une écriture TOCTOU-safe directe
-        (`write_text_secure`), à distance via
-        `executor.run(..., stdin=...)` suivi d'un `chmod`.
-
-        Args:
-            executor: Exécuteur de commandes ciblant l'hôte (local ou
-                SSH). Utilisé uniquement quand `is_remote` est True.
-            dest_path: Chemin de destination sur la cible.
-            is_remote: True si `dest_path` désigne un chemin sur un
-                hôte distant (choix explicite de l'appelant — jamais
-                deviné).
-            mode: Permissions POSIX du fichier déposé (défaut 0o644).
-
-        Returns:
-            True si le dépôt a réussi, False sinon.
-        """
-        content = _render_toml(self.config)
-        if not is_remote:
-            write_text_secure(dest_path, content, mode=mode)
-            self._log_info(f"Configuration déposée (local) : {dest_path}")
-            return True
-        dest = str(dest_path)
-        write_result = executor.run(["tee", dest], stdin=content)
-        if not write_result.success:
-            self._log_warning(
-                f"Échec du dépôt distant de {dest} : {write_result.stderr}"
-            )
-            return False
-        chmod_result = executor.run(["chmod", format(mode, "03o"), dest])
-        if not chmod_result.success:
-            self._log_warning(
-                f"Échec du chmod distant de {dest} : {chmod_result.stderr}"
-            )
-            return False
-        self._log_info(f"Configuration déposée (distant) : {dest}")
-        return True

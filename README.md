@@ -900,9 +900,9 @@ level = cfg.get("logging.level", "INFO")
   ┌──────────────────────────────────┐   ┌────────────────────────────────┐
   │        ConfigLoader (ABC)        │   │       ConfigManager (ABC)      │
   │  + load(path) [abstract]         │   │  + get(key)         [abstract] │
-  └────────────┬─────────────────────┘   │  + get_section(key) [abstract] │
+  └────────────┬─────────────────────┘   │  + get_section(key)            │
                │                         │  + get_profile(key) [abstract] │
-               ▼                         │  + list_profiles()  [abstract] │
+               ▼                         │  + list_profiles()             │
   ┌────────────────────────────────┐     │  + create_default_config()     │
   │       FileConfigLoader         │     └────────────────┬───────────────┘
   │  Supporte TOML + JSON          │                      │ hérite
