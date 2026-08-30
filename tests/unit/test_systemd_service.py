@@ -37,6 +37,7 @@ class TestServiceConfig:
         assert config.restart == "no"
         assert config.restart_sec == 0
         assert config.wanted_by == "multi-user.target"
+        assert config.on_failure == ""
 
 
 class TestServiceConfigToUnitFile:
@@ -124,6 +125,21 @@ class TestServiceConfigToUnitFile:
         assert "Restart=always" in result
         assert "RestartSec=10" in result
 
+    def test_service_with_on_failure(self) -> None:
+        """Vérifie l'inclusion de OnFailure dans [Unit]."""
+        config = ServiceConfig(
+            description="Service avec notification d'échec",
+            exec_start="/usr/bin/daemon",
+            on_failure="notify-failure@%N.service",
+        )
+
+        result = config.to_unit_file()
+
+        assert "OnFailure=notify-failure@%N.service" in result
+        # La ligne doit être dans [Unit], pas après [Service]
+        unit_section, _, rest = result.partition("[Service]")
+        assert "OnFailure=" in unit_section
+
     def test_service_restart_no_omits_restart_lines(self) -> None:
         """Vérifie l'absence de Restart quand restart='no'."""
         config = ServiceConfig(
@@ -177,6 +193,7 @@ class TestServiceConfigToUnitFile:
         assert "Environment=" not in result
         assert "Restart=" not in result
         assert "RestartSec=" not in result
+        assert "OnFailure=" not in result
 
     def test_service_with_all_options(self) -> None:
         """Vérifie un service avec toutes les options."""
@@ -190,7 +207,8 @@ class TestServiceConfigToUnitFile:
             environment={"CONFIG": "/etc/app.conf"},
             restart="on-failure",
             restart_sec=5,
-            wanted_by="multi-user.target"
+            wanted_by="multi-user.target",
+            on_failure="notify-failure@%N.service",
         )
 
         result = config.to_unit_file()
@@ -205,6 +223,7 @@ class TestServiceConfigToUnitFile:
         assert "Environment=CONFIG=/etc/app.conf" in result
         assert "Restart=on-failure" in result
         assert "RestartSec=5" in result
+        assert "OnFailure=notify-failure@%N.service" in result
 
 
 class TestServiceNameValidation:
