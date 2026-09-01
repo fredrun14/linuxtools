@@ -182,12 +182,13 @@ class TestSecretsProvisionerProvisionLocal:
 
 
 class TestSecretsProvisionerProvisionRemote:
-    """Tests du provisioning distant (executor.run tee + chmod)."""
+    """Tests du provisioning distant (executor.run install -m -T)."""
 
     def test_provision_remote_nominal_deposit_via_executor(self) -> None:
         """Cas nominal distant : le contenu KEY=value est envoyé en
         stdin, jamais en argument de commande (pas d'exposition via
-        ps)."""
+        ps). `-m` vaut `600` : c'est ce qui prouve que le secret
+        n'est plus exposé par une fenêtre de permissions permissive."""
         # Arrange
         dest_path = Path("/etc/app/secrets.env")
         credentials = MagicMock(spec=CredentialManager)
@@ -196,7 +197,7 @@ class TestSecretsProvisionerProvisionRemote:
             service="svc", keys=("TOKEN",), dest_path=dest_path
         )
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True), _result(True)]
+        executor.run.side_effect = [_result(True)]
         logger = MagicMock()
         provisioner = SecretsProvisioner(credentials, logger)
 
@@ -207,18 +208,23 @@ class TestSecretsProvisionerProvisionRemote:
 
         # Assert
         assert result is True
-        tee_call = executor.run.call_args_list[0]
-        assert tee_call.args[0] == ["tee", str(dest_path)]
-        assert tee_call.kwargs["stdin"] == "TOKEN=s3cr3t-val\n"
-        chmod_call = executor.run.call_args_list[1]
-        assert chmod_call.args[0] == ["chmod", "600", str(dest_path)]
+        install_call = executor.run.call_args_list[0]
+        assert install_call.args[0] == [
+            "install",
+            "-m",
+            "600",
+            "-T",
+            "/dev/stdin",
+            str(dest_path),
+        ]
+        assert install_call.kwargs["stdin"] == "TOKEN=s3cr3t-val\n"
         # Le secret n'apparaît jamais dans les logs (mais transite
         # légitimement par executor.run — non concerné par l'assertion).
         _assert_no_secret_leaked(logger, "s3cr3t-val")
 
     def test_provision_remote_echec_depot_retourne_false(self) -> None:
-        """Cas d'erreur distant : échec de tee -> False, secret absent
-        du message d'erreur (stderr générique de la commande)."""
+        """Cas d'erreur distant : échec d'`install` -> False, secret
+        absent du message d'erreur (stderr générique de la commande)."""
         dest_path = Path("/etc/app/secrets.env")
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.return_value = "s3cr3t-val"

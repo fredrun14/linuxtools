@@ -85,7 +85,7 @@ class LocalDestination:
 
 @dataclass(frozen=True)
 class RemoteDestination:
-    """Cible distante — écriture via `tee` puis `chmod` sur l'executor.
+    """Cible distante — écriture via `install` (stdin) sur l'executor.
 
     Attributes:
         executor: Exécuteur de commandes ciblant l'hôte distant.
@@ -95,7 +95,12 @@ class RemoteDestination:
     label: ClassVar[str] = "distant"
 
     def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
-        """Écrit à distance via `tee` (stdin) puis `chmod`.
+        """Écrit à distance via `install -m <mode> -T /dev/stdin <dest>`.
+
+        Une seule commande : le mode est appliqué dès la création du
+        fichier (pas de fenêtre de permissions permissive) et `-T`
+        empêche `install` de suivre un éventuel symlink en position
+        de destination (le lien est remplacé, pas traversé).
 
         Args:
             path: Chemin de destination sur l'hôte cible.
@@ -103,21 +108,18 @@ class RemoteDestination:
             mode: Permissions POSIX du fichier.
 
         Returns:
-            `WriteOutcome(True)` si `tee` et `chmod` réussissent,
+            `WriteOutcome(True)` si `install` réussit,
             `WriteOutcome(False, detail=...)` sinon.
         """
         dest = str(path)
-        write_result = self.executor.run(["tee", dest], stdin=content)
+        write_result = self.executor.run(
+            ["install", "-m", format(mode, "03o"), "-T", "/dev/stdin", dest],
+            stdin=content,
+        )
         if not write_result.success:
             return WriteOutcome(
                 False,
                 f"Échec du dépôt distant de {dest} : {write_result.stderr}",
-            )
-        chmod_result = self.executor.run(["chmod", format(mode, "03o"), dest])
-        if not chmod_result.success:
-            return WriteOutcome(
-                False,
-                f"Échec du chmod distant de {dest} : {chmod_result.stderr}",
             )
         return WriteOutcome(True)
 

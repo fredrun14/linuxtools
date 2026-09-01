@@ -85,8 +85,9 @@ class TestConfigDeployerDeployLocal:
 class TestConfigDeployerDeployRemote:
     """Tests du dépôt de config à distance."""
 
-    def test_deploy_remote_nominal_ecrit_via_tee_puis_chmod(self) -> None:
-        """Cas nominal distant : tee (stdin=TOML) puis chmod réussissent."""
+    def test_deploy_remote_nominal_ecrit_via_install(self) -> None:
+        """Cas nominal distant : un seul appel `install -m 600 -T
+        /dev/stdin <dest>`, contenu TOML par stdin."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         spec = ConfigDeploySpec(
@@ -94,7 +95,7 @@ class TestConfigDeployerDeployRemote:
         )
         target = DeployTarget(host="srv01")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True), _result(True)]
+        executor.run.side_effect = [_result(True)]
         deployer = ConfigDeployer()
 
         # Act
@@ -102,37 +103,25 @@ class TestConfigDeployerDeployRemote:
 
         # Assert
         assert result is True
-        tee_call = executor.run.call_args_list[0]
-        assert tee_call.args[0] == ["tee", str(dest_path)]
-        assert 'a = 1' in tee_call.kwargs["stdin"]
-        chmod_call = executor.run.call_args_list[1]
-        assert chmod_call.args[0] == ["chmod", "600", str(dest_path)]
+        install_call = executor.run.call_args_list[0]
+        assert install_call.args[0] == [
+            "install",
+            "-m",
+            "600",
+            "-T",
+            "/dev/stdin",
+            str(dest_path),
+        ]
+        assert "a = 1" in install_call.kwargs["stdin"]
 
-    def test_deploy_remote_echec_tee_retourne_false(self) -> None:
-        """Cas d'erreur distant : échec de tee -> False."""
+    def test_deploy_remote_echec_install_retourne_false(self) -> None:
+        """Cas d'erreur distant : échec d'`install` -> False."""
         spec = ConfigDeploySpec(
             data={"a": 1}, dest_path=Path("/etc/app/config.toml")
         )
         target = DeployTarget(host="srv01")
         executor = MagicMock(spec=CommandExecutor)
         executor.run.return_value = _result(False, stderr="no space left")
-        deployer = ConfigDeployer()
-
-        result = deployer.deploy(spec, target, executor)
-
-        assert result is False
-
-    def test_deploy_remote_echec_chmod_retourne_false(self) -> None:
-        """Cas d'erreur distant : tee ok mais chmod échoue -> False."""
-        spec = ConfigDeploySpec(
-            data={"a": 1}, dest_path=Path("/etc/app/config.toml")
-        )
-        target = DeployTarget(host="srv01")
-        executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [
-            _result(True),
-            _result(False, stderr="not permitted"),
-        ]
         deployer = ConfigDeployer()
 
         result = deployer.deploy(spec, target, executor)

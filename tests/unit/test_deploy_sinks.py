@@ -178,21 +178,26 @@ class TestTomlSink:
         assert TomlSink(LocalDestination()).write(dest_path, {"a": 1}) is True
         assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
 
-    def test_toml_sink_distant_rend_puis_depose_via_tee(self) -> None:
-        """Chemin distant : le TOML rendu transite par stdin de tee."""
+    def test_toml_sink_distant_rend_puis_depose_via_install(self) -> None:
+        """Chemin distant : le TOML rendu transite par stdin d'`install`."""
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True), _result(True)]
+        executor.run.side_effect = [_result(True)]
         sink = TomlSink(RemoteDestination(executor))
 
         result = sink.write(dest_path, {"port": 8080}, mode=0o600)
 
         assert result is True
         assert executor.run.call_args_list[0] == (
-            (["tee", str(dest_path)],),
+            (
+                [
+                    "install",
+                    "-m",
+                    "600",
+                    "-T",
+                    "/dev/stdin",
+                    str(dest_path),
+                ],
+            ),
             {"stdin": "port = 8080\n"},
-        )
-        assert executor.run.call_args_list[1] == (
-            (["chmod", "600", str(dest_path)],),
-            {},
         )

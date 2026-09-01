@@ -152,6 +152,11 @@ def _write_unit_content_remote(
 ) -> bool:
     """Écrit le contenu d'une unité sur une cible distante.
 
+    Une seule commande `install -m 644 -T /dev/stdin <dest>` : le mode
+    est appliqué dès la création (pas de fenêtre de permissions) et
+    `-T` empêche de suivre un éventuel symlink en position de
+    destination (le lien est remplacé, pas traversé).
+
     Args:
         unit_path: Chemin absolu du fichier à écrire sur la cible.
         content: Contenu à écrire (UTF-8).
@@ -161,17 +166,14 @@ def _write_unit_content_remote(
     Returns:
         True si succès, False sinon.
     """
-    write_result = executor.run_raw(["tee", unit_path], stdin=content)
+    write_result = executor.run_raw(
+        ["install", "-m", "644", "-T", "/dev/stdin", unit_path],
+        stdin=content,
+    )
     if not write_result.success:
         logger.log_error(
             f"Échec de l'écriture distante de {unit_path}: "
             f"{write_result.stderr}"
-        )
-        return False
-    chmod_result = executor.run_raw(["chmod", "644", unit_path])
-    if not chmod_result.success:
-        logger.log_error(
-            f"Échec du chmod distant de {unit_path}: {chmod_result.stderr}"
         )
         return False
     logger.log_info(f"Fichier unit (distant) créé: {unit_path}")

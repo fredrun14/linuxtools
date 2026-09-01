@@ -65,14 +65,15 @@ class TestLocalDestination:
 
 
 class TestRemoteDestination:
-    """Tests de RemoteDestination.write (executor.run tee + chmod)."""
+    """Tests de RemoteDestination.write (executor.run install -m -T)."""
 
-    def test_remote_ecrit_via_tee_puis_chmod_cas_nominal(self) -> None:
-        """Cas nominal : tee puis chmod réussissent."""
+    def test_remote_ecrit_via_install_cas_nominal(self) -> None:
+        """Cas nominal : un seul appel `install -m <mode> -T
+        /dev/stdin <dest>`, contenu par stdin."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True), _result(True)]
+        executor.run.side_effect = [_result(True)]
         destination = RemoteDestination(executor)
 
         # Act
@@ -81,8 +82,19 @@ class TestRemoteDestination:
         # Assert
         assert outcome.success is True
         assert executor.run.call_args_list == [
-            ((["tee", str(dest_path)],), {"stdin": "contenu distant"}),
-            ((["chmod", "640", str(dest_path)],), {}),
+            (
+                (
+                    [
+                        "install",
+                        "-m",
+                        "640",
+                        "-T",
+                        "/dev/stdin",
+                        str(dest_path),
+                    ],
+                ),
+                {"stdin": "contenu distant"},
+            ),
         ]
         assert destination.label == "distant"
 
@@ -91,24 +103,25 @@ class TestRemoteDestination:
         [
             (0o600, "600"),
             (0o644, "644"),
+            (0o755, "755"),
             (0o400, "400"),
         ],
     )
-    def test_remote_formate_le_mode_chmod(
+    def test_remote_formate_le_mode_pour_install(
         self, mode: int, expected: str
     ) -> None:
-        """Le mode POSIX est formaté en octal 3 chiffres pour chmod."""
+        """Le mode POSIX est formaté en octal 3 chiffres pour `-m`."""
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True), _result(True)]
+        executor.run.side_effect = [_result(True)]
         destination = RemoteDestination(executor)
 
         destination.write(Path("/tmp/x"), "x", mode)
 
-        chmod_call = executor.run.call_args_list[1]
-        assert chmod_call.args[0][1] == expected
+        install_call = executor.run.call_args_list[0]
+        assert install_call.args[0][2] == expected
 
-    def test_remote_echec_tee_retourne_outcome_echec_sans_chmod(self) -> None:
-        """L'échec de tee arrête avant tout chmod."""
+    def test_remote_echec_install_retourne_outcome_echec(self) -> None:
+        """L'échec d'`install` retourne un outcome en échec."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
@@ -124,25 +137,6 @@ class TestRemoteDestination:
         assert outcome.success is False
         assert "permission denied" in outcome.detail
         executor.run.assert_called_once()
-
-    def test_remote_echec_chmod_retourne_outcome_echec(self) -> None:
-        """tee réussit mais chmod échoue -> outcome en échec."""
-        # Arrange
-        dest_path = Path("/etc/app/config.toml")
-        executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [
-            _result(True),
-            _result(False, stderr="not permitted"),
-        ]
-        destination = RemoteDestination(executor)
-
-        # Act
-        outcome = destination.write(dest_path, "contenu", 0o644)
-
-        # Assert
-        assert outcome.success is False
-        assert "not permitted" in outcome.detail
-        assert executor.run.call_count == 2
 
 
 class TestDestinationFor:
