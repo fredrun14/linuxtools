@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from linuxtools.commands.remote_write import build_remote_write_command
 from linuxtools.systemd.base_config import (
     AutomountConfig,
     BaseSystemdConfig,
@@ -167,7 +168,7 @@ def _write_unit_content_remote(
         True si succès, False sinon.
     """
     write_result = executor.run_raw(
-        ["install", "-m", "644", "-T", "/dev/stdin", unit_path],
+        build_remote_write_command(0o644, unit_path),
         stdin=content,
     )
     if not write_result.success:
