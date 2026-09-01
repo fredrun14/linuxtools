@@ -387,6 +387,78 @@ class TestSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
 
+class TestSystemdExecutorRunRaw:
+    """Tests pour SystemdExecutor.run_raw() avec un executor mocké.
+
+    Distinct de TestSystemdExecutorMocked : ces tests ciblent
+    spécifiquement le passe-plat run_raw() (utilisé par UnitManager
+    pour écrire/supprimer un fichier d'unité distant), pas
+    _run_systemctl().
+    """
+
+    def _make_executor(
+        self,
+    ) -> tuple[SystemdExecutor, MagicMock]:
+        """Crée un executor avec un CommandExecutor mocké."""
+        logger = MagicMock()
+        command_executor = MagicMock()
+        return SystemdExecutor(logger, command_executor), command_executor
+
+    def test_run_raw_transmet_command_et_stdin_a_l_executor(self) -> None:
+        """command et stdin atteignent self._executor.run() tels quels.
+
+        L'attendu est un littéral écrit indépendamment de `command` (pas
+        la même variable) : si run_raw() mutait la liste en place avant
+        de la transmettre, les deux côtés de l'assertion ne muteraient
+        pas ensemble et le test détecterait la mutation.
+        """
+        executor, command_executor = self._make_executor()
+        command = [
+            "install",
+            "-m",
+            "644",
+            "-T",
+            "/dev/stdin",
+            "/tmp/x.service",
+        ]
+        executor.run_raw(command, stdin="contenu")
+        command_executor.run.assert_called_once_with(
+            ["install", "-m", "644", "-T", "/dev/stdin", "/tmp/x.service"],
+            stdin="contenu",
+        )
+
+    def test_run_raw_sans_stdin_transmet_none_par_defaut(self) -> None:
+        """Sans argument stdin, stdin=None est transmis explicitement.
+
+        Littéral indépendant pour la même raison que le test précédent.
+        """
+        executor, command_executor = self._make_executor()
+        command = ["rm", "-f", "/tmp/x.service"]
+        executor.run_raw(command)
+        command_executor.run.assert_called_once_with(
+            ["rm", "-f", "/tmp/x.service"], stdin=None
+        )
+
+    def test_run_raw_retourne_command_result_sans_transformation(
+        self,
+    ) -> None:
+        """run_raw() retourne l'objet CommandResult de l'executor tel quel.
+
+        Vérifié par identité d'objet (is), pas par égalité de champs :
+        prouve l'absence de reconstruction/copie du CommandResult.
+        """
+        executor, command_executor = self._make_executor()
+        objet_result_attendu = _result(
+            return_code=1,
+            stdout="out",
+            stderr="err",
+            command=("rm", "-f", "/tmp/x.service"),
+        )
+        command_executor.run.return_value = objet_result_attendu
+        resultat = executor.run_raw(["rm", "-f", "/tmp/x.service"])
+        assert resultat is objet_result_attendu
+
+
 class TestSystemdExecutorSansExecutorInjecte:
     """Non-régression : SystemdExecutor(logger) reste utilisable seul."""
 
