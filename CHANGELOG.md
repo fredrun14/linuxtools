@@ -30,6 +30,19 @@
 
 ### Modifié
 
+- La construction de la commande `install -m <mode> -T /dev/stdin
+  <dest>` était dupliquée dans `deploy/destinations.py::RemoteDestination.write`
+  et `systemd/base.py::_write_unit_content_remote`, sans mécanisme
+  garantissant qu'elle le resterait identique dans les deux sites.
+  Extraite dans une primitive pure unique,
+  `commands/remote_write.py::build_remote_write_command(mode, dest)`,
+  appelée par les deux sites. **Refactor interne uniquement** :
+  aucune API publique touchée (la primitive n'est pas exportée dans
+  `commands.__all__`, seulement importée par chemin de sous-module) et
+  aucun comportement observable ne change — la commande produite est
+  byte-identique à l'ancienne (vérifié par les tests de non-régression
+  existants des deux appelants, laissés inchangés).
+
 - `deploy/content_writer.py::deposit_content()` restait le dernier
   endroit du module `deploy` où l'incohérence executor/cible restait
   structurellement représentable (signature

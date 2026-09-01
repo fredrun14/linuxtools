@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
+from linuxtools.commands.remote_write import build_remote_write_command
 from linuxtools.filesystem.linux import write_text_secure
 
 if TYPE_CHECKING:
@@ -113,7 +114,7 @@ class RemoteDestination:
         """
         dest = str(path)
         write_result = self.executor.run(
-            ["install", "-m", format(mode, "03o"), "-T", "/dev/stdin", dest],
+            build_remote_write_command(mode, dest),
             stdin=content,
         )
         if not write_result.success:
