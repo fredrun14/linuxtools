@@ -4,6 +4,28 @@
 
 ### Modifié
 
+- `deploy/content_writer.py::deposit_content()` restait le dernier
+  endroit du module `deploy` où l'incohérence executor/cible restait
+  structurellement représentable (signature
+  `deposit_content(executor, content, dest_path, mode, *, is_remote,
+  logger)`), en violation de l'invariant « destination typée » posé
+  par PR #52. Unifié sur les destinations typées déjà introduites pour
+  le TOML : nouveau `deploy/destinations.py` (`WriteOutcome`,
+  `WriteDestination`, `LocalDestination`, `RemoteDestination`,
+  fabrique `destination_for(target, executor)`) et nouveau
+  `deploy/sinks.py` (`ContentSink` pour un texte déjà rendu,
+  `TomlSink` qui rend un mapping en TOML puis délègue à
+  `ContentSink`). `ConfigDeployer`, `SecretsProvisioner` et
+  `UsbExporter` utilisent désormais ce socle unique. **Changement de
+  comportement assumé** : le niveau de log d'un dépôt en échec passe
+  de `log_warning` (ancien `TomlSink`) à `log_error`, aligné sur le
+  comportement de l'ancien `deposit_content` — un dépôt en échec fait
+  abandonner la phase de déploiement, c'est une erreur. Second
+  changement observable : le message de succès du chemin TOML passe
+  de `"Configuration déposée (local) : …"` à `"Contenu déposé
+  (local) : …"`, le log étant désormais émis par `ContentSink`
+  commun. Aucun consommateur n'assertait l'ancien texte.
+
 - `ConfigurationManager` avait une interface superficielle (détecté par la
   nouvelle grille « modules profonds » de l'agent `conseiller-architectural`) :
   `get_section()`/`list_profiles()` en wrappers sur `get()` — identiques au
@@ -24,6 +46,17 @@
   `ConfigurationManager`. **Breaking change interne** : `deploy_via()`
   disparaît sans dépréciation (vérifié : aucun consommateur externe ne
   l'utilisait).
+
+### Supprimé
+
+- `deploy/content_writer.py::deposit_content()` et
+  `deploy/toml_sink.py` (`TomlDestination`, ancien `TomlSink`) —
+  remplacés par `deploy/destinations.py` et `deploy/sinks.py`.
+  `deposit_content` quitte `deploy/__init__.py.__all__`. **Breaking
+  change d'API publique, sans dépréciation** : `grep` confirme zéro
+  consommateur externe (`backup-py-manager`, `obsidian-vault-tools`,
+  `fedora_post_install`, `claudetools`), même précédent que la
+  suppression de `deploy_via()` en PR #52.
 
 ## [1.26.1] - 2026-08-30
 

@@ -208,6 +208,7 @@ class TestExportModeSources:
         assert (target_dir / "uv").exists()
         assert (target_dir / project_src.name / "demo.py").exists()
         assert (target_dir / "install.sh").exists()
+        assert os.access(target_dir / "install.sh", os.X_OK)
         assert report.warnings == (
             "linuxtools non détecté — installation éditable "
             "requise pour l'auto-détection.",
@@ -382,6 +383,7 @@ class TestExportModeVenv:
 
         assert (target_dir / "venv" / "bin" / "python3").exists()
         assert (target_dir / "run.sh").exists()
+        assert os.access(target_dir / "run.sh", os.X_OK)
         run_content = (target_dir / "run.sh").read_text(encoding="utf-8")
         assert "from demo.cli import main; main()" in run_content
         assert str(target_dir / "venv") in report.created_paths

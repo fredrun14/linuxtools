@@ -100,7 +100,6 @@ Example:
 
 from linuxtools.deploy.cli import CheckVersionCommand, DeployCommand
 from linuxtools.deploy.config_deployer import ConfigDeployer
-from linuxtools.deploy.content_writer import deposit_content
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.discovery import (
     find_editable_source,
@@ -166,7 +165,6 @@ __all__ = [
     "VersionChecker",
     "VersionCheckResult",
     "check_target_version",
-    "deposit_content",
     "find_editable_source",
     "find_project_source",
     "read_source_version",

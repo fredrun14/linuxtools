@@ -4,8 +4,8 @@ Deux modes : "sources" (copie des sources + `uv tool install`,
 réseau requis sur la cible) et "venv" (venv Python autonome
 précompilé, aucun réseau requis sur la cible). Généralise
 `UsbExportManager` (fedora_post_install) sans dépendre d'un nom de
-projet en dur — cf. discovery.py et content_writer.py pour les
-primitives réutilisées.
+projet en dur — cf. discovery.py et sinks.py pour les primitives
+réutilisées.
 """
 
 from __future__ import annotations
@@ -21,11 +21,12 @@ from typing import TYPE_CHECKING, Literal
 
 # local
 from linuxtools.commands.builder import CommandBuilder
-from linuxtools.deploy.content_writer import deposit_content
+from linuxtools.deploy.destinations import LocalDestination
 from linuxtools.deploy.discovery import (
     find_editable_source,
     find_project_source,
 )
+from linuxtools.deploy.sinks import ContentSink
 from linuxtools.errors.exceptions import (
     InstallationError,
     ValidationError,
@@ -386,13 +387,8 @@ fi
 {install_line}
 """
         dest_path = target_dir / "install.sh"
-        deposit_content(
-            self._executor,
-            script,
-            dest_path,
-            0o755,
-            is_remote=False,
-            logger=self._logger,
+        ContentSink(LocalDestination(), logger=self._logger).write(
+            dest_path, script, mode=0o755
         )
         return str(dest_path)
 
@@ -531,13 +527,8 @@ exec "$USB/venv/bin/python3" \\
     -c "from {module} import {function}; {function}()" -- "$@"
 """
         dest_path = target_dir / "run.sh"
-        deposit_content(
-            self._executor,
-            script,
-            dest_path,
-            0o755,
-            is_remote=False,
-            logger=self._logger,
+        ContentSink(LocalDestination(), logger=self._logger).write(
+            dest_path, script, mode=0o755
         )
         return str(dest_path)
 

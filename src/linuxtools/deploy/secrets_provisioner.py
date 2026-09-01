@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from linuxtools.credentials.exceptions import CredentialNotFoundError
-from linuxtools.deploy.content_writer import deposit_content
+from linuxtools.deploy.destinations import destination_for
+from linuxtools.deploy.sinks import ContentSink
 
 if TYPE_CHECKING:
     from linuxtools.commands.base import CommandExecutor
@@ -82,14 +83,10 @@ class SecretsProvisioner:
             else ""
         )
 
-        return deposit_content(
-            executor,
-            content,
-            spec.dest_path,
-            spec.mode,
-            is_remote=target.is_remote,
-            logger=self._logger,
+        sink = ContentSink(
+            destination_for(target, executor), logger=self._logger
         )
+        return sink.write(spec.dest_path, content, mode=spec.mode)
 
     def _log_error(self, message: str) -> None:
         """Logue une erreur si un logger est configuré.
