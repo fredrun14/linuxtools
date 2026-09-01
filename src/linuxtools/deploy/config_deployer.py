@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from linuxtools.deploy.toml_sink import (
-    LocalDestination,
-    RemoteDestination,
-    TomlSink,
-)
+from linuxtools.deploy.destinations import destination_for
+from linuxtools.deploy.sinks import TomlSink
 
 if TYPE_CHECKING:
     from linuxtools.commands.base import CommandExecutor
@@ -47,10 +44,5 @@ class ConfigDeployer:
         Returns:
             True si le dépôt a réussi, False sinon.
         """
-        destination = (
-            RemoteDestination(executor)
-            if target.is_remote
-            else LocalDestination()
-        )
-        sink = TomlSink(destination, logger=self._logger)
+        sink = TomlSink(destination_for(target, executor), logger=self._logger)
         return sink.write(spec.dest_path, spec.data, mode=spec.mode)

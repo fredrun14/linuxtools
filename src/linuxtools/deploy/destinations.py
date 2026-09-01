@@ -1,23 +1,28 @@
-"""Dépôt d'un contenu TOML sur une destination locale ou distante."""
+"""Destinations d'écriture typées — où écrire, locale ou distante.
+
+Rend l'incohérence executor/cible irreprésentable : `LocalDestination`
+et `RemoteDestination(executor)` sont solidaires de leur exécuteur, il
+n'existe plus de booléen `is_remote` circulant séparément (cf.
+invariant projet dans `CONTEXT.md`).
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
-from linuxtools.dotconf.conf_toml_exporter import ConfTomlExporter
 from linuxtools.filesystem.linux import write_text_secure
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from linuxtools.commands.base import CommandExecutor
-    from linuxtools.logging.base import Logger
+    from linuxtools.deploy.models import DeployTarget
 
 
 @dataclass(frozen=True)
 class WriteOutcome:
-    """Résultat d'une écriture sur une destination TOML.
+    """Résultat d'une écriture sur une destination.
 
     Attributes:
         success: True si l'écriture a réussi.
@@ -28,10 +33,10 @@ class WriteOutcome:
     detail: str = ""
 
 
-class TomlDestination(Protocol):
-    """Cible d'écriture d'un contenu TOML — locale ou distante.
+class WriteDestination(Protocol):
+    """Cible d'écriture d'un contenu texte — locale ou distante.
 
-    Rend l'incohérence executor/cible irreprésentable : il n'y a plus de
+    Rend l'incohérence executor/cible irreprésentable : il n'y a pas de
     booléen `is_remote` séparé à désynchroniser d'un executor — on
     construit `LocalDestination()` ou `RemoteDestination(executor)`.
     """
@@ -39,7 +44,7 @@ class TomlDestination(Protocol):
     @property
     def label(self) -> str:
         """Nom court de la destination (ex. `"local"`, `"distant"`)."""
-        ...
+        ...  # pragma: no cover
 
     def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
         """Écrit `content` sur `path` avec les permissions `mode`.
@@ -117,57 +122,24 @@ class RemoteDestination:
         return WriteOutcome(True)
 
 
-class TomlSink:
-    """Rend un dict en TOML et le dépose via une `TomlDestination`."""
+def destination_for(
+    target: DeployTarget,
+    executor: CommandExecutor,
+) -> WriteDestination:
+    """Construit la destination correspondant à une cible de déploiement.
 
-    def __init__(
-        self,
-        destination: TomlDestination,
-        logger: Logger | None = None,
-    ) -> None:
-        """Initialise le dépôt TOML.
+    Point unique de lecture de `target.is_remote` : au-delà de cette
+    fabrique, la cible et son exécuteur ne circulent plus que sous
+    forme solidaire (cf. invariant projet dans `CONTEXT.md`).
 
-        Args:
-            destination: Cible d'écriture (locale ou distante).
-            logger: Logger optionnel pour tracer succès/échecs.
-        """
-        self._destination = destination
-        self._logger = logger
+    Args:
+        target: Cible du déploiement.
+        executor: Exécuteur de commandes ciblant `target`.
 
-    def write(
-        self,
-        path: str | Path,
-        data: dict[str, Any],
-        mode: int = 0o644,
-    ) -> bool:
-        """Rend `data` en TOML et le dépose sur `path`.
-
-        Args:
-            path: Chemin de destination.
-            data: Données à sérialiser en TOML.
-            mode: Permissions POSIX du fichier déposé (défaut 0o644).
-
-        Returns:
-            True si le dépôt a réussi, False sinon.
-        """
-        content = ConfTomlExporter().export_mapping(data) + "\n"
-        outcome = self._destination.write(path, content, mode)
-
-        if outcome.success:
-            self._log_info(
-                f"Configuration déposée ({self._destination.label}) : {path}"
-            )
-        else:
-            self._log_warning(outcome.detail)
-
-        return outcome.success
-
-    def _log_info(self, message: str) -> None:
-        """Logue un message informatif si un logger est configuré."""
-        if self._logger:
-            self._logger.log_info(message)
-
-    def _log_warning(self, message: str) -> None:
-        """Logue un avertissement si un logger est configuré."""
-        if self._logger:
-            self._logger.log_warning(message)
+    Returns:
+        `RemoteDestination(executor)` si `target.is_remote`,
+        `LocalDestination()` sinon.
+    """
+    if target.is_remote:
+        return RemoteDestination(executor)
+    return LocalDestination()
