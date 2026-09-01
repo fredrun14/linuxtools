@@ -2,6 +2,32 @@
 
 ## [Non publié]
 
+### Sécurité
+
+- Écriture distante — **fenêtre de permissions** et **suivi de
+  symlink** corrigés sur les deux sites qui écrivaient un fichier sur
+  une cible distante via la séquence `tee <dest>` puis
+  `chmod <mode> <dest>` : `deploy/destinations.py::RemoteDestination.write`
+  (secrets `0600`, config `0644`, scripts USB `0755`) et
+  `systemd/base.py::_write_unit_content_remote` (unités systemd,
+  écrites en root dans `/etc/systemd/system/`). La séquence en deux
+  temps laissait le fichier lisible au mode par défaut du compte
+  distant pendant toute la durée du transfert, et `tee` suivait un
+  éventuel symlink planté à l'avance sur le chemin de destination —
+  redirigeant silencieusement l'écriture vers sa cible. Remplacée par
+  une commande unique `install -m <mode> -T /dev/stdin <dest>` : le
+  mode est appliqué dès la création (aucun état intermédiaire
+  permissif) et `-T` (`--no-target-directory`) empêche `install` de
+  suivre un lien ou de créer un fichier fantôme si la destination est
+  un répertoire. `scripts/installer.py` était déjà sûr par un
+  mécanisme différent (`mktemp` en `0600` + `test -L` + `mv`) et n'est
+  pas concerné.
+  **Changement de comportement observable** : une destination distante
+  qui est un symlink est désormais **remplacée** par un fichier
+  régulier au lieu d'être traversée (la cible du lien n'est plus
+  altérée). Le chemin local reste inchangé : il refuse toujours
+  d'écrire sur un symlink (`OSError` via `O_NOFOLLOW`).
+
 ### Modifié
 
 - `deploy/content_writer.py::deposit_content()` restait le dernier
