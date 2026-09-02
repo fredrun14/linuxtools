@@ -323,6 +323,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         )
         result = manager.install_timer_unit(config)
         assert result is True
+        assert (tmp_path / "backup.timer").exists()
         logger.log_info.assert_called()
 
     def test_install_timer_unit_reload_echoue(self, tmp_path: Path) -> None:
@@ -451,6 +452,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         )
         result = manager.install_timer_unit(config)
         assert result is True
+        assert (tmp_path / "backup.timer").exists()
         logger.log_info.assert_called()
 
     def test_install_timer_unit_reload_echoue(self, tmp_path: Path) -> None:

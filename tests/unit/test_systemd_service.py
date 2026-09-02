@@ -467,6 +467,7 @@ class TestLinuxServiceUnitManagerSuccessPaths:
         )
         result = manager.install_service_unit(config)
         assert result is True
+        assert (tmp_path / "test-daemon.service").exists()
         logger.log_info.assert_called()
 
     def test_install_service_unit_rechargement_echoue(self, tmp_path: Path) -> None:
@@ -489,6 +490,7 @@ class TestLinuxServiceUnitManagerSuccessPaths:
         )
         result = manager.install_service_unit_with_name("my-service", config)
         assert result is True
+        assert (tmp_path / "my-service.service").exists()
         logger.log_info.assert_called()
 
     def test_install_service_unit_with_name_reload_echoue(self, tmp_path: Path) -> None:
@@ -634,6 +636,7 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
         )
         result = manager.install_service_unit(config)
         assert result is True
+        assert (tmp_path / "test-app.service").exists()
         logger.log_info.assert_called()
 
     def test_install_service_unit_with_name_succes(self, tmp_path: Path) -> None:
@@ -647,6 +650,7 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
             "user-service", config
         )
         assert result is True
+        assert (tmp_path / "user-service.service").exists()
         logger.log_info.assert_called()
 
     def test_install_service_unit_with_name_nom_invalide(self, tmp_path: Path) -> None:
