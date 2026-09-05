@@ -37,7 +37,7 @@ classifiers = [
 ]
 dependencies = [
     "platformdirs>=4.0",
-    "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.12.0",
+    "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0",
 ]
 
 # =============================================================================

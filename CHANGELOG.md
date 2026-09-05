@@ -2,8 +2,10 @@
 
 ## [Non publié]
 
-> Pin `webapitools` bumpé sur `v0.12.0`, qui porte
-> `ForgejoClient.get_latest_release` dont dépend ce module.
+> Pin `webapitools` bumpé sur `v0.13.0` : `get_latest_release` y retombe
+> désormais sur les tags Git nus si le dépôt n'a aucune Release Forgejo
+> publiée — nécessaire en pratique, la quasi-totalité des dépôts du
+> homelab (dont `linuxtools` lui-même) n'ont que des tags, pas de Release.
 
 ### Ajouté
 
