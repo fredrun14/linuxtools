@@ -1,6 +1,19 @@
 # Changelog
 
-## [Non publié]
+## [2.0.0] - 2026-09-05
+
+> Majeure : retrait d'API publique sans dépréciation (voir « Supprimé »).
+> L'impact réel est nul — `grep` confirme zéro consommateur — mais le
+> numéro le dit quand même.
+
+### Modifié (dépendances)
+
+- `webapitools` : `v0.11.1` → `v0.11.2`. Apporte le `User-Agent` exigé
+  par le firmware ASUS au `POST /login.cgi` : sans lui, le routeur sert
+  sa page de login HTML en HTTP 200 au lieu du JSON portant
+  `asus_token`. Répare les trois modules qui délèguent à ce client
+  (`network/router/dhcp.py`, `scanner.py`, `mac_filter.py`), inopérants
+  face au routeur depuis le rapatriement du client en 0.11.0.
 
 ### Sécurité
 
