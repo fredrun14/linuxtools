@@ -26,6 +26,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - [Module systemd](#-module-systemd)
 - [Module scripts](#-module-scripts)
 - [Module deploy](#-module-deploy)
+- [Module updates](#-module-updates)
 - [Module network](#-module-network)
 - [Module identity](#-module-identity)
 - [Module cli](#-module-cli)
@@ -2019,6 +2020,46 @@ mon-outil check-version --host pve --user root \
 ```
 
 > **Sécurité** : toute valeur interpolée dans une commande `ssh`/`rsync` passe par `shlex.quote`/`shlex.join` ; l'installation n'utilise QUE le `pip` du venv cible (jamais `python3 -m pip` système → pas de heurt PEP 668) ; un backup du venv est pris **avant** toute installation, et restauré automatiquement si l'install ou une vérification échoue.
+
+---
+
+## 🔄 Module `updates`
+
+Vérification de mise à jour disponible via les **releases Forgejo** du dépôt, pour une CLI **déjà installée** chez un utilisateur final. Distinct de `deploy.check_target_version` (qui compare le source local à une cible de déploiement) : `updates` compare la **version installée** (`importlib.metadata.version`) à la **dernière release publiée** sur `git.ricfasohel.fr`. N'installe jamais rien — informe seulement, au démarrage d'une CLI par exemple.
+
+### Utilisation
+
+```python
+from linuxtools import check_for_update, format_update_notice
+from linuxtools.credentials import CredentialManager
+from webapitools.apps.forgejo import ForgejoClient
+
+# Client Forgejo authentifié, construit par l'appelant (jamais par
+# check_for_update, injection de dépendance).
+manager = CredentialManager.default()
+client = ForgejoClient.from_credentials(manager)
+
+result = check_for_update(
+    package="mon-outil",       # nom de distribution installée
+    owner="fred",
+    repo="mon-outil",
+    client=client,
+)
+
+# N'affiche rien si aucune mise à jour, ou si la vérification a
+# échoué (réseau injoignable, pas de release, etc.) — pas de bruit.
+notice = format_update_notice(result)
+if notice:
+    print(notice)
+```
+
+`check_for_update` ne lève **jamais** d'exception pour un cas attendu (paquet non installé, Forgejo injoignable/quota/auth, aucune release publiée, format de version non reconnu) : le résultat `UpdateCheckResult` porte toujours l'information via `checked` et `detail`, exploitable sans `try/except` côté appelant.
+
+| Fonction / Classe | Description |
+|--------------------|-------------|
+| `check_for_update(package, owner, repo, client, logger=None)` | Compare la version installée à la dernière release Forgejo ; ne lève jamais d'exception |
+| `format_update_notice(result)` | Formate un message prêt à afficher, ou `None` si rien à signaler |
+| `UpdateCheckResult` | Résultat (`package`, `current_version`, `latest_version`, `update_available`, `checked`, `detail`) |
 
 ---
 

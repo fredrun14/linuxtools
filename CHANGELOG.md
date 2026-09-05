@@ -1,5 +1,30 @@
 # Changelog
 
+## [Non publié]
+
+> Le pin `webapitools` reste sur `v0.11.2` : la méthode
+> `ForgejoClient.get_latest_release` dont dépend ce module est déjà
+> mergée côté `webapitools` (branche `master`) mais **pas encore
+> taguée/publiée**. Développé et testé ici via l'override
+> `[tool.uv.sources]` (source locale éditable) — le pin git ne sera
+> bumpé qu'une fois le tag `webapitools` réellement coupé sur Forgejo.
+
+### Ajouté
+
+- Nouveau module `updates` : `check_for_update(package, owner, repo,
+  client, logger=None)` compare la version installée
+  (`importlib.metadata.version`) à la dernière release publiée sur un
+  dépôt Forgejo, sans jamais lever d'exception pour un cas attendu
+  (paquet non installé, Forgejo injoignable/auth/quota, aucune
+  release publiée, format de version non reconnu) —
+  `UpdateCheckResult.checked`/`.detail` portent toujours
+  l'information. `format_update_notice(result)` formate un message
+  prêt à afficher (ou `None` si rien à signaler). Fonction de
+  bibliothèque réutilisable par toute CLI du homelab déjà installée
+  chez un utilisateur final, distincte de
+  `deploy.check_target_version` (source local vs cible de
+  déploiement, pas installé vs dernière release).
+
 ## [2.0.0] - 2026-09-05
 
 > Majeure : retrait d'API publique sans dépréciation (voir « Supprimé »).

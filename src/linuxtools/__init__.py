@@ -24,6 +24,9 @@ Modules disponibles:
   check_target_version)
 - distro: Helpers spécifiques à une distribution (fedora_version) —
   seul module lié à une distribution, isolé volontairement
+- updates: Vérification de mise à jour disponible via les releases
+  Forgejo (check_for_update, UpdateCheckResult,
+  format_update_notice)
 """
 
 from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
@@ -240,6 +243,11 @@ from linuxtools.systemd import (
     UserTimerUnitManager,
     # Classes abstraites utilisateur
     UserUnitManager,
+)
+from linuxtools.updates import (
+    UpdateCheckResult,
+    check_for_update,
+    format_update_notice,
 )
 from linuxtools.validation import (
     PathChecker,
@@ -458,4 +466,8 @@ __all__ = [
     "LinuxUserManager",
     # Distro - Helpers Fedora / RPM
     "fedora_version",
+    # Updates - Vérification de mise à jour via Forgejo
+    "UpdateCheckResult",
+    "check_for_update",
+    "format_update_notice",
 ]
