@@ -2,12 +2,8 @@
 
 ## [Non publié]
 
-> Le pin `webapitools` reste sur `v0.11.2` : la méthode
-> `ForgejoClient.get_latest_release` dont dépend ce module est déjà
-> mergée côté `webapitools` (branche `master`) mais **pas encore
-> taguée/publiée**. Développé et testé ici via l'override
-> `[tool.uv.sources]` (source locale éditable) — le pin git ne sera
-> bumpé qu'une fois le tag `webapitools` réellement coupé sur Forgejo.
+> Pin `webapitools` bumpé sur `v0.12.0`, qui porte
+> `ForgejoClient.get_latest_release` dont dépend ce module.
 
 ### Ajouté
 
