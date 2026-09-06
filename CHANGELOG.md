@@ -1,11 +1,20 @@
 # Changelog
 
-## [Non publié]
+## [2.0.1] - 2026-09-06
 
 > Pin `webapitools` bumpé sur `v0.13.0` : `get_latest_release` y retombe
 > désormais sur les tags Git nus si le dépôt n'a aucune Release Forgejo
 > publiée — nécessaire en pratique, la quasi-totalité des dépôts du
 > homelab (dont `linuxtools` lui-même) n'ont que des tags, pas de Release.
+>
+> Ce tag corrige un oubli : le pin `webapitools@v0.13.0` (PR #62) avait
+> été mergé sur `master` sans qu'un nouveau tag `linuxtools` soit coupé
+> derrière — `v2.0.0` pointait encore vers l'ancien pin `v0.11.2`
+> (PR #59, sans rapport avec le module `updates`). Découvert le 2026-09-06
+> via un conflit de résolution `pip` réel sur le pilote
+> `backup-py-manager` (celui-ci épingle `webapitools@v0.13.0` en direct,
+> incompatible avec `linuxtools@v2.0.0` qui traînait `v0.11.2` en
+> transitif).
 
 ### Ajouté
 
