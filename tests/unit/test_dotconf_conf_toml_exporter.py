@@ -262,6 +262,50 @@ class TestExportAnsiRoundTrip:
         assert any("\x1b[32m" in b["content"] for b in blocks)
 
 
+class TestExportMapping:
+    """Tests pour ConfTomlExporter.export_mapping et _toml_scalar."""
+
+    def test_export_mapping_avec_liste_de_dicts_produit_array_of_tables_valide(
+        self, exporter: ConfTomlExporter, tmp_path: Path
+    ) -> None:
+        # Arrange — cas réel : array-of-tables [[target]] aplati en liste
+        # de dict par tomllib.load(), round-trip attendu vers le même dict.
+        source = {
+            "target": [
+                {"name": "ct100", "url": "http://192.168.50.100"},
+                {"name": "rpi3", "url": "http://192.168.50.9"},
+            ]
+        }
+        dest = tmp_path / "out.toml"
+        # Act
+        content = exporter.export_mapping(source)
+        dest.write_text(content, encoding="utf-8")
+        with dest.open("rb") as fh:
+            reparsed = tomllib.load(fh)
+        # Assert — round-trip complet, pas une comparaison de chaîne
+        assert reparsed == source
+
+    def test_export_mapping_avec_liste_de_scalaires_inchange(
+        self, exporter: ConfTomlExporter
+    ) -> None:
+        # Arrange — non-régression du cas déjà géré avant le fix
+        source = {"clients": ["a", "b"], "counts": [1, 2, 3]}
+        # Act
+        content = exporter.export_mapping(source)
+        # Assert — comparaison littérale, aucun changement de sortie attendu
+        assert content == 'clients = ["a", "b"]\ncounts = [1, 2, 3]'
+
+    def test_toml_inline_table_echappe_les_valeurs(
+        self, exporter: ConfTomlExporter
+    ) -> None:
+        # Arrange — valeur contenant un guillemet à échapper
+        table = {"name": 'a "b"'}
+        # Act
+        result = exporter._toml_inline_table(table)
+        # Assert — échappement hérité de _toml_escape via _toml_scalar
+        assert result == '{ name = "a \\"b\\"" }'
+
+
 class TestConfTomlExporterUnicode:
     """Tests robustesse encodage non-UTF-8."""
 
