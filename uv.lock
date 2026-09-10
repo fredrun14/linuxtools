@@ -789,11 +789,10 @@ wheels = [
 
 [[package]]
 name = "linuxtools"
-version = "2.0.1"
+version = "2.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "platformdirs" },
-    { name = "webapitools" },
 ]
 
 [package.optional-dependencies]
@@ -813,6 +812,9 @@ dev = [
     { name = "python-dotenv" },
     { name = "ruff" },
     { name = "safety" },
+]
+network = [
+    { name = "webapitools" },
 ]
 test = [
     { name = "pytest" },
@@ -843,9 +845,9 @@ requires-dist = [
     { name = "python-dotenv", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "safety", marker = "extra == 'dev'", specifier = ">=3.0.0" },
-    { name = "webapitools", editable = "../webapitools" },
+    { name = "webapitools", marker = "extra == 'network'", editable = "../webapitools" },
 ]
-provides-extras = ["validation", "credentials", "deploy", "dev", "test"]
+provides-extras = ["validation", "credentials", "deploy", "network", "dev", "test"]
 
 [[package]]
 name = "markdown-it-py"

@@ -75,8 +75,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Synchroniser les dépendances (+ dev)
-        run: uv sync --extra dev
+      # --extra network requis : tests/unit/test_network_router.py et
+      # tests/unit/test_updates_checker.py importent webapitools (extra
+      # optionnel depuis pyproject.toml v2.1.0, cf.
+      # CDC-20260910-Casser-Cycle-Webapitools.md).
+      - name: Synchroniser les dépendances (+ dev, + network)
+        run: uv sync --extra dev --extra network
 
       - name: Type check (mypy strict)
         run: uv run mypy src/linuxtools/ tests/

@@ -1,5 +1,21 @@
 # Changelog
 
+## [Non publié]
+
+### Modifié
+
+- feat(deps): extraire webapitools dans un extra network optionnel (casse
+  le cycle de dépendance) — `webapitools` quitte `[project.dependencies]`
+  pour rejoindre un nouvel extra `[project.optional-dependencies] network`.
+  Seuls `network/router/*.py` et `updates/checker.py` en dépendaient
+  réellement ; tout consommateur d'un autre extra (`linuxtools[credentials]`,
+  cas de `webapitools` lui-même) n'hérite plus de cette dépendance,
+  supprimant le cycle de résolution `pip` qui bloquait le déploiement
+  distant de `webapitools/pihole-schedule`. Aucun changement de
+  comportement pour qui installe l'extra `network` ; sans lui, l'import de
+  ces modules échoue net (`ImportError`), comportement assumé (cf.
+  `docs/CDC-20260910-Casser-Cycle-Webapitools.md`).
+
 ## [2.0.1] - 2026-09-06
 
 > Pin `webapitools` bumpé sur `v0.13.0` : `get_latest_release` y retombe
