@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linuxtools"
-version = "2.0.1"
+version = "2.1.0"
 description = "Bibliothèque utilitaire Python pour systèmes Linux"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,7 +37,6 @@ classifiers = [
 ]
 dependencies = [
     "platformdirs>=4.0",
-    "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0",
 ]
 
 # =============================================================================
@@ -53,6 +52,9 @@ credentials = [
     "keyring>=24.0",
 ]
 deploy = []
+network = [
+    "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
