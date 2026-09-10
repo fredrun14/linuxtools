@@ -71,9 +71,7 @@ class SecretsProvisioner:
         resolved: dict[str, str] = {}
         for service, key in spec.keys:
             if service not in managers:
-                managers[service] = self._credential_manager_factory(
-                    service
-                )
+                managers[service] = self._credential_manager_factory(service)
             try:
                 value = managers[service].require(key)
             except CredentialNotFoundError as exc:
