@@ -2,6 +2,15 @@
 
 ## [Non publié]
 
+## [2.2.1] - 2026-09-10
+
+> Les tags `v2.1.0` et `v2.2.0` avaient été coupés directement (`git tag`)
+> sans jamais faire passer leur contenu par une section CHANGELOG dédiée —
+> même oubli que celui corrigé dans `v2.0.1` (cf. entrée ci-dessous). Cette
+> section couvre donc, en plus du correctif `v2.2.1` lui-même, l'ensemble
+> du contenu resté sous `[Non publié]` depuis `v2.0.1` : cassage du cycle
+> de dépendance (`v2.1.0`) et secrets multi-services (`v2.2.0`).
+
 ### Corrigé
 
 - fix(dotconf): sérialiser correctement un array-of-tables (liste de dict)
