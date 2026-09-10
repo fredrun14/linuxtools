@@ -201,9 +201,30 @@ class ConfTomlExporter:
         if isinstance(value, str):
             return f'"{self._toml_escape(value)}"'
         if isinstance(value, list):
-            items = ", ".join(self._toml_scalar(item) for item in value)
+            items = ", ".join(
+                self._toml_inline_table(item)
+                if isinstance(item, dict)
+                else self._toml_scalar(item)
+                for item in value
+            )
             return f"[{items}]"
         return f'"{self._toml_escape(str(value))}"'
+
+    def _toml_inline_table(self, table: dict[str, Any]) -> str:
+        """Sérialise un dict en table inline TOML sur une seule ligne.
+
+        Args:
+            table: Dictionnaire à sérialiser (valeurs scalaires ou
+                listes — pas de dict imbriqué, non rencontré en
+                pratique pour un élément d'array-of-tables aplati).
+
+        Returns:
+            Table inline TOML, ex. ``{ name = "ct100", url = "..." }``.
+        """
+        pairs = ", ".join(
+            f"{key} = {self._toml_scalar(val)}" for key, val in table.items()
+        )
+        return f"{{ {pairs} }}"
 
     @staticmethod
     def _toml_escape(value: str) -> str:

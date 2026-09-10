@@ -2,6 +2,12 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(dotconf): sérialiser correctement un array-of-tables (liste de dict)
+  dans `ConfTomlExporter.export_mapping` — corrige la config TOML déposée
+  par le pipeline `deploy` quand la source contient `[[section]]`
+
 ### Modifié
 
 - feat(deploy)!: secrets multi-services — SecretsSpec/SecretsProvisioner/
