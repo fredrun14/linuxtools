@@ -123,14 +123,16 @@ class SecretsSpec:
     """Spécification de provisioning de secrets vers la cible.
 
     Attributes:
-        service: Nom du service CredentialManager (ex. "pihole").
-        keys: Clés à résoudre et écrire (ex. ("GOTIFY_TOKEN",)).
+        keys: Paires (service, clé) à résoudre et écrire, dans
+            l'ordre — ex. (("pihole", "APP_PASSWORD"), ("gotify",
+            "GOTIFY_TOKEN")). Chaque clé est résolue via le
+            CredentialManager de son propre service (cf.
+            SecretsProvisioner).
         dest_path: Chemin du fichier EnvironmentFile= sur la cible.
         mode: Permissions POSIX du fichier déposé (défaut 0o600).
     """
 
-    service: str
-    keys: tuple[str, ...]
+    keys: tuple[tuple[str, str], ...]
     dest_path: Path
     mode: int = 0o600
 

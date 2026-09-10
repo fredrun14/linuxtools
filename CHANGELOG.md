@@ -4,6 +4,9 @@
 
 ### Modifié
 
+- feat(deploy)!: secrets multi-services — SecretsSpec/SecretsProvisioner/
+  Deployer.for_target résolvent chaque clé via son propre service (factory
+  injectée)
 - feat(deps): extraire webapitools dans un extra network optionnel (casse
   le cycle de dépendance) — `webapitools` quitte `[project.dependencies]`
   pour rejoindre un nouvel extra `[project.optional-dependencies] network`.

@@ -77,9 +77,7 @@ class TestDeployerDeploySucces:
         """Toutes les phases réussissent : succès, phase DONE, prune."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
-        installer.backup_venv.return_value = Path(
-            "/opt/app/venv.bak-1"
-        )
+        installer.backup_venv.return_value = Path("/opt/app/venv.bak-1")
         installer.install.return_value = _result(success=True)
         verifier.verify.return_value = [
             CheckResult(label="import app", ok=True)
@@ -154,9 +152,7 @@ class TestDeployerDeployEchecInstall:
         """Backup dispo : install échoue -> restore_venv appelé."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
-        installer.backup_venv.return_value = Path(
-            "/opt/app/venv.bak-1"
-        )
+        installer.backup_venv.return_value = Path("/opt/app/venv.bak-1")
         installer.install.return_value = _result(
             success=False, stderr="pip error"
         )
@@ -223,9 +219,7 @@ class TestDeployerDeployEchecVerify:
         """Backup dispo : vérif échoue -> restore_venv appelé."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
-        installer.backup_venv.return_value = Path(
-            "/opt/app/venv.bak-1"
-        )
+        installer.backup_venv.return_value = Path("/opt/app/venv.bak-1")
         installer.install.return_value = _result(success=True)
         verifier.verify.return_value = [
             CheckResult(label="import app", ok=False, detail="boom")
@@ -289,9 +283,7 @@ class TestDeployerDeployDryRun:
     def test_dry_run_ne_touche_aucun_collaborateur(self) -> None:
         """dry_run=True : aucun appel réel à transport/installer/verifier."""
         transport, installer, verifier = _make_collaborators()
-        deployer = Deployer(
-            transport, installer, verifier, dry_run=True
-        )
+        deployer = Deployer(transport, installer, verifier, dry_run=True)
 
         report = deployer.deploy(_make_config())
 
@@ -307,9 +299,7 @@ class TestDeployerDeployDryRun:
     ) -> None:
         """Le dry-run affiche les opérations simulées via DryRunContext."""
         transport, installer, verifier = _make_collaborators()
-        deployer = Deployer(
-            transport, installer, verifier, dry_run=True
-        )
+        deployer = Deployer(transport, installer, verifier, dry_run=True)
 
         deployer.deploy(_make_config())
 
@@ -323,9 +313,7 @@ class TestDeployerDeployDryRun:
     ) -> None:
         """Dry-run avec cible distante : destination user@host:dest."""
         transport, installer, verifier = _make_collaborators()
-        deployer = Deployer(
-            transport, installer, verifier, dry_run=True
-        )
+        deployer = Deployer(transport, installer, verifier, dry_run=True)
         config = _make_config()
         config = DeployConfig(
             source_dir=config.source_dir,
@@ -347,9 +335,7 @@ class TestDeployerDeployDryRun:
         """recreate_venv=True : le dry-run montre rm -rf puis
         python3 -m venv avant le pip install (correctif #6)."""
         transport, installer, verifier = _make_collaborators()
-        deployer = Deployer(
-            transport, installer, verifier, dry_run=True
-        )
+        deployer = Deployer(transport, installer, verifier, dry_run=True)
         base = _make_config(source_dir=tmp_path)
         config = DeployConfig(
             source_dir=base.source_dir,
@@ -409,9 +395,7 @@ class TestDeployerResolveSourceDir:
             report = deployer.deploy(_make_config(source_dir=None))
 
         assert report.success is True
-        assert any(
-            "auto-détecté" in m for m in report.messages
-        )
+        assert any("auto-détecté" in m for m in report.messages)
         transport.transfer.assert_called_once()
         assert transport.transfer.call_args.args[0] == detected
         logger.log_info.assert_called_once_with(
@@ -443,9 +427,7 @@ class TestDeployerResolveSourceDir:
         transport, installer, verifier = _make_collaborators()
         deployer = Deployer(transport, installer, verifier)
 
-        config = _make_config(
-            source_dir=Path("/inexistant/source-dir")
-        )
+        config = _make_config(source_dir=Path("/inexistant/source-dir"))
 
         report = deployer.deploy(config)
 
@@ -468,12 +450,8 @@ class TestDeployerForTarget:
         # _local. L'isinstance narrowe pour mypy sans changer le
         # comportement runtime du test.
         assert isinstance(deployer._transport, RsyncTransport)
-        assert deployer._transport._local is (
-            deployer._installer._executor
-        )
-        assert deployer._installer._executor is (
-            deployer._verifier._executor
-        )
+        assert deployer._transport._local is (deployer._installer._executor)
+        assert deployer._installer._executor is (deployer._verifier._executor)
 
     def test_for_target_remote_utilise_ssh_command_executor(self) -> None:
         """Cible distante : installer/verifier reçoivent un
@@ -482,17 +460,24 @@ class TestDeployerForTarget:
 
         deployer = Deployer.for_target(DeployTarget(host="srv01"))
 
-        assert isinstance(
-            deployer._installer._executor, SshCommandExecutor
-        )
-        assert isinstance(
-            deployer._verifier._executor, SshCommandExecutor
-        )
+        assert isinstance(deployer._installer._executor, SshCommandExecutor)
+        assert isinstance(deployer._verifier._executor, SshCommandExecutor)
 
     def test_for_target_propage_dry_run(self) -> None:
         """dry_run est propagé au Deployer construit."""
         deployer = Deployer.for_target(DeployTarget(), dry_run=True)
         assert deployer._dry_run is True
+
+    def test_for_target_avec_factory_construit_un_secrets_provisioner(
+        self,
+    ) -> None:
+        """credential_manager_factory fourni -> un SecretsProvisioner
+        est construit (phase SECRETS activable)."""
+        deployer = Deployer.for_target(
+            DeployTarget(),
+            credential_manager_factory=lambda service: MagicMock(),
+        )
+        assert deployer._secrets_provisioner is not None
 
 
 def _make_config_with_phases(**overrides: object) -> DeployConfig:
@@ -500,18 +485,16 @@ def _make_config_with_phases(**overrides: object) -> DeployConfig:
     return replace(_make_config(), **overrides)  # type: ignore[arg-type]
 
 
-def _make_successful_base_collaborators() -> (
-    tuple[MagicMock, MagicMock, MagicMock]
-):
+def _make_successful_base_collaborators() -> tuple[
+    MagicMock, MagicMock, MagicMock
+]:
     """Transport/installer/verifier scriptés en succès jusqu'à VERIFY,
     prêts pour enchaîner sur les phases CONFIG/SECRETS/TIMER."""
     transport, installer, verifier = _make_collaborators()
     transport.transfer.return_value = _result(success=True)
     installer.backup_venv.return_value = None
     installer.install.return_value = _result(success=True)
-    verifier.verify.return_value = [
-        CheckResult(label="import app", ok=True)
-    ]
+    verifier.verify.return_value = [CheckResult(label="import app", ok=True)]
     return transport, installer, verifier
 
 
@@ -519,8 +502,7 @@ _CONFIG_SPEC = ConfigDeploySpec(
     data={"a": 1}, dest_path=Path("/etc/app/config.toml")
 )
 _SECRETS_SPEC = SecretsSpec(
-    service="svc",
-    keys=("TOKEN",),
+    keys=(("svc", "TOKEN"),),
     dest_path=Path("/etc/app/secrets.env"),
 )
 _TIMER_SPEC = TimerDeploySpec(
@@ -548,9 +530,7 @@ class TestDeployerNouvellesPhases:
         """Succès complet : les 3 phases sont appelées avec (spec,
         target, target_executor) et leurs messages figurent dans le
         rapport final."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
@@ -596,9 +576,7 @@ class TestDeployerNouvellesPhases:
         """Cas limite (no-op) : ni config_deploy, ni secrets, ni
         timer_deploy dans la config -> aucun des 3 collaborateurs
         n'est sollicité, même s'ils sont injectés."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         config_deployer = MagicMock(spec=ConfigDeployer)
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
         timer_deployer = MagicMock(spec=TimerDeployer)
@@ -626,9 +604,7 @@ class TestDeployerNouvellesPhases:
         """Cas limite (no-op collaborateur absent) : config.config_deploy
         renseigné mais aucun ConfigDeployer injecté -> échec propre,
         phase CONFIG, message explicite."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         deployer = Deployer(
             transport,
             installer,
@@ -649,9 +625,7 @@ class TestDeployerNouvellesPhases:
         """Cas limite (no-op target_executor absent) : config.secrets
         renseigné mais aucun target_executor injecté -> échec propre,
         phase SECRETS, message explicite."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         deployer = Deployer(
             transport,
             installer,
@@ -674,9 +648,7 @@ class TestDeployerNouvellesPhases:
         """Cas limite (no-op collaborateur absent) : config.timer_deploy
         renseigné mais aucun TimerDeployer injecté -> échec propre,
         phase TIMER, message explicite."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         deployer = Deployer(
             transport,
             installer,
@@ -689,9 +661,7 @@ class TestDeployerNouvellesPhases:
 
         assert report.success is False
         assert report.phase_reached is DeployPhase.TIMER
-        assert any(
-            "TimerDeployer non configuré" in m for m in report.messages
-        )
+        assert any("TimerDeployer non configuré" in m for m in report.messages)
 
     def test_phase_config_echoue_arrete_avant_secrets_et_timer(
         self,
@@ -700,9 +670,7 @@ class TestDeployerNouvellesPhases:
         -> le rapport final est bien retourné (pas d'exception), en
         échec phase CONFIG, et les phases suivantes ne sont pas
         déclenchées."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = False
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
@@ -726,9 +694,7 @@ class TestDeployerNouvellesPhases:
 
         assert report.success is False
         assert report.phase_reached is DeployPhase.CONFIG
-        assert any(
-            "Dépôt de la config échoué." in m for m in report.messages
-        )
+        assert any("Dépôt de la config échoué." in m for m in report.messages)
         secrets_provisioner.provision.assert_not_called()
         timer_deployer.deploy.assert_not_called()
         installer.prune_backup.assert_not_called()
@@ -737,9 +703,7 @@ class TestDeployerNouvellesPhases:
         """Échec best-effort en aval : la phase SECRETS échoue après
         un dépôt de config réussi -> le message de succès CONFIG est
         conservé dans le rapport, TIMER n'est pas déclenché."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
@@ -766,8 +730,7 @@ class TestDeployerNouvellesPhases:
         assert report.phase_reached is DeployPhase.SECRETS
         assert "Config déployée." in report.messages
         assert any(
-            "Provisioning des secrets échoué." in m
-            for m in report.messages
+            "Provisioning des secrets échoué." in m for m in report.messages
         )
         timer_deployer.deploy.assert_not_called()
 
@@ -777,9 +740,7 @@ class TestDeployerNouvellesPhases:
         """Échec best-effort en fin de chaîne : TIMER échoue après
         CONFIG et SECRETS réussis -> les deux messages de succès sont
         conservés dans le rapport final."""
-        transport, installer, verifier = (
-            _make_successful_base_collaborators()
-        )
+        transport, installer, verifier = _make_successful_base_collaborators()
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)

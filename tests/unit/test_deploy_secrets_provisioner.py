@@ -58,13 +58,12 @@ class TestSecretsProvisionerProvisionLocal:
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.side_effect = lambda key: secret_values[key]
         spec = SecretsSpec(
-            service="pihole",
-            keys=("GOTIFY_TOKEN", "API_KEY"),
+            keys=(("pihole", "GOTIFY_TOKEN"), ("pihole", "API_KEY")),
             dest_path=dest_path,
             mode=0o600,
         )
         logger = MagicMock()
-        provisioner = SecretsProvisioner(credentials, logger)
+        provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         # Act
         result = provisioner.provision(
@@ -89,10 +88,8 @@ class TestSecretsProvisionerProvisionLocal:
         """Cas limite : keys=() -> fichier vide, mais dépôt réussi."""
         dest_path = tmp_path / "secrets.env"
         credentials = MagicMock(spec=CredentialManager)
-        spec = SecretsSpec(
-            service="svc", keys=(), dest_path=dest_path
-        )
-        provisioner = SecretsProvisioner(credentials)
+        spec = SecretsSpec(keys=(), dest_path=dest_path)
+        provisioner = SecretsProvisioner(lambda service: credentials)
 
         result = provisioner.provision(
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
@@ -115,12 +112,11 @@ class TestSecretsProvisionerProvisionLocal:
             CredentialNotFoundError("absent du keyring"),
         ]
         spec = SecretsSpec(
-            service="pihole",
-            keys=("GOTIFY_TOKEN", "MISSING_KEY"),
+            keys=(("pihole", "GOTIFY_TOKEN"), ("pihole", "MISSING_KEY")),
             dest_path=dest_path,
         )
         logger = MagicMock()
-        provisioner = SecretsProvisioner(credentials, logger)
+        provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         # Act
         result = provisioner.provision(
@@ -132,7 +128,7 @@ class TestSecretsProvisionerProvisionLocal:
         assert not dest_path.exists()
         logger.log_error.assert_called_once()
         error_message = logger.log_error.call_args.args[0]
-        assert "MISSING_KEY" in error_message
+        assert "pihole/MISSING_KEY" in error_message
         _assert_no_secret_leaked(logger, "tok-abc123")
 
     def test_provision_local_valeur_avec_saut_de_ligne_refusee(
@@ -144,11 +140,9 @@ class TestSecretsProvisionerProvisionLocal:
         malicious_value = "ligne1\nEVIL=injected"
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.return_value = malicious_value
-        spec = SecretsSpec(
-            service="svc", keys=("PAYLOAD",), dest_path=dest_path
-        )
+        spec = SecretsSpec(keys=(("svc", "PAYLOAD"),), dest_path=dest_path)
         logger = MagicMock()
-        provisioner = SecretsProvisioner(credentials, logger)
+        provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         result = provisioner.provision(
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
@@ -158,7 +152,7 @@ class TestSecretsProvisionerProvisionLocal:
         assert not dest_path.exists()
         logger.log_error.assert_called_once()
         error_message = logger.log_error.call_args.args[0]
-        assert "PAYLOAD" in error_message
+        assert "svc/PAYLOAD" in error_message
         _assert_no_secret_leaked(logger, malicious_value)
 
     def test_provision_local_sans_logger_ne_leve_pas(
@@ -168,10 +162,8 @@ class TestSecretsProvisionerProvisionLocal:
         dest_path = tmp_path / "secrets.env"
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.side_effect = CredentialNotFoundError("x")
-        spec = SecretsSpec(
-            service="svc", keys=("K",), dest_path=dest_path
-        )
-        provisioner = SecretsProvisioner(credentials)
+        spec = SecretsSpec(keys=(("svc", "K"),), dest_path=dest_path)
+        provisioner = SecretsProvisioner(lambda service: credentials)
 
         result = provisioner.provision(
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
@@ -179,6 +171,120 @@ class TestSecretsProvisionerProvisionLocal:
 
         assert result is False
         assert not dest_path.exists()
+
+
+class TestSecretsProvisionerMultiServices:
+    """Tests du provisioning multi-services (résolution par service,
+    cache de la factory) — cf. CDC F-03."""
+
+    def test_provision_local_deux_services_resout_via_le_bon_manager(
+        self, tmp_path: Path
+    ) -> None:
+        """Deux services distincts : chaque clé est résolue via le
+        manager de son propre service, sans fuite croisée."""
+        # Arrange
+        dest_path = tmp_path / "secrets.env"
+        pihole_manager = MagicMock(spec=CredentialManager)
+        pihole_manager.require.side_effect = lambda key: {
+            "APP_PASSWORD": "pw-pihole"
+        }[key]
+        gotify_manager = MagicMock(spec=CredentialManager)
+        gotify_manager.require.side_effect = lambda key: {
+            "GOTIFY_TOKEN": "tok-gotify"
+        }[key]
+        managers = {"pihole": pihole_manager, "gotify": gotify_manager}
+        spec = SecretsSpec(
+            keys=(
+                ("pihole", "APP_PASSWORD"),
+                ("gotify", "GOTIFY_TOKEN"),
+            ),
+            dest_path=dest_path,
+        )
+        provisioner = SecretsProvisioner(lambda service: managers[service])
+
+        # Act
+        result = provisioner.provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        # Assert
+        assert result is True
+        content = dest_path.read_text(encoding="utf-8")
+        assert "APP_PASSWORD=pw-pihole" in content
+        assert "GOTIFY_TOKEN=tok-gotify" in content
+        pihole_manager.require.assert_called_once_with("APP_PASSWORD")
+        gotify_manager.require.assert_called_once_with("GOTIFY_TOKEN")
+
+    def test_provision_local_meme_service_reutilise_le_manager_deja_construit(
+        self, tmp_path: Path
+    ) -> None:
+        """Deux clés du même service : la factory n'est appelée
+        qu'une seule fois (cache local à provision())."""
+        # Arrange
+        dest_path = tmp_path / "secrets.env"
+        credentials = MagicMock(spec=CredentialManager)
+        credentials.require.side_effect = lambda key: {"A": "va", "B": "vb"}[
+            key
+        ]
+        factory = MagicMock(side_effect=lambda service: credentials)
+        spec = SecretsSpec(
+            keys=(("pihole", "A"), ("pihole", "B")),
+            dest_path=dest_path,
+        )
+        provisioner = SecretsProvisioner(factory)
+
+        # Act
+        result = provisioner.provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        # Assert
+        assert result is True
+        assert factory.call_count == 1
+
+    def test_provision_local_echec_reproduit_le_cas_pihole_schedule(
+        self, tmp_path: Path
+    ) -> None:
+        """Cas concret ayant motivé le CDC : 2 clés pihole résolues,
+        1 clé gotify introuvable -> échec sans dépôt partiel, message
+        nommant service+clé."""
+        # Arrange
+        dest_path = tmp_path / "secrets.env"
+        pihole_manager = MagicMock(spec=CredentialManager)
+        pihole_manager.require.side_effect = lambda key: {
+            "PIHOLE_CT100_APP_PASSWORD": "pw-ct100",
+            "PIHOLE_RPI3_APP_PASSWORD": "pw-rpi3",
+        }[key]
+        gotify_manager = MagicMock(spec=CredentialManager)
+        gotify_manager.require.side_effect = CredentialNotFoundError(
+            "absent du keyring"
+        )
+        managers = {"pihole": pihole_manager, "gotify": gotify_manager}
+        spec = SecretsSpec(
+            keys=(
+                ("pihole", "PIHOLE_CT100_APP_PASSWORD"),
+                ("pihole", "PIHOLE_RPI3_APP_PASSWORD"),
+                ("gotify", "GOTIFY_PIHOLE_SCHEDULE_TOKEN"),
+            ),
+            dest_path=dest_path,
+        )
+        logger = MagicMock()
+        provisioner = SecretsProvisioner(
+            lambda service: managers[service], logger
+        )
+
+        # Act
+        result = provisioner.provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        # Assert
+        assert result is False
+        assert not dest_path.exists()
+        logger.log_error.assert_called_once()
+        error_message = logger.log_error.call_args.args[0]
+        assert "gotify/GOTIFY_PIHOLE_SCHEDULE_TOKEN" in error_message
+        _assert_no_secret_leaked(logger, "pw-ct100", "pw-rpi3")
 
 
 class TestSecretsProvisionerProvisionRemote:
@@ -193,13 +299,11 @@ class TestSecretsProvisionerProvisionRemote:
         dest_path = Path("/etc/app/secrets.env")
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.return_value = "s3cr3t-val"
-        spec = SecretsSpec(
-            service="svc", keys=("TOKEN",), dest_path=dest_path
-        )
+        spec = SecretsSpec(keys=(("svc", "TOKEN"),), dest_path=dest_path)
         executor = MagicMock(spec=CommandExecutor)
         executor.run.side_effect = [_result(True)]
         logger = MagicMock()
-        provisioner = SecretsProvisioner(credentials, logger)
+        provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         # Act
         result = provisioner.provision(
@@ -228,13 +332,11 @@ class TestSecretsProvisionerProvisionRemote:
         dest_path = Path("/etc/app/secrets.env")
         credentials = MagicMock(spec=CredentialManager)
         credentials.require.return_value = "s3cr3t-val"
-        spec = SecretsSpec(
-            service="svc", keys=("TOKEN",), dest_path=dest_path
-        )
+        spec = SecretsSpec(keys=(("svc", "TOKEN"),), dest_path=dest_path)
         executor = MagicMock(spec=CommandExecutor)
         executor.run.return_value = _result(False, stderr="disk full")
         logger = MagicMock()
-        provisioner = SecretsProvisioner(credentials, logger)
+        provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         result = provisioner.provision(
             spec, DeployTarget(host="srv01"), executor
