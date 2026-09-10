@@ -9,6 +9,7 @@ invariant projet dans `CONTEXT.md`).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from linuxtools.commands.remote_write import build_remote_write_command
@@ -98,10 +99,14 @@ class RemoteDestination:
     def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
         """Écrit à distance via `install -m <mode> -T /dev/stdin <dest>`.
 
-        Une seule commande : le mode est appliqué dès la création du
-        fichier (pas de fenêtre de permissions permissive) et `-T`
-        empêche `install` de suivre un éventuel symlink en position
-        de destination (le lien est remplacé, pas traversé).
+        Le répertoire parent de `dest` est créé au préalable (`mkdir -p`,
+        idempotent, sans mode explicite : héritage de l'umask root
+        standard) — `install` sans `-D` échoue si ce parent n'existe pas
+        encore sur l'hôte cible. Puis une seule commande `install` : le
+        mode est appliqué dès la création du fichier (pas de fenêtre de
+        permissions permissive) et `-T` empêche `install` de suivre un
+        éventuel symlink en position de destination (le lien est
+        remplacé, pas traversé).
 
         Args:
             path: Chemin de destination sur l'hôte cible.
@@ -109,10 +114,19 @@ class RemoteDestination:
             mode: Permissions POSIX du fichier.
 
         Returns:
-            `WriteOutcome(True)` si `install` réussit,
-            `WriteOutcome(False, detail=...)` sinon.
+            `WriteOutcome(True)` si `mkdir -p` et `install` réussissent,
+            `WriteOutcome(False, detail=...)` si l'un des deux échoue
+            (`install` n'est pas tenté si `mkdir -p` échoue).
         """
         dest = str(path)
+        parent = str(PurePosixPath(dest).parent)
+        mkdir_result = self.executor.run(["mkdir", "-p", parent])
+        if not mkdir_result.success:
+            return WriteOutcome(
+                False,
+                f"Échec de la création du répertoire distant {parent} : "
+                f"{mkdir_result.stderr}",
+            )
         write_result = self.executor.run(
             build_remote_write_command(mode, dest),
             stdin=content,

@@ -197,7 +197,7 @@ class TestSecretsProvisionerProvisionRemote:
             service="svc", keys=("TOKEN",), dest_path=dest_path
         )
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True)]
+        executor.run.side_effect = [_result(True), _result(True)]
         logger = MagicMock()
         provisioner = SecretsProvisioner(credentials, logger)
 
@@ -208,7 +208,7 @@ class TestSecretsProvisionerProvisionRemote:
 
         # Assert
         assert result is True
-        install_call = executor.run.call_args_list[0]
+        install_call = executor.run.call_args_list[1]
         assert install_call.args[0] == [
             "install",
             "-m",

@@ -2,6 +2,18 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(deploy): créer le répertoire parent distant avant l'écriture
+  (`RemoteDestination.write`) — `install -m ... -T /dev/stdin <dest>`
+  (sans `-D`) échouait quand le répertoire parent de `dest` n'existait
+  pas encore sur l'hôte distant, découvert sur le premier déploiement
+  réel de `webapitools/pihole-schedule` (`/etc/webapitools/` inexistant
+  sur un nœud vierge). Un `mkdir -p <parent>` est désormais exécuté via
+  l'`executor` avant l'appel `install`, sans mode explicite (héritage de
+  l'umask root standard) et sans toucher à `remote_write.py` (invariant
+  sécurité partagé avec `systemd/base.py`, qui n'a pas ce problème).
+
 ### Modifié
 
 - feat(deps): extraire webapitools dans un extra network optionnel (casse

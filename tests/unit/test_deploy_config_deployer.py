@@ -86,8 +86,8 @@ class TestConfigDeployerDeployRemote:
     """Tests du dépôt de config à distance."""
 
     def test_deploy_remote_nominal_ecrit_via_install(self) -> None:
-        """Cas nominal distant : un seul appel `install -m 600 -T
-        /dev/stdin <dest>`, contenu TOML par stdin."""
+        """Cas nominal distant : `mkdir -p` du parent puis `install -m
+        600 -T /dev/stdin <dest>`, contenu TOML par stdin."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         spec = ConfigDeploySpec(
@@ -95,7 +95,7 @@ class TestConfigDeployerDeployRemote:
         )
         target = DeployTarget(host="srv01")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True)]
+        executor.run.side_effect = [_result(True), _result(True)]
         deployer = ConfigDeployer()
 
         # Act
@@ -103,7 +103,7 @@ class TestConfigDeployerDeployRemote:
 
         # Assert
         assert result is True
-        install_call = executor.run.call_args_list[0]
+        install_call = executor.run.call_args_list[1]
         assert install_call.args[0] == [
             "install",
             "-m",
