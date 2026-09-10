@@ -31,6 +31,7 @@ from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from linuxtools.commands.base import CommandExecutor
@@ -523,7 +524,9 @@ class Deployer:
         target: DeployTarget,
         logger: Logger | None = None,
         dry_run: bool = False,
-        credential_manager: CredentialManager | None = None,
+        credential_manager_factory: (
+            Callable[[str], CredentialManager] | None
+        ) = None,
     ) -> Deployer:
         """Fabrique un Deployer complet pour une cible donnée.
 
@@ -532,17 +535,18 @@ class Deployer:
         RsyncTransport (toujours local), VenvInstaller et
         InstallVerifier ciblant l'hôte, ainsi que ConfigDeployer et
         TimerDeployer (toujours construits) et SecretsProvisioner
-        (uniquement si `credential_manager` est fourni, pour ne pas
-        forcer la dépendance optionnelle `credentials`).
+        (uniquement si `credential_manager_factory` est fourni, pour
+        ne pas forcer la dépendance optionnelle `credentials`).
 
         Args:
             target: Description de l'hôte cible (local ou distant).
             logger: Logger optionnel, propagé à tous les
                 collaborateurs.
             dry_run: Si True, le Deployer simule sans effet de bord.
-            credential_manager: CredentialManager optionnel pour la
-                résolution des secrets. Si None, la phase SECRETS
-                échoue proprement si elle est configurée.
+            credential_manager_factory: Factory optionnelle résolvant
+                un CredentialManager par service, pour la résolution
+                des secrets. Si None, la phase SECRETS échoue
+                proprement si elle est configurée.
 
         Returns:
             Deployer prêt à l'emploi pour target.
@@ -559,8 +563,8 @@ class Deployer:
         config_deployer = ConfigDeployer(logger)
         timer_deployer = TimerDeployer(logger)
         secrets_provisioner = (
-            SecretsProvisioner(credential_manager, logger)
-            if credential_manager is not None
+            SecretsProvisioner(credential_manager_factory, logger)
+            if credential_manager_factory is not None
             else None
         )
         return cls(

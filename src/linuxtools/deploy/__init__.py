@@ -42,12 +42,16 @@ Example:
         from linuxtools.systemd import ServiceConfig, TimerConfig
 
         target = DeployTarget()  # local
-        credentials = CredentialManager.from_dotenv(
-            service="mon-outil",
-            dotenv_path=Path("config/.env"),
-        )
+
+        # from_dotenv() prend aussi dotenv_path : on fige ce paramètre
+        # pour obtenir un Callable[[str], CredentialManager].
+        def credential_manager_factory(service: str) -> CredentialManager:
+            return CredentialManager.from_dotenv(
+                service, dotenv_path=Path("config/.env")
+            )
+
         deployer = Deployer.for_target(
-            target, credential_manager=credentials
+            target, credential_manager_factory=credential_manager_factory
         )
         report = deployer.deploy(
             DeployConfig(
@@ -62,8 +66,7 @@ Example:
                     dest_path=Path("/etc/mon-outil/config.toml"),
                 ),
                 secrets=SecretsSpec(
-                    service="mon-outil",
-                    keys=("GOTIFY_TOKEN",),
+                    keys=(("mon-outil", "GOTIFY_TOKEN"),),
                     dest_path=Path("/etc/mon-outil/secrets.env"),
                 ),
                 timer_deploy=TimerDeploySpec(
