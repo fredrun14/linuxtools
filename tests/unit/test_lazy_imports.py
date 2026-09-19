@@ -133,4 +133,22 @@ def test_asusrouterclient_reexporte_est_celui_de_webapitools() -> None:
     import linuxtools
 
     # Act / Assert
-    assert linuxtools.AsusRouterClient is webapitools.AsusRouterClient  # type: ignore[attr-defined]
+    assert linuxtools.AsusRouterClient is webapitools.AsusRouterClient
+
+
+def test_noms_routeur_declares_dans_all_racine() -> None:
+    """Les 6 noms routeur (extra `network`) figurent dans `__all__`."""
+    # Arrange
+    import linuxtools
+
+    attendus = {
+        "AsusRouterClient",
+        "AsusRouterDhcpManager",
+        "AsusRouterMacFilterManager",
+        "AsusRouterScanner",
+        "RouterAuthError",
+        "RouterConfig",
+    }
+
+    # Act / Assert
+    assert attendus <= set(linuxtools.__all__)

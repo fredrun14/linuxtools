@@ -2,6 +2,15 @@
 
 ## [Non publié]
 
+### Modifié
+
+- Les 6 noms du routeur (`AsusRouterClient`, `AsusRouterDhcpManager`,
+  `AsusRouterMacFilterManager`, `AsusRouterScanner`, `RouterAuthError`,
+  `RouterConfig`) sont désormais déclarés dans `linuxtools.__all__`, comme
+  ceux de `updates`. Aucun changement de comportement à l'import :
+  `from linuxtools import *` sans l'extra `network` échoue déjà (`ImportError`
+  via les noms de `updates`). Complète l'entrée `2.2.2`.
+
 ## [2.2.2] - 2026-09-19
 
 ### Corrigé
