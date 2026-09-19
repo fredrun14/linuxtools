@@ -196,7 +196,7 @@ jobs:
     steps:
       - name: Merger la PR sur master
         env:
-          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          FORGEJO_TOKEN: ${{ secrets.LINUXTOOLS_CI }}
           API: ${{ github.server_url }}/api/v1
           PR: ${{ github.event.pull_request.number }}
         run: |
@@ -248,7 +248,7 @@ jobs:
 
       - name: Déclencher la synchro du miroir de push vers GitHub
         env:
-          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          FORGEJO_TOKEN: ${{ secrets.LINUXTOOLS_CI }}
           API: ${{ github.server_url }}/api/v1
         run: |
           set -euo pipefail
@@ -266,7 +266,7 @@ jobs:
               ;;
             401|403)
               echo "AUTH FORGEJO REFUSÉE (HTTP ${code})." >&2
-              echo "Le secret du dépôt FORGEJO_TOKEN est invalide, expiré ou a" >&2
+              echo "Le secret du dépôt LINUXTOOLS_CI est invalide, expiré ou a" >&2
               echo "perdu la portée write:repository. Le régénérer dans" >&2
               echo "Settings > Applications, puis Settings > Actions > Secrets." >&2
               exit 1
