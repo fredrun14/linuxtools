@@ -2,6 +2,32 @@
 
 ## [Non publié]
 
+## [2.2.2] - 2026-09-19
+
+### Corrigé
+
+- fix(network): import paresseux des noms dépendant de l'extra `network` —
+  `import linuxtools` (et tout sous-module : `linuxtools.cli`,
+  `linuxtools.config`, `linuxtools.network`…) n'exige plus `webapitools`.
+  Depuis `2.1.0`, l'import du paquet échouait sans l'extra, car
+  `linuxtools/__init__.py` importait `network.router` et `updates.checker`.
+  Les noms concernés (`AsusRouterClient`, `AsusRouterDhcpManager`,
+  `AsusRouterMacFilterManager`, `AsusRouterScanner`, `RouterAuthError`,
+  `RouterConfig`, `UpdateCheckResult`, `check_for_update`,
+  `format_update_notice`) sont désormais réexportés paresseusement
+  (PEP 562, helper privé `linuxtools/_lazy.py`).
+- L'échec net (`ImportError`, CDC-20260910 Q-02) n'a plus lieu à
+  `import linuxtools` : il n'a lieu qu'à l'accès à l'un de ces noms
+  (`linuxtools.X`, `linuxtools.network.X`) ou à l'import direct de
+  `linuxtools.network.router` / `linuxtools.updates`. Correction de la
+  phrase de `[2.2.1]` qui laissait entendre que seul l'import de « ces
+  modules » échouait : en réalité tout le paquet échouait.
+- Cas limite : `from linuxtools import *` sans l'extra lève `ImportError`
+  (les 3 noms `updates` figurent dans `__all__`). Les 6 noms routeur ne
+  figurent pas dans `__all__` de `linuxtools` (inchangé) ; ils figurent dans
+  celui de `linuxtools.network`, dont `import *` lève donc la même erreur.
+  Aucun changement pour qui installe l'extra `network`.
+
 ## [2.2.1] - 2026-09-10
 
 > Les tags `v2.1.0` et `v2.2.0` avaient été coupés directement (`git tag`)
@@ -32,7 +58,9 @@
   distant de `webapitools/pihole-schedule`. Aucun changement de
   comportement pour qui installe l'extra `network` ; sans lui, l'import de
   ces modules échoue net (`ImportError`), comportement assumé (cf.
-  `docs/CDC-20260910-Casser-Cycle-Webapitools.md`).
+  `docs/CDC-20260910-Casser-Cycle-Webapitools.md`). Précision apportée en
+  `[2.2.2]` : sans l'extra, c'est en réalité `import linuxtools` tout entier
+  qui échouait en `2.1.0`–`2.2.1`, pas seulement ces modules.
 
 ## [2.0.1] - 2026-09-06
 
