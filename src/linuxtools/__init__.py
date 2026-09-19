@@ -467,6 +467,13 @@ __all__ = [
     "validate_mac",
     "validate_cidr",
     "validate_hostname",
+    # Network - Routeur ASUS (extra `network`, réexport paresseux)
+    "AsusRouterClient",
+    "AsusRouterDhcpManager",
+    "AsusRouterMacFilterManager",
+    "AsusRouterScanner",
+    "RouterAuthError",
+    "RouterConfig",
     # CLI - Framework Command Pattern
     "CliCommand",
     "CliApplication",
