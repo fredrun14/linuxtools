@@ -40,6 +40,9 @@ except _PackageNotFoundError:
     # crash à l'import.
     __version__ = "0.0.0+unknown"
 
+from typing import TYPE_CHECKING
+
+from linuxtools._lazy import make_lazy_getattr
 from linuxtools.cli import CliApplication, CliCommand
 from linuxtools.commands import (
     AnsiCommandFormatter,
@@ -244,11 +247,6 @@ from linuxtools.systemd import (
     # Classes abstraites utilisateur
     UserUnitManager,
 )
-from linuxtools.updates import (
-    UpdateCheckResult,
-    check_for_update,
-    format_update_notice,
-)
 from linuxtools.validation import (
     PathChecker,
     PathCheckerGroupAccess,
@@ -256,6 +254,45 @@ from linuxtools.validation import (
     PathCheckerWorldWritable,
     SystemCommandValidator,
     Validator,
+)
+
+if TYPE_CHECKING:
+    from linuxtools.network import (
+        AsusRouterClient,  # noqa: F401
+        AsusRouterDhcpManager,  # noqa: F401
+        AsusRouterMacFilterManager,  # noqa: F401
+        AsusRouterScanner,  # noqa: F401
+        RouterAuthError,  # noqa: F401
+        RouterConfig,  # noqa: F401
+    )
+    from linuxtools.updates import (
+        UpdateCheckResult,
+        check_for_update,
+        format_update_notice,
+    )
+
+# Noms dépendant de l'extra optionnel `network` (webapitools) : chargés au
+# premier accès, pour que `import linuxtools` reste possible sans l'extra
+# (CDC-20260910, Q-02 : l'échec n'a lieu qu'à l'usage).
+_NOMS_ROUTEUR = (
+    "AsusRouterClient",
+    "AsusRouterDhcpManager",
+    "AsusRouterMacFilterManager",
+    "AsusRouterScanner",
+    "RouterAuthError",
+    "RouterConfig",
+)
+_NOMS_UPDATES = (
+    "UpdateCheckResult",
+    "check_for_update",
+    "format_update_notice",
+)
+__getattr__ = make_lazy_getattr(
+    __name__,
+    {
+        **dict.fromkeys(_NOMS_ROUTEUR, "linuxtools.network"),
+        **dict.fromkeys(_NOMS_UPDATES, "linuxtools.updates"),
+    },
 )
 
 __all__ = [

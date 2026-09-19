@@ -4,6 +4,9 @@ Ce module fournit les outils pour scanner, inventorier et
 gerer les peripheriques d'un reseau local.
 """
 
+from typing import TYPE_CHECKING
+
+from linuxtools._lazy import make_lazy_getattr
 from linuxtools.network.base import (
     DeviceReporter,
     DeviceRepository,
@@ -38,14 +41,6 @@ from linuxtools.network.reporter import (
 from linuxtools.network.repository import (
     JsonDeviceRepository,
 )
-from linuxtools.network.router import (
-    AsusRouterClient,
-    AsusRouterDhcpManager,
-    AsusRouterMacFilterManager,
-    AsusRouterScanner,
-    RouterAuthError,
-    RouterConfig,
-)
 from linuxtools.network.scanner import (
     LinuxArpScanner,
     LinuxNmapScanner,
@@ -55,6 +50,31 @@ from linuxtools.network.validators import (
     validate_hostname,
     validate_ipv4,
     validate_mac,
+)
+
+if TYPE_CHECKING:
+    from linuxtools.network.router import (
+        AsusRouterClient,
+        AsusRouterDhcpManager,
+        AsusRouterMacFilterManager,
+        AsusRouterScanner,
+        RouterAuthError,
+        RouterConfig,
+    )
+
+# Noms dépendant de l'extra optionnel `network` (webapitools) : chargés au
+# premier accès, pour que `import linuxtools.network` reste possible
+# sans l'extra (CDC-20260910, Q-02 : l'échec n'a lieu qu'à l'usage).
+_ROUTER_NOMS = (
+    "AsusRouterClient",
+    "AsusRouterDhcpManager",
+    "AsusRouterMacFilterManager",
+    "AsusRouterScanner",
+    "RouterAuthError",
+    "RouterConfig",
+)
+__getattr__ = make_lazy_getattr(
+    __name__, dict.fromkeys(_ROUTER_NOMS, "linuxtools.network.router")
 )
 
 __all__ = [
