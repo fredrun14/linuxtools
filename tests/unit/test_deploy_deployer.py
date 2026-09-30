@@ -1,7 +1,9 @@
 """Tests pour le module deploy.deployer."""
 
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -356,6 +358,33 @@ class TestDeployerDeployDryRun:
         venv_index = out.index(f"python3 -m venv {base.venv_path}")
         pip_index = out.index("pip install")
         assert rm_index < venv_index < pip_index
+
+    def test_dry_run_atomic_swap_affiche_planned_steps(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        """atomic_swap=True : le dry-run affiche les étapes de
+        VenvReleaser.planned_steps (construction versionnée, bascule,
+        purge) au lieu de backup/rm/venv en place."""
+        transport, installer, verifier = _make_collaborators()
+        deployer = Deployer(transport, installer, verifier, dry_run=True)
+        base = _make_config(source_dir=tmp_path)
+        config = DeployConfig(
+            source_dir=base.source_dir,
+            venv_path=base.venv_path,
+            remote_source_dir=base.remote_source_dir,
+            target=base.target,
+            verification=base.verification,
+            cli_bin=base.cli_bin,
+            atomic_swap=True,
+            keep_versions=3,
+        )
+
+        deployer.deploy(config)
+
+        out = capsys.readouterr().out
+        assert "bascule atomique" in out
+        assert "conserve 3 versions" in out
+        assert f"rm -rf {base.venv_path}" not in out
 
 
 class TestDeployerResolveSourceDir:
@@ -772,3 +801,171 @@ class TestDeployerNouvellesPhases:
             "Installation du service+timer échouée." in m
             for m in report.messages
         )
+
+
+class TestDeployerDeployAtomicSwap:
+    """Tests pour la branche atomic_swap de Deployer.deploy() (T8)."""
+
+    def test_atomic_swap_sans_releaser_echoue_proprement(self) -> None:
+        """atomic_swap=True sans releaser injecté : échec propre en
+        phase INSTALL, pas d'exception."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        deployer = Deployer(transport, installer, verifier)
+        config = replace(_make_config(), atomic_swap=True)
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.INSTALL
+        assert any("VenvReleaser" in m for m in report.messages)
+
+    def test_atomic_swap_succes_delegue_au_releaser(self) -> None:
+        """atomic_swap=True avec releaser : delegue à release(),
+        rapport DONE avec active_version/fallback_version."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        releaser = MagicMock()
+        active = Path("/opt/app/venvs/venv-20260929-000000-000000")
+        fallback = Path("/opt/app/venvs/venv-20260901-000000-000000")
+        releaser.release.return_value = SimpleNamespace(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            checks=(CheckResult(label="import app", ok=True),),
+            active_version=active,
+            fallback_version=fallback,
+            messages=(),
+        )
+        deployer = Deployer(transport, installer, verifier, releaser=releaser)
+        config = replace(_make_config(), atomic_swap=True)
+
+        report = deployer.deploy(config)
+
+        assert report.success is True
+        assert report.phase_reached is DeployPhase.DONE
+        assert report.active_version == active
+        assert report.fallback_version == fallback
+        installer.install.assert_not_called()
+
+    def test_atomic_swap_echec_release_traduit_en_rapport(self) -> None:
+        """Un ReleaseOutcome en échec est traduit fidèlement en
+        DeployReport (phase, checks, messages)."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        releaser = MagicMock()
+        releaser.release.return_value = SimpleNamespace(
+            success=False,
+            phase_reached=DeployPhase.VERIFY,
+            checks=(CheckResult(label="import app", ok=False),),
+            active_version=None,
+            fallback_version=None,
+            messages=("Vérification post-install échouée.",),
+        )
+        deployer = Deployer(transport, installer, verifier, releaser=releaser)
+        config = replace(_make_config(), atomic_swap=True)
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.VERIFY
+        assert "Vérification post-install échouée." in report.messages
+
+    def test_atomic_swap_recreate_venv_ajoute_un_message(self) -> None:
+        """recreate_venv=True + atomic_swap=True : message d'info,
+        release() est quand même appelé (recreate ignoré)."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        releaser = MagicMock()
+        releaser.release.return_value = SimpleNamespace(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            checks=(),
+            active_version=Path("/opt/app/venvs/venv-1"),
+            fallback_version=None,
+            messages=(),
+        )
+        deployer = Deployer(transport, installer, verifier, releaser=releaser)
+        config = replace(_make_config(), atomic_swap=True, recreate_venv=True)
+
+        report = deployer.deploy(config)
+
+        assert any("recreate_venv ignoré" in m for m in report.messages)
+
+    def test_atomic_swap_rebase_verification_avant_verify(self) -> None:
+        """La fonction verify passée à release() redirige les
+        vérifications sur la version (rebase_verification)."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        verifier.verify.return_value = [
+            CheckResult(label="import app", ok=True)
+        ]
+        releaser = MagicMock()
+        version = Path("/opt/app/venvs/venv-20260929-000000-000000")
+
+        def _release(
+            venv_path: Path,
+            source_dir: Path,
+            verify: Callable[[Path], object],
+            keep_versions: int,
+        ) -> SimpleNamespace:
+            """Simule VenvReleaser.release en rappelant verify()."""
+            checks = verify(version)
+            return SimpleNamespace(
+                success=True,
+                phase_reached=DeployPhase.DONE,
+                checks=checks,
+                active_version=version,
+                fallback_version=None,
+                messages=(),
+            )
+
+        releaser.release.side_effect = _release
+        deployer = Deployer(transport, installer, verifier, releaser=releaser)
+        # cli_bin absolu égal à venv_path (cas backup-py-manager,
+        # conception §7) : sans rebase_verification, viserait encore
+        # le venv actif au lieu de la version en cours de vérif.
+        config = replace(
+            _make_config(), atomic_swap=True, cli_bin="/opt/app/venv"
+        )
+
+        deployer.deploy(config)
+
+        verifier.verify.assert_called_once()
+        call_args = verifier.verify.call_args.args
+        assert call_args[0] == version
+        assert call_args[2] == str(version)
+
+    def test_atomic_swap_echec_post_install_conserve_les_versions(
+        self,
+    ) -> None:
+        """release() réussit mais une phase post-install (CONFIG)
+        échoue : le rapport d'échec porte quand même active_version/
+        fallback_version (mode atomic_swap, pas de rebascule mais le
+        lien a bien bougé — l'appelant doit pouvoir le savoir)."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        releaser = MagicMock()
+        active = Path("/opt/app/venvs/venv-20260929-000000-000000")
+        fallback = Path("/opt/app/venvs/venv-20260901-000000-000000")
+        releaser.release.return_value = SimpleNamespace(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            checks=(CheckResult(label="import app", ok=True),),
+            active_version=active,
+            fallback_version=fallback,
+            messages=(),
+        )
+        deployer = Deployer(transport, installer, verifier, releaser=releaser)
+        config = replace(
+            _make_config(), atomic_swap=True, config_deploy=_CONFIG_SPEC
+        )
+
+        report = deployer.deploy(config)
+
+        assert report.success is False
+        assert report.phase_reached is DeployPhase.CONFIG
+        assert report.active_version == active
+        assert report.fallback_version == fallback
+
+
+class TestDeployerForTargetAtomicSwap:
+    """Tests pour Deployer.for_target() et le releaser construit."""
+
+    def test_for_target_construit_un_releaser(self) -> None:
+        """for_target construit toujours un VenvReleaser, injecté."""
+        deployer = Deployer.for_target(DeployTarget())
+        assert deployer._releaser is not None

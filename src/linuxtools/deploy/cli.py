@@ -51,6 +51,7 @@ class DeployCommand(CliCommand):
             logger: Logger optionnel, propagé au Deployer.for_target.
         """
         self._logger = logger
+        self._parser: argparse.ArgumentParser | None = None
 
     @property
     def name(self) -> str:
@@ -71,6 +72,7 @@ class DeployCommand(CliCommand):
             self.name,
             help="Déploie/met à jour un outil Python sur un hôte.",
         )
+        self._parser = parser
         parser.add_argument(
             "--source",
             type=Path,
@@ -141,6 +143,26 @@ class DeployCommand(CliCommand):
             dest="recreate_venv",
             help="Recrée le venv proprement avant d'installer.",
         )
+        parser.add_argument(
+            "--atomic-swap",
+            action="store_true",
+            dest="atomic_swap",
+            help=(
+                "Construit une version neuve sous <parent>/venvs/ et "
+                "bascule le lien venv_path (opt-in) ; ignore "
+                "--recreate-venv."
+            ),
+        )
+        parser.add_argument(
+            "--keep-versions",
+            type=int,
+            default=2,
+            dest="keep_versions",
+            help="Nombre de versions conservées en mode --atomic-swap "
+            "(défaut 2, active incluse) ; la version de repli n'est "
+            "jamais purgée, même avec N=1 (N=1 conserve donc 2 versions ; "
+            "pour N≥2, la précédente occupe une des N places conservées).",
+        )
         add_dry_run_argument(parser)
 
     def execute(self, args: argparse.Namespace) -> None:
@@ -161,15 +183,30 @@ class DeployCommand(CliCommand):
                 tuple(args.regression) if args.regression else None
             ),
         )
-        config = DeployConfig(
-            source_dir=args.source,
-            venv_path=args.venv,
-            remote_source_dir=args.dest,
-            target=target,
-            verification=verification,
-            cli_bin=args.cli_bin,
-            recreate_venv=args.recreate_venv,
-        )
+        try:
+            config = DeployConfig(
+                source_dir=args.source,
+                venv_path=args.venv,
+                remote_source_dir=args.dest,
+                target=target,
+                verification=verification,
+                cli_bin=args.cli_bin,
+                recreate_venv=args.recreate_venv,
+                # getattr : un Namespace historique (tests, appelant
+                # n'utilisant pas register()) n'a pas forcément ces
+                # attributs — l'opt-in reste alors désactivé.
+                atomic_swap=getattr(args, "atomic_swap", False),
+                keep_versions=getattr(args, "keep_versions", 2),
+            )
+        except ValueError as exc:
+            # parser.error() écrit sur stderr, affiche l'usage et sort
+            # en code 2 (cohérent avec argparse) — préféré à un
+            # print() sur stdout. Repli si register() n'a pas été
+            # appelé (ex. exécution directe de execute() en test).
+            if self._parser is not None:
+                self._parser.error(str(exc))
+            print(f"Erreur : {exc}", file=sys.stderr)
+            sys.exit(2)
 
         deployer = Deployer.for_target(
             target, logger=self._logger, dry_run=args.dry_run

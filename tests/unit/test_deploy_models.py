@@ -106,6 +106,26 @@ class TestDeployConfig:
         with pytest.raises(AttributeError):
             config.venv_path = Path("/autre")  # type: ignore[misc]
 
+    def test_atomic_swap_et_keep_versions_valeurs_par_defaut(self) -> None:
+        """atomic_swap est opt-in (False) et keep_versions vaut 2."""
+        config = DeployConfig(
+            source_dir=Path("/src"),
+            venv_path=Path("/opt/app/venv"),
+            remote_source_dir=Path("/opt/app/src"),
+        )
+        assert config.atomic_swap is False
+        assert config.keep_versions == 2
+
+    def test_keep_versions_inferieur_a_un_leve_value_error(self) -> None:
+        """keep_versions < 1 est rejeté à la construction."""
+        with pytest.raises(ValueError, match="keep_versions"):
+            DeployConfig(
+                source_dir=Path("/src"),
+                venv_path=Path("/opt/app/venv"),
+                remote_source_dir=Path("/opt/app/src"),
+                keep_versions=0,
+            )
+
 
 class TestCheckResult:
     """Tests pour la dataclass CheckResult."""
@@ -134,15 +154,24 @@ class TestDeployPhase:
         assert DeployPhase.ROLLBACK.value == "rollback"
         assert DeployPhase.DONE.value == "done"
 
+    def test_activate_est_entre_verify_et_rollback(self) -> None:
+        """ACTIVATE existe et se situe entre VERIFY et ROLLBACK."""
+        assert DeployPhase.ACTIVATE.value == "activate"
+        members = list(DeployPhase)
+        assert members.index(DeployPhase.VERIFY) < members.index(
+            DeployPhase.ACTIVATE
+        )
+        assert members.index(DeployPhase.ACTIVATE) < members.index(
+            DeployPhase.ROLLBACK
+        )
+
 
 class TestDeployReportFormatSummary:
     """Tests pour DeployReport.format_summary()."""
 
     def test_succes_sans_checks(self) -> None:
         """Un succès sans checks affiche le statut et la phase."""
-        report = DeployReport(
-            success=True, phase_reached=DeployPhase.DONE
-        )
+        report = DeployReport(success=True, phase_reached=DeployPhase.DONE)
         summary = report.format_summary()
         assert "Succès" in summary
         assert "done" in summary
@@ -197,8 +226,39 @@ class TestDeployReportFormatSummary:
 
     def test_frozen(self) -> None:
         """DeployReport est immuable."""
-        report = DeployReport(
-            success=True, phase_reached=DeployPhase.DONE
-        )
+        report = DeployReport(success=True, phase_reached=DeployPhase.DONE)
         with pytest.raises(AttributeError):
             report.success = False  # type: ignore[misc]
+
+    def test_active_version_affichee_dans_le_resume(self) -> None:
+        """La version active est affichée si renseignée."""
+        report = DeployReport(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            active_version=Path("/opt/app/venvs/app-20260929-120000-000000"),
+        )
+        summary = report.format_summary()
+        assert (
+            "Version active : /opt/app/venvs/app-20260929-120000-000000"
+            in summary
+        )
+
+    def test_fallback_version_affichee_dans_le_resume(self) -> None:
+        """La version de repli est affichée si renseignée."""
+        report = DeployReport(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            fallback_version=Path("/opt/app/venvs/app-20260928-000000-000000"),
+        )
+        summary = report.format_summary()
+        assert (
+            "Version de repli : /opt/app/venvs/app-20260928-000000-000000"
+            in summary
+        )
+
+    def test_versions_absentes_ne_sont_pas_affichees(self) -> None:
+        """Sans active_version/fallback_version, rien n'est affiché."""
+        report = DeployReport(success=True, phase_reached=DeployPhase.DONE)
+        summary = report.format_summary()
+        assert "Version active" not in summary
+        assert "Version de repli" not in summary

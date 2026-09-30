@@ -789,7 +789,7 @@ wheels = [
 
 [[package]]
 name = "linuxtools"
-version = "2.2.2"
+version = "2.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "platformdirs" },
@@ -1707,7 +1707,6 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "safety", marker = "extra == 'dev'" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
-    { name = "types-requests", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev"]
 

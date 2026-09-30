@@ -40,6 +40,7 @@ class DeployPhase(Enum):
     BACKUP = "backup"
     INSTALL = "install"
     VERIFY = "verify"
+    ACTIVATE = "activate"
     ROLLBACK = "rollback"
     CONFIG = "config"
     SECRETS = "secrets"
@@ -180,6 +181,21 @@ class DeployConfig:
             pour ne pas exécuter cette phase (no-op).
         timer_deploy: Spécification d'installation service+timer, ou
             None pour ne pas exécuter cette phase (no-op).
+        atomic_swap: Si True, construit une version neuve sous
+            `<parent>/venvs/` et bascule le lien `venv_path` vers
+            elle une fois vérifiée (opt-in, CDC Q-01) ;
+            `recreate_venv` est alors ignoré (chaque version est
+            neuve par construction).
+        keep_versions: Nombre de versions conservées sous
+            `<parent>/venvs/`, active incluse (≥ 1, défaut 2). La
+            version de repli n'est jamais purgée, même avec N=1
+            (avenant CDC Q-05 : protégée à vie quel que soit
+            `keep_versions` — N=1 conserve donc 2 versions en
+            pratique ; pour N≥2, la précédente occupe toujours une des
+            N places conservées, jamais en plus). Un processus long
+            lancé il y a ≥ N déploiements
+            peut voir sa version purgée : négligeable pour des timers
+            oneshot.
     """
 
     source_dir: Path | None
@@ -192,6 +208,17 @@ class DeployConfig:
     config_deploy: ConfigDeploySpec | None = None
     secrets: SecretsSpec | None = None
     timer_deploy: TimerDeploySpec | None = None
+    atomic_swap: bool = False
+    keep_versions: int = 2
+
+    def __post_init__(self) -> None:
+        """Valide les invariants de configuration.
+
+        Raises:
+            ValueError: Si keep_versions < 1.
+        """
+        if self.keep_versions < 1:
+            raise ValueError("keep_versions doit être ≥ 1")
 
 
 @dataclass(frozen=True)
@@ -240,6 +267,13 @@ class DeployReport:
         rolled_back: True si un rollback a été effectué.
         backup_path: Chemin du venv de sauvegarde, ou None.
         messages: Journal des étapes (pour format_summary).
+        active_version: Chemin de la version basculée active (mode
+            atomic_swap), ou None. Placé après `messages` (F08) : les
+            champs ajoutés pour `atomic_swap` suivent les champs
+            historiques, pour ne jamais casser une construction
+            positionnelle future.
+        fallback_version: Chemin de la version de repli précédente
+            (mode atomic_swap), ou None. Cf. `active_version`.
     """
 
     success: bool
@@ -248,6 +282,8 @@ class DeployReport:
     rolled_back: bool = False
     backup_path: Path | None = None
     messages: tuple[str, ...] = ()
+    active_version: Path | None = None
+    fallback_version: Path | None = None
 
     def format_summary(self) -> str:
         """Rend un résumé multi-ligne lisible du déploiement.
@@ -276,6 +312,11 @@ class DeployReport:
             lines.append(
                 f"  ⚠ Rollback effectué (backup : {self.backup_path})"
             )
+
+        if self.active_version is not None:
+            lines.append(f"  Version active : {self.active_version}")
+        if self.fallback_version is not None:
+            lines.append(f"  Version de repli : {self.fallback_version}")
 
         for message in self.messages:
             lines.append(f"  {message}")

@@ -7,6 +7,7 @@ l'exécuteur injecté.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from linuxtools.deploy.models import CheckResult, VerificationSpec
@@ -18,6 +19,88 @@ if TYPE_CHECKING:
     from linuxtools.logging.base import Logger
 
 _DETAIL_MAX_LEN = 200
+
+
+def _rebase(value: str, venv_path: Path, version_path: Path) -> str:
+    """Réécrit une chaîne pointant sous venv_path vers version_path.
+
+    Gère aussi le fragment `--option=<chemin>` (ex. `--config=<venv_
+    path>/etc/c.toml`) : seule la partie après le premier `=` est
+    réécrite si elle référence explicitement venv_path (F03).
+
+    Args:
+        value: Chaîne à réécrire (chemin, ou fragment de commande).
+        venv_path: Chemin du venv actif (lien symbolique).
+        version_path: Chemin de la version à vérifier.
+
+    Returns:
+        `value` réécrite si elle vaut ou commence par
+        `str(venv_path)/` (au besoin après un `--option=`), inchangée
+        sinon (un chemin hors venv_path n'est jamais réécrit). Un
+        `cli_bin` qui est un wrapper entièrement hors de venv_path
+        (ex. `/usr/local/bin/wrapper-app`) référençant le venv en
+        interne n'est pas, et ne peut pas être, réécrit par cette
+        fonction — seuls les chemins et fragments `--option=chemin`
+        référençant explicitement venv_path le sont.
+    """
+    venv_str = str(venv_path)
+    if value == venv_str:
+        return str(version_path)
+    if value.startswith(venv_str + "/"):
+        return str(version_path) + value[len(venv_str) :]
+    if "=" in value:
+        prefix, _, suffix = value.partition("=")
+        rebased_suffix = _rebase(suffix, venv_path, version_path)
+        if rebased_suffix != suffix:
+            return f"{prefix}={rebased_suffix}"
+    return value
+
+
+def rebase_verification(
+    spec: VerificationSpec,
+    cli_bin: str | None,
+    venv_path: Path,
+    version_path: Path,
+) -> tuple[VerificationSpec, str | None]:
+    """Redirige vers version_path les chemins de vérification sous venv_path.
+
+    En mode atomic_swap, les vérifications post-install s'exécutent
+    sur la version avant bascule : un `cli_bin` ou un
+    `regression_command` référençant `venv_path` en absolu viserait
+    encore le venv actif (faux vert). `imports`/`subcommands` sont
+    inchangés (déjà relatifs à la version via `<venv_path>/bin/...`
+    construit par InstallVerifier).
+
+    Limite connue (F03) : un `cli_bin` qui est un wrapper entièrement
+    hors de `venv_path` (ex. `/usr/local/bin/wrapper-app`) référençant
+    le venv en interne n'est pas, et ne peut pas être, réécrit par
+    cette fonction — seuls les chemins et fragments `--option=chemin`
+    référençant explicitement `venv_path` le sont.
+
+    Args:
+        spec: Vérifications déclaratives d'origine.
+        cli_bin: Chemin/nom de l'exécutable CLI, ou None.
+        venv_path: Chemin du venv actif (lien symbolique).
+        version_path: Chemin de la version à vérifier.
+
+    Returns:
+        Tuple (spec réécrite, cli_bin réécrit).
+    """
+    new_cli_bin = (
+        _rebase(cli_bin, venv_path, version_path)
+        if cli_bin is not None
+        else None
+    )
+    new_regression = (
+        tuple(
+            _rebase(part, venv_path, version_path)
+            for part in spec.regression_command
+        )
+        if spec.regression_command is not None
+        else None
+    )
+    new_spec = replace(spec, regression_command=new_regression)
+    return new_spec, new_cli_bin
 
 
 class InstallVerifier:

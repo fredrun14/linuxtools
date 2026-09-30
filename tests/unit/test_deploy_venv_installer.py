@@ -35,35 +35,50 @@ def _make_executor() -> MagicMock:
 class TestVenvInstallerBackupVenv:
     """Tests pour VenvInstaller.backup_venv()."""
 
+    def test_refuse_si_venv_path_est_un_lien(self) -> None:
+        """venv_path est un lien (mode atomic_swap) : DeployError
+        avant tout test -d/cp, pour ne jamais corrompre la version
+        active par une copie en place (SEC, T9)."""
+        executor = _make_executor()
+        executor.run.return_value = _result(success=True)  # test -L
+        installer = VenvInstaller(executor)
+
+        with pytest.raises(DeployError, match="atomic_swap"):
+            installer.backup_venv(Path("/opt/app/venv"))
+
+        executor.run.assert_called_once_with(["test", "-L", "/opt/app/venv"])
+
     def test_retourne_none_si_venv_absent(self) -> None:
         """Retourne None (rien à sauver) si le venv n'existe pas."""
         executor = _make_executor()
-        executor.run.return_value = _result(success=False)
+        executor.run.side_effect = [
+            _result(success=False),  # test -L
+            _result(success=False),  # test -d
+        ]
         installer = VenvInstaller(executor)
 
         backup = installer.backup_venv(Path("/opt/app/venv"))
 
         assert backup is None
-        executor.run.assert_called_once_with(
-            ["test", "-d", "/opt/app/venv"]
-        )
+        calls = [c.args[0] for c in executor.run.call_args_list]
+        assert calls == [
+            ["test", "-L", "/opt/app/venv"],
+            ["test", "-d", "/opt/app/venv"],
+        ]
 
     def test_retourne_le_chemin_de_backup_si_succes(self) -> None:
         """Retourne un Path .bak-<timestamp> si cp réussit."""
         executor = _make_executor()
         executor.run.side_effect = [
+            _result(success=False),  # test -L
             _result(success=True),  # test -d
             _result(success=True),  # cp -a
         ]
         logger = MagicMock(spec=Logger)
         installer = VenvInstaller(executor, logger=logger)
 
-        with patch(
-            "linuxtools.deploy.venv_installer.datetime"
-        ) as mock_dt:
-            mock_dt.now.return_value.strftime.return_value = (
-                "20260719-165500"
-            )
+        with patch("linuxtools.deploy.venv_installer.datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.return_value = "20260719-165500"
             backup = installer.backup_venv(Path("/opt/app/venv"))
 
         assert backup == Path("/opt/app/venv.bak-20260719-165500")
@@ -77,6 +92,7 @@ class TestVenvInstallerBackupVenv:
         """
         executor = _make_executor()
         executor.run.side_effect = [
+            _result(success=False),  # test -L
             _result(success=True),  # test -d
             _result(success=False, stderr="cp: permission denied"),
         ]
@@ -89,7 +105,8 @@ class TestVenvInstallerBackupVenv:
         """Le logger reçoit l'erreur avant la levée de DeployError."""
         executor = _make_executor()
         executor.run.side_effect = [
-            _result(success=True),
+            _result(success=False),  # test -L
+            _result(success=True),  # test -d
             _result(success=False, stderr="boom"),
         ]
         logger = MagicMock(spec=Logger)
@@ -106,6 +123,7 @@ class TestVenvInstallerBackupVenv:
         seconde."""
         executor = _make_executor()
         executor.run.side_effect = [
+            _result(success=False),  # test -L
             _result(success=True),  # test -d
             _result(success=True),  # cp -a
         ]
@@ -167,14 +185,10 @@ class TestVenvInstallerInstall:
     def test_retourne_le_resultat_pip(self) -> None:
         """install() retourne le CommandResult de pip."""
         executor = _make_executor()
-        executor.run.return_value = _result(
-            success=False, stderr="pip error"
-        )
+        executor.run.return_value = _result(success=False, stderr="pip error")
         installer = VenvInstaller(executor)
 
-        result = installer.install(
-            Path("/opt/app/venv"), Path("/opt/app/src")
-        )
+        result = installer.install(Path("/opt/app/venv"), Path("/opt/app/src"))
 
         assert result.success is False
         assert result.stderr == "pip error"
@@ -271,7 +285,10 @@ class TestVenvInstallerRestoreVenv:
         assert calls[1][0] == "mv"
         assert calls[1][1] == "/opt/app/venv"
         assert calls[2] == [
-            "cp", "-a", "/opt/app/venv.bak-20260719", "/opt/app/venv",
+            "cp",
+            "-a",
+            "/opt/app/venv.bak-20260719",
+            "/opt/app/venv",
         ]
         assert calls[3][0] == "rm"
 
@@ -378,9 +395,7 @@ class TestVenvInstallerPruneBackup:
     def test_best_effort_ne_leve_pas_si_echec(self) -> None:
         """Un échec de suppression du backup ne lève pas d'exception."""
         executor = _make_executor()
-        executor.run.return_value = _result(
-            success=False, stderr="rm error"
-        )
+        executor.run.return_value = _result(success=False, stderr="rm error")
         logger = MagicMock(spec=Logger)
         installer = VenvInstaller(executor, logger=logger)
 

@@ -11,6 +11,60 @@
   `from linuxtools import *` sans l'extra `network` échoue déjà (`ImportError`
   via les noms de `updates`). Complète l'entrée `2.2.2`.
 
+## [2.3.0] - 2026-09-29
+
+### Ajouté
+
+- feat(deploy): bascule atomique du venv déployé, opt-in
+  (`DeployConfig.atomic_swap=True`). Corrige l'incident du 2026-09-29
+  16:25:07 (`webapitools-asus-block-blocage-reseaux-soir-tel.service`
+  en `203/EXEC` pendant un redéploiement) : `VenvInstaller.install
+  (recreate=True)` faisait `rm -rf <venv>` → `python3 -m venv` → `pip
+  install --force-reinstall` **en place**, laissant `<venv>/bin/<cli>`
+  absent pendant plusieurs dizaines de secondes.
+  - Nouveau module `linuxtools.deploy.venv_release` :
+    `VenvReleaser` construit chaque version neuve sous
+    `<parent>/venvs/<name>-<horodatage>/`, la vérifie là (chemins de
+    vérification redirigés via `verifier.rebase_verification`), puis
+    bascule le lien symbolique `venv_path` par une opération atomique
+    (`ln -sfn` + `mv -T`, `rename(2)` même répertoire). Zéro fenêtre
+    d'absence de `<venv_path>/bin/<cli>` en régime établi.
+  - Migration d'un `venv_path` répertoire réel (premier déploiement
+    atomic_swap sur un hôte) : un seul processus distant
+    `<version>/bin/python -I -c <script constant>` fait les deux
+    `rename(2)`, avec compensation si le second échoue (jamais de
+    `venv_path` absent).
+  - Rétention configurable (`DeployConfig.keep_versions`, défaut 2,
+    active incluse) : `select_versions_to_prune` purge les versions
+    excédentaires en best-effort après bascule réussie, sans jamais
+    toucher à la version active et à la version de repli (précédente),
+    cette dernière protégée à vie quel que soit `keep_versions`
+    (avenant CDC Q-05 — N=1 conserve donc 2 versions en pratique), ni
+    à un id postérieur (déploiement concurrent) ni à un id d'un outil
+    voisin partageant le même parent.
+  - Rollback : `activate()` sert aussi de primitive de rollback
+    (rebascule du lien vers la version de repli, sans copie). Pas de
+    rebascule automatique sur un échec post-bascule (CONFIG/SECRETS/
+    TIMER) — comportement conservé, `DeployReport.rolled_back` reste
+    `False` dans ce cas.
+  - `DeployConfig.recreate_venv` est ignoré (avec message dans le
+    rapport) en mode `atomic_swap` : chaque version est neuve par
+    construction.
+  - `DeployReport.active_version` / `fallback_version` exposent les
+    chemins des versions activée et de repli.
+  - `DeployPhase.ACTIVATE` (entre `VERIFY` et `ROLLBACK`).
+  - CLI `deploy` : `--atomic-swap` et `--keep-versions` (défaut 2).
+  - Sécurité : validation pure des chemins avant toute commande sur
+    l'hôte (absolu, normalisé, parent ≠ `/`), ids de version
+    namespacés par nom d'outil (`re.escape`) et reconstruits en
+    Python (jamais depuis une sortie de commande brute), refus si
+    `venv_path` est un lien non géré ou un fichier, refus si
+    `venvs/` est un lien. `VenvInstaller.backup_venv` refuse désormais
+    un `venv_path` lien (le mode en place le corromprait) — **y compris
+    en mode classique** (sans `atomic_swap`) : c'est un changement de
+    comportement volontaire pour tous les consommateurs, pas seulement
+    ceux activant `atomic_swap=True`.
+
 ## [2.2.2] - 2026-09-19
 
 ### Corrigé

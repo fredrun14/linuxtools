@@ -61,12 +61,18 @@ class TestDeployCommandRegister:
         args = parser.parse_args(
             [
                 "deploy",
-                "--venv", "/opt/app/venv",
-                "--dest", "/opt/app/src",
-                "--import", "mod_a",
-                "--import", "mod_b",
-                "--subcommand", "list",
-                "--subcommand", "status",
+                "--venv",
+                "/opt/app/venv",
+                "--dest",
+                "/opt/app/src",
+                "--import",
+                "mod_a",
+                "--import",
+                "mod_b",
+                "--subcommand",
+                "list",
+                "--subcommand",
+                "status",
                 "--ssh-option=-p",
                 "--ssh-option=2222",
             ]
@@ -81,8 +87,10 @@ class TestDeployCommandRegister:
         args = parser.parse_args(
             [
                 "deploy",
-                "--venv", "/opt/app/venv",
-                "--dest", "/opt/app/src",
+                "--venv",
+                "/opt/app/venv",
+                "--dest",
+                "/opt/app/src",
                 "--dry-run",
             ]
         )
@@ -94,12 +102,41 @@ class TestDeployCommandRegister:
         args = parser.parse_args(
             [
                 "deploy",
-                "--venv", "/opt/app/venv",
-                "--dest", "/opt/app/src",
+                "--venv",
+                "/opt/app/venv",
+                "--dest",
+                "/opt/app/src",
                 "--recreate-venv",
             ]
         )
         assert args.recreate_venv is True
+
+    def test_atomic_swap_defaut_desactive(self) -> None:
+        """--atomic-swap est désactivé par défaut (opt-in, Q-01)."""
+        parser = _make_parser(DeployCommand())
+        args = parser.parse_args(
+            ["deploy", "--venv", "/opt/app/venv", "--dest", "/opt/app/src"]
+        )
+        assert args.atomic_swap is False
+        assert args.keep_versions == 2
+
+    def test_atomic_swap_et_keep_versions_actives(self) -> None:
+        """--atomic-swap et --keep-versions sont pris en compte."""
+        parser = _make_parser(DeployCommand())
+        args = parser.parse_args(
+            [
+                "deploy",
+                "--venv",
+                "/opt/app/venv",
+                "--dest",
+                "/opt/app/src",
+                "--atomic-swap",
+                "--keep-versions",
+                "5",
+            ]
+        )
+        assert args.atomic_swap is True
+        assert args.keep_versions == 5
 
 
 class TestDeployCommandExecute:
@@ -187,7 +224,8 @@ class TestDeployCommandExecute:
         assert config.verification.imports == ("mod_a",)
         assert config.verification.subcommands == ("list",)
         assert config.verification.regression_command == (
-            "mon-cli", "check",
+            "mon-cli",
+            "check",
         )
         assert config.cli_bin == "mon-cli"
 
@@ -205,10 +243,7 @@ class TestDeployCommandExecute:
         with pytest.raises(SystemExit):
             DeployCommand().execute(self._base_args(dry_run=True))
 
-        assert (
-            mock_deployer_cls.for_target.call_args.kwargs["dry_run"]
-            is True
-        )
+        assert mock_deployer_cls.for_target.call_args.kwargs["dry_run"] is True
 
     @patch("linuxtools.deploy.cli.Deployer")
     def test_execute_affiche_le_resume(
@@ -226,6 +261,90 @@ class TestDeployCommandExecute:
 
         out = capsys.readouterr().out
         assert "Succès" in out
+
+    @patch("linuxtools.deploy.cli.Deployer")
+    def test_execute_propage_atomic_swap_et_keep_versions(
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
+        """atomic_swap/keep_versions sont transmis à DeployConfig."""
+        mock_deployer = MagicMock()
+        mock_deployer.deploy.return_value = DeployReport(
+            success=True, phase_reached=DeployPhase.DONE
+        )
+        mock_deployer_cls.for_target.return_value = mock_deployer
+
+        args = self._base_args(atomic_swap=True, keep_versions=5)
+
+        with pytest.raises(SystemExit):
+            DeployCommand().execute(args)
+
+        config = mock_deployer.deploy.call_args.args[0]
+        assert config.atomic_swap is True
+        assert config.keep_versions == 5
+
+    @patch("linuxtools.deploy.cli.Deployer")
+    def test_execute_sans_atomic_swap_conserve_les_defauts(
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
+        """Sans --atomic-swap (Namespace historique sans l'attribut) :
+        DeployConfig garde ses défauts (opt-in, non-régression)."""
+        mock_deployer = MagicMock()
+        mock_deployer.deploy.return_value = DeployReport(
+            success=True, phase_reached=DeployPhase.DONE
+        )
+        mock_deployer_cls.for_target.return_value = mock_deployer
+
+        with pytest.raises(SystemExit):
+            DeployCommand().execute(self._base_args())
+
+        config = mock_deployer.deploy.call_args.args[0]
+        assert config.atomic_swap is False
+        assert config.keep_versions == 2
+
+    @patch("linuxtools.deploy.cli.Deployer")
+    def test_execute_keep_versions_invalide_sort_avec_code_2(
+        self, mock_deployer_cls: MagicMock
+    ) -> None:
+        """keep_versions < 1 : erreur lisible, code 2, pas de
+        Deployer instancié."""
+        args = self._base_args(atomic_swap=True, keep_versions=0)
+
+        with pytest.raises(SystemExit) as exc_info:
+            DeployCommand().execute(args)
+
+        assert exc_info.value.code == 2
+        mock_deployer_cls.for_target.assert_not_called()
+
+    @patch("linuxtools.deploy.cli.Deployer")
+    def test_execute_keep_versions_invalide_via_parser_error_stderr(
+        self, mock_deployer_cls: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """keep_versions < 1, commande enregistrée via register() : le
+        message sort sur stderr via parser.error() (usage inclus),
+        jamais sur stdout (F08)."""
+        command = DeployCommand()
+        parser = _make_parser(command)
+        args = parser.parse_args(
+            [
+                "deploy",
+                "--venv",
+                "/opt/app/venv",
+                "--dest",
+                "/opt/app/src",
+                "--atomic-swap",
+                "--keep-versions",
+                "0",
+            ]
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            command.execute(args)
+
+        assert exc_info.value.code == 2
+        mock_deployer_cls.for_target.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "keep_versions" in captured.err
 
 
 def _make_check_version_parser(
@@ -258,9 +377,7 @@ class TestCheckVersionCommandRegister:
     def test_parse_arguments_minimaux(self) -> None:
         """Parse avec seulement --venv requis."""
         parser = _make_check_version_parser(CheckVersionCommand())
-        args = parser.parse_args(
-            ["check-version", "--venv", "/opt/app/venv"]
-        )
+        args = parser.parse_args(["check-version", "--venv", "/opt/app/venv"])
         assert args.venv == Path("/opt/app/venv")
         assert args.source is None
         assert args.host is None
@@ -273,9 +390,12 @@ class TestCheckVersionCommandRegister:
         args = parser.parse_args(
             [
                 "check-version",
-                "--venv", "/opt/app/venv",
-                "--host", "srv01",
-                "--user", "deploy",
+                "--venv",
+                "/opt/app/venv",
+                "--host",
+                "srv01",
+                "--user",
+                "deploy",
                 "--ssh-option=-p",
                 "--ssh-option=2222",
             ]
@@ -288,7 +408,7 @@ class TestCheckVersionCommandRegister:
 class TestCheckVersionCommandExecute:
     """Tests pour execute() : délégation à check_target_version."""
 
-    def _base_args(self, **overrides: Any) -> argparse.Namespace:
+    def _base_args(self, **overrides: object) -> argparse.Namespace:
         """Construit un Namespace minimal valide, avec overrides."""
         base: dict[str, Any] = {
             "source": Path("/home/user/mon-outil"),
@@ -301,9 +421,7 @@ class TestCheckVersionCommandExecute:
         return argparse.Namespace(**base)
 
     @patch("linuxtools.deploy.cli.check_target_version")
-    def test_execute_exit_0_si_a_jour(
-        self, mock_check: MagicMock
-    ) -> None:
+    def test_execute_exit_0_si_a_jour(self, mock_check: MagicMock) -> None:
         """Cible à jour -> sys.exit(0)."""
         mock_check.return_value = VersionCheckResult(
             package="mon-outil",
@@ -343,9 +461,7 @@ class TestCheckVersionCommandExecute:
         mock_find_source.return_value = None
 
         with pytest.raises(SystemExit) as exc_info:
-            CheckVersionCommand().execute(
-                self._base_args(source=None)
-            )
+            CheckVersionCommand().execute(self._base_args(source=None))
 
         assert exc_info.value.code == 2
 
