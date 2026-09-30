@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.models import VerificationSpec
-from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.deploy.verifier import (
+    InstallVerifier,
+    _rebase,
+    rebase_verification,
+)
 from linuxtools.logging.base import Logger
 
 
@@ -75,7 +79,9 @@ class TestInstallVerifierImports:
 
         command = executor.run.call_args.args[0]
         assert command == [
-            "/opt/app/venv/bin/python", "-c", "import os",
+            "/opt/app/venv/bin/python",
+            "-c",
+            "import os",
         ]
 
     def test_plusieurs_imports_produisent_plusieurs_checks(self) -> None:
@@ -144,7 +150,9 @@ class TestInstallVerifierSubcommands:
         assert results[0].ok is True
         command = executor.run.call_args.args[0]
         assert command == [
-            "/opt/app/venv/bin/borg-manager", "list", "--help",
+            "/opt/app/venv/bin/borg-manager",
+            "list",
+            "--help",
         ]
 
     def test_subcommand_inconnue_echoue(self) -> None:
@@ -172,9 +180,7 @@ class TestInstallVerifierRegression:
         executor = _make_executor()
         verifier = InstallVerifier(executor)
 
-        results = verifier.verify(
-            Path("/opt/app/venv"), VerificationSpec()
-        )
+        results = verifier.verify(Path("/opt/app/venv"), VerificationSpec())
 
         assert results == []
 
@@ -186,9 +192,7 @@ class TestInstallVerifierRegression:
 
         results = verifier.verify(
             Path("/opt/app/venv"),
-            VerificationSpec(
-                regression_command=("borg-manager", "check")
-            ),
+            VerificationSpec(regression_command=("borg-manager", "check")),
         )
 
         assert len(results) == 1
@@ -254,3 +258,127 @@ class TestInstallVerifierCombine:
 
         assert logger.log_info.call_count == 1
         assert logger.log_error.call_count == 1
+
+
+class TestRebaseVerification:
+    """Tests pour rebase_verification (mode atomic_swap, T4)."""
+
+    def test_cli_bin_egal_au_venv_path_est_reecrit(self) -> None:
+        """cli_bin == str(venv_path) est réécrit vers version_path."""
+        spec = VerificationSpec(imports=("app",))
+        new_spec, new_cli_bin = rebase_verification(
+            spec,
+            cli_bin="/opt/app/venv",
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-20260929-000000-000000"),
+        )
+        assert new_cli_bin == "/opt/app/venvs/venv-20260929-000000-000000"
+        assert new_spec == spec
+
+    def test_cli_bin_relatif_inchange(self) -> None:
+        """cli_bin relatif (nom simple) n'est pas réécrit."""
+        spec = VerificationSpec()
+        _new_spec, new_cli_bin = rebase_verification(
+            spec,
+            cli_bin="mon-outil",
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-1"),
+        )
+        assert new_cli_bin == "mon-outil"
+
+    def test_cli_bin_none_reste_none(self) -> None:
+        """cli_bin=None reste None après réécriture."""
+        spec = VerificationSpec()
+        _new_spec, new_cli_bin = rebase_verification(
+            spec,
+            cli_bin=None,
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-1"),
+        )
+        assert new_cli_bin is None
+
+    def test_regression_command_reecrit_le_prefixe_venv_path(self) -> None:
+        """Chaque élément de regression_command préfixé par venv_path
+        est réécrit, les autres inchangés."""
+        spec = VerificationSpec(
+            regression_command=(
+                "/opt/app/venv/bin/mon-outil",
+                "check",
+                "--verbose",
+            )
+        )
+        new_spec, _new_cli_bin = rebase_verification(
+            spec,
+            cli_bin=None,
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-1"),
+        )
+        assert new_spec.regression_command == (
+            "/opt/app/venvs/venv-1/bin/mon-outil",
+            "check",
+            "--verbose",
+        )
+
+    def test_chemin_hors_venv_path_jamais_reecrit(self) -> None:
+        """Un chemin `/opt/x/venv2/...` proche mais distinct n'est
+        pas réécrit (pas de préfixe partiel foireux)."""
+        spec = VerificationSpec(
+            regression_command=("/opt/x/venv2/bin/autre-outil",)
+        )
+        new_spec, _new_cli_bin = rebase_verification(
+            spec,
+            cli_bin=None,
+            venv_path=Path("/opt/x/venv"),
+            version_path=Path("/opt/x/venvs/venv-1"),
+        )
+        assert new_spec.regression_command == ("/opt/x/venv2/bin/autre-outil",)
+
+    def test_rebase_fragment_option_egal_chemin_venv_path_reecrit(
+        self,
+    ) -> None:
+        """`--option=<venv_path>/...` : le fragment après `=` est
+        réécrit vers version_path (F03)."""
+        result = _rebase(
+            "--config=/opt/app/venv/etc/c.toml",
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-20260929-000000-000000"),
+        )
+        assert result == (
+            "--config=/opt/app/venvs/venv-20260929-000000-000000/etc/c.toml"
+        )
+
+    def test_rebase_fragment_option_sans_rapport_avec_venv_path_inchange(
+        self,
+    ) -> None:
+        """`--option=<chemin sans rapport>` n'est pas réécrit (pas de
+        faux positif sur un `=` quelconque, F03)."""
+        result = _rebase(
+            "--config=/autre/chemin",
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-20260929-000000-000000"),
+        )
+        assert result == "--config=/autre/chemin"
+
+    def test_imports_et_subcommands_inchanges(self) -> None:
+        """imports/subcommands ne sont jamais réécrits par
+        rebase_verification (déjà relatifs via InstallVerifier)."""
+        spec = VerificationSpec(imports=("app",), subcommands=("list",))
+        new_spec, _new_cli_bin = rebase_verification(
+            spec,
+            cli_bin=None,
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-1"),
+        )
+        assert new_spec.imports == ("app",)
+        assert new_spec.subcommands == ("list",)
+
+    def test_regression_command_none_reste_none(self) -> None:
+        """regression_command=None reste None après réécriture."""
+        spec = VerificationSpec()
+        new_spec, _new_cli_bin = rebase_verification(
+            spec,
+            cli_bin=None,
+            venv_path=Path("/opt/app/venv"),
+            version_path=Path("/opt/app/venvs/venv-1"),
+        )
+        assert new_spec.regression_command is None

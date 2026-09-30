@@ -132,6 +132,7 @@ from linuxtools.deploy.usb_export import (
     UsbExportReport,
 )
 from linuxtools.deploy.venv_installer import VenvInstaller
+from linuxtools.deploy.venv_release import VenvReleaser
 from linuxtools.deploy.verifier import InstallVerifier
 from linuxtools.deploy.version_checker import (
     VersionChecker,
@@ -164,6 +165,7 @@ __all__ = [
     "UsbExportReport",
     "UsbExporter",
     "VenvInstaller",
+    "VenvReleaser",
     "VerificationSpec",
     "VersionChecker",
     "VersionCheckResult",

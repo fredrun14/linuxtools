@@ -1,5 +1,6 @@
 """Tests pour le module deploy.ssh_executor."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.models import DeployTarget
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
+from linuxtools.deploy.venv_release import VenvReleaser
 
 
 def _make_local_mock(
@@ -242,3 +244,63 @@ class TestSshCommandExecutorRunStreaming:
         called_cmd = local.run_streaming.call_args.args[0]
         assert called_cmd[0] == "ssh"
         assert called_cmd[-1] == "tail -f /var/log/app.log"
+
+
+class TestSshCommandExecutorVenvReleaseParity:
+    """Parité SSH pour VenvReleaser (T10, F-09) : les commandes
+    argv-only de VenvReleaser survivent au quoting shlex.join sans
+    exécution shell involontaire, même avec des chemins piégés."""
+
+    def test_activate_lien_argv_intact_apres_quoting_ssh(self) -> None:
+        """ln/mv d'activate() restent argv-only : un nom de version
+        contenant un point-virgule/$() n'est jamais interprété par le
+        shell distant, il reste un unique argument shell-quoté."""
+        local = _make_local_mock()
+        executor = SshCommandExecutor(
+            DeployTarget(host="srv01"), local_executor=local
+        )
+        releaser = VenvReleaser(executor, installer=MagicMock())
+        venv_path = Path("/opt/app;rm -rf $(x)")
+        version_id = "app;rm -rf $(x)-20260929-000000-000000"
+        version_path = venv_path.parent / "venvs" / version_id
+        local.run.side_effect = [
+            CommandResult(
+                (), 0, "", "", True, 0.01
+            ),  # test -d version_path réussit (F18)
+            CommandResult((), 1, "", "", False, 0.01),  # readlink
+            CommandResult((), 1, "", "", False, 0.01),  # test -d
+            CommandResult((), 1, "", "", False, 0.01),  # test -e -> absent
+            CommandResult((), 0, "", "", True, 0.01),  # ln
+            CommandResult((), 0, "", "", True, 0.01),  # mv
+        ]
+
+        releaser.activate(venv_path, version_path)
+
+        ln_call = local.run.call_args_list[4].args[0][-1]
+        assert f"'{version_path}'" in ln_call
+
+    def test_migration_script_survit_au_quoting_ssh(self) -> None:
+        """Le script -c (contient guillemets/retours-ligne) reste un
+        argument unique après shlex.join, jamais exécuté par bash -c."""
+        local = _make_local_mock()
+        executor = SshCommandExecutor(
+            DeployTarget(host="srv01"), local_executor=local
+        )
+        releaser = VenvReleaser(executor, installer=MagicMock())
+        venv_path = Path("/opt/app/venv")
+        version_path = Path("/opt/app/venvs/venv-20260929-000000-000000")
+        local.run.side_effect = [
+            CommandResult(
+                (), 0, "", "", True, 0.01
+            ),  # test -d version_path réussit (F18)
+            CommandResult((), 1, "", "", False, 0.01),  # readlink
+            CommandResult((), 0, "", "", True, 0.01),  # test -d -> dir
+            CommandResult((), 0, "", "", True, 0.01),  # ln
+            CommandResult((), 0, "", "", True, 0.01),  # migration
+        ]
+
+        releaser.activate(venv_path, version_path)
+
+        migrate_remote_command = local.run.call_args_list[4].args[0][-1]
+        assert "import os, sys" in migrate_remote_command
+        assert "os.rename(venv, legacy)" in migrate_remote_command

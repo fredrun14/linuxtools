@@ -66,9 +66,19 @@ class VenvInstaller:
             pas encore (rien à sauver — première installation).
 
         Raises:
-            DeployError: Si le venv existe mais que la copie de
-                sauvegarde échoue. On n'installe jamais sans filet.
+            DeployError: Si venv_path est un lien symbolique (mode
+                atomic_swap) — la copie en place le corromprait ; ou
+                si le venv existe mais que la copie de sauvegarde
+                échoue. On n'installe jamais sans filet.
         """
+        is_link = self._executor.run(["test", "-L", str(venv_path)])
+        if is_link.success:
+            raise DeployError(
+                f"venv_path est un lien (mode atomic_swap) : {venv_path} "
+                "— le mode en place le corromprait ; utiliser "
+                "atomic_swap=True."
+            )
+
         exists = self._executor.run(["test", "-d", str(venv_path)])
         if not exists.success:
             self._log(

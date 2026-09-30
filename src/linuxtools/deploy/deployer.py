@@ -28,7 +28,8 @@ from linuxtools.deploy.ssh_executor import SshCommandExecutor
 from linuxtools.deploy.timer_deployer import TimerDeployer
 from linuxtools.deploy.transport import RsyncTransport, Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
-from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.deploy.venv_release import VenvReleaser
+from linuxtools.deploy.verifier import InstallVerifier, rebase_verification
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -68,6 +69,7 @@ class Deployer:
         secrets_provisioner: SecretsProvisioner | None = None,
         timer_deployer: TimerDeployer | None = None,
         target_executor: CommandExecutor | None = None,
+        releaser: VenvReleaser | None = None,
     ) -> None:
         """Initialise l'orchestrateur avec ses collaborateurs.
 
@@ -92,6 +94,11 @@ class Deployer:
                 celui injecté dans `installer`/`verifier`). Si None
                 et qu'une de ces phases est configurée, elle échoue
                 proprement plutôt que de lever une AttributeError.
+            releaser: VenvReleaser optionnel, requis pour
+                `config.atomic_swap=True`. Si None et que le mode est
+                demandé, le déploiement échoue proprement (message
+                dans le rapport) plutôt que de lever une
+                AttributeError.
         """
         self._transport = transport
         self._installer = installer
@@ -102,6 +109,7 @@ class Deployer:
         self._secrets_provisioner = secrets_provisioner
         self._timer_deployer = timer_deployer
         self._target_executor = target_executor
+        self._releaser = releaser
 
     def _log(self, message: str) -> None:
         """Envoie un message d'information au logger si disponible."""
@@ -178,18 +186,26 @@ class Deployer:
         ctx.would_run_command(
             f"rsync {source_dir}/ -> {self._destination_label(config)}"
         )
-        ctx.would_run_command(f"backup du venv {config.venv_path}")
-        if config.recreate_venv:
-            ctx.would_run_command(f"rm -rf {config.venv_path}")
-            ctx.would_run_command(f"python3 -m venv {config.venv_path}")
-        ctx.would_run_command(
-            f"{config.venv_path}/bin/pip install --force-reinstall "
-            f"{config.remote_source_dir}"
-        )
-        ctx.would_run_command(
-            "vérifications post-install (imports, sous-commandes, "
-            "non-régression)"
-        )
+        if config.atomic_swap:
+            for step in VenvReleaser.planned_steps(
+                config.venv_path,
+                config.remote_source_dir,
+                config.keep_versions,
+            ):
+                ctx.would_run_command(step)
+        else:
+            ctx.would_run_command(f"backup du venv {config.venv_path}")
+            if config.recreate_venv:
+                ctx.would_run_command(f"rm -rf {config.venv_path}")
+                ctx.would_run_command(f"python3 -m venv {config.venv_path}")
+            ctx.would_run_command(
+                f"{config.venv_path}/bin/pip install --force-reinstall "
+                f"{config.remote_source_dir}"
+            )
+            ctx.would_run_command(
+                "vérifications post-install (imports, sous-commandes, "
+                "non-régression)"
+            )
         if config.config_deploy is not None:
             ctx.would_run_command(
                 f"dépôt config -> {config.config_deploy.dest_path}"
@@ -408,6 +424,121 @@ class Deployer:
             )
         return None
 
+    def _run_post_install_phases(
+        self,
+        config: DeployConfig,
+        checks: tuple[CheckResult, ...],
+        messages: tuple[str, ...],
+    ) -> DeployReport | tuple[str, ...]:
+        """Exécute les phases CONFIG/SECRETS/TIMER si configurées.
+
+        Partagée entre le mode classique et le mode atomic_swap pour
+        éviter la duplication : les deux enchaînent ces 3 phases à
+        l'identique une fois le venv installé/vérifié/basculé.
+
+        Args:
+            config: Configuration du déploiement.
+            checks: Résultats de vérification déjà accumulés.
+            messages: Messages déjà accumulés.
+
+        Returns:
+            Le tuple de messages enrichi si les 3 phases (celles
+            configurées) ont réussi, sinon un DeployReport d'échec
+            prêt à renvoyer tel quel.
+        """
+        if config.config_deploy is not None:
+            report = self._run_config_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Config déployée.",)
+
+        if config.secrets is not None:
+            report = self._run_secrets_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Secrets provisionnés.",)
+
+        if config.timer_deploy is not None:
+            report = self._run_timer_phase(config, checks, messages)
+            if report is not None:
+                return report
+            messages = messages + ("Service+timer installés.",)
+
+        return messages
+
+    def _deploy_atomic(
+        self, config: DeployConfig, messages: tuple[str, ...]
+    ) -> DeployReport:
+        """Déploie en mode atomic_swap : délègue à VenvReleaser.
+
+        Args:
+            config: Configuration du déploiement (atomic_swap=True).
+            messages: Messages déjà accumulés (transport compris).
+
+        Returns:
+            Compte rendu complet. Le venv actif n'est jamais
+            retouché a posteriori si une phase post-install échoue
+            (pas de rebascule automatique — comportement conservé).
+        """
+        if self._releaser is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.INSTALL,
+                messages=messages + ("VenvReleaser requis pour atomic_swap.",),
+            )
+        if config.recreate_venv:
+            messages = messages + (
+                "recreate_venv ignoré en mode atomic_swap "
+                "(chaque version est neuve par construction).",
+            )
+
+        def verify(version_path: Path) -> tuple[CheckResult, ...]:
+            """Vérifie la version en redirigeant les chemins absolus."""
+            spec, cli_bin = rebase_verification(
+                config.verification,
+                config.cli_bin,
+                config.venv_path,
+                version_path,
+            )
+            return tuple(self._verifier.verify(version_path, spec, cli_bin))
+
+        outcome = self._releaser.release(
+            config.venv_path,
+            config.remote_source_dir,
+            verify,
+            config.keep_versions,
+        )
+        if not outcome.success:
+            return DeployReport(
+                success=False,
+                phase_reached=outcome.phase_reached,
+                checks=outcome.checks,
+                messages=messages + outcome.messages,
+            )
+
+        result = self._run_post_install_phases(
+            config, outcome.checks, messages
+        )
+        if isinstance(result, DeployReport):
+            return DeployReport(
+                success=result.success,
+                phase_reached=result.phase_reached,
+                checks=result.checks,
+                messages=result.messages,
+                active_version=outcome.active_version,
+                fallback_version=outcome.fallback_version,
+            )
+        messages = result
+
+        return DeployReport(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            checks=outcome.checks,
+            active_version=outcome.active_version,
+            fallback_version=outcome.fallback_version,
+            messages=messages,
+        )
+
     def deploy(self, config: DeployConfig) -> DeployReport:
         """Exécute le déploiement complet selon config.
 
@@ -441,6 +572,9 @@ class Deployer:
                 messages=messages
                 + (f"Transport échoué : {transport_result.stderr}",),
             )
+
+        if config.atomic_swap:
+            return self._deploy_atomic(config, messages)
 
         try:
             backup_path = self._installer.backup_venv(config.venv_path)
@@ -490,23 +624,10 @@ class Deployer:
                 + self._rollback_failure_messages(backup_path, rolled_back),
             )
 
-        if config.config_deploy is not None:
-            report = self._run_config_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Config déployée.",)
-
-        if config.secrets is not None:
-            report = self._run_secrets_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Secrets provisionnés.",)
-
-        if config.timer_deploy is not None:
-            report = self._run_timer_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Service+timer installés.",)
+        result = self._run_post_install_phases(config, checks, messages)
+        if isinstance(result, DeployReport):
+            return result
+        messages = result
 
         if backup_path is not None:
             self._installer.prune_backup(backup_path)
@@ -533,10 +654,11 @@ class Deployer:
         Construit les collaborateurs standards : LinuxCommandExecutor
         local, SshCommandExecutor si la cible est distante,
         RsyncTransport (toujours local), VenvInstaller et
-        InstallVerifier ciblant l'hôte, ainsi que ConfigDeployer et
-        TimerDeployer (toujours construits) et SecretsProvisioner
-        (uniquement si `credential_manager_factory` est fourni, pour
-        ne pas forcer la dépendance optionnelle `credentials`).
+        InstallVerifier ciblant l'hôte, ainsi que ConfigDeployer,
+        TimerDeployer et VenvReleaser (toujours construits) et
+        SecretsProvisioner (uniquement si
+        `credential_manager_factory` est fourni, pour ne pas forcer
+        la dépendance optionnelle `credentials`).
 
         Args:
             target: Description de l'hôte cible (local ou distant).
@@ -562,6 +684,7 @@ class Deployer:
         verifier = InstallVerifier(target_exec, logger)
         config_deployer = ConfigDeployer(logger)
         timer_deployer = TimerDeployer(logger)
+        releaser = VenvReleaser(target_exec, installer, logger)
         secrets_provisioner = (
             SecretsProvisioner(credential_manager_factory, logger)
             if credential_manager_factory is not None
@@ -577,4 +700,5 @@ class Deployer:
             secrets_provisioner,
             timer_deployer,
             target_exec,
+            releaser,
         )

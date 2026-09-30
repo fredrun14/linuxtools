@@ -21,7 +21,8 @@ Modules disponibles:
 - identity: Gestion idempotente des groupes et utilisateurs Unix
 - deploy: Déployeur/updateur d'outil Python sur hôte, local ou
   distant via SSH (Deployer, DeployConfig, DeployCommand,
-  check_target_version)
+  check_target_version). Bascule atomique du venv déployé, opt-in
+  (VenvReleaser, DeployConfig.atomic_swap)
 - distro: Helpers spécifiques à une distribution (fedora_version) —
   seul module lié à une distribution, isolé volontairement
 - updates: Vérification de mise à jour disponible via les releases
@@ -93,6 +94,7 @@ from linuxtools.deploy import (
     SshCommandExecutor,
     Transport,
     VenvInstaller,
+    VenvReleaser,
     VerificationSpec,
     VersionChecker,
     VersionCheckResult,
@@ -491,6 +493,7 @@ __all__ = [
     "RsyncTransport",
     # Deploy - Installation et vérification
     "VenvInstaller",
+    "VenvReleaser",
     "InstallVerifier",
     # Deploy - Vérification de version
     "VersionChecker",
