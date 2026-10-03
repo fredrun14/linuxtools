@@ -12,6 +12,7 @@ from __future__ import annotations
 
 # stdlib
 import os
+import pwd
 import re
 import shutil
 import tempfile
@@ -163,6 +164,8 @@ class UsbExporter:
         self._executor = executor
         self._logger = logger
         self._file_backup = LinuxFileBackup(logger)
+        # Candidats uv refusés par le dernier _find_uv (chemin : raison)
+        self._uv_rejections: list[str] = []
 
     def export(self, config: UsbExportConfig) -> UsbExportReport:
         """Prépare la clé USB selon `config.mode`.
@@ -181,8 +184,8 @@ class UsbExporter:
                 mode "sources".
             FileNotFoundError: project_src introuvable (ni fourni,
                 ni auto-détecté).
-            InstallationError: Échec de construction du venv (mode
-                "venv" uniquement).
+            InstallationError: Échec de construction du venv, ou
+                `uv` introuvable (mode "venv" uniquement).
         """
         if config.mode not in _MODES:
             raise ValidationError(
@@ -212,16 +215,25 @@ class UsbExporter:
             )
 
         if config.dry_run:
-            lines = self._dry_run_report(config, proj, lpu)
+            # Une seule recherche de uv, partagée avec le rapport
+            uv_bin = self._find_uv()
+            if config.mode == "venv" and uv_bin is None:
+                warnings.append(
+                    "uv introuvable — l'export réel (mode venv) échouera."
+                    + self._format_uv_rejections()
+                )
+            lines = self._dry_run_report(config, proj, lpu, uv_bin)
             return UsbExportReport(
                 created_paths=tuple(lines),
                 warnings=tuple(warnings),
             )
 
-        config.target_dir.mkdir(parents=True, exist_ok=True)
         copied: list[str] = []
 
-        if config.mode == "sources":
+        # entry_point n'est renseigné qu'en mode venv (validé plus haut) :
+        # il discrimine les deux modes sans variable uv partagée.
+        if entry_point is None:
+            config.target_dir.mkdir(parents=True, exist_ok=True)
             uv_missing_warning = self._copy_sources(
                 config.target_dir, proj, lpu, copied
             )
@@ -232,8 +244,14 @@ class UsbExporter:
                     config.target_dir, proj.name, lpu is not None
                 )
             )
-        elif entry_point is not None:
-            copied.append(str(self._build_venv(config.target_dir, proj, lpu)))
+        else:
+            # Résoudre uv avant d'écrire quoi que ce soit sur la clé
+            # (échec rapide, pas de répertoire cible vide laissé).
+            venv_uv = self._require_uv()
+            config.target_dir.mkdir(parents=True, exist_ok=True)
+            copied.append(
+                str(self._build_venv(config.target_dir, proj, lpu, venv_uv))
+            )
             copied.append(
                 self._write_run_script(config.target_dir, entry_point)
             )
@@ -246,6 +264,142 @@ class UsbExporter:
             created_paths=tuple(copied),
             warnings=tuple(warnings),
         )
+
+    def _find_uv(self) -> str | None:
+        """Localise l'exécutable uv, y compris sous sudo.
+
+        Ordre : PATH courant, puis ~/.local/bin/uv et ~/.cargo/bin/uv
+        du home de $SUDO_USER (le PATH de root n'inclut pas le
+        ~/.local/bin de l'utilisateur qui a installé uv).
+
+        Un candidat chez $SUDO_USER sera exécuté en root. Ses liens
+        symboliques sont donc résolus d'abord, puis la cible réelle
+        est contrôlée : ni elle ni son répertoire parent ne doivent
+        être modifiables par le groupe ou les autres, et elle doit
+        appartenir à root ou à $SUDO_USER. C'est le chemin résolu
+        (celui qui a été contrôlé) qui est retourné.
+
+        Chaque candidat refusé est mémorisé avec sa raison dans
+        `self._uv_rejections` (remis à zéro à chaque appel), que
+        l'exportateur ait un logger ou non.
+
+        Limites : le propriétaire du candidat peut toujours le
+        remplacer, donc ce contrôle ne protège pas d'un sudoers
+        restreint à une seule commande ; les répertoires ancêtres
+        (~/.local, home) ne sont pas contrôlés.
+
+        Returns:
+            Chemin absolu (résolu) de uv, ou None si introuvable.
+        """
+        self._uv_rejections = []
+        found = shutil.which("uv")
+        if found:
+            return found
+
+        sudo_user = os.environ.get("SUDO_USER", "")
+        if not sudo_user or sudo_user == "root":
+            return None
+        try:
+            # getpwnam et non expanduser : ce dernier lirait le $HOME
+            # de root, pas celui de l'utilisateur appelant.
+            pw = pwd.getpwnam(sudo_user)
+        except KeyError:
+            return None
+        home = Path(pw.pw_dir)
+
+        for sub in (".local/bin/uv", ".cargo/bin/uv"):
+            candidate = home / sub
+            real, reason = self._check_uv_candidate(candidate, pw.pw_uid)
+            if reason:
+                self._uv_rejections.append(f"{candidate} : {reason}")
+                if self._logger:
+                    self._logger.log_warning(
+                        f"{candidate} ignoré : {reason} (exécuté en root)."
+                    )
+                continue
+            if real is not None:
+                return str(real)
+        return None
+
+    @staticmethod
+    def _check_uv_candidate(
+        candidate: Path, owner_uid: int
+    ) -> tuple[Path | None, str | None]:
+        """Contrôle un candidat uv avant de l'exécuter en root.
+
+        Args:
+            candidate: Chemin du candidat (peut être un lien symbolique).
+            owner_uid: UID de $SUDO_USER (propriétaire toléré avec root).
+
+        Returns:
+            (chemin_résolu, None) si le candidat est sûr ;
+            (None, raison) s'il est refusé ; (None, None) s'il n'existe
+            pas ou n'est pas un fichier exécutable (non signalé).
+        """
+        try:
+            # Tous les contrôles portent sur la cible réelle, pas sur
+            # le lien : sinon `binary.parent` serait celui du lien.
+            real = candidate.resolve(strict=True)
+        except FileNotFoundError:
+            # resolve(strict=True) lève aussi pour un lien cassé :
+            # on le distingue d'un candidat simplement absent.
+            if candidate.is_symlink():
+                return None, "lien symbolique cassé"
+            return None, None
+        except (OSError, RuntimeError):
+            return None, "illisible (boucle de liens ou erreur d'accès)"
+
+        if not (real.is_file() and os.access(real, os.X_OK)):
+            return None, None
+
+        try:
+            st = real.stat()
+            parent_st = real.parent.stat()
+        except OSError:
+            # Course possible : rejet par prudence
+            return None, "illisible"
+
+        if (st.st_mode | parent_st.st_mode) & 0o022:
+            return None, "modifiable par le groupe ou les autres"
+        if st.st_uid not in (0, owner_uid):
+            return None, f"propriétaire inattendu (uid {st.st_uid})"
+        return real, None
+
+    def _require_uv(self) -> str:
+        """Retourne le chemin de uv ou lève une erreur explicite.
+
+        Returns:
+            Chemin absolu de uv.
+
+        Raises:
+            InstallationError: uv introuvable (PATH et home de
+                SUDO_USER) ; le message liste les candidats refusés
+                et leur raison le cas échéant.
+        """
+        uv_bin = self._find_uv()
+        if uv_bin is None:
+            conseil = (
+                "Corrigez les permissions ci-dessus, ou lancez la "
+                "commande sans sudo."
+                if self._uv_rejections
+                else "Installez uv, ou lancez la commande sans sudo."
+            )
+            raise InstallationError(
+                "uv introuvable (PATH, et ~/.local/bin ou ~/.cargo/bin "
+                f"de $SUDO_USER).{self._format_uv_rejections()} {conseil}"
+            )
+        return uv_bin
+
+    def _format_uv_rejections(self) -> str:
+        """Formate les candidats uv refusés pour un message utilisateur.
+
+        Returns:
+            Chaîne vide s'il n'y a aucun refus, sinon
+            " Candidats refusés : <chemin : raison>; ...".
+        """
+        if not self._uv_rejections:
+            return ""
+        return " Candidats refusés : " + "; ".join(self._uv_rejections) + "."
 
     @staticmethod
     def _validate_cli_entry_point(
@@ -303,10 +457,11 @@ class UsbExporter:
             copied: Liste des chemins créés, mise à jour en place.
 
         Returns:
-            Avertissement si `uv` est absent du PATH, sinon None.
+            Avertissement si `uv` est introuvable (PATH et home de
+            $SUDO_USER), sinon None.
         """
         warning: str | None = None
-        uv_bin = shutil.which("uv")
+        uv_bin = self._find_uv()
         if uv_bin:
             dst = target_dir / "uv"
             self._file_backup.backup(uv_bin, dst)
@@ -325,7 +480,7 @@ class UsbExporter:
             if self._logger:
                 self._logger.log_info(f"uv → {dst}")
         else:
-            warning = "uv absent du PATH — à copier manuellement sur la cible."
+            warning = "uv introuvable — à copier manuellement sur la cible."
 
         proj_dst = target_dir / proj.name
         self._copy_dir(proj, proj_dst)
@@ -393,7 +548,7 @@ fi
         return str(dest_path)
 
     def _build_venv(
-        self, target_dir: Path, proj: Path, lpu: Path | None
+        self, target_dir: Path, proj: Path, lpu: Path | None, uv_bin: str
     ) -> Path:
         """Construit un venv Python autonome sur la clé USB.
 
@@ -406,6 +561,8 @@ fi
             target_dir: Répertoire cible.
             proj: Racine du projet consommateur.
             lpu: Racine de linuxtools (ou None).
+            uv_bin: Chemin absolu de l'exécutable uv (résolu par
+                `_require_uv`, indispensable sous sudo).
 
         Returns:
             Chemin du venv créé sur la clé.
@@ -421,7 +578,7 @@ fi
             if self._logger:
                 self._logger.log_info(f"Création du venv → {venv_dir}")
             result = self._executor.run(
-                CommandBuilder("uv")
+                CommandBuilder(uv_bin)
                 .with_args(["venv", "--python", "python3", str(tmp_venv)])
                 .build()
             )
@@ -439,7 +596,7 @@ fi
             if self._logger:
                 self._logger.log_info("Installation des paquets dans le venv…")
             result = self._executor.run(
-                CommandBuilder("uv")
+                CommandBuilder(uv_bin)
                 .with_args(
                     [
                         "pip",
@@ -597,6 +754,7 @@ exec "$USB/venv/bin/python3" \\
         config: UsbExportConfig,
         proj: Path,
         lpu: Path | None,
+        uv_bin: str | None,
     ) -> list[str]:
         """Logue et retourne la liste des opérations prévues.
 
@@ -604,11 +762,11 @@ exec "$USB/venv/bin/python3" \\
             config: Configuration de l'export.
             proj: Racine du projet consommateur.
             lpu: Racine de linuxtools (ou None).
+            uv_bin: Chemin de uv déjà résolu (ou None si introuvable).
 
         Returns:
             Liste des lignes de rapport.
         """
-        uv_bin = shutil.which("uv")
         configs_src = (
             str(config.user_config_dir)
             if config.user_config_dir
@@ -621,11 +779,9 @@ exec "$USB/venv/bin/python3" \\
             f"[dry-run] LPU     : {lpu or '(non détecté)'}",
             f"[dry-run] Configs : {configs_src}",
         ]
+        # uv concerne les deux modes (copié en sources, utilisé en venv)
+        lines.append(f"[dry-run] uv      : {uv_bin or '(introuvable)'}")
         if config.mode == "sources":
-            if uv_bin:
-                lines.append(f"[dry-run] uv      : {uv_bin}")
-            else:
-                lines.append("[dry-run] uv      : (absent du PATH)")
             lines.append(f"[dry-run] Crée  : {config.target_dir}/{proj.name}/")
             lines.append(
                 f"[dry-run] Crée  : {config.target_dir}/linuxtools/"
