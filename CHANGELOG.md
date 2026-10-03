@@ -2,14 +2,38 @@
 
 ## [Non publié]
 
+## [2.3.1] - 2026-10-03
+
+### Corrigé
+
+- fix(deploy): `UsbExporter` retrouve `uv` sous `sudo`. Le `PATH` de root
+  n'inclut pas `~/.local/bin` ; la résolution tombe désormais sur
+  `~/.local/bin/uv` puis `~/.cargo/bin/uv` du home de `$SUDO_USER`
+  (via `pwd.getpwnam`). En mode `venv`, un `uv` introuvable lève une
+  `InstallationError` explicite, avant toute écriture sur la cible, au
+  lieu de `[Errno 2] No such file or directory: 'uv'`.
+- Le rapport dry-run affiche aussi la ligne `uv` en mode `venv`, avec un
+  avertissement si `uv` est introuvable (l'export réel échouera).
+- Sécurité : un `uv` trouvé chez `$SUDO_USER` (exécuté en root) est refusé
+  si lui ou son répertoire parent est modifiable par le groupe ou les
+  autres ; un avertissement est logué et le candidat suivant est tenté.
+  Les liens symboliques sont résolus et contrôlés sur leur cible réelle
+  (le chemin résolu est celui exécuté), et le propriétaire doit être
+  root ou `$SUDO_USER`. Les raisons du refus sont reprises dans
+  l'`InstallationError` et dans l'avertissement dry-run, même sans
+  logger. Limites : le propriétaire peut toujours remplacer son `uv` ;
+  les répertoires ancêtres (`~/.local`, home) ne sont pas contrôlés.
+- Mode `sources` : l'avertissement `uv introuvable` (export réel et
+  dry-run) reprend les candidats refusés et leur raison ; quand le
+  candidat est un lien, la raison nomme la cible résolue fautive
+  (`(cible : …)`).
+
 ### Modifié
 
-- Les 6 noms du routeur (`AsusRouterClient`, `AsusRouterDhcpManager`,
-  `AsusRouterMacFilterManager`, `AsusRouterScanner`, `RouterAuthError`,
-  `RouterConfig`) sont désormais déclarés dans `linuxtools.__all__`, comme
-  ceux de `updates`. Aucun changement de comportement à l'import :
-  `from linuxtools import *` sans l'extra `network` échoue déjà (`ImportError`
-  via les noms de `updates`). Complète l'entrée `2.2.2`.
+- Chaînes observables : l'avertissement du mode `sources` devient
+  `uv introuvable — à copier manuellement sur la cible.` et le libellé
+  dry-run `(absent du PATH)` devient `(introuvable)`. Le dry-run du mode
+  `sources` émet désormais cet avertissement quand `uv` est introuvable.
 
 ## [2.3.0] - 2026-09-29
 
@@ -64,6 +88,15 @@
     en mode classique** (sans `atomic_swap`) : c'est un changement de
     comportement volontaire pour tous les consommateurs, pas seulement
     ceux activant `atomic_swap=True`.
+
+### Modifié
+
+- Les 6 noms du routeur (`AsusRouterClient`, `AsusRouterDhcpManager`,
+  `AsusRouterMacFilterManager`, `AsusRouterScanner`, `RouterAuthError`,
+  `RouterConfig`) sont désormais déclarés dans `linuxtools.__all__`, comme
+  ceux de `updates`. Aucun changement de comportement à l'import :
+  `from linuxtools import *` sans l'extra `network` échoue déjà (`ImportError`
+  via les noms de `updates`). Complète l'entrée `2.2.2`.
 
 ## [2.2.2] - 2026-09-19
 
