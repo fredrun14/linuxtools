@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +16,9 @@ from linuxtools.deploy.usb_export import (
     UsbExportReport,
 )
 from linuxtools.errors.exceptions import InstallationError, ValidationError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 _MODULE = "linuxtools.deploy.usb_export"
 # Vraie méthode, capturée avant que la fixture autouse ne la remplace
@@ -263,6 +266,19 @@ class TestFindUv:
         res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice")
         assert res is None
 
+    def test_find_uv_parent_modifiable_par_groupe_est_ignore(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """[SEC] Binaire sain, parent en 0o775 (écriture groupe) -> refusé."""
+        _faux_uv(tmp_path, ".local/bin/uv", parent_mode=0o775)
+        exporter = UsbExporter(executor)
+        res, _ = _find_uv_reel(
+            executor, tmp_path, sudo_user="alice", exporter=exporter
+        )
+        assert res is None
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert "modifiable par le groupe ou les autres" in rejet
+
     def test_find_uv_binaire_modifiable_par_les_autres_est_ignore(
         self, tmp_path: Path, executor: MagicMock
     ) -> None:
@@ -301,9 +317,14 @@ class TestFindUv:
                 raise OSError("course")
             return stat_reel(self, **kwargs)
 
+        exporter = UsbExporter(executor)
         with patch.object(Path, "stat", autospec=True, side_effect=stat_pivot):
-            res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice")
+            res, _ = _find_uv_reel(
+                executor, tmp_path, sudo_user="alice", exporter=exporter
+            )
         assert res is None
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert rejet.endswith(" : illisible")
 
     def test_find_uv_candidat_rejete_logge_un_warning(
         self, tmp_path: Path, executor: MagicMock
@@ -333,8 +354,78 @@ class TestFindUv:
         lien = tmp_path / ".local/bin/uv"
         lien.parent.mkdir(parents=True)
         lien.symlink_to(cible)
-        res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice")
+        exporter = UsbExporter(executor)
+        res, _ = _find_uv_reel(
+            executor, tmp_path, sudo_user="alice", exporter=exporter
+        )
         assert res is None
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert "modifiable par le groupe ou les autres" in rejet
+        # F11 : la raison nomme la cible résolue fautive
+        assert f"(cible : {cible.resolve()})" in rejet
+
+    def test_find_uv_refus_sans_lien_n_ajoute_pas_de_cible(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """Candidat refusé sans lien -> pas de suffixe « (cible : … ) »."""
+        _faux_uv(tmp_path, ".local/bin/uv", mode=0o757)
+        exporter = UsbExporter(executor)
+        _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert "modifiable par le groupe ou les autres" in rejet
+        assert "(cible :" not in rejet
+
+    def test_find_uv_home_en_lien_n_ajoute_pas_de_cible(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """Seul le home est un lien (/home -> /var/home) : pas de suffixe."""
+        reel = tmp_path / "reel"
+        _faux_uv(reel, ".local/bin/uv", mode=0o757)
+        home = tmp_path / "home"
+        home.symlink_to(reel)
+        exporter = UsbExporter(executor)
+        res, _ = _find_uv_reel(
+            executor, home, sudo_user="alice", exporter=exporter
+        )
+        assert res is None
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert "modifiable par le groupe ou les autres" in rejet
+        assert "(cible :" not in rejet
+
+    def test_find_uv_lien_du_candidat_ajoute_la_cible_meme_home_en_lien(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """Home en lien ET candidat en lien : le suffixe reste présent."""
+        reel = tmp_path / "reel"
+        cible = _faux_uv(reel / "ailleurs", "uv", parent_mode=0o777)
+        lien = reel / ".local/bin/uv"
+        lien.parent.mkdir(parents=True)
+        lien.symlink_to(cible)
+        home = tmp_path / "home"
+        home.symlink_to(reel)
+        exporter = UsbExporter(executor)
+        _find_uv_reel(executor, home, sudo_user="alice", exporter=exporter)
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert f"(cible : {cible.resolve()})" in rejet
+
+    def test_find_uv_boucle_de_liens_est_refusee_avec_raison(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """[SEC] Boucle de liens -> raison « illisible », repli cargo."""
+        a = tmp_path / ".local/bin/uv"
+        a.parent.mkdir(parents=True)
+        b = tmp_path / ".local/bin/uv-b"
+        a.symlink_to(b)
+        b.symlink_to(a)
+        cargo = _faux_uv(tmp_path, ".cargo/bin/uv")
+        exporter = UsbExporter(executor)
+        res, _ = _find_uv_reel(
+            executor, tmp_path, sudo_user="alice", exporter=exporter
+        )
+        assert res == str(cargo)
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert str(a) in rejet
+        assert "illisible (boucle de liens ou erreur d'accès)" in rejet
 
     def test_find_uv_symlink_sain_retourne_le_chemin_resolu(
         self, tmp_path: Path, executor: MagicMock
@@ -377,9 +468,14 @@ class TestFindUv:
                 return faux
             return MagicMock(st_mode=vrai.st_mode, st_uid=vrai.st_uid)
 
+        exporter = UsbExporter(executor)
         with patch.object(Path, "stat", autospec=True, side_effect=stat_pivot):
-            res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice")
+            res, _ = _find_uv_reel(
+                executor, tmp_path, sudo_user="alice", exporter=exporter
+            )
         assert res is None
+        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        assert f"propriétaire inattendu (uid {tiers})" in rejet
 
     def test_find_uv_proprietaire_root_est_accepte(
         self, tmp_path: Path, executor: MagicMock
@@ -476,6 +572,83 @@ class TestUvRejections:
         assert "échouera" in avertissement
         assert str(binaire) in avertissement
         assert "modifiable par le groupe ou les autres" in avertissement
+
+    def test_export_sources_uv_refuse_avertissement_contient_la_raison(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """[SEC] Mode sources (réel) : l'avertissement cite le refus."""
+        binaire = _faux_uv(tmp_path / "home", ".local/bin/uv", mode=0o775)
+        pw = MagicMock()
+        pw.return_value.pw_dir = str(tmp_path / "home")
+        pw.return_value.pw_uid = os.getuid()
+        with (
+            patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
+            patch(f"{_MODULE}.shutil.which", return_value=None),
+            patch.dict(
+                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
+            ),
+            patch(f"{_MODULE}.pwd.getpwnam", pw),
+        ):
+            report = UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=tmp_path / "usb",
+                    mode="sources",
+                    project_src=project_src,
+                )
+            )
+        avertissement = next(
+            w for w in report.warnings if "uv introuvable" in w
+        )
+        assert "à copier manuellement" in avertissement
+        assert str(binaire) in avertissement
+        assert "modifiable par le groupe ou les autres" in avertissement
+
+    def test_dry_run_sources_avertissement_contient_la_raison_du_refus(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """[SEC] Dry-run sources : avertit et cite le candidat refusé."""
+        binaire = _faux_uv(tmp_path / "home", ".local/bin/uv", mode=0o775)
+        pw = MagicMock()
+        pw.return_value.pw_dir = str(tmp_path / "home")
+        pw.return_value.pw_uid = os.getuid()
+        with (
+            patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
+            patch(f"{_MODULE}.shutil.which", return_value=None),
+            patch.dict(
+                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
+            ),
+            patch(f"{_MODULE}.pwd.getpwnam", pw),
+        ):
+            report = UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=tmp_path / "usb",
+                    mode="sources",
+                    project_src=project_src,
+                    dry_run=True,
+                )
+            )
+        avertissement = next(
+            w for w in report.warnings if "uv introuvable" in w
+        )
+        assert "à copier manuellement" in avertissement
+        assert str(binaire) in avertissement
+
+    def test_export_sources_sans_refus_garde_le_texte_historique(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Aucun refus -> avertissement sources strictement inchangé."""
+        with patch.object(UsbExporter, "_find_uv", return_value=None):
+            report = UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=tmp_path / "usb",
+                    mode="sources",
+                    project_src=project_src,
+                )
+            )
+        assert (
+            "uv introuvable — à copier manuellement sur la cible."
+            in report.warnings
+        )
 
     def test_find_uv_remet_les_refus_a_zero_a_chaque_appel(
         self, tmp_path: Path, executor: MagicMock
@@ -1065,10 +1238,10 @@ class TestExportDryRun:
         assert "[dry-run] uv      : /opt/uv" in report.created_paths
         assert not any("uv introuvable" in w for w in report.warnings)
 
-    def test_export_dry_run_sources_sans_uv_n_ajoute_pas_d_avertissement(
+    def test_export_dry_run_sources_sans_uv_avertit(
         self, tmp_path: Path, project_src: Path, executor: MagicMock
     ) -> None:
-        """Dry-run sources sans uv : comportement inchangé (pas de warning)."""
+        """Dry-run sources sans uv : avertissement texte historique."""
         with patch.object(UsbExporter, "_find_uv", return_value=None):
             report = UsbExporter(executor).export(
                 UsbExportConfig(
@@ -1080,6 +1253,25 @@ class TestExportDryRun:
             )
 
         assert "[dry-run] uv      : (introuvable)" in report.created_paths
+        assert (
+            "uv introuvable — à copier manuellement sur la cible."
+            in report.warnings
+        )
+
+    def test_export_dry_run_sources_avec_uv_pas_d_avertissement(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Dry-run sources avec uv trouvé -> aucun avertissement uv."""
+        with patch.object(UsbExporter, "_find_uv", return_value="/opt/uv"):
+            report = UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=tmp_path / "usb",
+                    mode="sources",
+                    project_src=project_src,
+                    dry_run=True,
+                )
+            )
+
         assert not any("uv introuvable" in w for w in report.warnings)
 
 

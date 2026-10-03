@@ -217,9 +217,15 @@ class UsbExporter:
         if config.dry_run:
             # Une seule recherche de uv, partagée avec le rapport
             uv_bin = self._find_uv()
-            if config.mode == "venv" and uv_bin is None:
+            if uv_bin is None and config.mode == "venv":
                 warnings.append(
                     "uv introuvable — l'export réel (mode venv) échouera."
+                    + self._format_uv_rejections()
+                )
+            elif uv_bin is None:
+                # Mode sources : l'export réel n'échoue pas, il avertit
+                warnings.append(
+                    "uv introuvable — à copier manuellement sur la cible."
                     + self._format_uv_rejections()
                 )
             lines = self._dry_run_report(config, proj, lpu, uv_bin)
@@ -286,7 +292,8 @@ class UsbExporter:
         Limites : le propriétaire du candidat peut toujours le
         remplacer, donc ce contrôle ne protège pas d'un sudoers
         restreint à une seule commande ; les répertoires ancêtres
-        (~/.local, home) ne sont pas contrôlés.
+        (~/.local, home) ne sont pas contrôlés ; fenêtre TOCTOU entre
+        contrôle et usage.
 
         Returns:
             Chemin absolu (résolu) de uv, ou None si introuvable.
@@ -327,6 +334,13 @@ class UsbExporter:
     ) -> tuple[Path | None, str | None]:
         """Contrôle un candidat uv avant de l'exécuter en root.
 
+        Règle stricte : le fichier et son parent ne doivent pas être
+        modifiables par le groupe ni par les autres (0o022), sans
+        aucune tolérance pour un groupe « privé ».
+
+        Quand le candidat est un lien, les raisons de refus précisent
+        la cible résolue fautive.
+
         Args:
             candidate: Chemin du candidat (peut être un lien symbolique).
             owner_uid: UID de $SUDO_USER (propriétaire toléré avec root).
@@ -352,17 +366,28 @@ class UsbExporter:
         if not (real.is_file() and os.access(real, os.X_OK)):
             return None, None
 
+        # Cible fautive précisée seulement si le chemin passe par un lien.
+        # Le home peut lui-même passer par un lien (/home -> /var/home) :
+        # on ne signale donc la cible que si elle diffère une fois le
+        # parent résolu.
+        suffix = (
+            f" (cible : {real})"
+            if real != candidate.parent.resolve() / candidate.name
+            else ""
+        )
+
         try:
             st = real.stat()
             parent_st = real.parent.stat()
         except OSError:
             # Course possible : rejet par prudence
-            return None, "illisible"
+            return None, f"illisible{suffix}"
 
-        if (st.st_mode | parent_st.st_mode) & 0o022:
-            return None, "modifiable par le groupe ou les autres"
+        modes = st.st_mode | parent_st.st_mode
+        if modes & 0o022:
+            return None, f"modifiable par le groupe ou les autres{suffix}"
         if st.st_uid not in (0, owner_uid):
-            return None, f"propriétaire inattendu (uid {st.st_uid})"
+            return None, f"propriétaire inattendu (uid {st.st_uid}){suffix}"
         return real, None
 
     def _require_uv(self) -> str:
@@ -480,7 +505,10 @@ class UsbExporter:
             if self._logger:
                 self._logger.log_info(f"uv → {dst}")
         else:
-            warning = "uv introuvable — à copier manuellement sur la cible."
+            warning = (
+                "uv introuvable — à copier manuellement sur la cible."
+                + self._format_uv_rejections()
+            )
 
         proj_dst = target_dir / proj.name
         self._copy_dir(proj, proj_dst)

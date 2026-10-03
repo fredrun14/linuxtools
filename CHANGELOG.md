@@ -23,12 +23,17 @@
   l'`InstallationError` et dans l'avertissement dry-run, même sans
   logger. Limites : le propriétaire peut toujours remplacer son `uv` ;
   les répertoires ancêtres (`~/.local`, home) ne sont pas contrôlés.
+- Mode `sources` : l'avertissement `uv introuvable` (export réel et
+  dry-run) reprend les candidats refusés et leur raison ; quand le
+  candidat est un lien, la raison nomme la cible résolue fautive
+  (`(cible : …)`).
 
 ### Modifié
 
 - Chaînes observables : l'avertissement du mode `sources` devient
   `uv introuvable — à copier manuellement sur la cible.` et le libellé
-  dry-run `(absent du PATH)` devient `(introuvable)`.
+  dry-run `(absent du PATH)` devient `(introuvable)`. Le dry-run du mode
+  `sources` émet désormais cet avertissement quand `uv` est introuvable.
 
 ## [2.3.0] - 2026-09-29
 
