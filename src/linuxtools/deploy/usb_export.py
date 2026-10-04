@@ -596,6 +596,12 @@ fi
         (`lib64 -> lib`, `bin/python3 -> interpréteur`), impossibles
         à représenter sur exFAT/FAT/NTFS.
 
+        Les paquets sont installés sans le `tool.uv.sources` du projet
+        (`--no-sources`) : le venv ne référence aucun chemin de la
+        machine source. Si linuxtools est local, un fichier d'override
+        (`linuxtools @ file://...`) impose sa copie non éditable ; sans
+        lui, la dépendance se résout depuis son pin (réseau requis).
+
         Args:
             target_dir: Répertoire cible.
             proj: Racine du projet consommateur.
@@ -634,18 +640,29 @@ fi
 
             if self._logger:
                 self._logger.log_info("Installation des paquets dans le venv…")
-            result = self._executor.run(
-                CommandBuilder(uv_bin)
-                .with_args(
-                    [
-                        "pip",
-                        "install",
-                        "--python",
-                        python_bin,
-                        *packages,
-                    ]
+            # --no-sources : ignore le [tool.uv.sources] du projet (sinon
+            # linuxtools serait installé en éditable vers la machine
+            # source et le venv ne serait pas autonome).
+            args = [
+                "pip",
+                "install",
+                "--python",
+                python_bin,
+                "--no-sources",
+            ]
+            if lpu:
+                # Le pin du projet (git) et le chemin local de linuxtools
+                # se contredisent : l'override impose la copie locale,
+                # non éditable. Écrit dans tmp_root, supprimé au finally.
+                override = tmp_root / "override.txt"
+                override.write_text(
+                    f"linuxtools @ {lpu.resolve().as_uri()}\n",
+                    encoding="utf-8",
                 )
-                .build()
+                args += ["--override", str(override)]
+            args += packages
+            result = self._executor.run(
+                CommandBuilder(uv_bin).with_args(args).build()
             )
             if result.return_code != 0:
                 raise InstallationError(
