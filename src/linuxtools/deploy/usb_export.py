@@ -69,6 +69,17 @@ _IGNORE = shutil.ignore_patterns(
     "htmlcov",
     ".mypy_cache",
     "uv.lock",
+    # Artefacts d'outillage local : volumineux ou sans objet sur la cible
+    # (ex. disques de VM de .integration-runs : plusieurs Go).
+    ".integration-runs",
+    ".claude",
+    ".idea",
+    ".vscode",
+    ".coverage",
+    "coverage.xml",
+    ".tox",
+    ".nox",
+    ".hypothesis",
 )
 
 
@@ -585,6 +596,12 @@ fi
         (`lib64 -> lib`, `bin/python3 -> interpréteur`), impossibles
         à représenter sur exFAT/FAT/NTFS.
 
+        Les paquets sont installés sans le `tool.uv.sources` du projet
+        (`--no-sources`) : le venv ne référence aucun chemin de la
+        machine source. Si linuxtools est local, un fichier d'override
+        (`linuxtools @ file://...`) impose sa copie non éditable ; sans
+        lui, la dépendance se résout depuis son pin (réseau requis).
+
         Args:
             target_dir: Répertoire cible.
             proj: Racine du projet consommateur.
@@ -623,18 +640,29 @@ fi
 
             if self._logger:
                 self._logger.log_info("Installation des paquets dans le venv…")
-            result = self._executor.run(
-                CommandBuilder(uv_bin)
-                .with_args(
-                    [
-                        "pip",
-                        "install",
-                        "--python",
-                        python_bin,
-                        *packages,
-                    ]
+            # --no-sources : ignore le [tool.uv.sources] du projet (sinon
+            # linuxtools serait installé en éditable vers la machine
+            # source et le venv ne serait pas autonome).
+            args = [
+                "pip",
+                "install",
+                "--python",
+                python_bin,
+                "--no-sources",
+            ]
+            if lpu:
+                # Le pin du projet (git) et le chemin local de linuxtools
+                # se contredisent : l'override impose la copie locale,
+                # non éditable. Écrit dans tmp_root, supprimé au finally.
+                override = tmp_root / "override.txt"
+                override.write_text(
+                    f"linuxtools @ {lpu.resolve().as_uri()}\n",
+                    encoding="utf-8",
                 )
-                .build()
+                args += ["--override", str(override)]
+            args += packages
+            result = self._executor.run(
+                CommandBuilder(uv_bin).with_args(args).build()
             )
             if result.return_code != 0:
                 raise InstallationError(
@@ -737,7 +765,11 @@ exec "$USB/venv/bin/python3" \\
             dst: Répertoire destination.
             ignore: Callable de filtrage compatible
                 shutil.ignore_patterns (défaut : _IGNORE, exclut
-                .venv/.git/__pycache__/etc.). None pour tout copier.
+                l'environnement virtuel, les métadonnées VCS, les
+                caches, les métadonnées de build et les artefacts
+                d'outillage local : .integration-runs, .claude, .idea,
+                .vscode, .coverage, coverage.xml, .tox, .nox,
+                .hypothesis, etc.). None pour tout copier.
             follow_symlinks: Transmis à copytree_secure (défaut
                 False).
 

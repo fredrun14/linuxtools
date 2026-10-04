@@ -23,6 +23,20 @@ if TYPE_CHECKING:
 _MODULE = "linuxtools.deploy.usb_export"
 # Vraie méthode, capturée avant que la fixture autouse ne la remplace
 _REAL_FIND_UV = UsbExporter._find_uv  # noqa: SLF001
+# Artefacts d'outillage local qui ne doivent jamais être copiés
+_ARTEFACTS_DEV = (
+    ".integration-runs",
+    ".claude",
+    ".idea",
+    ".vscode",
+    ".coverage",
+    "coverage.xml",
+    ".tox",
+    ".nox",
+    ".hypothesis",
+)
+# Parmi eux, ceux qui sont des fichiers (les autres sont des dossiers)
+_ARTEFACTS_DEV_FICHIERS = (".coverage", "coverage.xml")
 
 
 def _cmd_result(
@@ -768,6 +782,58 @@ class TestExportModeSources:
             "requise pour l'auto-détection.",
         )
 
+    @pytest.mark.parametrize("artefact", _ARTEFACTS_DEV)
+    def test_export_sources_exclut_les_artefacts_de_dev(
+        self, tmp_path: Path, executor: MagicMock, artefact: str
+    ) -> None:
+        """Chaque artefact d'outillage local est absent de la cible."""
+        proj = tmp_path / "monprojet"
+        (proj / "src" / "pkg").mkdir(parents=True)
+        (proj / "src" / "pkg" / "mod.py").write_text("x = 1\n")
+        # Fichiers simples pour .coverage et coverage.xml, dossiers sinon
+        if artefact in _ARTEFACTS_DEV_FICHIERS:
+            (proj / artefact).write_text("data")
+        else:
+            (proj / artefact).mkdir()
+            (proj / artefact / "x").write_text("data")
+        target_dir = tmp_path / "usb"
+
+        with patch.object(UsbExporter, "_find_uv", return_value=None):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=target_dir,
+                    mode="sources",
+                    project_src=proj,
+                )
+            )
+
+        copie = target_dir / "monprojet"
+        assert (copie / "src" / "pkg" / "mod.py").exists()
+        assert not (copie / artefact).exists()
+
+    def test_export_sources_noms_proches_des_artefacts_conserves(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """Motifs exacts : un nom proche d'un artefact n'est pas exclu."""
+        proj = tmp_path / "monprojet"
+        (proj / "integration-runs-doc").mkdir(parents=True)
+        (proj / "integration-runs-doc" / "a.md").write_text("doc")
+        (proj / "idea.md").write_text("notes")
+        target_dir = tmp_path / "usb"
+
+        with patch.object(UsbExporter, "_find_uv", return_value=None):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=target_dir,
+                    mode="sources",
+                    project_src=proj,
+                )
+            )
+
+        copie = target_dir / "monprojet"
+        assert (copie / "integration-runs-doc" / "a.md").exists()
+        assert (copie / "idea.md").exists()
+
     def test_export_sources_sans_uv_ajoute_avertissement(
         self, tmp_path: Path, project_src: Path, executor: MagicMock
     ) -> None:
@@ -1153,6 +1219,211 @@ class TestExportModeVenv:
         assert (target_dir / "venv" / "bin" / "python3").exists()
         assert (target_dir / "run.sh").exists()
         assert report.created_paths
+
+    @staticmethod
+    def _run_capturant_pip(
+        capture: dict[str, object], succes: bool = True
+    ) -> Callable[..., CommandResult]:
+        """Side_effect qui relève la commande pip et lit l'override.
+
+        Le répertoire temporaire est supprimé après l'export : le
+        contenu du fichier d'override doit donc être lu pendant l'appel.
+
+        Args:
+            capture: Dictionnaire rempli (commande, contenu, chemin).
+            succes: Si False, `uv pip install` échoue.
+        """
+        base = _venv_run_side_effect()
+
+        def _run(
+            command: list[str], *a: object, **kw: object
+        ) -> CommandResult:
+            if "install" not in command:
+                return base(command, *a, **kw)
+            capture["commande"] = list(command)
+            if "--override" in command:
+                chemin = Path(command[command.index("--override") + 1])
+                capture["override_path"] = chemin
+                capture["override_contenu"] = chemin.read_text(
+                    encoding="utf-8"
+                )
+            if not succes:
+                return _cmd_result(success=False, stderr="pip a échoué")
+            return _cmd_result(success=True, command=tuple(command))
+
+        return _run
+
+    def _exporter_avec_lpu(
+        self,
+        tmp_path: Path,
+        project_src: Path,
+        executor: MagicMock,
+        lpu_src: Path | None,
+    ) -> None:
+        """Lance un export venv avec `find_editable_source` simulé."""
+        with patch(f"{_MODULE}.find_editable_source", return_value=lpu_src):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=tmp_path / "usb",
+                    mode="venv",
+                    project_src=project_src,
+                    cli_entry_point="demo.cli:main",
+                )
+            )
+
+    def test_export_venv_avec_lpu_ignore_sources_et_impose_override(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Avec linuxtools local : --no-sources + override en file://."""
+        lpu_src = tmp_path / "lpu"
+        lpu_src.mkdir()
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
+
+        commande = capture["commande"]
+        assert isinstance(commande, list)
+        assert "--no-sources" in commande
+        assert "--override" in commande
+        assert capture["override_contenu"] == (
+            f"linuxtools @ file://{lpu_src.resolve()}\n"
+        )
+        # Le chemin du projet et celui de linuxtools restent installés
+        assert str(lpu_src) in commande
+        assert str(project_src) in commande
+        override = capture["override_path"]
+        assert isinstance(override, Path)
+        assert not override.is_relative_to(tmp_path / "usb")
+
+    def test_export_venv_sans_lpu_ignore_sources_sans_override(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Sans linuxtools local : --no-sources seul, pas d'override."""
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        self._exporter_avec_lpu(tmp_path, project_src, executor, None)
+
+        commande = capture["commande"]
+        assert isinstance(commande, list)
+        assert "--no-sources" in commande
+        assert "--override" not in commande
+
+    def test_export_venv_override_encode_espace_et_diese(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Un chemin avec espace et # est encodé dans l'URI d'override."""
+        # Ce test valide l'ENCODAGE de l'override (%20, %23), pas la
+        # résolution par uv. En conditions réelles, uv 0.10 refuse un
+        # chemin linuxtools contenant « # » (limite d'uv, identique pour
+        # l'argument positionnel et pour l'override) ; l'espace seul
+        # fonctionne.
+        lpu_src = tmp_path / "mon lpu#dev"
+        lpu_src.mkdir()
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
+
+        contenu = capture["override_contenu"]
+        assert isinstance(contenu, str)
+        assert contenu.endswith("/mon%20lpu%23dev\n")
+        assert contenu.startswith("linuxtools @ file:///")
+        assert len(contenu.splitlines()) == 1
+
+    def test_export_venv_override_utilise_le_chemin_resolu_du_lien(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Un lpu fourni en lien symbolique : l'URI vise la cible réelle."""
+        reel = tmp_path / "linuxtools_reel"
+        reel.mkdir()
+        lien = tmp_path / "lien_lpu"
+        lien.symlink_to(reel, target_is_directory=True)
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        self._exporter_avec_lpu(tmp_path, project_src, executor, lien)
+
+        # Attendu littéral : cible du lien, jamais le nom du lien
+        assert capture["override_contenu"] == (
+            f"linuxtools @ file://{reel.resolve()}\n"
+        )
+        contenu = capture["override_contenu"]
+        assert isinstance(contenu, str)
+        assert "lien_lpu" not in contenu
+
+    def test_export_venv_echec_ecriture_override_nettoie_et_ne_lance_pas_pip(
+        self,
+        tmp_path: Path,
+        project_src: Path,
+        executor: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """OSError sur l'override : propagée, pas de pip, tmp supprimé."""
+        lpu_src = tmp_path / "lpu"
+        lpu_src.mkdir()
+        # Isole le dossier temporaire pour pouvoir le lister ensuite
+        racine_tmp = tmp_path / "tmp_isole"
+        racine_tmp.mkdir()
+        monkeypatch.setattr("tempfile.tempdir", str(racine_tmp))
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        vraie_ecriture = Path.write_text
+
+        def _write_text(
+            self_: Path, data: str, encoding: str | None = None
+        ) -> int:
+            if self_.name == "override.txt":
+                raise OSError("disque plein simulé")
+            return vraie_ecriture(self_, data, encoding=encoding)
+
+        with (
+            patch.object(Path, "write_text", _write_text),
+            pytest.raises(OSError, match="disque plein simulé"),
+        ):
+            self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
+
+        # Aucun `uv pip install` lancé (seul `uv venv` est passé)
+        assert "commande" not in capture
+        assert list(racine_tmp.glob("usbexp-venv-*")) == []
+        assert not (tmp_path / "usb" / "venv").exists()
+
+    def test_export_venv_override_supprime_apres_export(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Le dossier temporaire (et l'override) disparaît après export."""
+        lpu_src = tmp_path / "lpu"
+        lpu_src.mkdir()
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(capture)
+
+        self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
+
+        override = capture["override_path"]
+        assert isinstance(override, Path)
+        assert not override.exists()
+        assert not override.parent.exists()
+
+    def test_export_venv_override_supprime_si_pip_echoue(
+        self, tmp_path: Path, project_src: Path, executor: MagicMock
+    ) -> None:
+        """Même si `pip install` échoue, l'override est supprimé."""
+        lpu_src = tmp_path / "lpu"
+        lpu_src.mkdir()
+        capture: dict[str, object] = {}
+        executor.run.side_effect = self._run_capturant_pip(
+            capture, succes=False
+        )
+
+        with pytest.raises(InstallationError):
+            self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
+
+        override = capture["override_path"]
+        assert isinstance(override, Path)
+        assert not override.exists()
+        assert not override.parent.exists()
 
 
 class TestExportDryRun:

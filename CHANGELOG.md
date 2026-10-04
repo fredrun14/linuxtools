@@ -2,6 +2,29 @@
 
 ## [Non publié]
 
+## [2.3.2] - 2026-10-04
+
+### Corrigé
+
+- fix(deploy): `UsbExporter` n'exporte plus les artefacts d'outillage
+  local. Motifs ajoutés à la liste d'exclusion par défaut :
+  `.integration-runs`, `.claude`, `.idea`, `.vscode`, `.coverage`,
+  `coverage.xml`, `.tox`, `.nox`, `.hypothesis`. Un `.integration-runs/`
+  (disques de VM, plusieurs Go) était copié en mode `sources` et
+  menaçait de saturer la clé. Motifs exacts, appliqués à tout niveau de
+  l'arborescence ; un nom proche (`idea.md`, `integration-runs-doc/`)
+  reste copié.
+- fix(deploy): le venv produit par `UsbExporter` (mode `venv`) est
+  désormais autonome. Il installait `linuxtools` en éditable vers la
+  machine source (`__editable__.linuxtools-*.pth`), donc `import
+  linuxtools` échouait sur une autre machine. L'installation passe
+  maintenant `--no-sources` (ignore le `tool.uv.sources` du projet) et,
+  si linuxtools est local, `--override` avec un fichier temporaire
+  `linuxtools @ file://...` qui impose la copie non éditable (le pin git
+  du projet entrerait sinon en conflit). Sans linuxtools local,
+  `--no-sources` seul : la dépendance se résout depuis son pin (réseau
+  requis à l'export).
+
 ## [2.3.1] - 2026-10-03
 
 ### Corrigé
