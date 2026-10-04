@@ -23,6 +23,20 @@ if TYPE_CHECKING:
 _MODULE = "linuxtools.deploy.usb_export"
 # Vraie méthode, capturée avant que la fixture autouse ne la remplace
 _REAL_FIND_UV = UsbExporter._find_uv  # noqa: SLF001
+# Artefacts d'outillage local qui ne doivent jamais être copiés
+_ARTEFACTS_DEV = (
+    ".integration-runs",
+    ".claude",
+    ".idea",
+    ".vscode",
+    ".coverage",
+    "coverage.xml",
+    ".tox",
+    ".nox",
+    ".hypothesis",
+)
+# Parmi eux, ceux qui sont des fichiers (les autres sont des dossiers)
+_ARTEFACTS_DEV_FICHIERS = (".coverage", "coverage.xml")
 
 
 def _cmd_result(
@@ -767,6 +781,58 @@ class TestExportModeSources:
             "linuxtools non détecté — installation éditable "
             "requise pour l'auto-détection.",
         )
+
+    @pytest.mark.parametrize("artefact", _ARTEFACTS_DEV)
+    def test_export_sources_exclut_les_artefacts_de_dev(
+        self, tmp_path: Path, executor: MagicMock, artefact: str
+    ) -> None:
+        """Chaque artefact d'outillage local est absent de la cible."""
+        proj = tmp_path / "monprojet"
+        (proj / "src" / "pkg").mkdir(parents=True)
+        (proj / "src" / "pkg" / "mod.py").write_text("x = 1\n")
+        # Fichiers simples pour .coverage et coverage.xml, dossiers sinon
+        if artefact in _ARTEFACTS_DEV_FICHIERS:
+            (proj / artefact).write_text("data")
+        else:
+            (proj / artefact).mkdir()
+            (proj / artefact / "x").write_text("data")
+        target_dir = tmp_path / "usb"
+
+        with patch.object(UsbExporter, "_find_uv", return_value=None):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=target_dir,
+                    mode="sources",
+                    project_src=proj,
+                )
+            )
+
+        copie = target_dir / "monprojet"
+        assert (copie / "src" / "pkg" / "mod.py").exists()
+        assert not (copie / artefact).exists()
+
+    def test_export_sources_noms_proches_des_artefacts_conserves(
+        self, tmp_path: Path, executor: MagicMock
+    ) -> None:
+        """Motifs exacts : un nom proche d'un artefact n'est pas exclu."""
+        proj = tmp_path / "monprojet"
+        (proj / "integration-runs-doc").mkdir(parents=True)
+        (proj / "integration-runs-doc" / "a.md").write_text("doc")
+        (proj / "idea.md").write_text("notes")
+        target_dir = tmp_path / "usb"
+
+        with patch.object(UsbExporter, "_find_uv", return_value=None):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=target_dir,
+                    mode="sources",
+                    project_src=proj,
+                )
+            )
+
+        copie = target_dir / "monprojet"
+        assert (copie / "integration-runs-doc" / "a.md").exists()
+        assert (copie / "idea.md").exists()
 
     def test_export_sources_sans_uv_ajoute_avertissement(
         self, tmp_path: Path, project_src: Path, executor: MagicMock

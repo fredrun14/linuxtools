@@ -69,6 +69,17 @@ _IGNORE = shutil.ignore_patterns(
     "htmlcov",
     ".mypy_cache",
     "uv.lock",
+    # Artefacts d'outillage local : volumineux ou sans objet sur la cible
+    # (ex. disques de VM de .integration-runs : plusieurs Go).
+    ".integration-runs",
+    ".claude",
+    ".idea",
+    ".vscode",
+    ".coverage",
+    "coverage.xml",
+    ".tox",
+    ".nox",
+    ".hypothesis",
 )
 
 
@@ -737,7 +748,11 @@ exec "$USB/venv/bin/python3" \\
             dst: Répertoire destination.
             ignore: Callable de filtrage compatible
                 shutil.ignore_patterns (défaut : _IGNORE, exclut
-                .venv/.git/__pycache__/etc.). None pour tout copier.
+                l'environnement virtuel, les métadonnées VCS, les
+                caches, les métadonnées de build et les artefacts
+                d'outillage local : .integration-runs, .claude, .idea,
+                .vscode, .coverage, coverage.xml, .tox, .nox,
+                .hypothesis, etc.). None pour tout copier.
             follow_symlinks: Transmis à copytree_secure (défaut
                 False).
 
