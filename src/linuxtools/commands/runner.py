@@ -40,8 +40,11 @@ Example :
 
 import os
 import shlex
+import signal
 import subprocess  # nosec B404
+import threading
 import time
+from collections.abc import Iterable
 
 from linuxtools.commands.base import (
     CommandExecutor,
@@ -332,6 +335,34 @@ class LinuxCommandExecutor(CommandExecutor):
             self._log_oserror(e)
             return self._result(command, -1, "", str(e), duration)
 
+    @staticmethod
+    def _drain(stream: Iterable[str], sink: list[str]) -> None:
+        """Accumule dans `sink` toutes les lignes de `stream` jusqu'à EOF.
+
+        Destinée à un fil de drainage de stderr : ne logue rien.
+
+        Args:
+            stream: Flux texte itérable (ex. proc.stderr).
+            sink: Liste qui reçoit les lignes lues.
+        """
+        sink.extend(stream)
+
+    @staticmethod
+    def _kill_group(proc: subprocess.Popen[str]) -> None:
+        """Tue (SIGKILL) tout le groupe de processus de ``proc``.
+
+        Suppose ``proc`` lancé avec ``process_group=0`` (pgid == pid).
+        Se rabat sur ``proc.kill()`` si le groupe est introuvable ou
+        inaccessible.
+
+        Args:
+            proc: Processus dont le groupe doit être tué.
+        """
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            proc.kill()
+
     def run_streaming(
         self,
         command: list[str],
@@ -349,12 +380,14 @@ class LinuxCommandExecutor(CommandExecutor):
             command: Commande sous forme de liste.
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
-            timeout: Timeout en secondes (prioritaire).
+            timeout: Timeout en secondes (prioritaire). Appliqué
+                pendant la lecture : à l'échéance, tout le groupe de
+                processus est tué (SIGKILL), petits-fils compris (code
+                retour -1, sorties partielles conservées).
             merge_stderr: Si True, fusionne stderr dans stdout via
-                subprocess.STDOUT — élimine le risque de deadlock
-                causé par un pipe stderr plein (> 64 Ko), au prix
-                de la séparation stdout/stderr dans le résultat
-                (result.stderr sera toujours "").
+                subprocess.STDOUT (result.stderr sera toujours ""). Plus
+                nécessaire contre le deadlock (stderr est vidé en continu
+                par un fil dédié), reste utile pour obtenir un flux unique.
 
         Returns:
             CommandResult avec les sorties capturées et
@@ -362,7 +395,9 @@ class LinuxCommandExecutor(CommandExecutor):
 
         Note:
             Logue une erreur si le code retour est non-nul et qu'un
-            logger est configuré.
+            logger est configuré. Le processus est lancé dans son propre
+            groupe : sur KeyboardInterrupt, le groupe est tué puis
+            l'exception est relancée.
         """
         if self._dry_run:
             return self._make_dry_run_result(command)
@@ -382,27 +417,81 @@ class LinuxCommandExecutor(CommandExecutor):
                 text=True,
                 env=effective_env,
                 cwd=cwd,
+                # Groupe de processus dédié : le délai (ou Ctrl-C) peut
+                # ainsi tuer tout l'arbre, pas seulement le shell.
+                process_group=0,
             ) as proc:
                 assert proc.stdout is not None  # nosec
-                for line in proc.stdout:
-                    stripped = line.rstrip("\n")
-                    stdout_lines.append(stripped)
-                    self._log(self._plain.format_line(stripped, self._is_root))
-                    if self._console_formatter:
-                        self._print(
-                            self._console_formatter.format_line(
-                                stripped, self._is_root
-                            )
-                        )
 
-                proc.wait(timeout=effective_timeout)
-                stderr = (
-                    ""
-                    if merge_stderr or proc.stderr is None
-                    else proc.stderr.read()
-                )
+                # Fil de drainage : vide stderr en continu pour éviter
+                # le blocage du processus sur un pipe plein (> 64 Ko).
+                # Il n'accumule que, sans logger (pas de concurrence).
+                stderr_lines: list[str] = []
+                stderr_thread: threading.Thread | None = None
+                if not merge_stderr and proc.stderr is not None:
+                    stderr_thread = threading.Thread(
+                        target=self._drain,
+                        args=(proc.stderr, stderr_lines),
+                        daemon=True,
+                    )
+                    stderr_thread.start()
+
+                # Chien de garde : tue le groupe à l'échéance, ce qui
+                # ferme stdout et termine la boucle de lecture ci-dessous.
+                timed_out = threading.Event()
+                watchdog: threading.Timer | None = None
+                if effective_timeout is not None:
+
+                    def _expire() -> None:
+                        timed_out.set()
+                        self._kill_group(proc)
+
+                    watchdog = threading.Timer(effective_timeout, _expire)
+                    watchdog.daemon = True
+                    watchdog.start()
+
+                try:
+                    for line in proc.stdout:
+                        stripped = line.rstrip("\n")
+                        stdout_lines.append(stripped)
+                        self._log(
+                            self._plain.format_line(stripped, self._is_root)
+                        )
+                        if self._console_formatter:
+                            self._print(
+                                self._console_formatter.format_line(
+                                    stripped, self._is_root
+                                )
+                            )
+                    # stdout est fermé : le processus est terminé ou tué.
+                    proc.wait()
+                except KeyboardInterrupt:
+                    # Le processus n'est plus dans le groupe du terminal
+                    # (process_group=0) : Ctrl-C ne l'atteint plus, on tue
+                    # donc le groupe nous-mêmes avant de relancer.
+                    self._kill_group(proc)
+                    proc.wait()
+                    raise
+                finally:
+                    if watchdog is not None:
+                        watchdog.cancel()
+
+                if stderr_thread is not None:
+                    # Join borné : un petit-fils gardant stderr ouvert ne
+                    # doit pas bloquer ; on utilise ce qui est drainé.
+                    stderr_thread.join(timeout=5)
+                stderr = "".join(stderr_lines)
 
                 duration = time.monotonic() - start
+                if timed_out.is_set():
+                    self._log_timeout(command, effective_timeout)
+                    return self._result(
+                        command,
+                        -1,
+                        "\n".join(stdout_lines),
+                        stderr,
+                        duration,
+                    )
                 if proc.returncode != 0:
                     self._log_returncode(command, proc.returncode)
                 return self._result(
@@ -412,34 +501,6 @@ class LinuxCommandExecutor(CommandExecutor):
                     stderr,
                     duration,
                 )
-        except subprocess.TimeoutExpired:
-            # Faux positif de `possibly-undefined`, et non une faiblesse
-            # du code : `proc` est lié par le `with Popen(...) as proc`
-            # avant toute instruction du bloc, et seul
-            # `proc.wait(timeout=...)` peut lever TimeoutExpired ici.
-            # Atteindre ce `except` implique donc que `proc` existe. mypy
-            # est insensible au flux sur l'origine d'une exception : il
-            # suppose que le `try` a pu échouer dès sa première ligne.
-            # Le try n'est pas resserré autour du seul `wait()` : ce
-            # fichier est critique pour tous les consommateurs de la lib,
-            # le remaniement fera l'objet d'un changement isolé.
-            proc.kill()  # type: ignore[possibly-undefined]
-            proc.wait()  # type: ignore[possibly-undefined]
-            duration = time.monotonic() - start
-            proc_stderr = proc.stderr  # type: ignore[possibly-undefined]
-            stderr = (
-                ""
-                if merge_stderr or proc_stderr is None
-                else proc_stderr.read()
-            )
-            self._log_timeout(command, effective_timeout)
-            return self._result(
-                command,
-                -1,
-                "\n".join(stdout_lines),
-                stderr,
-                duration,
-            )
         except OSError as e:
             duration = time.monotonic() - start
             self._log_oserror(e)
