@@ -1,5 +1,6 @@
 """Tests pour le module commands."""
 
+import os
 import signal
 import subprocess
 import sys
@@ -470,11 +471,14 @@ class TestLinuxCommandExecutorRunStreaming:
         # 1 appel pour "Exécution (streaming)" + 3 lignes
         assert self.mock_logger.log_info.call_count == 4
 
+    @patch("linuxtools.commands.runner.os.killpg")
     @patch(
         "linuxtools.commands.runner"
         ".subprocess.Popen"
     )
-    def test_streaming_timeout(self, mock_popen: MagicMock) -> None:
+    def test_streaming_timeout(
+        self, mock_popen: MagicMock, mock_killpg: MagicMock
+    ) -> None:
         """Test du timeout en mode streaming."""
         mock_proc = _make_mock_proc([])
         # stdout reste ouvert jusqu'à ce que le chien de garde tue le
@@ -486,7 +490,7 @@ class TestLinuxCommandExecutorRunStreaming:
             tue.wait(timeout=10)
 
         mock_proc.stdout = _stdout_bloquant()
-        mock_proc.kill.side_effect = tue.set
+        mock_killpg.side_effect = lambda pid, sig: tue.set()
         mock_popen.return_value = mock_proc
 
         result = self.executor.run_streaming(
@@ -496,7 +500,44 @@ class TestLinuxCommandExecutorRunStreaming:
         assert result.success is False
         assert result.return_code == -1
         assert "partiel" in result.stdout
-        mock_proc.kill.assert_called_once()
+        mock_killpg.assert_called_once_with(mock_proc.pid, signal.SIGKILL)
+
+    @patch("linuxtools.commands.runner.os.killpg")
+    @patch(
+        "linuxtools.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_ctrl_c_tue_le_groupe_et_propage(
+        self, mock_popen: MagicMock, mock_killpg: MagicMock
+    ) -> None:
+        """Ctrl-C pendant la lecture : groupe tué, wait, exception relancée."""
+        mock_proc = _make_mock_proc([])
+
+        def _stdout_interrompu() -> Iterator[str]:
+            yield "partiel\n"
+            raise KeyboardInterrupt
+
+        mock_proc.stdout = _stdout_interrompu()
+        mock_popen.return_value = mock_proc
+
+        with pytest.raises(KeyboardInterrupt):
+            self.executor.run_streaming(["cmd"])
+
+        mock_killpg.assert_called_once_with(mock_proc.pid, signal.SIGKILL)
+        mock_proc.wait.assert_called()
+
+    @patch("linuxtools.commands.runner.os.killpg")
+    def test_kill_group_repli_sur_kill_si_groupe_introuvable(
+        self, mock_killpg: MagicMock
+    ) -> None:
+        """ProcessLookupError/PermissionError : repli sur proc.kill()."""
+        for erreur in (ProcessLookupError, PermissionError):
+            proc = MagicMock()
+            mock_killpg.side_effect = erreur
+
+            LinuxCommandExecutor._kill_group(proc)
+
+            proc.kill.assert_called_once()
 
     @patch(
         "linuxtools.commands.runner"
@@ -600,6 +641,19 @@ class TestLinuxCommandExecutorRunStreaming:
 
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["stderr"] is subprocess.PIPE
+
+    @patch(
+        "linuxtools.commands.runner"
+        ".subprocess.Popen"
+    )
+    def test_streaming_lance_dans_son_propre_groupe(
+        self, mock_popen: MagicMock
+    ) -> None:
+        """Popen reçoit process_group=0 (groupe dédié, tué en bloc)."""
+        mock_popen.return_value = _make_mock_proc([])
+        self.executor.run_streaming(["cmd"])
+
+        assert mock_popen.call_args[1]["process_group"] == 0
 
     @patch(
         "linuxtools.commands.runner"
@@ -1611,10 +1665,45 @@ class TestRunStreamingProcessusReel:
         debut = time.monotonic()
 
         result = executor.run_streaming(
-            ["sh", "-c", "echo debut; sleep 30"],
+            ["sh", "-c", "echo debut; sleep 30; echo fin"],
             timeout=2,
         )
 
         assert result.return_code == -1
         assert time.monotonic() - debut < 10
         assert "debut" in result.stdout
+
+    def test_streaming_timeout_tue_le_petit_fils(
+        self, garde_fou_alarme: None
+    ) -> None:
+        """Le délai tue le groupe : un petit-fils gardant stdout est tué."""
+        executor = LinuxCommandExecutor()
+        debut = time.monotonic()
+
+        result = executor.run_streaming(
+            ["sh", "-c", "sleep 30 & echo debut; wait"],
+            timeout=2,
+        )
+
+        assert result.return_code == -1
+        assert time.monotonic() - debut < 10
+        assert "debut" in result.stdout
+
+    @pytest.mark.parametrize("shell", ["/bin/dash", "/bin/busybox"])
+    def test_streaming_timeout_shell_qui_fork(
+        self, shell: str, garde_fou_alarme: None
+    ) -> None:
+        """Avec dash/busybox (fork de sleep, comme en CI), le délai tient."""
+        if not os.path.exists(shell):
+            pytest.skip(f"{shell} absent")
+        cmd = [shell, "sh"] if shell.endswith("busybox") else [shell]
+        executor = LinuxCommandExecutor()
+        debut = time.monotonic()
+
+        result = executor.run_streaming(
+            [*cmd, "-c", "echo debut; sleep 30; echo fin"],
+            timeout=2,
+        )
+
+        assert result.return_code == -1
+        assert time.monotonic() - debut < 10

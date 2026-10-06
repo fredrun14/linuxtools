@@ -40,6 +40,7 @@ Example :
 
 import os
 import shlex
+import signal
 import subprocess  # nosec B404
 import threading
 import time
@@ -346,6 +347,22 @@ class LinuxCommandExecutor(CommandExecutor):
         """
         sink.extend(stream)
 
+    @staticmethod
+    def _kill_group(proc: subprocess.Popen[str]) -> None:
+        """Tue (SIGKILL) tout le groupe de processus de ``proc``.
+
+        Suppose ``proc`` lancé avec ``process_group=0`` (pgid == pid).
+        Se rabat sur ``proc.kill()`` si le groupe est introuvable ou
+        inaccessible.
+
+        Args:
+            proc: Processus dont le groupe doit être tué.
+        """
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            proc.kill()
+
     def run_streaming(
         self,
         command: list[str],
@@ -364,8 +381,9 @@ class LinuxCommandExecutor(CommandExecutor):
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
             timeout: Timeout en secondes (prioritaire). Appliqué
-                pendant la lecture : le processus est tué à l'échéance
-                (code retour -1, sorties partielles conservées).
+                pendant la lecture : à l'échéance, tout le groupe de
+                processus est tué (SIGKILL), petits-fils compris (code
+                retour -1, sorties partielles conservées).
             merge_stderr: Si True, fusionne stderr dans stdout via
                 subprocess.STDOUT (result.stderr sera toujours ""). Plus
                 nécessaire contre le deadlock (stderr est vidé en continu
@@ -377,7 +395,9 @@ class LinuxCommandExecutor(CommandExecutor):
 
         Note:
             Logue une erreur si le code retour est non-nul et qu'un
-            logger est configuré.
+            logger est configuré. Le processus est lancé dans son propre
+            groupe : sur KeyboardInterrupt, le groupe est tué puis
+            l'exception est relancée.
         """
         if self._dry_run:
             return self._make_dry_run_result(command)
@@ -397,6 +417,9 @@ class LinuxCommandExecutor(CommandExecutor):
                 text=True,
                 env=effective_env,
                 cwd=cwd,
+                # Groupe de processus dédié : le délai (ou Ctrl-C) peut
+                # ainsi tuer tout l'arbre, pas seulement le shell.
+                process_group=0,
             ) as proc:
                 assert proc.stdout is not None  # nosec
 
@@ -413,7 +436,7 @@ class LinuxCommandExecutor(CommandExecutor):
                     )
                     stderr_thread.start()
 
-                # Chien de garde : tue le processus à l'échéance, ce qui
+                # Chien de garde : tue le groupe à l'échéance, ce qui
                 # ferme stdout et termine la boucle de lecture ci-dessous.
                 timed_out = threading.Event()
                 watchdog: threading.Timer | None = None
@@ -421,7 +444,7 @@ class LinuxCommandExecutor(CommandExecutor):
 
                     def _expire() -> None:
                         timed_out.set()
-                        proc.kill()
+                        self._kill_group(proc)
 
                     watchdog = threading.Timer(effective_timeout, _expire)
                     watchdog.daemon = True
@@ -442,6 +465,13 @@ class LinuxCommandExecutor(CommandExecutor):
                             )
                     # stdout est fermé : le processus est terminé ou tué.
                     proc.wait()
+                except KeyboardInterrupt:
+                    # Le processus n'est plus dans le groupe du terminal
+                    # (process_group=0) : Ctrl-C ne l'atteint plus, on tue
+                    # donc le groupe nous-mêmes avant de relancer.
+                    self._kill_group(proc)
+                    proc.wait()
+                    raise
                 finally:
                     if watchdog is not None:
                         watchdog.cancel()
