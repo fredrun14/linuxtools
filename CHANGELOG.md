@@ -2,6 +2,29 @@
 
 ## [Non publié]
 
+## [2.4.0] - 2026-10-06
+
+### Ajouté
+
+- feat(scripts): `InstallReport.deps_managed_by_uv` (`bool`, `False` par
+  défaut) indique que les dépendances sont résolues par uv à
+  l'installation (déploiement `uv tool`, aucune sonde pip).
+
+### Corrigé
+
+- fix(scripts): le contrôle de dépendances de `LinuxCliInstaller` est
+  désormais correct pour un déploiement `uv tool` (`venv_path=None`).
+  `LinuxScriptChecker.check_dependencies` sondait le `pip3` système,
+  qui ne voit pas l'environnement isolé de l'outil : faux négatif pour
+  root (`linuxtools (non installé)` alors que le déploiement réussit),
+  faux positif pour un utilisateur (reliquat `~/.local` accepté sans
+  que la version requise soit jamais comparée). En mode `uv tool`, les
+  dépendances sont résolues par uv à l'installation : plus aucune
+  sonde pip, `missing`/`installed` vides, `total` inchangé. Le rapport
+  (`InstallReport.deps_managed_by_uv`, nouveau champ à `False` par
+  défaut) affiche `Dépendances : gérées par uv`. Comportement inchangé
+  quand `venv_path` est fourni.
+
 ## [2.3.2] - 2026-10-04
 
 ### Corrigé

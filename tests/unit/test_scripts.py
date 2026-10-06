@@ -15,6 +15,7 @@ from linuxtools.scripts import (
     PythonCliConfig,
     ScriptPaths,
     LinuxScriptChecker,
+    InstalledDependency,
     InstallReport,
     MissingDependency,
     LinuxCliInstaller,
@@ -516,6 +517,20 @@ class TestInstallReport:
         )
         assert "pip3 install" in report.format_summary()
 
+    def test_format_summary_deps_gerees_par_uv(self) -> None:
+        """Mode uv tool : libellé « gérées par uv », sans ✗ ni compteur."""
+        report = self._make_report(
+            total_deps=1,
+            deps_managed_by_uv=True,
+            install_command="uv tool install --editable '/app'",
+        )
+        summary = report.format_summary()
+        assert "Dépendances : gérées par uv" in summary
+        assert "satisfaites" not in summary
+        assert "✗" not in summary
+        # Aucune commande suggérée sur un succès en mode uv.
+        assert "Commande" not in summary
+
     def test_format_summary_includes_warnings(self) -> None:
         """Vérifie que les warnings apparaissent dans le résumé."""
         report = self._make_report(warnings=["Venv inaccessible"])
@@ -806,7 +821,7 @@ class TestLinuxScriptCheckerDeps:
             success=True, stdout="Location: /usr/lib/python3.11\n"
         )
         missing, installed, total, _ = self.checker.check_dependencies(
-            pyproject, None, []
+            pyproject, tmp_path / "venv", []
         )
         assert missing == []
         assert len(installed) == 1
@@ -817,10 +832,32 @@ class TestLinuxScriptCheckerDeps:
         pyproject = self._make_pyproject(tmp_path, ["click>=8.0"])
         self.executor.probe.return_value = _result(success=False)
         missing, _installed, total, _ = self.checker.check_dependencies(
-            pyproject, None, []
+            pyproject, tmp_path / "venv", []
         )
         assert len(missing) == 1
         assert missing[0].package == "click"
+
+    def test_uv_tool_ne_sonde_pas_pip_systeme(self, tmp_path: Path) -> None:
+        """venv_path=None (uv tool) : aucune sonde pip, deps non sondées."""
+        pyproject = self._make_pyproject(tmp_path, ["linuxtools>=2.3"])
+        missing, installed, total, cmd = self.checker.check_dependencies(
+            pyproject, None, []
+        )
+        self.executor.probe.assert_not_called()
+        assert missing == []
+        assert installed == []
+        assert total == 1
+        assert cmd == f"uv tool install --editable '{tmp_path}'"
+
+    def test_venv_fourni_install_cmd_pip_editable(
+        self, tmp_path: Path
+    ) -> None:
+        """Mode venv : install_cmd = `<venv>/bin/pip install -e '<dir>'`."""
+        pyproject = self._make_pyproject(tmp_path, ["click>=8.0"])
+        self.executor.probe.return_value = _result(success=True)
+        venv = tmp_path / "venv"
+        _, _, _, cmd = self.checker.check_dependencies(pyproject, venv, [])
+        assert cmd == f"{venv}/bin/pip install -e '{tmp_path}'"
 
     def test_checker_venv_cible_utilise_pip_du_venv(
         self, tmp_path: Path
@@ -845,7 +882,7 @@ class TestLinuxScriptCheckerDeps:
         )
         self.executor.probe.return_value = _result(success=True)
         _, _installed, total, _ = self.checker.check_dependencies(
-            pyproject, None, ["dev"]
+            pyproject, tmp_path / "venv", ["dev"]
         )
         assert total == 1
 
@@ -924,6 +961,81 @@ class TestLinuxCliInstaller:
             )
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
+
+    def _install_ok(
+        self, tmp_path: Path, config: PythonCliConfig
+    ) -> InstallReport:
+        """Lance install() avec des mocks de succès et retourne le rapport."""
+        self.checker.check_python.return_value = True
+        self.checker.check_venv.return_value = True
+        self.checker.read_pyproject.return_value = {
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": ["linuxtools>=2.3"],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
+        }
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
+            mock_cls.return_value = self._patch_paths(tmp_path)
+            self.executor.probe.side_effect = _probe_dispatch()
+            self.executor.run.return_value = _result(success=True)
+            return self.installer.install(config, confirm_wrapper=False)
+
+    def test_report_uv_tool_deps_gerees_par_uv(self, tmp_path: Path) -> None:
+        """Sans venv_path : rapport « gérées par uv », sans avertissement."""
+        self.checker.check_dependencies.return_value = (
+            [],
+            [],
+            1,
+            "uv tool install --editable '/app'",
+        )
+        report = self._install_ok(tmp_path, self._user_config(tmp_path))
+        assert report.deps_managed_by_uv is True
+        assert report.warnings == []
+        assert "gérées par uv" in report.format_summary()
+
+    def test_report_echec_uv_deps_gerees_par_uv(self, tmp_path: Path) -> None:
+        """Échec de uv tool install sans venv : mention uv conservée."""
+        self.checker.check_dependencies.return_value = ([], [], 1, "cmd")
+        self.checker.check_python.return_value = True
+        self.checker.read_pyproject.return_value = {
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": ["linuxtools>=2.3"],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
+        }
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
+            mock_cls.return_value = self._patch_paths(tmp_path)
+            self.executor.probe.side_effect = _probe_dispatch()
+            self.executor.run.return_value = _result(success=False)
+            report = self.installer.install(
+                self._user_config(tmp_path), confirm_wrapper=False
+            )
+        assert report.success is False
+        assert report.deps_managed_by_uv is True
+
+    def test_report_venv_fourni_inchange(self, tmp_path: Path) -> None:
+        """Avec venv_path : comptage satisfaites/total, pas de mention uv."""
+        self.checker.check_dependencies.return_value = (
+            [],
+            [InstalledDependency("linuxtools", "/venv/lib")],
+            1,
+            "cmd",
+        )
+        config = PythonCliConfig(
+            name="app",
+            deploy_type="user",
+            source_dir=tmp_path,
+            venv_path=tmp_path / "venv",
+        )
+        report = self._install_ok(tmp_path, config)
+        assert report.deps_managed_by_uv is False
+        summary = report.format_summary()
+        assert "Dépendances : 1/1 satisfaites" in summary
+        assert "gérées par uv" not in summary
 
     def test_skips_wrapper_when_scripts_entry_exists(self, tmp_path: Path) -> None:
         """Vérifie qu'aucun wrapper n'est généré si [project.scripts] existe."""

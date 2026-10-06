@@ -351,6 +351,7 @@ class LinuxCliInstaller(CliInstaller):
             total_deps=total,
             install_command=install_cmd,
             warnings=warnings or [],
+            deps_managed_by_uv=config.venv_path is None,
         )
 
     def _check_preconditions(
@@ -536,6 +537,8 @@ class LinuxCliInstaller(CliInstaller):
             total_deps=total,
             install_command=install_cmd,
             warnings=warnings,
+            # Sans venv : uv résout lui-même les dépendances (uv tool).
+            deps_managed_by_uv=config.venv_path is None,
         )
 
     def _generate_wrapper_content(

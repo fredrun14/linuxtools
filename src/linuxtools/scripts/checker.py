@@ -102,7 +102,9 @@ class ScriptChecker(ABC):
 
         Args:
             pyproject_path: Chemin du pyproject.toml.
-            venv_path: Chemin du venv (None → pip3 système).
+            venv_path: Chemin du venv. None = déploiement `uv tool` :
+                les dépendances sont résolues par uv à l'installation,
+                aucune sonde pip système n'est effectuée.
             check_extras: Groupes d'extras à inclure.
 
         Returns:
@@ -317,7 +319,9 @@ class LinuxScriptChecker(ScriptChecker):
 
         Args:
             pyproject_path: Chemin du pyproject.toml.
-            venv_path: Chemin du venv (None → pip3 système).
+            venv_path: Chemin du venv. None = déploiement `uv tool` :
+                les dépendances sont résolues par uv à l'installation,
+                aucune sonde pip système n'est effectuée.
             check_extras: Groupes d'extras à inclure.
 
         Returns:
@@ -335,9 +339,18 @@ class LinuxScriptChecker(ScriptChecker):
             if extra in opt:
                 deps += opt[extra]
 
-        pip_cmd = (
-            str(venv_path / "bin" / "pip") if venv_path is not None else "pip3"
-        )
+        if venv_path is None:
+            # Déploiement uv tool : uv résout les dépendances dans un
+            # environnement isolé, invisible du pip système. Sonder pip3
+            # donnerait des faux négatifs (root) ou faux positifs (user).
+            return (
+                [],
+                [],
+                len(deps),
+                f"uv tool install --editable '{pyproject_path.parent}'",
+            )
+
+        pip_cmd = str(venv_path / "bin" / "pip")
 
         missing: list[MissingDependency] = []
         installed: list[InstalledDependency] = []
@@ -354,12 +367,7 @@ class LinuxScriptChecker(ScriptChecker):
                     InstalledDependency(package=pkg, location=location)
                 )
 
-        if venv_path is not None:
-            install_cmd = f"{pip_cmd} install -e '{pyproject_path.parent}'"
-        else:
-            install_cmd = (
-                f"uv tool install --editable '{pyproject_path.parent}'"
-            )
+        install_cmd = f"{pip_cmd} install -e '{pyproject_path.parent}'"
         return missing, installed, len(deps), install_cmd
 
     @staticmethod

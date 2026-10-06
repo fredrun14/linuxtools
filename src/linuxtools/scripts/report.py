@@ -65,6 +65,8 @@ class InstallReport:
         total_deps: Nombre total de dépendances vérifiées.
         install_command: Commande pip suggérée pour les manquants.
         warnings: Avertissements non bloquants.
+        deps_managed_by_uv: True si les dépendances sont résolues par
+            uv à l'installation (déploiement `uv tool`, aucune sonde).
 
     Example:
         >>> report = InstallReport(
@@ -86,6 +88,7 @@ class InstallReport:
     total_deps: int = 0
     install_command: str = ""
     warnings: list[str] = field(default_factory=list)
+    deps_managed_by_uv: bool = False
 
     @property
     def deps_satisfied(self) -> bool:
@@ -106,7 +109,10 @@ class InstallReport:
             f"  Installé dans : {self.install_path}",
         ]
 
-        if self.total_deps > 0:
+        if self.deps_managed_by_uv and self.total_deps > 0:
+            # Mode uv tool : rien n'a été sondé, uv résout les dépendances.
+            lines.append("  Dépendances : gérées par uv")
+        elif self.total_deps > 0:
             satisfied = self.total_deps - len(self.missing_deps)
             lines.append(
                 f"  Dépendances : {satisfied}/{self.total_deps} satisfaites"
