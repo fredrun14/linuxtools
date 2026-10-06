@@ -2,6 +2,22 @@
 
 ## [Non publié]
 
+## [2.3.3] - 2026-10-06
+
+### Corrigé
+
+- fix(commands): `LinuxCommandExecutor.run_streaming` ne se bloque plus
+  quand le processus écrit plus de ~64 Ko sur stderr. Un fil daemon
+  vide désormais stderr en continu ; `result.stderr` contient la sortie
+  d'erreur complète. `merge_stderr=True` n'est plus nécessaire contre
+  ce deadlock (il reste utile pour fusionner les flux).
+- fix(commands): le `timeout` de `run_streaming` est désormais appliqué
+  pendant la lecture de stdout (chien de garde `threading.Timer`). Un
+  processus qui ne ferme pas stdout est tué à l'échéance : code retour
+  -1, sorties partielles conservées. Auparavant le délai n'était
+  appliqué qu'après la lecture, donc jamais tant que stdout restait
+  ouvert.
+
 ## [2.3.2] - 2026-10-04
 
 ### Corrigé

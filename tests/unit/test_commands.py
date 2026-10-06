@@ -1,7 +1,12 @@
 """Tests pour le module commands."""
 
+import signal
 import subprocess
 import sys
+import threading
+import time
+from collections.abc import Iterator
+from types import FrameType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,7 +31,8 @@ def _make_mock_proc(
     """Crée un mock de subprocess.Popen configuré pour les tests."""
     mock_proc = MagicMock()
     mock_proc.stdout = iter(stdout_lines)
-    mock_proc.stderr.read.return_value = stderr
+    # stderr est itérable : il est vidé par le fil de drainage
+    mock_proc.stderr = iter(stderr.splitlines(keepends=True))
     mock_proc.returncode = returncode
     mock_proc.wait.return_value = None
     mock_proc.__enter__ = MagicMock(return_value=mock_proc)
@@ -470,17 +476,21 @@ class TestLinuxCommandExecutorRunStreaming:
     )
     def test_streaming_timeout(self, mock_popen: MagicMock) -> None:
         """Test du timeout en mode streaming."""
-        mock_proc = _make_mock_proc(
-            ["partiel\n"],
-        )
-        mock_proc.wait.side_effect = [
-            subprocess.TimeoutExpired(cmd=["cmd"], timeout=5),
-            None,
-        ]
+        mock_proc = _make_mock_proc([])
+        # stdout reste ouvert jusqu'à ce que le chien de garde tue le
+        # processus (kill -> fermeture de stdout), comme en réel.
+        tue = threading.Event()
+
+        def _stdout_bloquant() -> Iterator[str]:
+            yield "partiel\n"
+            tue.wait(timeout=10)
+
+        mock_proc.stdout = _stdout_bloquant()
+        mock_proc.kill.side_effect = tue.set
         mock_popen.return_value = mock_proc
 
         result = self.executor.run_streaming(
-            ["cmd"], timeout=5,
+            ["cmd"], timeout=1,
         )
 
         assert result.success is False
@@ -607,6 +617,8 @@ class TestLinuxCommandExecutorRunStreaming:
         )
 
         assert result.stderr == ""
+        # Pas de fil de drainage : stderr n'a pas été consommé
+        assert next(mock_popen.return_value.stderr) == "ignoré"
 
     @patch(
         "linuxtools.commands.runner"
@@ -1536,3 +1548,73 @@ class TestRunStreamingIntegration:
         assert result.success is True
         assert "ok" in result.stdout
         assert result.stderr == "err"
+
+
+# --- Tests run_streaming avec un vrai sous-processus ---
+
+
+@pytest.fixture
+def garde_fou_alarme() -> Iterator[None]:
+    """Interrompt le test après 25 s (SIGALRM) s'il se bloque."""
+
+    def _expire(signum: int, frame: FrameType | None) -> None:
+        raise TimeoutError("test bloqué : garde-fou SIGALRM atteint")
+
+    ancien = signal.signal(signal.SIGALRM, _expire)
+    signal.alarm(25)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, ancien)
+
+
+class TestDrain:
+    """Tests de l'aide privée _drain (fil de drainage de stderr)."""
+
+    def test_drain_accumule_toutes_les_lignes(self) -> None:
+        """Toutes les lignes du flux se retrouvent dans la liste."""
+        sink: list[str] = []
+
+        LinuxCommandExecutor._drain(iter(["a\n", "b\n"]), sink)
+
+        assert sink == ["a\n", "b\n"]
+
+
+class TestRunStreamingProcessusReel:
+    """Tests de run_streaming sans mock Popen (vrai sous-processus)."""
+
+    def test_streaming_stderr_volumineux_sans_deadlock(
+        self, garde_fou_alarme: None
+    ) -> None:
+        """Plus de 64 Ko sur stderr ne bloque pas et est capturé en entier."""
+        executor = LinuxCommandExecutor()
+
+        result = executor.run_streaming(
+            [
+                "sh",
+                "-c",
+                "head -c 300000 /dev/zero | tr '\\0' x >&2; echo fin",
+            ],
+            timeout=15,
+        )
+
+        assert result.return_code == 0
+        assert len(result.stderr) >= 300000
+        assert result.stdout == "fin"
+
+    def test_streaming_timeout_applique_pendant_la_lecture(
+        self, garde_fou_alarme: None
+    ) -> None:
+        """Un processus qui garde stdout ouvert est tué à l'échéance."""
+        executor = LinuxCommandExecutor()
+        debut = time.monotonic()
+
+        result = executor.run_streaming(
+            ["sh", "-c", "echo debut; sleep 30"],
+            timeout=2,
+        )
+
+        assert result.return_code == -1
+        assert time.monotonic() - debut < 10
+        assert "debut" in result.stdout
