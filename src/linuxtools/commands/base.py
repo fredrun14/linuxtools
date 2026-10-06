@@ -115,11 +115,13 @@ class CommandExecutor(ABC):
             command: Commande sous forme de liste.
             env: Variables d'environnement supplémentaires.
             cwd: Répertoire de travail.
-            timeout: Timeout en secondes.
+            timeout: Timeout en secondes, appliqué pendant la lecture.
             merge_stderr: Si True, fusionne stderr dans stdout via
-                subprocess.STDOUT — élimine le risque de deadlock
-                causé par un pipe stderr plein, au prix de la
-                séparation stdout/stderr dans le résultat.
+                subprocess.STDOUT, au prix de la séparation
+                stdout/stderr dans le résultat. N'est plus nécessaire
+                pour éviter le deadlock d'un pipe stderr plein
+                (stderr est vidé en continu) ; reste utile pour
+                obtenir un flux unique.
 
         Returns:
             Résultat de l'exécution.

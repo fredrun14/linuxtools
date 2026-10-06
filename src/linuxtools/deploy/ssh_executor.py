@@ -159,7 +159,8 @@ class SshCommandExecutor(CommandExecutor):
             cwd: Répertoire de travail distant.
             timeout: Timeout en secondes pour l'appel ssh local.
             merge_stderr: Propagé tel quel au LinuxCommandExecutor
-                local.
+                local. Plus nécessaire contre le deadlock d'un pipe
+                stderr plein ; reste utile pour fusionner les flux.
 
         Returns:
             CommandResult de l'appel ssh en streaming.
