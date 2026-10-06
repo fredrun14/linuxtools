@@ -1757,6 +1757,9 @@ if checker.check_python(required_version="3.11"):
     )
     for dep in missing:
         print(f"Manquant : {dep.package} {dep.required} ({dep.reason})")
+    # Avec venv_path=None (déploiement `uv tool`), aucune sonde pip n'est
+    # faite : missing et installed sont vides, les dépendances sont
+    # résolues par uv à l'installation (total reste le nombre déclaré).
 
 # Installation orchestrée : checks + wrapper bash + `uv tool install`
 # confirm_wrapper=True demande confirmation interactive si stdin est un TTY ;
