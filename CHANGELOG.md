@@ -2,6 +2,25 @@
 
 ## [Non publié]
 
+## [2.5.0] - 2026-10-08
+
+### Ajouté
+
+- feat(notification): `TelegramNotifier` envoie chaque notification à N
+  chats Telegram via un même bot (`Mapping` libellé → `chat_id`), en
+  stdlib uniquement. Exporté depuis `linuxtools.notification` et
+  `linuxtools`.
+  - Titre seul par défaut (`include_message=False`) : le détail ne part
+    chez le tiers qu'avec `include_message=True` (messages de bot non
+    chiffrés de bout en bout).
+  - Isolation par destinataire : un échec n'empêche pas les autres envois ;
+    une seule `NotificationSendError` agrégée, qui ne cite que libellés et
+    raisons fixes.
+  - Aucun nouvel essai (429 compris) ; texte tronqué à 4096 unités UTF-16.
+  - Le token n'est jamais exposé dans les exceptions, les logs ni `repr()`.
+  - Limite : chaque destinataire doit avoir démarré le bot (`/start`),
+    sinon son envoi échoue (403/400).
+
 ## [2.4.0] - 2026-10-06
 
 ### Ajouté

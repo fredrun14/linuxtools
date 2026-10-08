@@ -52,7 +52,7 @@ chacun. Le canal envoie toutes les notifications (succès compris).
 | F-01 | Must have   | Envoyer une même notification sur Telegram à 4 destinataires, chacun avec son propre téléphone |
 | F-02 | Must have   | Envoyer toutes les notifications, succès compris, sans filtre |
 | F-03 | Must have   | Fonctionner en parallèle de Gotify et sans dépendre de son serveur |
-| F-04 | Should have | > ⚠️ HYPOTHÈSE À VALIDER : l'échec d'envoi vers un destinataire n'empêche pas les autres, et est signalé à l'appelant |
+| F-04 | Should have | L'échec d'envoi vers un destinataire n'empêche pas les autres, et est signalé à l'appelant (une seule `NotificationSendError` agrégée) |
 | F-05 | Won't have  | Réception de messages ou de commandes par le bot |
 | F-06 | Must have   | Par défaut, **seul le titre** de la notification part sur Telegram (ex. `✗ backup-nas — échec`) ; le résumé détaillé (machine, chemins, messages d'erreur) reste sur les autres canaux (décision Q-02, option B) |
 
@@ -88,11 +88,12 @@ chacun. Le canal envoie toutes les notifications (succès compris).
 ## 7. Exposition et Surface d'Attaque
 
 - [ ] **Local uniquement** — Pas d'exposition réseau
+- [x] **Réseau : appel sortant** — Appel HTTPS sortant vers l'API Telegram (aucune exposition entrante)
 - [ ] **Réseau interne** — Accessible sur le LAN
 - [ ] **Exposé Internet** — API publique / interface web
 
-> ⚠️ HYPOTHÈSE À VALIDER : l'envoi Telegram suppose un appel sortant vers un
-> service cloud tiers, donc une I/O réseau. Si confirmé, activer les skills
+> Confirmé : l'envoi Telegram est un appel sortant vers un service cloud
+> tiers, donc une I/O réseau. Les skills suivants sont activés :
 > `python-owasp-security`, `python-sast-bandit-security`,
 > `python-security-monitoring`.
 
@@ -100,7 +101,7 @@ chacun. Le canal envoie toutes les notifications (succès compris).
 
 | Critère                    | Exigence                                                        |
 |----------------------------|-----------------------------------------------------------------|
-| Données sensibles          | Token du bot (ne doit jamais fuiter dans logs ou exceptions) ; > ⚠️ HYPOTHÈSE À VALIDER : identifiants de conversation des destinataires ; contenu des notifications : le détail ne part pas chez le tiers, seul le titre (Q-02 B, F-06) |
+| Données sensibles          | Token du bot (ne doit jamais fuiter dans logs ou exceptions) ; identifiants de conversation des destinataires (sensibles : n'apparaissent ni dans les logs ni dans les exceptions) ; contenu des notifications : le détail ne part pas chez le tiers, seul le titre (Q-02 B, F-06) |
 | Authentification           | [...]                                                           |
 | Autorisation               | [...]                                                           |
 | Entrées non fiables        | [...]                                                           |

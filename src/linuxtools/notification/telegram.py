@@ -2,6 +2,43 @@
 
 Envoie chaque notification à N chats Telegram via un même bot
 (POST /bot<token>/sendMessage), en stdlib uniquement.
+
+Exemple d'usage : le token est chargé via ``CredentialManager`` (jamais
+en dur), les ``chat_id`` viennent de la configuration::
+
+    from pathlib import Path
+
+    from linuxtools import CredentialManager, TelegramNotifier
+
+    manager = CredentialManager.from_dotenv(
+        service="backup-nas",
+        dotenv_path=Path("config/.env"),
+    )
+    notifier = TelegramNotifier(
+        token=manager.require("TELEGRAM_BOT_TOKEN"),
+        recipients={"alice": 111111111, "bob": 222222222},
+        logger=logger,
+    )
+    notifier.send(Notification(title="✗ backup-nas — échec", message="..."))
+
+Prérequis : chaque destinataire doit avoir DÉMARRÉ le bot (bouton
+« Démarrer » ou commande /start). Un bot ne peut pas écrire le premier :
+sans cela, Telegram répond 403 (bot bloqué ou jamais démarré) ou 400
+(chat introuvable).
+
+Confidentialité : par défaut (``include_message=False``), seul le titre
+de la notification part chez Telegram ; le détail (machine, chemins,
+messages d'erreur) reste sur les autres canaux. Le détail ne part chez
+ce tiers qu'avec ``include_message=True``, et les messages d'un bot ne
+sont pas chiffrés de bout en bout.
+
+Comportement : les envois sont séquentiels (durée maximale d'un
+``send`` : N destinataires × ``timeout``, hors résolution DNS), sans
+aucun nouvel essai (un 429 est signalé comme les autres échecs). Si au
+moins un destinataire échoue, les autres sont tout de même servis, puis
+une seule ``NotificationSendError`` agrégée est levée ; elle ne cite que
+les libellés et des raisons fixes, jamais le token, l'URL ni le
+``chat_id``.
 """
 
 import http.client
@@ -82,7 +119,26 @@ def _truncate(text: str) -> str:
 
 
 class TelegramNotifier(Notifier):
-    """Envoie les notifications à N chats Telegram via un même bot."""
+    """Envoie les notifications à N chats Telegram via un même bot.
+
+    Chaque destinataire est identifié par un libellé (utilisé dans les
+    logs et les erreurs) et un ``chat_id`` entier. Il doit avoir démarré
+    le bot au préalable (/start), sinon son envoi échoue en 403 ou 400.
+
+    Par défaut seul le titre est envoyé (``include_message=False``) ;
+    ``include_message=True`` ajoute le détail, qui transite alors en
+    clair (non chiffré de bout en bout) par un tiers. Les envois sont
+    séquentiels et sans nouvel essai ; les échecs sont isolés par
+    destinataire puis agrégés dans une seule ``NotificationSendError``
+    qui ne contient ni token, ni URL, ni ``chat_id``. Le token reste dans
+    un attribut privé : ``repr()`` ne l'expose pas.
+
+    Exemple :
+        >>> notifier = TelegramNotifier(  # doctest: +SKIP
+        ...     token=manager.require("TELEGRAM_BOT_TOKEN"),
+        ...     recipients={"alice": 111111111},
+        ... )
+    """
 
     def __init__(
         self,

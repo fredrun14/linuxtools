@@ -1,6 +1,6 @@
 # Conception — Notifier Telegram multi-destinataires
 > **Date :** 2026-10-08
-> **Statut :** Q-02 tranchée (option B, 2026-10-08) ; Q-01 : 4 personnes / 4 comptes, installation chez les 3 autres à confirmer (recette en deux temps). Les autres recommandations du §9 sont soumises avec le plan.
+> **Statut :** Validé (Q-02 tranchée option B, 2026-10-08 ; Q-01 : 4 personnes / 4 comptes, installation chez les 3 autres à confirmer, recette en deux temps). Les autres recommandations du §9 sont validées avec le plan.
 > **Entrée :** CDC-20261008-Notifier-Telegram-Multi-Destinataires.md
 > **Projet :** linuxtools 2.4.0 → 2.5.0 (mineure, ajout d'un canal)
 > **Sources Telegram (consultées le 2026-10-08) :** core.telegram.org/bots/api (Bot API 10.3 du 2026-08-24 : « Making requests », `sendMessage`, `ResponseParameters`, `LinkPreviewOptions`, « Formatting options ») · core.telegram.org/bots/faq (« My bot is hitting limits ») · core.telegram.org/bots (« Bots can't start conversations with users ») · telegram.org/faq (chiffrement des cloud chats).
