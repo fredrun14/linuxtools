@@ -8,7 +8,7 @@ import traceback
 import urllib.error
 import urllib.request
 from email.message import Message
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import pytest
 
@@ -125,16 +125,80 @@ class TestTelegramNotifierConstruction:
         """Un identifiant de groupe (négatif) est un entier valide."""
         TelegramNotifier(token=TOKEN, recipients={"groupe": -100123})
 
-    @pytest.mark.parametrize("timeout", [0, -1, 0.0, float("nan")])
-    def test_timeout_non_positif_leve_value_error(
-        self, timeout: float
+    @pytest.mark.parametrize(
+        "timeout",
+        [
+            0,
+            0.0,
+            -1,
+            3600.1,
+            1e308,
+            float("inf"),
+            float("-inf"),
+            float("nan"),
+            True,
+            "10",
+            None,
+        ],
+    )
+    def test_timeout_invalide_leve_value_error_sans_la_valeur(
+        self, timeout: object
     ) -> None:
-        """Un timeout nul, négatif ou NaN est refusé."""
+        """Un timeout hors ]0, 3600] ou non numérique est refusé."""
         with pytest.raises(ValueError) as info:
             TelegramNotifier(
-                token=TOKEN, recipients={"alice": 1}, timeout=timeout
+                token=TOKEN,
+                recipients={"alice": 1},
+                timeout=cast("Any", timeout),
             )
-        assert str(info.value) == "timeout doit être strictement positif"
+        assert str(info.value) == "timeout doit être dans ]0, 3600] secondes"
+
+    @pytest.mark.parametrize("timeout", [0.5, 10, 3600])
+    def test_timeout_valide_accepte_et_transmis(self, timeout: float) -> None:
+        """Les bornes valides sont acceptées et transmises à l'opener."""
+        opener = RecordingOpener()
+        notifier = TelegramNotifier(
+            token=TOKEN,
+            recipients={"alice": 1},
+            timeout=timeout,
+            opener=opener,
+        )
+        notifier.send(Notification(title="T", message="M"))
+        assert opener.timeouts == [timeout]
+
+    @pytest.mark.parametrize("include_message", ["false", "0", "", None, 1, 0])
+    def test_include_message_non_booleen_leve_value_error(
+        self, include_message: object
+    ) -> None:
+        """Seul un vrai bool est accepté (échec fermé de Q-02)."""
+        opener = RecordingOpener()
+        with pytest.raises(ValueError) as info:
+            TelegramNotifier(
+                token=TOKEN,
+                recipients={"alice": 1},
+                include_message=cast("Any", include_message),
+                opener=opener,
+            )
+        assert str(info.value) == "include_message doit être un booléen"
+        assert opener.requests == []
+
+    @pytest.mark.parametrize(
+        ("include_message", "attendu"),
+        [(True, "Titre\n\nDETAIL"), (False, "Titre")],
+    )
+    def test_include_message_booleen_accepte(
+        self, include_message: bool, attendu: str
+    ) -> None:
+        """True et False sont acceptés et pilotent le texte envoyé."""
+        opener = RecordingOpener()
+        notifier = TelegramNotifier(
+            token=TOKEN,
+            recipients={"alice": 1},
+            include_message=include_message,
+            opener=opener,
+        )
+        notifier.send(Notification(title="Titre", message="DETAIL"))
+        assert opener.bodies()[0]["text"] == attendu
 
     def test_repr_ne_contient_ni_token_ni_chat_id(self) -> None:
         """repr() ne divulgue rien (garde-fou anti-dataclass)."""
@@ -206,6 +270,23 @@ class TestFormatage:
         """2049 emojis = 4098 unités : tronqué à 2047 emojis + « … »."""
         assert self._text_envoye("😀" * 2049) == "😀" * 2047 + "…"
 
+    def test_substitut_isole_est_envoye_et_echappe_dans_le_json(self) -> None:
+        """Un substitut isolé (surrogateescape) est envoyé, sans erreur."""
+        opener = RecordingOpener()
+        notifier = TelegramNotifier(
+            token=TOKEN, recipients={"alice": 1}, opener=opener
+        )
+        notifier.send(Notification(title="a\udcffb", message="M"))
+        request = opener.requests[0]
+        assert isinstance(request.data, bytes)
+        assert b"a\\udcffb" in request.data
+        assert opener.bodies()[0]["text"] == "a\udcffb"
+
+    def test_substitut_isole_a_la_frontiere_compte_une_unite(self) -> None:
+        """Un substitut isolé vaut 1 unité : il tient dans le budget."""
+        title = "a" * 4094 + "\udcff" + "bbb"
+        assert self._text_envoye(title) == "a" * 4094 + "\udcff…"
+
 
 class RecordingLogger(Logger):
     """Logger factice qui conserve tous les messages reçus."""
@@ -267,6 +348,18 @@ class TestSendNominal:
         notifier.send(Notification(title="T", message="M"))
         assert [b["chat_id"] for b in opener.bodies()] == [30, 10, 20]
         assert opener.timeouts == [7.5, 7.5, 7.5]
+
+    def test_mapping_mute_apres_construction_est_sans_effet(self) -> None:
+        """Le mapping est copié : le muter ensuite ne change rien."""
+        opener = RecordingOpener()
+        recipients = {"alice": 111}
+        notifier = TelegramNotifier(
+            token=TOKEN, recipients=recipients, opener=opener
+        )
+        recipients["alice"] = 999
+        recipients["evil"] = 222
+        notifier.send(Notification(title="T", message="M"))
+        assert [b["chat_id"] for b in opener.bodies()] == [111]
 
     def test_succes_journalise_par_libelle_sans_chat_id(self) -> None:
         """Chaque succès est loggé avec le libellé, jamais le chat_id."""

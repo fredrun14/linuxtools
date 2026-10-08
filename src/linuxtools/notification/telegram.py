@@ -8,7 +8,8 @@ en dur), les ``chat_id`` viennent de la configuration::
 
     from pathlib import Path
 
-    from linuxtools import CredentialManager, TelegramNotifier
+    from linuxtools import CredentialManager
+    from linuxtools.notification import Notification, TelegramNotifier
 
     manager = CredentialManager.from_dotenv(
         service="backup-nas",
@@ -17,7 +18,6 @@ en dur), les ``chat_id`` viennent de la configuration::
     notifier = TelegramNotifier(
         token=manager.require("TELEGRAM_BOT_TOKEN"),
         recipients={"alice": 111111111, "bob": 222222222},
-        logger=logger,
     )
     notifier.send(Notification(title="✗ backup-nas — échec", message="..."))
 
@@ -64,6 +64,9 @@ _HTTP_REASONS: dict[int, str] = {
     404: "token ou méthode inconnus",
     429: "trop de messages (limite de débit)",
 }
+# Au-delà, socket.settimeout peut lever OverflowError (hors contrat de
+# send) : 3600 s dépasse tout usage de notification.
+_MAX_TIMEOUT = 3600.0
 _API_BASE = "https://api.telegram.org"
 _LABEL_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,32}")
 _TOKEN_PATTERN = re.compile(r"[0-9]+:[A-Za-z0-9_-]+")
@@ -76,9 +79,10 @@ def _utf16_units(text: str) -> int:
         text: Texte à mesurer.
 
     Returns:
-        Nombre d'unités UTF-16 (une paire de substitution en vaut 2).
+        Nombre d'unités UTF-16 (une paire de substitution en vaut 2,
+        un substitut isolé en vaut 1 : il ne lève aucune exception).
     """
-    return len(text.encode("utf-16-le")) // 2
+    return len(text.encode("utf-16-le", "surrogatepass")) // 2
 
 
 def _is_valid_chat_id(value: object) -> bool:
@@ -93,6 +97,24 @@ def _is_valid_chat_id(value: object) -> bool:
     """
     return (
         isinstance(value, int) and not isinstance(value, bool) and value != 0
+    )
+
+
+def _is_valid_timeout(value: object) -> bool:
+    """Indique si la valeur est un timeout acceptable.
+
+    Args:
+        value: Valeur à contrôler (le typage n'est pas fiable à
+            l'exécution).
+
+    Returns:
+        True pour un int ou float non booléen dans ]0, 3600] ; NaN et
+        l'infini sont rejetés par la comparaison.
+    """
+    return (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and 0 < value <= _MAX_TIMEOUT
     )
 
 
@@ -154,13 +176,17 @@ class TelegramNotifier(Notifier):
         Args:
             token: Token du bot.
             recipients: Libellé vers chat_id.
-            timeout: Délai HTTP par destinataire.
-            include_message: Joindre le détail au titre.
+            timeout: Délai HTTP par destinataire, en secondes, dans
+                ]0, 3600] (int ou float, pas un booléen).
+            include_message: Joindre le détail au titre (un vrai
+                booléen : "false" ou 0 d'un .env sont refusés).
             opener: Remplaçant injectable de urlopen.
             logger: Logger optionnel.
 
         Raises:
-            ValueError: Si un paramètre est invalide.
+            ValueError: Si un paramètre est invalide (dont un timeout
+                non numérique, booléen, ≤ 0, NaN, infini ou > 3600, ou un
+                include_message qui n'est pas un bool).
         """
         if not _TOKEN_PATTERN.fullmatch(token):
             raise ValueError("token invalide")
@@ -176,8 +202,10 @@ class TelegramNotifier(Notifier):
             if chat_id in seen:
                 raise ValueError("chat_id en double")
             seen.add(chat_id)
-        if not timeout > 0:
-            raise ValueError("timeout doit être strictement positif")
+        if not _is_valid_timeout(timeout):
+            raise ValueError("timeout doit être dans ]0, 3600] secondes")
+        if not isinstance(include_message, bool):
+            raise ValueError("include_message doit être un booléen")
         self._token = token
         self._recipients = dict(recipients)
         self._timeout = timeout

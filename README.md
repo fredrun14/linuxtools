@@ -3167,8 +3167,13 @@ envoie quand même (`NotifierChain` est best-effort).
 - **Limite de débit** : Telegram tolère environ 1 message par seconde et par
   chat ; au-delà, il répond 429.
 - **Taille** : un message est limité à 4096 unités UTF-16 ; au-delà, le texte
-  est tronqué et terminé par `…` (sans couper un emoji).
+  est tronqué et terminé par `…` (sans couper une paire de substitution ;
+  un substitut isolé est toléré et compté pour 1 unité).
 - **Texte brut** (pas de `parse_mode`) et aperçu des liens désactivé.
+- **Validations strictes** : `timeout` (`int` ou `float`, pas un booléen) doit
+  être dans `]0, 3600]` secondes, et `include_message` doit être un vrai
+  `bool` (`"false"` ou `0` d'un `.env` lèvent `ValueError` : le détail ne
+  part jamais par erreur de type).
 - **Limite** : chaque destinataire doit avoir démarré le bot.
 
 ### Utilisation — générateur bash
@@ -3326,7 +3331,7 @@ make all
 | `test_notification_models.py` | 20 | Notification, ExecutionReport, step(), format_summary, to_notification |
 | `test_notification_chain.py` | 5 | NotifierChain best-effort, send_report |
 | `test_notification_notifiers.py` | 21 | DesktopNotifier, GotifyNotifier, SmtpEmailNotifier, JournaldNotifier |
-| `test_notification_telegram.py` | 72 | TelegramNotifier : construction, formatage/troncature UTF-16, envoi, isolation par destinataire, anti-fuite du token, NotifierChain |
+| `test_notification_telegram.py` | 93 | TelegramNotifier : construction, formatage/troncature UTF-16, envoi, isolation par destinataire, anti-fuite du token, NotifierChain |
 | `test_validation.py` | 11 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
 | `test_validation_system.py` | 7 | SystemCommandValidator (validate, missing_commands) |
 | `test_validation_group_access.py` | 15 | PathCheckerGroupAccess (groupe, rwx, setgid, messages d'erreur) |

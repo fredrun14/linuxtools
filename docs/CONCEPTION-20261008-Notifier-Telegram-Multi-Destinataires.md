@@ -32,7 +32,7 @@ Vérifié par essai local (Python 3.14.8) : si le token contient un espace, `url
 ```python
 class TelegramNotifier(Notifier):
     def __init__(self, token: str, recipients: Mapping[str, int],
-                 timeout: float = 10.0, include_message: bool = True,  # cf. §9 (c)
+                 timeout: float = 10.0, include_message: bool = False,  # cf. §9 (c)
                  opener: Callable[..., Any] | None = None,
                  logger: Logger | None = None) -> None: ...
     def send(self, notification: Notification) -> None: ...
@@ -41,7 +41,7 @@ class TelegramNotifier(Notifier):
 **Ce que l'appelant doit savoir (l'interface) :**
 - `recipients` associe un libellé à un `chat_id` (par exemple `{"fred": 123456789, ...}`). L'ordre d'envoi suit l'ordre du mapping.
 - Chaque destinataire doit avoir **démarré le bot** au préalable (/start). Sinon, son envoi échoue avec un 403 ou un 400.
-- Le constructeur lève `ValueError` dans ces cas, sans jamais reprendre la valeur fautive dans le message : token mal formé, mapping vide, libellé invalide, `chat_id` qui n'est pas un `int` ou vaut `0` (un `bool` est refusé), `chat_id` en double, `timeout` non > 0 (NaN compris).
+- Le constructeur lève `ValueError` dans ces cas, sans jamais reprendre la valeur fautive dans le message : token mal formé, mapping vide, libellé invalide, `chat_id` qui n'est pas un `int` ou vaut `0` (un `bool` est refusé), `chat_id` en double, `timeout` non numérique, booléen, ≤ 0, NaN, infini ou > 3600 s, `include_message` qui n'est pas un `bool`.
 - `send` tente **tous** les destinataires, sans nouvel essai. Si au moins un échoue, il lève **une seule** `NotificationSendError` qui liste les libellés en échec et la cause de chacun.
 - Durée maximale d'un `send` : N × `timeout`. Les envois sont séquentiels.
 
@@ -106,7 +106,7 @@ CDC §7 : appel sortant vers un cloud tiers, secret (token), données potentiell
 | `chat_id` des destinataires (sensible selon l'hypothèse du CDC) | Notifier → logs | Logs et exceptions n'affichent que les **libellés** ; libellés limités à `[A-Za-z0-9_-]{1,32}` par `re.fullmatch` (pas d'injection de saut de ligne dans les logs) | `TelegramNotifier` |
 | Texte distant reflété dans les logs | Telegram → logs | Le corps des réponses d'erreur (`description`) n'est **pas** lu | `TelegramNotifier` |
 | Une réponse malformée interrompt la boucle | Réseau → boucle | Rattrapage de `HTTPError`, `URLError`, `http.client.HTTPException`, `OSError` ; `HTTPError` fermée | `TelegramNotifier` |
-| Script bloqué | Réseau → consommateur | `timeout` > 0 validé (NaN rejeté) ; aucun nouvel essai ; borne N × `timeout` documentée | `TelegramNotifier` |
+| Script bloqué | Réseau → consommateur | `timeout` fini, > 0, ≤ 3600 s, non bool (validé) ; aucun nouvel essai ; borne N × `timeout` documentée | `TelegramNotifier` |
 
 📌 À consigner en ADR : validation du token et des destinataires au seul constructeur (lieu unique) ; règle « raison fixe, `raise` hors `except` ».
 
@@ -117,6 +117,7 @@ CDC §7 : appel sortant vers un cloud tiers, secret (token), données potentiell
 - **Résolution DNS hors timeout** : `getaddrinfo` n'est pas borné par le `timeout` d'urllib, donc un `send` peut dépasser N × `timeout` si le DNS est en panne. Accepté et documenté.
 - **429 peu probable** : 1 message par chat par notification, 4 chats, bien en dessous des limites. Seul un consommateur qui envoie en rafale vers le même chat (plus d'un message par seconde) le déclencherait.
 - **Texte vide côté Telegram** : un titre et un message composés uniquement d'espaces donneraient sans doute un 400. Cas marginal ; `Notification` impose seulement un contenu non vide.
+- **Substituts isolés** : le texte tolère les substituts isolés (`surrogateescape`, p. ex. `"\udcff"`) : comptage UTF-16 avec `surrogatepass`, le JSON les échappe à l'envoi.
 - **Hors périmètre** : défauts de `GotifyNotifier` (pas de rattrapage de `HTTPException`, timeout non validé, `HTTPError` non fermée). Ticket bugfix séparé.
 
 ## 8. Impact sur le plan
@@ -143,5 +144,5 @@ CDC §7 : appel sortant vers un cloud tiers, secret (token), données potentiell
 | d | Amorçage des destinataires (lié à Q-01) | (1) procédure README : chaque destinataire ouvre `t.me/<bot>` et appuie sur Démarrer, puis Fred lit son `chat_id` une fois via `getUpdates` ; (2) méthode `discover_chat_ids()` dans la lib | **(1)**. (2) ferait entrer la réception dans le périmètre, contre F-05. Le README prévient que l'appel manuel à `getUpdates` met le token dans l'historique du shell et dans la ligne de commande visible par `ps`, et propose de le lire depuis une variable d'environnement. Les messages 403 et 400 rappellent « bot bloqué ou jamais démarré » pour guider la recette |
 | e | 429 | (1) aucun nouvel essai, signalé comme les autres échecs ; (2) attendre `retry_after` puis réessayer | **(1)**. Le CDC et l'enseignement 7 excluent les nouveaux essais ; une attente de `retry_after` bloquerait le script consommateur pour une durée fixée par un tiers ; le volume rend le 429 improbable. Le corps de la réponse n'est pas lu, donc `retry_after` n'est pas affiché |
 | f | Abstraction partagée avec Gotify | (1) aucune, environ 15 lignes de requête dupliquées ; (2) aide `_post_json` commune | **(1)**. Les politiques d'erreur divergent : Gotify chaîne `from exc` (son token est dans un en-tête, donc pas de fuite) et lève dès le premier échec ; Telegram interdit le chaînage et agrège. Une aide commune devrait soit imposer la règle anti-fuite à Gotify, soit être paramétrée : interface plus large pour peu de levier. À revoir au 3ᵉ notifier HTTP |
-| g | Sémantique d'un échec partiel | (1) lever dès qu'au moins un destinataire échoue ; (2) lever seulement si tous échouent et journaliser les échecs partiels | **(1)**, conforme à F-04 (« signalé à l'appelant »). Conséquence : `NotifierChain.send` compte ce canal comme en échec même si 3 destinataires sur 4 ont reçu. Le log de la chaîne montre quels libellés ont échoué. F-04 est encore balisé `⚠️ HYPOTHÈSE À VALIDER` dans le CDC |
+| g | Sémantique d'un échec partiel | (1) lever dès qu'au moins un destinataire échoue ; (2) lever seulement si tous échouent et journaliser les échecs partiels | **(1)**, conforme à F-04 (« signalé à l'appelant »). Conséquence : `NotifierChain.send` compte ce canal comme en échec même si 3 destinataires sur 4 ont reçu. Le log de la chaîne montre quels libellés ont échoué. |
 | h | `Urgency.LOW` → `disable_notification` | (1) non ; (2) oui | **(1)**. Ce n'est pas dans le CDC, et `ExecutionReport` ne produit que NORMAL ou CRITICAL : l'option n'aurait aucun effet sur les rapports |
