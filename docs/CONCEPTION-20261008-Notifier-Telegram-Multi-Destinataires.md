@@ -117,14 +117,14 @@ CDC §7 : appel sortant vers un cloud tiers, secret (token), données potentiell
 - **Résolution DNS hors timeout** : `getaddrinfo` n'est pas borné par le `timeout` d'urllib, donc un `send` peut dépasser N × `timeout` si le DNS est en panne. Accepté et documenté.
 - **429 peu probable** : 1 message par chat par notification, 4 chats, bien en dessous des limites. Seul un consommateur qui envoie en rafale vers le même chat (plus d'un message par seconde) le déclencherait.
 - **Texte vide côté Telegram** : un titre et un message composés uniquement d'espaces donneraient sans doute un 400. Cas marginal ; `Notification` impose seulement un contenu non vide.
-- **Substituts isolés** : le texte tolère les substituts isolés (`surrogateescape`, p. ex. `"\udcff"`) : comptage UTF-16 avec `surrogatepass`, le JSON les échappe à l'envoi.
+- **Substituts isolés** : le texte tolère localement les substituts isolés (`surrogateescape`, p. ex. `"\udcff"`) : comptage UTF-16 avec `surrogatepass`, aucune exception avant l'envoi. Le JSON les échappe (`\udcff`), mais Telegram peut refuser cet UTF-8 invalide par un 400 ; l'échec reste dans le contrat (`NotificationSendError`), même si la raison affichée (« chat introuvable… ») est alors imprécise.
 - **Hors périmètre** : défauts de `GotifyNotifier` (pas de rattrapage de `HTTPException`, timeout non validé, `HTTPError` non fermée). Ticket bugfix séparé.
 
 ## 8. Impact sur le plan
 
 | # | Tâche | Tags |
 |---|---|---|
-| 1 | Constructeur : token (`fullmatch`), mapping non vide, libellés (`fullmatch`), `chat_id` (`int` hors `bool`, ≠ 0, sans doublon), `timeout` > 0 et NaN ; messages d'erreur sans les valeurs | [TDD] [SEC] |
+| 1 | Constructeur : token (`fullmatch`), mapping non vide, libellés (`fullmatch`), `chat_id` (`int` hors `bool`, ≠ 0, sans doublon), `timeout` (fini, > 0, ≤ 3600 s, non bool), `include_message` (`bool` strict) ; messages d'erreur sans les valeurs | [TDD] [SEC] |
 | 2 | Mise en forme : `titre\n\nmessage`, troncature au budget UTF-16 sans couper de paire de substitution, suffixe de troncature, `include_message` (si retenu en §9 c) | [TDD] |
 | 3 | `send` nominal : URL, payload JSON (`chat_id` entier, `text`, `link_preview_options`), ordre du mapping, log de succès par libellé | [TDD] |
 | 4 | Isolation : `HTTPError` 400/401/403/404/429/500 (avec `close()` vérifié), `URLError` (gaierror, refus, SSL), `RemoteDisconnected`, `InvalidURL`, `BadStatusLine`, `TimeoutError`, statut ≠ 200 ; les autres destinataires sont tout de même tentés ; une seule exception agrégée | [TDD] [SEC] |

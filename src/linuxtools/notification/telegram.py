@@ -122,7 +122,8 @@ def _truncate(text: str) -> str:
     """Borne le texte à 4096 unités UTF-16, suffixe « … » compris.
 
     La troncature se fait caractère par caractère : une paire de
-    substitution (emoji) n'est jamais coupée en deux.
+    substitution n'est jamais coupée en deux. Un substitut isolé
+    (`surrogateescape`) est toléré et compté pour 1 unité.
 
     Args:
         text: Texte à borner.

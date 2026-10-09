@@ -20,8 +20,9 @@
   - Validations strictes à la construction : `timeout` (`int`/`float`,
     pas un booléen) dans `]0, 3600]` s ; `include_message` doit être un
     vrai `bool` (échec fermé : `"false"` d'un `.env` est refusé).
-  - Substituts isolés (`surrogateescape`) tolérés dans le texte : comptés
-    pour 1 unité UTF-16 et envoyés (le JSON les échappe).
+  - Substituts isolés (`surrogateescape`) tolérés localement dans le
+    texte : comptés pour 1 unité UTF-16, aucune exception avant l'envoi.
+    Le JSON les échappe ; Telegram peut toutefois les refuser (400).
   - Le token n'est jamais exposé dans les exceptions, les logs ni `repr()`.
   - Limite : chaque destinataire doit avoir démarré le bot (`/start`),
     sinon son envoi échoue (403/400).
