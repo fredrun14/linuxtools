@@ -139,8 +139,8 @@ jobs:
       - name: Synchroniser les dépendances (+ dev)
         run: uv sync --extra dev
 
-      - name: safety check
-        run: uv run safety check
+      - name: Audit des dépendances (pip-audit)
+        run: uv run pip-audit
 
   build:
     runs-on: ubuntu-latest
