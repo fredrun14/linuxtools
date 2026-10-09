@@ -55,7 +55,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - **📜 Scripts bash et CLI** — Génération de scripts bash + déploiement de scripts Python CLI (FHS, uv, scope système/utilisateur, rapport d'installation)
 - **🚀 Déploiement/màj d'outil Python** — `Deployer` : transport (rsync) → (ré)install venv → vérification déclarative (imports, sous-commandes, non-régression) → rollback automatique ; en local ou distant (SSH), API Python + `CliCommand`, mode dry-run
 - **👤 Gestion d'identités Unix** — Création idempotente de groupes (`groupadd`/`groupmod`) et utilisateurs (`useradd`/`usermod`) avec vérification GID/UID
-- **🔔 Notifications** — API Python multi-canaux (desktop, Gotify, email SMTP, journald) avec comptes rendus d'exécution et chaîne best-effort, plus le générateur bash `notify-send` (spec freedesktop.org — GNOME, KDE Plasma, XFCE...)
+- **🔔 Notifications** — API Python multi-canaux (desktop, Gotify, Telegram, email SMTP, journald) avec comptes rendus d'exécution et chaîne best-effort, plus le générateur bash `notify-send` (spec freedesktop.org — GNOME, KDE Plasma, XFCE...)
 - **✅ Validation** — Validation de chemins (existence, permissions, world-writable) et données avec support optionnel Pydantic
 - **🚨 Gestion d'erreurs** — Hiérarchie d'exceptions applicatives + chaîne de handlers (Chain of Responsibility)
 - **🔑 Secrets** — `CredentialChain` : env → `.env` → keyring système (KWallet, KeePassXC, GNOME Keyring)
@@ -351,6 +351,7 @@ linuxtools/
 │   │   ├── chain.py             # NotifierChain (best-effort)
 │   │   ├── desktop.py           # DesktopNotifier (notify-send)
 │   │   ├── gotify.py            # GotifyNotifier (push)
+│   │   ├── telegram.py          # TelegramNotifier (bot Telegram, N destinataires)
 │   │   ├── email_notifier.py    # SmtpEmailNotifier (SMTP)
 │   │   ├── journal.py           # JournaldNotifier (socket journald)
 │   │   └── config.py            # NotificationConfig (dataclass, bash)
@@ -3052,7 +3053,7 @@ Deux volets complémentaires :
 
 1. **API Python multi-canaux** — envoi de notifications et de comptes rendus de
    fin d'exécution de scripts (backup, post-install…) via desktop (`notify-send`),
-   Gotify (push), email (SMTP) et journald. **stdlib uniquement**, injection de
+   Gotify (push), Telegram, email (SMTP) et journald. **stdlib uniquement**, injection de
    dépendances systématique, chaîne `NotifierChain` best-effort.
 2. **Générateur bash `NotificationConfig`** — génère la fonction `send_notification`
    diffusée à tous les utilisateurs ayant une session graphique active (bus D-Bus
@@ -3084,6 +3085,96 @@ chain.send_report(report)
 
 > Le token Gotify et le mot de passe SMTP se chargent via `CredentialChain`
 > (module `credentials`) — jamais en dur.
+
+### Notifier Telegram (multi-destinataires)
+
+`TelegramNotifier` envoie chaque notification à N personnes via **un seul
+bot** Telegram (`POST https://api.telegram.org/bot<token>/sendMessage`,
+stdlib uniquement). Les destinataires sont un `Mapping` libellé → `chat_id`.
+
+**1. Créer le bot.** Ouvrir une conversation avec
+[@BotFather](https://t.me/BotFather), envoyer `/newbot`, suivre les
+questions : BotFather renvoie le **token** (`123456:ABC-DEF...`). Le stocker
+comme secret (variable d'environnement, `.env` ou keyring), jamais en dur.
+
+**2. Amorcer chaque destinataire.** Un bot ne peut pas écrire le premier :
+chaque destinataire doit ouvrir `https://t.me/<nom_du_bot>` et appuyer sur
+**Démarrer** (ou envoyer `/start`). Sans cela, l'envoi échoue en 403 ou 400.
+
+**3. Lire le `chat_id` (une seule fois par destinataire).** Après son
+`/start`, appeler `getUpdates` et relever `message.chat.id` :
+
+```bash
+# Le token est lu depuis l'environnement (jamais écrit dans la commande)
+export TELEGRAM_BOT_TOKEN="..."   # via un gestionnaire de secrets, pas en clair
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
+```
+
+> ⚠️ Le token fait partie de l'URL : saisi directement dans la commande, il
+> se retrouve dans l'**historique du shell** et dans la ligne de commande
+> visible par **`ps`**. Le lire depuis une variable d'environnement (ne pas
+> le coller dans la commande) et vider l'historique si une fuite a eu lieu
+> (puis révoquer le token via `/revoke` auprès de @BotFather).
+
+**4. Utilisation.** Le token se charge via `CredentialManager`, les
+`chat_id` viennent de la configuration :
+
+```python
+from pathlib import Path
+
+from linuxtools import (
+    CredentialManager,
+    GotifyNotifier,
+    Notification,
+    NotifierChain,
+    TelegramNotifier,
+)
+
+manager = CredentialManager.from_dotenv(
+    service="backup-nas", dotenv_path=Path("config/.env"))
+
+chain = NotifierChain(logger=logger)
+chain.add_notifier(GotifyNotifier(
+    base_url="https://gotify.lan", token=manager.require("GOTIFY_TOKEN")))
+chain.add_notifier(TelegramNotifier(
+    token=manager.require("TELEGRAM_BOT_TOKEN"),
+    recipients={"alice": 111111111, "bob": 222222222},
+    logger=logger,
+))
+chain.send(Notification(title="✗ backup-nas — échec", message="rsync: code 23"))
+```
+
+Gotify et Telegram sont deux canaux indépendants : si l'un tombe, l'autre
+envoie quand même (`NotifierChain` est best-effort).
+
+> ⚠️ **Confidentialité.** Par défaut (`include_message=False`), **seul le
+> titre** part chez Telegram (ex. `✗ backup-nas — échec`) ; le détail
+> (machine, chemins, messages d'erreur) reste sur les autres canaux. Avec
+> `include_message=True`, le détail est envoyé à un **tiers**, et les messages
+> d'un bot ne sont **pas chiffrés de bout en bout**.
+
+**Comportement et limites**
+
+- **Échec isolé** : si un destinataire échoue, les autres sont tout de même
+  servis ; une seule `NotificationSendError` agrégée est ensuite levée.
+  Format : `Échec Telegram : alice (bot bloqué ou jamais démarré par le
+  destinataire)`. Elle ne cite que les libellés et des raisons fixes, jamais
+  le token, l'URL ni le `chat_id`. `NotifierChain` compte alors le canal en
+  échec dès qu'un destinataire échoue, même si les autres ont reçu.
+- **Aucun nouvel essai**, y compris sur un 429 (limite de débit).
+- **Envois séquentiels** : durée maximale d'un `send` = N × `timeout`
+  (10 s par défaut), hors résolution DNS non bornée par le `timeout`.
+- **Limite de débit** : Telegram tolère environ 1 message par seconde et par
+  chat ; au-delà, il répond 429.
+- **Taille** : un message est limité à 4096 unités UTF-16 ; au-delà, le texte
+  est tronqué et terminé par `…` (sans couper une paire de substitution ;
+  un substitut isolé est toléré et compté pour 1 unité).
+- **Texte brut** (pas de `parse_mode`) et aperçu des liens désactivé.
+- **Validations strictes** : `timeout` (`int` ou `float`, pas un booléen) doit
+  être dans `]0, 3600]` secondes, et `include_message` doit être un vrai
+  `bool` (`"false"` ou `0` d'un `.env` lèvent `ValueError` : le détail ne
+  part jamais par erreur de type).
+- **Limite** : chaque destinataire doit avoir démarré le bot.
 
 ### Utilisation — générateur bash
 
@@ -3117,6 +3208,7 @@ appel_echec = notif.to_bash_call_failure()    # appel en cas d'échec
 | `ExecutionReport` | Compte rendu : accumulation d'étapes, context manager `step()`, `format_summary()`, `to_notification()` |
 | `DesktopNotifier` | `notify-send`, session courante ou `all_users=True` (root, timers systemd) |
 | `GotifyNotifier` | Push vers un serveur Gotify auto-hébergé (`urllib`) |
+| `TelegramNotifier` | Bot Telegram vers N destinataires (`urllib`) : titre seul par défaut, échecs isolés par destinataire, token jamais exposé |
 | `SmtpEmailNotifier` | Email SMTP avec STARTTLS par défaut (`smtplib`) |
 | `JournaldNotifier` | Écriture sur le socket natif journald (`journalctl -t <app_name>`) |
 | `NotificationError` / `NotificationSendError` | Exceptions, rattachées à `ApplicationError` |
@@ -3239,6 +3331,7 @@ make all
 | `test_notification_models.py` | 20 | Notification, ExecutionReport, step(), format_summary, to_notification |
 | `test_notification_chain.py` | 5 | NotifierChain best-effort, send_report |
 | `test_notification_notifiers.py` | 21 | DesktopNotifier, GotifyNotifier, SmtpEmailNotifier, JournaldNotifier |
+| `test_notification_telegram.py` | 93 | TelegramNotifier : construction, formatage/troncature UTF-16, envoi, isolation par destinataire, anti-fuite du token, NotifierChain |
 | `test_validation.py` | 11 | PathChecker, PathCheckerPermission, PathCheckerWorldWritable |
 | `test_validation_system.py` | 7 | SystemCommandValidator (validate, missing_commands) |
 | `test_validation_group_access.py` | 15 | PathCheckerGroupAccess (groupe, rwx, setgid, messages d'erreur) |

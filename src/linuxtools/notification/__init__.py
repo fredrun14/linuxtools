@@ -2,7 +2,8 @@
 
 Centralise l'envoi de comptes rendus de fin d'exécution de scripts
 (backup, post-install…) via plusieurs canaux : desktop (notify-send),
-Gotify (push), email (SMTP) et journald.
+Gotify (push), Telegram (push multi-destinataires), email (SMTP)
+et journald.
 
 Conserve également NotificationConfig, le générateur de code bash
 notify-send historique.
@@ -25,6 +26,7 @@ from linuxtools.notification.models import (
     StepResult,
     Urgency,
 )
+from linuxtools.notification.telegram import TelegramNotifier
 
 __all__ = [
     "DesktopNotifier",
@@ -39,5 +41,6 @@ __all__ = [
     "NotifierChain",
     "SmtpEmailNotifier",
     "StepResult",
+    "TelegramNotifier",
     "Urgency",
 ]

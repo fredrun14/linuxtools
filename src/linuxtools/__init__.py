@@ -190,6 +190,7 @@ from linuxtools.notification import (
     NotifierChain,
     SmtpEmailNotifier,
     StepResult,
+    TelegramNotifier,
     Urgency,
 )
 from linuxtools.scripts import (
@@ -388,6 +389,7 @@ __all__ = [
     "NotifierChain",
     "SmtpEmailNotifier",
     "StepResult",
+    "TelegramNotifier",
     "Urgency",
     # Scripts
     "BashScriptConfig",
