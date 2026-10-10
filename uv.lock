@@ -682,7 +682,7 @@ wheels = [
 
 [[package]]
 name = "linuxtools"
-version = "2.5.0"
+version = "2.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "platformdirs" },
@@ -1450,7 +1450,7 @@ wheels = [
 
 [[package]]
 name = "webapitools"
-version = "0.13.0"
+version = "0.14.0"
 source = { editable = "../webapitools" }
 dependencies = [
     { name = "linuxtools", extra = ["credentials"] },
@@ -1463,13 +1463,13 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'dev'" },
     { name = "linuxtools", extras = ["credentials"], editable = "." },
     { name = "mypy", marker = "extra == 'dev'" },
+    { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "requests", specifier = "==2.34.2" },
     { name = "requests-mock", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
-    { name = "safety", marker = "extra == 'dev'" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev"]

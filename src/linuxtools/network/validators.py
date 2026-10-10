@@ -6,6 +6,7 @@ les adresses MAC, les notations CIDR et les noms d'hote.
 
 import ipaddress
 import re
+from typing import Literal
 
 
 def validate_ipv4(ip: str) -> str:
@@ -27,22 +28,27 @@ def validate_ipv4(ip: str) -> str:
     return ip
 
 
-def validate_mac(mac: str) -> str:
+def validate_mac(mac: str, case: Literal["lower", "upper"] = "lower") -> str:
     """Valide et normalise une adresse MAC.
 
     Args:
         mac: Adresse MAC sous forme de chaine.
+        case: Casse de la valeur retournee, ``"lower"`` (defaut) ou
+            ``"upper"``.
 
     Returns:
-        L'adresse MAC normalisee en minuscules.
+        L'adresse MAC normalisee dans la casse demandee.
 
     Raises:
-        ValueError: Si l'adresse MAC est invalide.
+        ValueError: Si l'adresse MAC est invalide (saut de ligne final
+            compris), ou si ``case`` n'est ni ``"lower"`` ni ``"upper"``.
     """
-    pattern = r"^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"
-    if not re.match(pattern, mac):
+    if case not in ("lower", "upper"):
+        raise ValueError(f"case invalide : {case!r}")
+    pattern = r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}"
+    if not re.fullmatch(pattern, mac):
         raise ValueError(f"Adresse MAC invalide : {mac!r}")
-    return mac.lower()
+    return mac.upper() if case == "upper" else mac.lower()
 
 
 def validate_cidr(cidr: str) -> str:
@@ -57,8 +63,8 @@ def validate_cidr(cidr: str) -> str:
     Raises:
         ValueError: Si la notation est invalide.
     """
-    pattern = r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})$"
-    match = re.match(pattern, cidr)
+    pattern = r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})"
+    match = re.fullmatch(pattern, cidr)
     if not match:
         raise ValueError(f"Notation CIDR invalide : {cidr!r}")
     ip_part = match.group(1)
@@ -87,7 +93,7 @@ def validate_hostname(hostname: str) -> str:
         raise ValueError(
             f"Nom d'hote trop long ({len(hostname)} > 63) : {hostname!r}"
         )
-    pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
-    if not re.match(pattern, hostname):
+    pattern = r"[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+    if not re.fullmatch(pattern, hostname):
         raise ValueError(f"Nom d'hote invalide : {hostname!r}")
     return hostname

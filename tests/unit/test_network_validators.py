@@ -1,5 +1,7 @@
 """Tests pour les validateurs reseau."""
 
+from typing import Any
+
 import pytest
 
 from linuxtools.network.validators import (
@@ -90,6 +92,34 @@ class TestValidateMac:
         with pytest.raises(ValueError):
             validate_mac("gg:hh:ii:jj:kk:ll")
 
+    def test_validate_mac_rejette_saut_de_ligne_final(self) -> None:
+        """Un saut de ligne final leve ValueError."""
+        with pytest.raises(ValueError):
+            validate_mac("aa:bb:cc:dd:ee:ff\n")
+
+    def test_validate_mac_case_upper_retourne_majuscules(self) -> None:
+        """case="upper" retourne la MAC en majuscules."""
+        assert (
+            validate_mac("aa:bb:cc:dd:ee:ff", case="upper")
+            == "AA:BB:CC:DD:EE:FF"
+        )
+
+    def test_validate_mac_case_defaut_retourne_minuscules(self) -> None:
+        """Sans case, la MAC reste retournee en minuscules."""
+        assert validate_mac("AA:BB:CC:DD:EE:FF") == "aa:bb:cc:dd:ee:ff"
+
+    def test_validate_mac_leve_valueerror_si_case_invalide(self) -> None:
+        """Une valeur de case hors lower/upper leve ValueError."""
+        case_invalide: Any = "UPPER"
+        with pytest.raises(ValueError, match="case invalide"):
+            validate_mac("aa:bb:cc:dd:ee:ff", case=case_invalide)
+
+    def test_validate_mac_case_invalide_prioritaire_sur_motif(self) -> None:
+        """MAC et case invalides : l'erreur levee est celle du case."""
+        case_invalide: Any = "UPPER"
+        with pytest.raises(ValueError, match="case invalide"):
+            validate_mac("pas-une-mac", case=case_invalide)
+
 
 class TestValidateCidr:
     """Tests pour validate_cidr."""
@@ -124,6 +154,11 @@ class TestValidateCidr:
         """IP invalide dans CIDR leve ValueError."""
         with pytest.raises(ValueError):
             validate_cidr("999.168.1.0/24")
+
+    def test_validate_cidr_rejette_saut_de_ligne_final(self) -> None:
+        """Un saut de ligne final leve ValueError."""
+        with pytest.raises(ValueError):
+            validate_cidr("192.168.1.0/24\n")
 
 
 class TestValidateHostname:
@@ -165,3 +200,8 @@ class TestValidateHostname:
         """Caractere special leve ValueError."""
         with pytest.raises(ValueError):
             validate_hostname("nas@home")
+
+    def test_validate_hostname_rejette_saut_de_ligne_final(self) -> None:
+        """Un saut de ligne final leve ValueError."""
+        with pytest.raises(ValueError):
+            validate_hostname("host\n")
