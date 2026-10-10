@@ -2,6 +2,22 @@
 
 ## [Non publié]
 
+## [2.5.1] - 2026-10-11
+
+### Corrigé
+
+- fix(network): `validate_mac`, `validate_cidr` et `validate_hostname`
+  utilisent `re.fullmatch` au lieu de `re.match` avec `^...$`. Un saut de
+  ligne final (ou tout caractère hors format) est désormais rejeté
+  (`ValueError`) au lieu d'être toléré par `$`.
+
+### Ajouté
+
+- feat(network): `validate_mac` accepte `case="lower"|"upper"` (défaut
+  `"lower"`, comportement inchangé) pour choisir la casse de la valeur
+  retournée. Toute autre valeur lève `ValueError`. Ajout rétro-compatible
+  (2.5.1).
+
 ## [2.5.0] - 2026-10-08
 
 ### Ajouté
