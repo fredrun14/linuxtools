@@ -157,6 +157,8 @@ from linuxtools.network import (
     # Repository
     JsonDeviceRepository,
     JsonReporter,
+    # Modeles
+    LanClient,
     # Scanners
     LinuxArpScanner,
     # DHCP
@@ -165,12 +167,12 @@ from linuxtools.network import (
     # DNS
     LinuxHostsFileManager,
     LinuxNmapScanner,
-    # Configuration
+    # Configuration et modeles
     NetworkConfig,
-    # Modeles
     NetworkDevice,
     # ABCs
     NetworkScanner,
+    load_lan_clients,
     validate_cidr,
     validate_hostname,
     # Validateurs
@@ -441,6 +443,8 @@ __all__ = [
     "CredentialManager",
     # Network - Modeles
     "NetworkDevice",
+    "LanClient",
+    "load_lan_clients",
     # Network - Configuration
     "NetworkConfig",
     "DhcpRange",

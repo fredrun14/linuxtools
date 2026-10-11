@@ -2,6 +2,21 @@
 
 ## [Non publié]
 
+## [2.6.0] - 2026-10-11
+
+### Ajouté
+
+- feat(network): `LanClient` (client LAN déclaré, immuable : `mac`
+  normalisée en majuscules, `name` et `pinned_ip` optionnels) et
+  `load_lan_clients()` (nouveau module `network/clients.py`) : charge une
+  liste de tables TOML (clés `mac`, `name`, `ip`) en tuple de `LanClient`.
+  Validation de forme, MAC via `validate_mac`, dédoublonnage MAC
+  inconditionnel ; règles nom/IP injectées par `Callable`
+  (`name_validator`, `ip_validator`), dédoublonnage de nom
+  (`dedup_names`) et liste non vide (`require_non_empty`) en option.
+  Distinct de `NetworkDevice` (déclaré vs observé). Exporté depuis
+  `linuxtools.network` et `linuxtools`. Ajout rétro-compatible.
+
 ## [2.5.1] - 2026-10-11
 
 ### Corrigé

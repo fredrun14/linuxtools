@@ -1,0 +1,123 @@
+"""Clients LAN déclarés et chargeur générique.
+
+Ce module fournit `LanClient` (client déclaré, distinct de
+`NetworkDevice` qui est observé) et `load_lan_clients`, qui valide une
+liste brute (par ex. issue d'un TOML) en enregistrements uniques.
+"""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from linuxtools.network.validators import validate_mac
+
+
+@dataclass(frozen=True)
+class LanClient:
+    """Client LAN déclaré (intention), distinct de NetworkDevice (observé).
+
+    Attributes:
+        mac: Adresse MAC, validée et normalisée en majuscules.
+        name: Nom optionnel (politique de validation injectée au loader).
+        pinned_ip: IP épinglée optionnelle (idem).
+    """
+
+    mac: str
+    name: str | None = None
+    pinned_ip: str | None = None
+
+    def __post_init__(self) -> None:
+        """Valide et normalise la MAC.
+
+        name et pinned_ip ne sont pas validés ici : la politique est
+        injectée au loader, le modèle reste générique.
+
+        Raises:
+            ValueError: Si la MAC est invalide.
+        """
+        object.__setattr__(self, "mac", validate_mac(self.mac, case="upper"))
+
+
+def _resolve_optional(
+    value: object,
+    validator: Callable[[object], str | None] | None,
+) -> str | None:
+    """Détermine la valeur à stocker pour un champ optionnel.
+
+    Args:
+        value: Valeur brute lue dans la table (éventuellement None).
+        validator: Validateur injecté, ou None pour la politique par défaut.
+
+    Returns:
+        La valeur retournée par le validateur ; sans validateur, la valeur
+        si c'est une str, sinon None.
+    """
+    if validator is not None:
+        return validator(value)
+    return value if isinstance(value, str) else None
+
+
+def load_lan_clients(
+    entries: object,
+    *,
+    name_validator: Callable[[object], str | None] | None = None,
+    ip_validator: Callable[[object], str | None] | None = None,
+    dedup_names: bool = False,
+    require_non_empty: bool = False,
+) -> tuple[LanClient, ...]:
+    """Charge une liste brute de clients LAN en enregistrements uniques.
+
+    Args:
+        entries: Doit être une liste ; chaque entrée une table (dict) dont
+            les clés lues sont ``mac`` (obligatoire), ``name`` et ``ip``
+            (optionnelles ; ``ip`` alimente le champ ``pinned_ip``).
+        name_validator: Validateur de nom injecté, appelé avec la valeur
+            brute (y compris None). Doit lever ValueError si invalide et
+            retourner la valeur à stocker (str ou None). Sans lui : str
+            prise telle quelle, sinon None.
+        ip_validator: Idem pour l'IP épinglée.
+        dedup_names: Si True, deux name identiques (hors None) lèvent
+            ValueError.
+        require_non_empty: Si True, une liste vide lève ValueError.
+
+    Returns:
+        Tuple immuable de LanClient, ordre d'entrée préservé.
+
+    Raises:
+        ValueError: Entrée non-liste ou non-table, MAC absente, invalide
+            ou en doublon ; nom/IP invalide (via validateurs) ; nom en
+            doublon (dedup_names) ; liste vide (require_non_empty).
+    """
+    if not isinstance(entries, list):
+        raise ValueError(f"client doit être une liste de tables : {entries!r}")
+    if require_non_empty and not entries:
+        raise ValueError("au moins un client requis")
+
+    clients: list[LanClient] = []
+    seen_macs: set[str] = set()
+    seen_names: set[str] = set()
+    for raw in entries:
+        if not isinstance(raw, dict):
+            raise ValueError(f"entrée de client invalide : {raw!r}")
+        mac = raw.get("mac")
+        if not isinstance(mac, str):
+            raise ValueError(f"MAC invalide : {mac!r}")
+        # La MAC est validée avant les validateurs injectés (ordre des
+        # erreurs historique) ; la normalisation finale reste assurée par
+        # LanClient.__post_init__.
+        mac = validate_mac(mac, case="upper")
+        client = LanClient(
+            mac=mac,
+            name=_resolve_optional(raw.get("name"), name_validator),
+            pinned_ip=_resolve_optional(raw.get("ip"), ip_validator),
+        )
+        # Unicité de la MAC (normalisée), toujours active.
+        if client.mac in seen_macs:
+            raise ValueError(f"MAC en doublon : {client.mac}")
+        seen_macs.add(client.mac)
+        # Unicité du nom (option), les noms None sont ignorés.
+        if dedup_names and client.name is not None:
+            if client.name in seen_names:
+                raise ValueError(f"nom de client en doublon : {client.name}")
+            seen_names.add(client.name)
+        clients.append(client)
+    return tuple(clients)
