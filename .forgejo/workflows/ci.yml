@@ -28,6 +28,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # Version explicite : évite l'appel à l'API GitHub (« latest »),
+          # limité en anonyme sur le runner (HTTP 403 rate limit).
+          version: '0.10.0'
           python-version: '3.12'
           enable-cache: true
 
@@ -72,6 +75,9 @@ jobs:
       - name: Install uv (+ Python ${{ matrix.python-version }})
         uses: astral-sh/setup-uv@v5
         with:
+          # Version explicite : évite l'appel à l'API GitHub (« latest »),
+          # limité en anonyme sur le runner (HTTP 403 rate limit).
+          version: '0.10.0'
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
@@ -107,6 +113,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # Version explicite : évite l'appel à l'API GitHub (« latest »),
+          # limité en anonyme sur le runner (HTTP 403 rate limit).
+          version: '0.10.0'
           python-version: '3.12'
           enable-cache: true
 
@@ -133,6 +142,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # Version explicite : évite l'appel à l'API GitHub (« latest »),
+          # limité en anonyme sur le runner (HTTP 403 rate limit).
+          version: '0.10.0'
           python-version: '3.12'
           enable-cache: true
 

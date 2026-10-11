@@ -578,3 +578,64 @@ def test_lan_client_construction_positionnelle_inchangee() -> None:
     assert client.pinned_ip == "192.168.1.10"
     assert client.enabled is True
     assert client.note is None
+
+
+def _refuser_nom(raw: object) -> str | None:
+    """Validateur de nom factice qui refuse toujours."""
+    raise ValueError("name est requis")
+
+
+def _refuser_ip(raw: object) -> str | None:
+    """Validateur d'IP factice qui refuse toujours."""
+    raise ValueError("ip requise (IPv4) : None")
+
+
+def test_load_lan_clients_erreur_name_validator_cite_la_mac() -> None:
+    """Une erreur du validateur de nom cite la MAC normalisée."""
+    # Arrange
+    entries = [
+        {"mac": "aa:bb:cc:dd:ee:01"},
+        {"mac": "aa:bb:cc:dd:ee:02"},
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="name est requis") as exc_info:
+        load_lan_clients(entries, name_validator=_refuser_nom)
+    assert str(exc_info.value).endswith("(client 'AA:BB:CC:DD:EE:01')")
+
+
+def test_load_lan_clients_erreur_ip_validator_cite_la_mac() -> None:
+    """Une erreur du validateur d'IP cite la MAC normalisée."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:01"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="ip requise") as exc_info:
+        load_lan_clients(entries, ip_validator=_refuser_ip)
+    assert str(exc_info.value).endswith("(client 'AA:BB:CC:DD:EE:01')")
+
+
+def test_load_lan_clients_ordre_nom_avant_enabled_avec_mac() -> None:
+    """Nom invalide + enabled invalide : l'erreur de nom l'emporte."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:01", "enabled": "x"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="name est requis") as exc_info:
+        load_lan_clients(entries, name_validator=_refuser_nom)
+    assert "AA:BB:CC:DD:EE:01" in str(exc_info.value)
+
+
+def test_load_lan_clients_exception_non_valueerror_non_transformee() -> None:
+    """Une exception autre que ValueError traverse sans être modifiée."""
+
+    # Arrange
+    def casser(raw: object) -> str | None:
+        raise KeyError("boom")
+
+    # Act / Assert
+    with pytest.raises(KeyError):
+        load_lan_clients(
+            [{"mac": "aa:bb:cc:dd:ee:01"}],
+            name_validator=casser,
+        )

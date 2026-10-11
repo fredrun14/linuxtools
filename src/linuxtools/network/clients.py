@@ -147,8 +147,10 @@ def load_lan_clients(
     Raises:
         ValueError: Entrée non-liste ou non-table, clé inconnue, MAC
             absente, invalide ou en doublon ; nom/IP invalide (via
-            validateurs) ; ``enabled`` non booléen ; ``note`` non str ;
-            nom en doublon (dedup_names) ; liste vide
+            validateurs, message d'origine suivi de ``(client '<MAC>')``,
+            MAC normalisée ; toute autre exception des validateurs se
+            propage telle quelle) ; ``enabled`` non booléen ;
+            ``note`` non str ; nom en doublon (dedup_names) ; liste vide
             (require_non_empty). Pour une même entrée, la première
             erreur rencontrée l'emporte, dans l'ordre : clé inconnue,
             MAC, nom, IP, ``enabled``, ``note``, puis doublons.
@@ -179,10 +181,20 @@ def load_lan_clients(
         # erreurs historique) ; la normalisation finale reste assurée par
         # LanClient.__post_init__.
         mac = validate_mac(mac, case="upper")
+        # Les erreurs des validateurs injectés citent la MAC normalisée,
+        # comme les erreurs de schéma ; le message d'origine reste en tête.
+        try:
+            name = _resolve_optional(raw.get("name"), name_validator)
+        except ValueError as exc:
+            raise ValueError(f"{exc} (client {mac!r})") from exc
+        try:
+            pinned_ip = _resolve_optional(raw.get("ip"), ip_validator)
+        except ValueError as exc:
+            raise ValueError(f"{exc} (client {mac!r})") from exc
         client = LanClient(
             mac=mac,
-            name=_resolve_optional(raw.get("name"), name_validator),
-            pinned_ip=_resolve_optional(raw.get("ip"), ip_validator),
+            name=name,
+            pinned_ip=pinned_ip,
             enabled=_read_enabled(raw),
             note=_read_note(raw),
         )
