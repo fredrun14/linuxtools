@@ -2104,6 +2104,24 @@ DNS/DHCP : `LinuxHostsFileManager`, `LinuxDnsmasqConfigGenerator`, `LinuxDhcpRes
 
 Validateurs : `validate_ipv4`, `validate_mac`, `validate_cidr`, `validate_hostname`.
 
+Clients LAN déclarés : `LanClient` et `load_lan_clients()` chargent une
+liste de tables TOML `[[client]]` (intention, distincte des appareils
+observés). Schéma **fermé** : clés admises `mac`, `name`, `ip`, `enabled`
+(booléen strict, défaut `true`) et `note` (chaîne) ; toute autre clé lève
+`ValueError`. Le chargeur **ne filtre jamais `enabled`** : les clients
+désactivés sont rendus et comptent pour la dédup MAC/nom et pour
+`require_non_empty` ; c'est à l'appelant de les écarter.
+
+```python
+import tomllib
+from linuxtools.network import load_lan_clients
+
+with open("lan-clients.toml", "rb") as f:
+    data = tomllib.load(f)
+clients = load_lan_clients(data.get("client", []), require_non_empty=True)
+actifs = [c for c in clients if c.enabled]  # filtre côté appelant
+```
+
 ### Documentation API
 
 | ABC (Interface) | Implémentation | Description |
