@@ -110,3 +110,4 @@ Pièges à baliser dans le plan :
 - **Messages d'erreur compatibles webapitools** (CDC §2/§8 : aucun changement observable) : le loader reprend les libellés existants (`client doit être une liste de tables`, `entrée de client invalide`, `MAC invalide`, `MAC en doublon`, `nom de client en doublon`, `au moins un client requis`). Le piège « messages génériques à ajuster » du §8 est **périmé** : aucune assertion webapitools à modifier. (F02)
 - **MAC validée avant les validateurs nom/IP** (ordre des erreurs identique à l'existant). Les validateurs sont appelés avec `None` : `_usable_ip(None)` doit renvoyer `None`.
 - **Export racine** `linuxtools.__init__` en plus de `linuxtools.network`. (F05)
+- **Message non-liste suffixé** : `client doit être une liste de tables : {entries!r}` (le libellé existant reste un préfixe, les assertions par sous-chaîne passent ; le suffixe répond à F-07 « au moins aussi informatif »). Écart assumé (revue webapitools F02).
