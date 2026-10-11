@@ -16,6 +16,10 @@ from linuxtools.network.base import (
     NetworkScanner,
     RouterDhcpManager,
 )
+from linuxtools.network.clients import (
+    LanClient,
+    load_lan_clients,
+)
 from linuxtools.network.config import (
     DhcpRange,
     DnsConfig,
@@ -93,6 +97,7 @@ __all__ = [
     "DnsManager",
     "JsonDeviceRepository",
     "JsonReporter",
+    "LanClient",
     "LinuxArpScanner",
     "LinuxDhcpReservationManager",
     "LinuxDnsmasqConfigGenerator",
@@ -106,6 +111,7 @@ __all__ = [
     "RouterAuthError",
     "RouterConfig",
     "RouterDhcpManager",
+    "load_lan_clients",
     "validate_cidr",
     "validate_hostname",
     "validate_ipv4",
