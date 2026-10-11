@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+## [2.7.1] - 2026-10-11
+
+### Corrigé
+
+- fix(network): `load_lan_clients()` — les erreurs `ValueError` levées par
+  `name_validator` / `ip_validator` citent désormais l'entrée fautive en
+  suffixe `(client '<MAC>')` (MAC normalisée), comme les erreurs de clé
+  inconnue, `enabled` et `note`. Le message d'origine reste en préfixe,
+  l'ordre des erreurs est inchangé et les autres types d'exception se
+  propagent sans modification.
+
 ## [2.7.0] - 2026-10-11
 
 ### Ajouté
