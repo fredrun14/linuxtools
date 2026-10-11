@@ -452,6 +452,84 @@ def test_load_lan_clients_leve_valueerror_si_cle_inconnue(cle: str) -> None:
     assert "clés admises : enabled, ip, mac, name, note" in message
 
 
+@pytest.mark.parametrize(
+    ("extra", "motif"),
+    [
+        ({"enabeld": True}, "clé"),
+        ({"enabled": "x"}, "enabled doit être un booléen"),
+        ({"note": 3}, "note doit être une chaîne"),
+    ],
+)
+def test_load_lan_clients_erreur_de_schema_cite_la_mac(
+    extra: dict[str, object], motif: str
+) -> None:
+    """Les erreurs de schéma citent la MAC de l'entrée fautive."""
+    # Arrange
+    entries = [
+        {"mac": "aa:bb:cc:dd:ee:01"},
+        {"mac": "aa:bb:cc:dd:ee:02", **extra},
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=motif) as exc_info:
+        load_lan_clients(entries)
+    assert repr("aa:bb:cc:dd:ee:02") in str(exc_info.value)
+
+
+def test_load_lan_clients_cles_inconnues_de_types_mixtes() -> None:
+    """Des clés non triables entre elles donnent ValueError, pas TypeError."""
+    # Arrange
+    entries = [{1: "x", "foo": 2, "mac": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\)"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cles_inconnues_triees() -> None:
+    """Plusieurs clés inconnues sont listées en ordre alphabétique."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "zeta": 1, "alpha": 2}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="'alpha', 'zeta'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cle_inconnue_sans_mac_signale_la_cle() -> None:
+    """Une faute de frappe sur mac est signalée comme clé inconnue."""
+    # Arrange
+    entries = [{"mak": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\) 'mak'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cle_inconnue_prioritaire_sur_mac_invalide() -> None:
+    """La clé inconnue est signalée avant une MAC invalide."""
+    # Arrange
+    entries = [{"mac": "zz", "foo": 1}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\) 'foo'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_nom_invalide_prioritaire_sur_enabled() -> None:
+    """Ordre des erreurs : le validateur de nom passe avant enabled."""
+
+    # Arrange
+    def refuser(raw: object) -> str | None:
+        raise ValueError("nom refusé")
+
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "name": "x", "enabled": "x"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="nom refusé"):
+        load_lan_clients(entries, name_validator=refuser)
+
+
 def test_load_lan_clients_desactive_compte_pour_dedup_mac() -> None:
     """Une MAC dupliquée entre un actif et un désactivé est refusée."""
     # Arrange

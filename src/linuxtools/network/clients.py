@@ -82,7 +82,10 @@ def _read_enabled(raw: dict[object, object]) -> bool:
         return True
     value = raw["enabled"]
     if not isinstance(value, bool):
-        raise ValueError(f"enabled doit être un booléen : {value!r}")
+        raise ValueError(
+            f"enabled doit être un booléen : {value!r}"
+            f" (client {raw.get('mac')!r})"
+        )
     return value
 
 
@@ -102,7 +105,10 @@ def _read_note(raw: dict[object, object]) -> str | None:
         return None
     value = raw["note"]
     if not isinstance(value, str):
-        raise ValueError(f"note doit être une chaîne : {value!r}")
+        raise ValueError(
+            f"note doit être une chaîne : {value!r}"
+            f" (client {raw.get('mac')!r})"
+        )
     return value
 
 
@@ -143,7 +149,9 @@ def load_lan_clients(
             absente, invalide ou en doublon ; nom/IP invalide (via
             validateurs) ; ``enabled`` non booléen ; ``note`` non str ;
             nom en doublon (dedup_names) ; liste vide
-            (require_non_empty).
+            (require_non_empty). Pour une même entrée, la première
+            erreur rencontrée l'emporte, dans l'ordre : clé inconnue,
+            MAC, nom, IP, ``enabled``, ``note``, puis doublons.
     """
     if not isinstance(entries, list):
         raise ValueError(f"client doit être une liste de tables : {entries!r}")
@@ -157,11 +165,12 @@ def load_lan_clients(
         if not isinstance(raw, dict):
             raise ValueError(f"entrée de client invalide : {raw!r}")
         # Schéma fermé : une faute de frappe ne doit pas passer en silence.
-        unknown = sorted(set(raw) - _ALLOWED_KEYS)
+        unknown = sorted(set(raw) - _ALLOWED_KEYS, key=repr)
         if unknown:
             raise ValueError(
                 f"clé(s) inconnue(s) {', '.join(repr(k) for k in unknown)}"
                 f" — clés admises : {', '.join(sorted(_ALLOWED_KEYS))}"
+                f" (client {raw.get('mac')!r})"
             )
         mac = raw.get("mac")
         if not isinstance(mac, str):

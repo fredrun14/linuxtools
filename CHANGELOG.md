@@ -20,7 +20,8 @@
   fermé : clés admises `mac`, `name`, `ip`, `enabled`, `note` ; toute
   autre clé lève `ValueError` listant les clés admises. Validation plus
   stricte livrée en mineure (les consommateurs actuels ne lisent que
-  `mac`/`name`/`ip`). Signature inchangée.
+  `mac`/`name`/`ip`). Signature inchangée. Les erreurs de clé inconnue,
+  `enabled` et `note` citent la MAC de l'entrée fautive.
 
 ## [2.6.0] - 2026-10-11
 

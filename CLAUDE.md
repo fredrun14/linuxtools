@@ -27,7 +27,8 @@ dans tous les projets qui utilisent linuxtools** — ils l'épinglent par tag Fo
 (`linuxtools @ git+https://git.ricfasohel.fr/fred/linuxtools.git@vX.Y.Z`), donc
 rien ne se propage seul. Après le tag :
 
-1. Lister les consommateurs : `grep -l linuxtools ~/PycharmProjects/*/pyproject.toml`.
+1. Lister les consommateurs (hors linuxtools) :
+   `grep -l linuxtools ~/PycharmProjects/*/pyproject.toml | grep -v '/linuxtools/'`.
 2. Dans chacun : relever le pin de `pyproject.toml` (+ `uv sync`, tests, `mypy --strict`).
 3. **webapitools** : bumper aussi les 3 `--branch vX.Y.Z` de `.forgejo/workflows/ci.yml`
    (la CI clone linuxtools par tag figé).
