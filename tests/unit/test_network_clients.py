@@ -361,3 +361,220 @@ def test_load_lan_clients_mac_bool_ou_espaces_rejetee(mac: object) -> None:
     # Act / Assert
     with pytest.raises(ValueError, match="MAC invalide : "):
         load_lan_clients([{"mac": mac}])
+
+
+def test_load_lan_clients_enabled_defaut_true() -> None:
+    """Sans clé enabled, le client est actif."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act
+    (client,) = load_lan_clients(entries)
+
+    # Assert
+    assert client.enabled is True
+
+
+def test_load_lan_clients_enabled_false_conserve() -> None:
+    """enabled = false est lu et le client désactivé est rendu."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "enabled": False}]
+
+    # Act
+    result = load_lan_clients(entries)
+
+    # Assert
+    assert len(result) == 1
+    assert result[0].enabled is False
+
+
+@pytest.mark.parametrize("value", ["false", 0, 1, None])
+def test_load_lan_clients_leve_valueerror_si_enabled_non_booleen(
+    value: object,
+) -> None:
+    """enabled doit être un bool strict (échec fermé)."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "enabled": value}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="enabled doit être un booléen"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_note_absente_donne_none() -> None:
+    """Sans clé note, le champ vaut None."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act
+    (client,) = load_lan_clients(entries)
+
+    # Assert
+    assert client.note is None
+
+
+def test_load_lan_clients_note_presente_est_lue_telle_quelle() -> None:
+    """La note est conservée brute, sans interprétation."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "note": "  salon, TV  "}]
+
+    # Act
+    (client,) = load_lan_clients(entries)
+
+    # Assert
+    assert client.note == "  salon, TV  "
+
+
+@pytest.mark.parametrize("value", [3, None, ["x"], True])
+def test_load_lan_clients_leve_valueerror_si_note_non_str(
+    value: object,
+) -> None:
+    """note doit être une chaîne (échec fermé)."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "note": value}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="note doit être une chaîne"):
+        load_lan_clients(entries)
+
+
+@pytest.mark.parametrize("cle", ["enabeld", "reservation", "comment"])
+def test_load_lan_clients_leve_valueerror_si_cle_inconnue(cle: str) -> None:
+    """Une clé hors schéma est refusée, le message liste les clés admises."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", cle: True}]
+
+    # Act / Assert
+    with pytest.raises(ValueError) as exc_info:
+        load_lan_clients(entries)
+    message = str(exc_info.value)
+    assert repr(cle) in message
+    assert "clés admises : enabled, ip, mac, name, note" in message
+
+
+@pytest.mark.parametrize(
+    ("extra", "motif"),
+    [
+        ({"enabeld": True}, "clé"),
+        ({"enabled": "x"}, "enabled doit être un booléen"),
+        ({"note": 3}, "note doit être une chaîne"),
+    ],
+)
+def test_load_lan_clients_erreur_de_schema_cite_la_mac(
+    extra: dict[str, object], motif: str
+) -> None:
+    """Les erreurs de schéma citent la MAC de l'entrée fautive."""
+    # Arrange
+    entries = [
+        {"mac": "aa:bb:cc:dd:ee:01"},
+        {"mac": "aa:bb:cc:dd:ee:02", **extra},
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=motif) as exc_info:
+        load_lan_clients(entries)
+    assert repr("aa:bb:cc:dd:ee:02") in str(exc_info.value)
+
+
+def test_load_lan_clients_cles_inconnues_de_types_mixtes() -> None:
+    """Des clés non triables entre elles donnent ValueError, pas TypeError."""
+    # Arrange
+    entries = [{1: "x", "foo": 2, "mac": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\)"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cles_inconnues_triees() -> None:
+    """Plusieurs clés inconnues sont listées en ordre alphabétique."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "zeta": 1, "alpha": 2}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="'alpha', 'zeta'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cle_inconnue_sans_mac_signale_la_cle() -> None:
+    """Une faute de frappe sur mac est signalée comme clé inconnue."""
+    # Arrange
+    entries = [{"mak": "aa:bb:cc:dd:ee:ff"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\) 'mak'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_cle_inconnue_prioritaire_sur_mac_invalide() -> None:
+    """La clé inconnue est signalée avant une MAC invalide."""
+    # Arrange
+    entries = [{"mac": "zz", "foo": 1}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="clé\\(s\\) inconnue\\(s\\) 'foo'"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_nom_invalide_prioritaire_sur_enabled() -> None:
+    """Ordre des erreurs : le validateur de nom passe avant enabled."""
+
+    # Arrange
+    def refuser(raw: object) -> str | None:
+        raise ValueError("nom refusé")
+
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "name": "x", "enabled": "x"}]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="nom refusé"):
+        load_lan_clients(entries, name_validator=refuser)
+
+
+def test_load_lan_clients_desactive_compte_pour_dedup_mac() -> None:
+    """Une MAC dupliquée entre un actif et un désactivé est refusée."""
+    # Arrange
+    entries = [
+        {"mac": "aa:bb:cc:dd:ee:ff", "enabled": True},
+        {"mac": "AA:BB:CC:DD:EE:FF", "enabled": False},
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="MAC en doublon"):
+        load_lan_clients(entries)
+
+
+def test_load_lan_clients_desactives_seuls_non_vide() -> None:
+    """Une liste de désactivés seuls satisfait require_non_empty."""
+    # Arrange
+    entries = [{"mac": "aa:bb:cc:dd:ee:ff", "enabled": False}]
+
+    # Act
+    result = load_lan_clients(entries, require_non_empty=True)
+
+    # Assert
+    assert [c.enabled for c in result] == [False]
+
+
+def test_load_lan_clients_desactive_compte_pour_dedup_names() -> None:
+    """Un nom dupliqué avec un client désactivé est refusé."""
+    # Arrange
+    entries = [
+        {"mac": "aa:bb:cc:dd:ee:01", "name": "tv", "enabled": True},
+        {"mac": "aa:bb:cc:dd:ee:02", "name": "tv", "enabled": False},
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="nom de client en doublon"):
+        load_lan_clients(entries, dedup_names=True)
+
+
+def test_lan_client_construction_positionnelle_inchangee() -> None:
+    """LanClient(mac, name, ip) reste valide, enabled/note ont un défaut."""
+    # Arrange / Act
+    client = LanClient("aa:bb:cc:dd:ee:ff", "tv", "192.168.1.10")
+
+    # Assert
+    assert client.name == "tv"
+    assert client.pinned_ip == "192.168.1.10"
+    assert client.enabled is True
+    assert client.note is None

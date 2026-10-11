@@ -2,6 +2,27 @@
 
 ## [Non publié]
 
+## [2.7.0] - 2026-10-11
+
+### Ajouté
+
+- feat(network): `LanClient.enabled` (`bool`, défaut `True`) et
+  `LanClient.note` (`str | None`, défaut `None`), ajoutés en fin de
+  dataclass (construction positionnelle inchangée). `load_lan_clients()`
+  les lit : `enabled` doit être un booléen strict, `note` une chaîne
+  (`ValueError` sinon). Le chargeur ne filtre jamais `enabled` : les
+  clients désactivés sont rendus et comptent pour la dédup MAC/nom et
+  `require_non_empty`.
+
+### Modifié
+
+- feat(network): le schéma `[[client]]` de `load_lan_clients()` est
+  fermé : clés admises `mac`, `name`, `ip`, `enabled`, `note` ; toute
+  autre clé lève `ValueError` listant les clés admises. Validation plus
+  stricte livrée en mineure (les consommateurs actuels ne lisent que
+  `mac`/`name`/`ip`). Signature inchangée. Les erreurs de clé inconnue,
+  `enabled` et `note` citent la MAC de l'entrée fautive.
+
 ## [2.6.0] - 2026-10-11
 
 ### Ajouté

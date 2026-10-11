@@ -20,6 +20,23 @@
   consommateurs le prétexte « la lib n'est pas typée » pour relâcher leur propre
   configuration. `py.typed` (PEP 561) est exposé — ce prétexte doit rester mort.
 
+## Release : répercuter sur les consommateurs
+
+Chaque nouvelle version livrée sur `master` (tag `vX.Y.Z`) **doit être reportée
+dans tous les projets qui utilisent linuxtools** — ils l'épinglent par tag Forgejo
+(`linuxtools @ git+https://git.ricfasohel.fr/fred/linuxtools.git@vX.Y.Z`), donc
+rien ne se propage seul. Après le tag :
+
+1. Lister les consommateurs (hors linuxtools) :
+   `grep -l linuxtools ~/PycharmProjects/*/pyproject.toml | grep -v '/linuxtools/'`.
+2. Dans chacun : relever le pin de `pyproject.toml` (+ `uv sync`, tests, `mypy --strict`).
+3. **webapitools** : bumper aussi les 3 `--branch vX.Y.Z` de `.forgejo/workflows/ci.yml`
+   (la CI clone linuxtools par tag figé).
+4. Une PR par consommateur. Un consommateur laissé en retard est un choix assumé
+   et consigné, pas un oubli (état au 2026-10-11 : pins de v1.19.1 à v2.6.0).
+5. Les copies déployées sur le nœud pve (`/opt/<appli>/venv`) ne suivent qu'à
+   leur redéploiement.
+
 ## Commandes
 
 ```bash
