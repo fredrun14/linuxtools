@@ -521,3 +521,29 @@ def test_from_clients_doublon_sans_nom_dit_sans_nom_et_pas_de_mac() -> None:
     assert str(mac_exc.value) == (
         "MAC en double dans l'intention : (sans nom) et (sans nom)"
     )
+
+
+@pytest.mark.parametrize("inverse", [False, True])
+def test_compare_mac_en_double_sur_le_routeur_leve_valueerror(
+    inverse: bool,
+) -> None:
+    """Même MAC deux fois sur le routeur : refus, dans les deux ordres.
+
+    Plus de « Conforme » trompeur (F09) ; message sans MAC.
+    """
+    intent = _intent(_client("00:00:5E:00:53:03", "192.168.50.3", "shield"))
+    actual = [
+        _dev("00:00:5e:00:53:03", "192.168.50.143", "shield"),
+        _dev("00:00:5E:00:53:03", "192.168.50.3", "shield"),
+    ]
+    if inverse:
+        actual.reverse()
+
+    with pytest.raises(ValueError) as exc:
+        compare_reservations(intent, actual)
+
+    message = str(exc.value)
+    assert "MAC en double sur le routeur" in message
+    assert "192.168.50.143 (shield)" in message
+    assert "192.168.50.3 (shield)" in message
+    assert "00:00:5e" not in message.lower()

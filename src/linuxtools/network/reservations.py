@@ -155,6 +155,37 @@ def _describe(item: DriftItem) -> str:
     )
 
 
+def _index_by_mac(
+    actual: Sequence[NetworkDevice],
+) -> dict[str, NetworkDevice]:
+    """Indexe les réservations du routeur par MAC (minuscules).
+
+    Args:
+        actual: Réservations lues sur le routeur.
+
+    Returns:
+        Dictionnaire MAC minuscules -> réservation, dans l'ordre de
+        lecture.
+
+    Raises:
+        ValueError: Si une MAC est présente deux fois (message : IP et
+            noms, jamais la MAC).
+    """
+    seen: dict[str, NetworkDevice] = {}
+    for device in actual:
+        mac = device.mac.lower()
+        if mac in seen:
+            first = seen[mac]
+            raise ValueError(
+                "MAC en double sur le routeur : "
+                f"{first.fixed_ip} ({first.hostname or 'sans nom'}) "
+                f"et {device.fixed_ip} "
+                f"({device.hostname or 'sans nom'})"
+            )
+        seen[mac] = device
+    return seen
+
+
 def compare_reservations(
     intent: "DhcpIntent", actual: Sequence[NetworkDevice]
 ) -> DriftReport:
@@ -168,8 +199,13 @@ def compare_reservations(
 
     Returns:
         DriftReport listant tous les écarts.
+
+    Raises:
+        ValueError: Si ``actual`` contient deux fois la même MAC (état
+            routeur incohérent : refusé, jamais deviné ; message : IP et
+            noms, jamais la MAC).
     """
-    by_mac_router = {d.mac.lower(): d for d in actual}
+    by_mac_router = _index_by_mac(actual)
     items: list[DriftItem] = []
     for wanted in intent.active:
         device = by_mac_router.get(wanted.mac)
@@ -399,18 +435,7 @@ class DhcpIntent:
                 réservation active (messages : IP et noms, jamais la
                 MAC).
         """
-        seen: dict[str, NetworkDevice] = {}
-        for device in actual:
-            mac = device.mac.lower()
-            if mac in seen:
-                first = seen[mac]
-                raise ValueError(
-                    "MAC en double sur le routeur : "
-                    f"{first.fixed_ip} ({first.hostname or 'sans nom'}) "
-                    f"et {device.fixed_ip} "
-                    f"({device.hostname or 'sans nom'})"
-                )
-            seen[mac] = device
+        seen = _index_by_mac(actual)
         declared = {d.mac for d in self.active}
         declared |= {c.mac.lower() for c in self.disabled}
         kept = [d for m, d in seen.items() if m not in declared]
