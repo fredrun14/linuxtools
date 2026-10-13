@@ -178,8 +178,9 @@ def _index_by_mac(
             first = seen[mac]
             raise ValueError(
                 "MAC en double sur le routeur : "
-                f"{first.fixed_ip} ({first.hostname or 'sans nom'}) "
-                f"et {device.fixed_ip} "
+                f"{first.fixed_ip or '(sans IP)'} "
+                f"({first.hostname or 'sans nom'}) "
+                f"et {device.fixed_ip or '(sans IP)'} "
                 f"({device.hostname or 'sans nom'})"
             )
         seen[mac] = device

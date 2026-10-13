@@ -561,3 +561,46 @@ def test_from_clients_ip_active_avec_espace_est_classee_pas_ignoree() -> None:
     assert len(intent.active) == 1
     assert intent.active[0].hostname == "tv"
     assert intent.active[0].fixed_ip == "192.168.50.6"
+
+
+def test_from_clients_doublon_ip_illisible_entre_desactives_leve() -> None:
+    """Deux désactivés avec la même IP illisible : doublon refusé (F11)."""
+    a = _client("00:00:5E:00:53:03", "pas-une-ip", "a", False)
+    b = _client("00:00:5E:00:53:04", "pas-une-ip", "b", False)
+
+    with pytest.raises(ValueError) as exc:
+        DhcpIntent.from_clients([a, b], _SUBNET)
+
+    assert str(exc.value) == "IP pas-une-ip en double : a et b"
+
+
+def test_target_conserve_reservation_sans_ip_fixe() -> None:
+    """Une réservation routeur sans fixed_ip est conservée telle quelle."""
+    intent = _intent(_client("00:00:5E:00:53:03", "192.168.50.3", "shield"))
+    sans_ip = NetworkDevice(
+        ip="192.168.50.99", mac="aa:bb:cc:dd:ee:01", hostname="invite"
+    )
+
+    result = intent.target([sans_ip])
+
+    assert result[-1] is sans_ip
+    assert len(result) == 2
+
+
+def test_target_mac_en_double_sans_ip_dit_sans_ip() -> None:
+    """Une réservation sans IP fixe s'affiche « (sans IP) », pas « None »."""
+    intent = DhcpIntent.from_clients([], _SUBNET)
+    actual = [
+        NetworkDevice(
+            ip="192.168.50.99", mac="aa:bb:cc:dd:ee:01", hostname="invite"
+        ),
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.98", "autre"),
+    ]
+
+    with pytest.raises(ValueError) as exc:
+        intent.target(actual)
+
+    assert str(exc.value) == (
+        "MAC en double sur le routeur : (sans IP) (invite) et "
+        "192.168.50.98 (autre)"
+    )
