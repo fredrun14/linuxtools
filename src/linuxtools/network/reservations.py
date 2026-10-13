@@ -9,7 +9,7 @@ dépendance avec webapitools).
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from ipaddress import IPv4Network, IPv6Network, ip_address
+from ipaddress import IPv4Network, ip_address
 
 from linuxtools.network.clients import LanClient
 from linuxtools.network.models import NetworkDevice
@@ -215,7 +215,7 @@ def compare_reservations(
     )
 
 
-def _in_subnet(ip: str, subnet: IPv4Network | IPv6Network) -> bool:
+def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
     """Indique si une IP appartient au subnet.
 
     Args:
@@ -224,7 +224,7 @@ def _in_subnet(ip: str, subnet: IPv4Network | IPv6Network) -> bool:
 
     Returns:
         True si l'IP est valide et dans le subnet ; False sinon (y
-        compris IP illisible ou de famille différente).
+        compris IP illisible ou IPv6).
     """
     try:
         return ip_address(ip) in subnet
@@ -281,13 +281,14 @@ class DhcpIntent:
     def from_clients(
         cls,
         clients: Sequence[LanClient],
-        subnet: IPv4Network | IPv6Network,
+        subnet: IPv4Network,
     ) -> "DhcpIntent":
         """Construit l'intention à partir des clients déclarés.
 
         Args:
             clients: Clients LAN déclarés (actifs et désactivés).
-            subnet: Réseau dans lequel une IP épinglée est admise.
+            subnet: Réseau IPv4 dans lequel une IP épinglée est admise
+                (NetworkDevice ne porte que de l'IPv4).
 
         Returns:
             L'intention répartie en actifs, désactivés et ignorés.

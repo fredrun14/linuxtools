@@ -1,6 +1,7 @@
 """Tests de l'intention DHCP et du comparateur de réservations."""
 
-from ipaddress import IPv4Network, IPv6Network
+from ipaddress import IPv4Network
+from typing import get_type_hints
 
 import pytest
 
@@ -96,16 +97,11 @@ def test_from_clients_ip_en_double_avec_desactive_leve_valueerror() -> None:
     assert "00:00:5" not in message.lower()
 
 
-def test_from_clients_subnet_ipv6_ignore_les_ip_v4() -> None:
-    """Avec un subnet IPv6, une IP v4 épinglée est ignorée sans erreur."""
-    client = LanClient(
-        mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
-    )
+def test_from_clients_n_accepte_qu_un_subnet_ipv4() -> None:
+    """La signature restreint subnet à IPv4Network (NetworkDevice IPv4)."""
+    hints = get_type_hints(DhcpIntent.from_clients)
 
-    intent = DhcpIntent.from_clients([client], IPv6Network("fd00::/64"))
-
-    assert intent.active == ()
-    assert intent.ignored == (client,)
+    assert hints["subnet"] is IPv4Network
 
 
 def _dev(mac: str, ip: str, name: str = "") -> NetworkDevice:
