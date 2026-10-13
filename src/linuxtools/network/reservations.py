@@ -232,6 +232,22 @@ def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
         return False
 
 
+def _normalize_ip(ip: str) -> str:
+    """Normalise une IP pour la comparer (espaces, forme canonique).
+
+    Args:
+        ip: IP sous forme de chaîne.
+
+    Returns:
+        La forme canonique si l'IP est lisible, sinon la chaîne
+        débarrassée de ses espaces.
+    """
+    try:
+        return str(ip_address(ip.strip()))
+    except ValueError:
+        return ip.strip()
+
+
 def _check_no_duplicate_ip(
     active: Sequence[NetworkDevice], disabled: Sequence[LanClient]
 ) -> None:
@@ -251,9 +267,10 @@ def _check_no_duplicate_ip(
     seen: dict[str, str] = {}
     entries = [(d.fixed_ip, d.hostname) for d in active]
     entries += [(c.pinned_ip, c.name or "") for c in disabled]
-    for ip, name in entries:
-        if ip is None:
+    for raw_ip, name in entries:
+        if raw_ip is None:
             continue
+        ip = _normalize_ip(raw_ip)
         if ip in seen:
             raise ValueError(
                 f"IP {ip} en double : {seen[ip] or '(sans nom)'} et "

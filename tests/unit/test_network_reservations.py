@@ -104,6 +104,22 @@ def test_from_clients_n_accepte_qu_un_subnet_ipv4() -> None:
     assert hints["subnet"] is IPv4Network
 
 
+def test_from_clients_ip_en_double_malgre_espaces_leve_valueerror() -> None:
+    """Une IP désactivée écrite avec des espaces reste un doublon (F07)."""
+    actif = LanClient(
+        mac="00:00:5E:00:53:06", name="tv", pinned_ip="192.168.50.6"
+    )
+    off = LanClient(
+        mac="00:00:5E:00:53:07",
+        name="box",
+        pinned_ip=" 192.168.50.6 ",
+        enabled=False,
+    )
+
+    with pytest.raises(ValueError, match="en double"):
+        DhcpIntent.from_clients([actif, off], _SUBNET)
+
+
 def _dev(mac: str, ip: str, name: str = "") -> NetworkDevice:
     """Construit une réservation observée sur le routeur."""
     return NetworkDevice(ip=ip, mac=mac, hostname=name, fixed_ip=ip)
