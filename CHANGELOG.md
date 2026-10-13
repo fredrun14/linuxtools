@@ -2,6 +2,19 @@
 
 ## [Non publié]
 
+## [2.8.1] - 2026-10-13
+
+### Corrigé
+
+- fix(network): `DhcpIntent.from_clients()` — un client désactivé
+  (`enabled = false`) ne participe plus à la détection d'IP en double, ni
+  face aux actifs ni entre désactivés : il n'est jamais poussé au routeur,
+  remplacer un appareil sur la même IP n'est donc plus refusé. Inchangés :
+  IP en double entre deux actifs, MAC en double (toute entrée) et collision
+  d'une réservation routeur conservée avec l'IP d'une active (`ValueError`,
+  messages sans MAC). Réactiver un client reste une édition explicite,
+  refusée à ce moment-là si l'IP est prise par un actif.
+
 ## [2.8.0] - 2026-10-13
 
 ### Ajouté

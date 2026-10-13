@@ -302,29 +302,29 @@ def _normalize_ip(ip: str) -> str:
         return ip.strip()
 
 
-def _check_no_duplicate_ip(
-    active: Sequence[NetworkDevice], disabled: Sequence[LanClient]
-) -> None:
-    """Refuse deux entrées portant la même IP épinglée.
+def _check_no_duplicate_ip(active: Sequence[NetworkDevice]) -> None:
+    """Refuse deux réservations actives portant la même IP épinglée.
 
-    Les clients désactivés comptent : réactiver l'un d'eux créerait
-    sinon un conflit.
+    Seules les réservations actives sont contrôlées : un client
+    désactivé n'est jamais poussé au routeur, donc il ne peut pas être
+    en conflit (cas du remplacement d'un appareil sur la même IP).
+    Réactiver un client est une édition explicite : il devient alors
+    actif et ce contrôle le refuse à ce moment-là s'il entre en
+    collision.
 
     Args:
         active: Réservations actives.
-        disabled: Clients désactivés.
 
     Raises:
         ValueError: Si une IP est portée deux fois (message : l'IP et
             les deux noms, jamais de MAC).
     """
     seen: dict[str, str] = {}
-    entries = [(d.fixed_ip, d.hostname) for d in active]
-    entries += [(c.pinned_ip, c.name or "") for c in disabled]
-    for raw_ip, name in entries:
-        if raw_ip is None:
+    for device in active:
+        if device.fixed_ip is None:
             continue
-        ip = _normalize_ip(raw_ip)
+        ip = _normalize_ip(device.fixed_ip)
+        name = device.hostname
         if ip in seen:
             raise ValueError(
                 f"IP {ip} en double : {seen[ip] or '(sans nom)'} et "
@@ -387,8 +387,10 @@ class DhcpIntent:
             L'intention répartie en actifs, désactivés et ignorés.
 
         Raises:
-            ValueError: Si une MAC ou une IP épinglée est déclarée deux
-                fois.
+            ValueError: Si une MAC est déclarée deux fois (désactivés
+                compris) ou si deux clients actifs portent la même IP
+                épinglée. Un client désactivé ne compte pas dans le
+                contrôle d'IP.
         """
         _check_no_duplicate_mac(clients)
         active: list[NetworkDevice] = []
@@ -412,7 +414,7 @@ class DhcpIntent:
                     fixed_ip=pinned,
                 )
             )
-        _check_no_duplicate_ip(active, disabled)
+        _check_no_duplicate_ip(active)
         return cls(
             active=tuple(active),
             disabled=tuple(disabled),

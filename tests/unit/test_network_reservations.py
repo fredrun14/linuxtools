@@ -72,29 +72,67 @@ def test_from_clients_ignore_client_actif_sans_ip() -> None:
     assert intent.ignored == (sans,)
 
 
-def test_from_clients_ip_en_double_avec_desactive_leve_valueerror() -> None:
-    """Deux clients, désactivés compris, sur la même IP : ValueError.
+def test_from_clients_remplacement_meme_ip_ancien_desactive_accepte() -> None:
+    """Un désactivé et un actif sur la même IP : remplacement d'appareil.
 
-    Le message nomme l'IP et les deux noms, jamais une MAC.
+    Un client désactivé n'est jamais poussé au routeur : il ne participe
+    pas à la détection de doublon d'IP (cas réel : slzb-mr5u, IP .6).
     """
+    ancien = LanClient(
+        mac="00:00:5E:00:53:22",
+        name="slzb-mr5u-old",
+        pinned_ip="192.168.50.6",
+        enabled=False,
+    )
+    nouveau = LanClient(
+        mac="00:00:5E:00:53:23", name="slzb-mr5u", pinned_ip="192.168.50.6"
+    )
+
+    intent = DhcpIntent.from_clients([ancien, nouveau], _SUBNET)
+
+    assert [d.hostname for d in intent.active] == ["slzb-mr5u"]
+    assert intent.disabled == (ancien,)
+
+
+def test_from_clients_deux_desactives_meme_ip_acceptes() -> None:
+    """Deux désactivés sur la même IP ne sont pas un doublon."""
+    a = LanClient(
+        mac="00:00:5E:00:53:22",
+        name="a",
+        pinned_ip="192.168.50.6",
+        enabled=False,
+    )
+    b = LanClient(
+        mac="00:00:5E:00:53:23",
+        name="b",
+        pinned_ip="192.168.50.6",
+        enabled=False,
+    )
+
+    intent = DhcpIntent.from_clients([a, b], _SUBNET)
+
+    assert intent.disabled == (a, b)
+    assert intent.active == ()
+
+
+def test_from_clients_mac_en_double_actif_et_desactive_leve() -> None:
+    """La MAC reste unique, désactivés compris (message sans MAC)."""
     actif = LanClient(
         mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
     )
     off = LanClient(
-        mac="00:00:5E:00:53:22",
-        name="msiwifi",
-        pinned_ip="192.168.50.3",
+        mac="00:00:5e:00:53:03",
+        name="ancien",
+        pinned_ip="192.168.50.9",
         enabled=False,
     )
 
     with pytest.raises(ValueError) as exc:
         DhcpIntent.from_clients([actif, off], _SUBNET)
 
-    message = str(exc.value)
-    assert "192.168.50.3" in message
-    assert "shield" in message
-    assert "msiwifi" in message
-    assert "00:00:5" not in message.lower()
+    assert str(exc.value) == (
+        "MAC en double dans l'intention : shield et ancien"
+    )
 
 
 def test_from_clients_n_accepte_qu_un_subnet_ipv4() -> None:
@@ -104,20 +142,17 @@ def test_from_clients_n_accepte_qu_un_subnet_ipv4() -> None:
     assert hints["subnet"] is IPv4Network
 
 
-def test_from_clients_ip_en_double_malgre_espaces_leve_valueerror() -> None:
-    """Une IP désactivée écrite avec des espaces reste un doublon (F07)."""
-    actif = LanClient(
+def test_from_clients_ip_en_double_actifs_malgre_espaces_leve() -> None:
+    """Deux actifs : l'IP avec espaces reste un doublon (F07)."""
+    a = LanClient(
         mac="00:00:5E:00:53:06", name="tv", pinned_ip="192.168.50.6"
     )
-    off = LanClient(
-        mac="00:00:5E:00:53:07",
-        name="box",
-        pinned_ip=" 192.168.50.6 ",
-        enabled=False,
+    b = LanClient(
+        mac="00:00:5E:00:53:07", name="box", pinned_ip=" 192.168.50.6 "
     )
 
     with pytest.raises(ValueError, match="en double"):
-        DhcpIntent.from_clients([actif, off], _SUBNET)
+        DhcpIntent.from_clients([a, b], _SUBNET)
 
 
 def _dev(mac: str, ip: str, name: str = "") -> NetworkDevice:
@@ -492,17 +527,6 @@ def test_from_clients_deux_actifs_meme_ip_leve_valueerror() -> None:
     assert str(exc.value) == "IP 192.168.50.3 en double : shield et nas"
 
 
-def test_from_clients_deux_desactives_meme_ip_leve_valueerror() -> None:
-    """Deux désactivés sur la même IP : ValueError (réactivation sûre)."""
-    a = _client("00:00:5E:00:53:03", "192.168.50.3", "shield", False)
-    b = _client("00:00:5E:00:53:04", "192.168.50.3", "nas", False)
-
-    with pytest.raises(ValueError) as exc:
-        DhcpIntent.from_clients([a, b], _SUBNET)
-
-    assert str(exc.value) == "IP 192.168.50.3 en double : shield et nas"
-
-
 def test_from_clients_doublon_sans_nom_dit_sans_nom_et_pas_de_mac() -> None:
     """Noms vides : « (sans nom) », et aucune MAC dans les messages."""
     a = LanClient(mac="00:00:5E:00:53:03", pinned_ip="192.168.50.3")
@@ -563,15 +587,14 @@ def test_from_clients_ip_active_avec_espace_est_classee_pas_ignoree() -> None:
     assert intent.active[0].fixed_ip == "192.168.50.6"
 
 
-def test_from_clients_doublon_ip_illisible_entre_desactives_leve() -> None:
-    """Deux désactivés avec la même IP illisible : doublon refusé (F11)."""
+def test_from_clients_ip_illisible_entre_desactives_acceptee() -> None:
+    """Deux désactivés, même IP illisible : plus contrôlée du tout (F11)."""
     a = _client("00:00:5E:00:53:03", "pas-une-ip", "a", False)
     b = _client("00:00:5E:00:53:04", "pas-une-ip", "b", False)
 
-    with pytest.raises(ValueError) as exc:
-        DhcpIntent.from_clients([a, b], _SUBNET)
+    intent = DhcpIntent.from_clients([a, b], _SUBNET)
 
-    assert str(exc.value) == "IP pas-une-ip en double : a et b"
+    assert intent.disabled == (a, b)
 
 
 def test_target_conserve_reservation_sans_ip_fixe() -> None:
