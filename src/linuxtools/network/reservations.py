@@ -262,6 +262,27 @@ def _check_no_duplicate_ip(
         seen[ip] = name
 
 
+def _check_no_duplicate_mac(clients: Sequence[LanClient]) -> None:
+    """Refuse deux clients portant la même MAC (casse ignorée).
+
+    Args:
+        clients: Tous les clients déclarés, quel que soit leur statut.
+
+    Raises:
+        ValueError: Si une MAC est portée deux fois (message : les deux
+            noms, jamais la MAC).
+    """
+    seen: dict[str, str] = {}
+    for client in clients:
+        mac = client.mac.lower()
+        name = client.name or "(sans nom)"
+        if mac in seen:
+            raise ValueError(
+                f"MAC en double dans l'intention : {seen[mac]} et {name}"
+            )
+        seen[mac] = name
+
+
 @dataclass(frozen=True)
 class DhcpIntent:
     """Intention DHCP déclarée, répartie par statut.
@@ -292,7 +313,12 @@ class DhcpIntent:
 
         Returns:
             L'intention répartie en actifs, désactivés et ignorés.
+
+        Raises:
+            ValueError: Si une MAC ou une IP épinglée est déclarée deux
+                fois.
         """
+        _check_no_duplicate_mac(clients)
         active: list[NetworkDevice] = []
         disabled: list[LanClient] = []
         ignored: list[LanClient] = []

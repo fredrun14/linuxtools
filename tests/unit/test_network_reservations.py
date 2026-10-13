@@ -167,16 +167,23 @@ def test_target_ne_contient_aucune_mac_en_double() -> None:
     assert cible[1].fixed_ip == "192.168.50.99"
 
 
-def test_target_dedoublonne_une_mac_declaree_deux_fois() -> None:
-    """Deux clients de même MAC (casse différente) : un seul élément."""
+def test_from_clients_mac_en_double_casse_comprise_leve_valueerror() -> None:
+    """Deux clients de même MAC (casse différente) : ValueError.
+
+    Le message nomme les deux clients, jamais la MAC.
+    """
     a = LanClient(mac="AA:BB:CC:DD:EE:01", name="a", pinned_ip="192.168.50.10")
-    b = LanClient(mac="aa:bb:cc:dd:ee:01", name="b", pinned_ip="192.168.50.11")
-    intent = DhcpIntent.from_clients([a, b], _SUBNET)
+    b = LanClient(
+        mac="aa:bb:cc:dd:ee:01",
+        name="b",
+        pinned_ip="192.168.50.11",
+        enabled=False,
+    )
 
-    cible = intent.target([])
+    with pytest.raises(ValueError) as exc:
+        DhcpIntent.from_clients([a, b], _SUBNET)
 
-    assert [d.mac for d in cible] == ["aa:bb:cc:dd:ee:01"]
-    assert cible[0].fixed_ip == "192.168.50.10"
+    assert str(exc.value) == "MAC en double dans l'intention : a et b"
 
 
 def _client(mac: str, ip: str, name: str, enabled: bool = True) -> LanClient:
