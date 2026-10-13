@@ -2,6 +2,26 @@
 
 ## [Non publié]
 
+## [2.8.0] - 2026-10-13
+
+### Ajouté
+
+- feat(network): module `linuxtools.network.reservations` (stdlib seule,
+  aucun import de `network.router`) — `DhcpIntent` (`from_clients`,
+  `target`), `compare_reservations`, `DriftReport` (`has_drift`,
+  `actionable`, `format_summary`), `DriftItem` (`out_of_scope`) et
+  `DriftKind`. Portage du comparateur de scanNetHome, rendu partageable
+  entre la relecture après écriture (webapitools) et le contrôle de dérive
+  (scanNetHome). `target()` conserve les réservations non déclarées (jamais
+  supprimées) ; MAC en double (intention ou routeur), IP en double et
+  collision d'IP avec une réservation conservée lèvent `ValueError`
+  (messages sans MAC).
+
+### Déprécié
+
+- `AsusRouterDhcpManager` : remplacé par `AsusRouterActuator` de webapitools ;
+  suppression prévue en 3.0.0.
+
 ## [2.7.1] - 2026-10-11
 
 ### Corrigé
