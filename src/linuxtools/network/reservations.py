@@ -8,10 +8,211 @@ dépendance avec webapitools).
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_address
 
 from linuxtools.network.clients import LanClient
 from linuxtools.network.models import NetworkDevice
+
+
+class DriftKind(StrEnum):
+    """Nature d'un écart entre l'intention et l'état du routeur."""
+
+    # déclarée active, absente du routeur
+    MISSING = "missing"
+    # présente sur le routeur, mais sur une autre IP
+    IP_MISMATCH = "ip_mismatch"
+    # enabled = false, mais encore présente sur le routeur
+    STALE_DISABLED = "stale"
+    # présente sur le routeur, absente du TOML
+    UNDECLARED = "undeclared"
+
+
+# Ordre d'affichage : ce qui exige une action d'abord,
+# l'informatif ensuite.
+_SEVERITY: dict[DriftKind, int] = {
+    DriftKind.MISSING: 0,
+    DriftKind.IP_MISMATCH: 1,
+    DriftKind.STALE_DISABLED: 2,
+    DriftKind.UNDECLARED: 3,
+}
+
+
+@dataclass(frozen=True)
+class DriftItem:
+    """Un écart constaté.
+
+    Attributes:
+        kind: Nature de l'écart.
+        mac: MAC concernée (minuscules).
+        name: Libellé connu, ou "" si l'appareil n'est pas déclaré.
+        expected_ip: IP attendue par l'intention, ou None.
+        actual_ip: IP réellement portée par le routeur, ou None.
+    """
+
+    kind: DriftKind
+    mac: str
+    name: str = ""
+    expected_ip: str | None = None
+    actual_ip: str | None = None
+
+
+@dataclass(frozen=True)
+class DriftReport:
+    """Résultat de la confrontation intention <-> routeur.
+
+    Attributes:
+        items: Écarts constatés, par ordre de gravité.
+        declared: Nombre de réservations actives déclarées.
+        on_router: Nombre de réservations lues sur le routeur.
+    """
+
+    items: tuple[DriftItem, ...] = ()
+    declared: int = 0
+    on_router: int = 0
+
+    @property
+    def has_drift(self) -> bool:
+        """Retourne True si au moins un écart a été constaté."""
+        return bool(self.items)
+
+    @property
+    def actionable(self) -> bool:
+        """Retourne True si un écart exige une action.
+
+        Une réservation non déclarée (UNDECLARED) est informative :
+        elle est conservée, jamais effacée.
+        """
+        return any(i.kind is not DriftKind.UNDECLARED for i in self.items)
+
+    def format_summary(self) -> str:
+        """Retourne un résumé textuel lisible du rapport.
+
+        Ne porte que MAC, IP et libellés : la donnée métier du LAN,
+        jamais un secret.
+
+        Returns:
+            Chaîne multiligne : verdict, volumétrie, puis le détail
+            des écarts par ordre de gravité.
+        """
+        if self.has_drift:
+            header = (
+                f"{len(self.items)} ecart(s) — "
+                f"{self.declared} declaree(s) active(s), "
+                f"{self.on_router} sur le routeur"
+            )
+        else:
+            header = (
+                f"Conforme — {self.declared} reservation(s) "
+                f"active(s), {self.on_router} sur le routeur"
+            )
+        lines = [header]
+        lines.extend(f"  {_describe(item)}" for item in self.items)
+        return "\n".join(lines)
+
+
+def _describe(item: DriftItem) -> str:
+    """Rend un écart en une ligne lisible.
+
+    Args:
+        item: L'écart à décrire.
+
+    Returns:
+        Ligne prête à afficher, avec la MAC, le libellé et l'action
+        attendue.
+    """
+    label = item.name or "(sans libelle)"
+    if item.kind is DriftKind.MISSING:
+        return (
+            f"MANQUANTE   {item.mac}  {label} — attendue en "
+            f"{item.expected_ip}, absente du routeur"
+        )
+    if item.kind is DriftKind.IP_MISMATCH:
+        return (
+            f"IP DIVERGE  {item.mac}  {label} — attendue "
+            f"{item.expected_ip}, routeur {item.actual_ip}"
+        )
+    if item.kind is DriftKind.STALE_DISABLED:
+        return (
+            f"RESURGENTE  {item.mac}  {label} — retiree "
+            f"volontairement, encore presente en {item.actual_ip}"
+        )
+    return (
+        f"NON DECLAREE {item.mac}  {label} — presente en "
+        f"{item.actual_ip}, absente du TOML (conservee)"
+    )
+
+
+def compare_reservations(
+    intent: "DhcpIntent", actual: Sequence[NetworkDevice]
+) -> DriftReport:
+    """Confronte l'intention déclarée à l'état du routeur.
+
+    Fonction pure : aucune E/S, aucun accès réseau.
+
+    Args:
+        intent: Intention DHCP déclarée.
+        actual: Réservations lues sur le routeur.
+
+    Returns:
+        DriftReport listant tous les écarts.
+    """
+    by_mac_router = {d.mac.lower(): d for d in actual}
+    items: list[DriftItem] = []
+    for wanted in intent.active:
+        device = by_mac_router.get(wanted.mac.lower())
+        if device is None:
+            items.append(
+                DriftItem(
+                    kind=DriftKind.MISSING,
+                    mac=wanted.mac.lower(),
+                    name=wanted.hostname,
+                    expected_ip=wanted.fixed_ip,
+                )
+            )
+        elif device.fixed_ip != wanted.fixed_ip:
+            items.append(
+                DriftItem(
+                    kind=DriftKind.IP_MISMATCH,
+                    mac=wanted.mac.lower(),
+                    name=wanted.hostname,
+                    expected_ip=wanted.fixed_ip,
+                    actual_ip=device.fixed_ip,
+                )
+            )
+    # Logique inversée pour les désactivées : leur PRÉSENCE est
+    # anormale, leur absence est l'état attendu.
+    for off in intent.disabled:
+        device = by_mac_router.get(off.mac.lower())
+        if device is not None:
+            items.append(
+                DriftItem(
+                    kind=DriftKind.STALE_DISABLED,
+                    mac=off.mac.lower(),
+                    name=off.name or "",
+                    actual_ip=device.fixed_ip,
+                )
+            )
+    # Présentes sur le routeur mais absentes de l'intention :
+    # signalées, JAMAIS supprimées (F-17).
+    declared = {d.mac.lower() for d in intent.active}
+    declared |= {c.mac.lower() for c in intent.disabled}
+    for device in actual:
+        if device.mac.lower() not in declared:
+            items.append(
+                DriftItem(
+                    kind=DriftKind.UNDECLARED,
+                    mac=device.mac.lower(),
+                    name=device.hostname,
+                    actual_ip=device.fixed_ip,
+                )
+            )
+    items.sort(key=lambda i: (_SEVERITY[i.kind], i.mac))
+    return DriftReport(
+        items=tuple(items),
+        declared=len(intent.active),
+        on_router=len(actual),
+    )
 
 
 def _in_subnet(ip: str, subnet: IPv4Network | IPv6Network) -> bool:

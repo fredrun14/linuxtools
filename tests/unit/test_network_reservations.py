@@ -6,7 +6,12 @@ import pytest
 
 from linuxtools.network.clients import LanClient
 from linuxtools.network.models import NetworkDevice
-from linuxtools.network.reservations import DhcpIntent
+from linuxtools.network.reservations import (
+    DhcpIntent,
+    DriftKind,
+    DriftReport,
+    compare_reservations,
+)
 
 _SUBNET = IPv4Network("192.168.50.0/24")
 
@@ -176,3 +181,199 @@ def test_target_dedoublonne_une_mac_declaree_deux_fois() -> None:
 
     assert [d.mac for d in cible] == ["aa:bb:cc:dd:ee:01"]
     assert cible[0].fixed_ip == "192.168.50.10"
+
+
+def _client(mac: str, ip: str, name: str, enabled: bool = True) -> LanClient:
+    """Construit un client déclaré pour les tests de comparaison."""
+    return LanClient(mac=mac, name=name, pinned_ip=ip, enabled=enabled)
+
+
+def _intent(*clients: LanClient) -> DhcpIntent:
+    """Construit l'intention d'un jeu de clients (subnet de test)."""
+    return DhcpIntent.from_clients(clients, _SUBNET)
+
+
+def test_compare_sans_ecart_retourne_rapport_conforme() -> None:
+    """Intention et routeur alignés : aucun écart."""
+    intent = _intent(
+        _client("00:00:5E:00:53:03", "192.168.50.3", "shield"),
+        _client("00:00:5E:00:53:10", "192.168.50.10", "nas"),
+    )
+
+    report = compare_reservations(intent, list(intent.active))
+
+    assert report.items == ()
+    assert report.has_drift is False
+    assert report.actionable is False
+    assert report.declared == 2
+    assert report.on_router == 2
+
+
+def test_compare_detecte_reservation_manquante() -> None:
+    """Une entrée active absente du routeur est un MISSING."""
+    intent = _intent(
+        _client("00:00:5E:00:53:03", "192.168.50.3", "shield"),
+        _client("00:00:5E:00:53:10", "192.168.50.10", "nas"),
+    )
+
+    report = compare_reservations(intent, [intent.active[0]])
+
+    assert len(report.items) == 1
+    item = report.items[0]
+    assert item.kind is DriftKind.MISSING
+    assert item.mac == "00:00:5e:00:53:10"
+    assert item.name == "nas"
+    assert item.expected_ip == "192.168.50.10"
+    assert item.actual_ip is None
+    assert report.actionable is True
+
+
+def test_compare_detecte_ip_divergente() -> None:
+    """Même MAC, autre IP sur le routeur : IP_MISMATCH."""
+    intent = _intent(_client("00:00:5E:00:53:24", "192.168.50.24", "xps15"))
+    actual = [_dev("00:00:5E:00:53:24", "192.168.50.143", "xps15")]
+
+    report = compare_reservations(intent, actual)
+
+    assert len(report.items) == 1
+    item = report.items[0]
+    assert item.kind is DriftKind.IP_MISMATCH
+    assert item.name == "xps15"
+    assert item.expected_ip == "192.168.50.24"
+    assert item.actual_ip == "192.168.50.143"
+
+
+def test_compare_signale_reservation_non_declaree() -> None:
+    """Une réservation tierce est signalée en UNDECLARED, pas actionable."""
+    intent = _intent(_client("00:00:5E:00:53:03", "192.168.50.3", "shield"))
+    actual = [
+        intent.active[0],
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99", "invite-inconnu"),
+    ]
+
+    report = compare_reservations(intent, actual)
+
+    assert len(report.items) == 1
+    item = report.items[0]
+    assert item.kind is DriftKind.UNDECLARED
+    assert item.mac == "aa:bb:cc:dd:ee:01"
+    assert item.name == "invite-inconnu"
+    assert item.actual_ip == "192.168.50.99"
+    assert item.expected_ip is None
+    assert report.has_drift is True
+    assert report.actionable is False
+
+
+def test_compare_ignore_entree_desactivee_absente() -> None:
+    """Une entrée enabled=false absente du routeur est l'état attendu."""
+    intent = _intent(
+        _client("00:00:5E:00:53:03", "192.168.50.3", "shield"),
+        _client("00:00:5E:00:53:22", "192.168.50.22", "msiwifi", False),
+    )
+
+    report = compare_reservations(intent, [intent.active[0]])
+
+    assert report.items == ()
+    assert report.has_drift is False
+    assert report.declared == 1
+
+
+def test_compare_signale_entree_desactivee_encore_presente() -> None:
+    """Une entrée retirée qui réapparaît est un STALE_DISABLED."""
+    intent = _intent(
+        _client("00:00:5E:00:53:22", "192.168.50.22", "msiwifi", False)
+    )
+    actual = [_dev("00:00:5E:00:53:22", "192.168.50.22", "msiwifi")]
+
+    report = compare_reservations(intent, actual)
+
+    assert len(report.items) == 1
+    item = report.items[0]
+    assert item.kind is DriftKind.STALE_DISABLED
+    assert item.name == "msiwifi"
+    assert item.actual_ip == "192.168.50.22"
+    assert report.actionable is True
+
+
+def test_compare_ordonne_les_ecarts_par_gravite() -> None:
+    """MISSING, IP_MISMATCH, STALE_DISABLED puis UNDECLARED.
+
+    Les entrées sont fournies dans l'ordre inverse pour exercer le tri.
+    """
+    intent = _intent(
+        _client("00:00:5E:00:53:22", "192.168.50.22", "msiwifi", False),
+        _client("00:00:5E:00:53:24", "192.168.50.24", "xps15"),
+        _client("00:00:5E:00:53:32", "192.168.50.32", "tab2018"),
+    )
+    actual = [
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99", "inconnu"),
+        _dev("00:00:5E:00:53:22", "192.168.50.22"),
+        _dev("00:00:5E:00:53:24", "192.168.50.143"),
+    ]
+
+    report = compare_reservations(intent, actual)
+
+    assert [item.kind for item in report.items] == [
+        DriftKind.MISSING,
+        DriftKind.IP_MISMATCH,
+        DriftKind.STALE_DISABLED,
+        DriftKind.UNDECLARED,
+    ]
+
+
+def test_format_summary_decrit_les_quatre_natures_d_ecart() -> None:
+    """Le texte est identique à celui de scanNetHome (littéral exact)."""
+    intent = _intent(
+        _client("00:00:5E:00:53:22", "192.168.50.22", "msiwifi", False),
+        _client("00:00:5E:00:53:24", "192.168.50.24", "xps15"),
+        _client("00:00:5E:00:53:32", "192.168.50.32", "tab2018"),
+    )
+    actual = [
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99"),
+        _dev("00:00:5E:00:53:22", "192.168.50.22"),
+        _dev("00:00:5E:00:53:24", "192.168.50.143"),
+    ]
+
+    resume = compare_reservations(intent, actual).format_summary()
+
+    assert resume == (
+        "4 ecart(s) — 2 declaree(s) active(s), 3 sur le routeur\n"
+        "  MANQUANTE   00:00:5e:00:53:32  tab2018 — attendue en "
+        "192.168.50.32, absente du routeur\n"
+        "  IP DIVERGE  00:00:5e:00:53:24  xps15 — attendue "
+        "192.168.50.24, routeur 192.168.50.143\n"
+        "  RESURGENTE  00:00:5e:00:53:22  msiwifi — retiree "
+        "volontairement, encore presente en 192.168.50.22\n"
+        "  NON DECLAREE aa:bb:cc:dd:ee:01  (sans libelle) — presente "
+        "en 192.168.50.99, absente du TOML (conservee)"
+    )
+
+
+def test_format_summary_conforme_ne_parle_pas_d_ecart() -> None:
+    """Le résumé d'un état conforme le dit explicitement."""
+    resume = DriftReport(declared=17, on_router=17).format_summary()
+
+    assert resume == (
+        "Conforme — 17 reservation(s) active(s), 17 sur le routeur"
+    )
+
+
+def test_from_clients_ignore_ip_illisible() -> None:
+    """Une IP épinglée illisible est ignorée, sans lever d'erreur."""
+    client = LanClient(
+        mac="00:00:5E:00:53:03", name="x", pinned_ip="pas-une-ip"
+    )
+
+    intent = DhcpIntent.from_clients([client], _SUBNET)
+
+    assert intent.ignored == (client,)
+
+
+def test_from_clients_desactive_sans_ip_ne_compte_pas_comme_doublon() -> None:
+    """Deux désactivés sans IP épinglée ne sont pas un doublon d'IP."""
+    a = LanClient(mac="00:00:5E:00:53:01", name="a", enabled=False)
+    b = LanClient(mac="00:00:5E:00:53:02", name="b", enabled=False)
+
+    intent = DhcpIntent.from_clients([a, b], _SUBNET)
+
+    assert intent.disabled == (a, b)
