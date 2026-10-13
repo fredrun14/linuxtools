@@ -161,8 +161,8 @@ def test_target_exclut_les_desactivees_presentes_sur_le_routeur() -> None:
     assert [d.mac for d in cible] == ["aa:bb:cc:dd:ee:01"]
 
 
-def test_target_ne_contient_aucune_mac_en_double() -> None:
-    """Ni une MAC déclarée, ni une non-déclarée lue deux fois, ne double."""
+def test_target_l_intention_l_emporte_sur_l_ip_lue_du_routeur() -> None:
+    """Pour une MAC déclarée, l'IP de l'intention remplace celle lue."""
     shield = LanClient(
         mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
     )
@@ -170,17 +170,36 @@ def test_target_ne_contient_aucune_mac_en_double() -> None:
     actual = [
         _dev("00:00:5e:00:53:03", "192.168.50.143", "shield"),
         _dev("AA:BB:CC:DD:EE:01", "192.168.50.99"),
-        _dev("aa:bb:cc:dd:ee:01", "192.168.50.98"),
     ]
 
     cible = intent.target(actual)
 
-    macs = [d.mac for d in cible]
-    assert macs == ["00:00:5e:00:53:03", "aa:bb:cc:dd:ee:01"]
-    # l'intention l'emporte sur l'IP lue pour une MAC déclarée
+    assert [d.mac for d in cible] == [
+        "00:00:5e:00:53:03",
+        "aa:bb:cc:dd:ee:01",
+    ]
     assert cible[0].fixed_ip == "192.168.50.3"
-    # la première occurrence lue est conservée
     assert cible[1].fixed_ip == "192.168.50.99"
+
+
+def test_target_mac_en_double_sur_le_routeur_leve_valueerror() -> None:
+    """Deux fois la même MAC lue (casse différente) : refus (F-17).
+
+    Aucune perte silencieuse ; le message cite IP et noms, jamais la MAC.
+    """
+    intent = DhcpIntent.from_clients([], _SUBNET)
+    actual = [
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99", "invite"),
+        _dev("aa:bb:cc:dd:ee:01", "192.168.50.98"),
+    ]
+
+    with pytest.raises(ValueError) as exc:
+        intent.target(actual)
+
+    assert str(exc.value) == (
+        "MAC en double sur le routeur : 192.168.50.99 (invite) et "
+        "192.168.50.98 (sans nom)"
+    )
 
 
 def test_from_clients_mac_en_double_casse_comprise_leve_valueerror() -> None:

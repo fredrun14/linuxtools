@@ -374,14 +374,25 @@ class DhcpIntent:
         Returns:
             Les réservations actives, suivies des réservations du
             routeur non déclarées (conservées, F-17).
+
+        Raises:
+            ValueError: Si ``actual`` contient deux fois la même MAC
+                (message : IP et noms, jamais la MAC).
         """
-        declared = {d.mac for d in self.active}
-        declared |= {c.mac.lower() for c in self.disabled}
-        kept: dict[str, NetworkDevice] = {}
-        for device in self.active:
-            kept.setdefault(device.mac.lower(), device)
+        seen: dict[str, NetworkDevice] = {}
         for device in actual:
             mac = device.mac.lower()
-            if mac not in declared:
-                kept.setdefault(mac, device)
-        return tuple(kept.values())
+            if mac in seen:
+                first = seen[mac]
+                raise ValueError(
+                    "MAC en double sur le routeur : "
+                    f"{first.fixed_ip} ({first.hostname or 'sans nom'}) "
+                    f"et {device.fixed_ip} "
+                    f"({device.hostname or 'sans nom'})"
+                )
+            seen[mac] = device
+        declared = {d.mac.lower() for d in self.active}
+        declared |= {c.mac.lower() for c in self.disabled}
+        kept = list(self.active)
+        kept.extend(d for m, d in seen.items() if m not in declared)
+        return tuple(kept)
