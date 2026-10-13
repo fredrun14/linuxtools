@@ -454,3 +454,70 @@ def test_compare_client_ignore_avec_reservation_est_hors_perimetre() -> None:
         "invalide ou hors subnet (conservee)"
     )
     assert [d.mac for d in intent.target(actual)] == ["00:00:5e:00:53:40"]
+
+
+def test_compare_routeur_vide_ne_produit_que_des_manquantes() -> None:
+    """Sans aucune réservation lue, chaque actif est MISSING."""
+    intent = _intent(
+        _client("00:00:5E:00:53:03", "192.168.50.3", "shield"),
+        _client("00:00:5E:00:53:10", "192.168.50.10", "nas"),
+        _client("00:00:5E:00:53:22", "192.168.50.22", "msiwifi", False),
+    )
+
+    report = compare_reservations(intent, [])
+
+    assert [i.kind for i in report.items] == [DriftKind.MISSING] * 2
+    assert report.on_router == 0
+    assert report.actionable is True
+
+
+def test_compare_mac_majuscule_declaree_face_a_routeur_minuscule() -> None:
+    """Un vrai LanClient en majuscules est conforme à un routeur minuscule."""
+    intent = _intent(_client("00:00:5E:00:53:03", "192.168.50.3", "shield"))
+    actual = [_dev("00:00:5e:00:53:03", "192.168.50.3", "shield")]
+
+    report = compare_reservations(intent, actual)
+
+    assert report.items == ()
+
+
+def test_from_clients_deux_actifs_meme_ip_leve_valueerror() -> None:
+    """Deux actifs sur la même IP : ValueError, noms cités."""
+    a = _client("00:00:5E:00:53:03", "192.168.50.3", "shield")
+    b = _client("00:00:5E:00:53:04", "192.168.50.3", "nas")
+
+    with pytest.raises(ValueError) as exc:
+        DhcpIntent.from_clients([a, b], _SUBNET)
+
+    assert str(exc.value) == "IP 192.168.50.3 en double : shield et nas"
+
+
+def test_from_clients_deux_desactives_meme_ip_leve_valueerror() -> None:
+    """Deux désactivés sur la même IP : ValueError (réactivation sûre)."""
+    a = _client("00:00:5E:00:53:03", "192.168.50.3", "shield", False)
+    b = _client("00:00:5E:00:53:04", "192.168.50.3", "nas", False)
+
+    with pytest.raises(ValueError) as exc:
+        DhcpIntent.from_clients([a, b], _SUBNET)
+
+    assert str(exc.value) == "IP 192.168.50.3 en double : shield et nas"
+
+
+def test_from_clients_doublon_sans_nom_dit_sans_nom_et_pas_de_mac() -> None:
+    """Noms vides : « (sans nom) », et aucune MAC dans les messages."""
+    a = LanClient(mac="00:00:5E:00:53:03", pinned_ip="192.168.50.3")
+    b = LanClient(mac="00:00:5E:00:53:04", pinned_ip="192.168.50.3")
+    c = LanClient(mac="00:00:5E:00:53:05")
+    d = LanClient(mac="00:00:5E:00:53:05")
+
+    with pytest.raises(ValueError) as ip_exc:
+        DhcpIntent.from_clients([a, b], _SUBNET)
+    with pytest.raises(ValueError) as mac_exc:
+        DhcpIntent.from_clients([c, d], _SUBNET)
+
+    assert str(ip_exc.value) == (
+        "IP 192.168.50.3 en double : (sans nom) et (sans nom)"
+    )
+    assert str(mac_exc.value) == (
+        "MAC en double dans l'intention : (sans nom) et (sans nom)"
+    )
