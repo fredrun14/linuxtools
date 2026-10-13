@@ -432,3 +432,25 @@ def test_from_clients_desactive_sans_ip_ne_compte_pas_comme_doublon() -> None:
     intent = DhcpIntent.from_clients([a, b], _SUBNET)
 
     assert intent.disabled == (a, b)
+
+
+def test_compare_client_ignore_avec_reservation_est_hors_perimetre() -> None:
+    """R-4 : un client déclaré mais ignoré n'est pas « non déclaré ».
+
+    Libellé distinct, non actionnable, et la réservation reste dans la
+    cible (conservée).
+    """
+    dehors = _client("00:00:5E:00:53:40", "10.0.0.5", "dehors")
+    intent = _intent(dehors)
+    actual = [_dev("00:00:5E:00:53:40", "192.168.50.40", "dehors")]
+
+    report = compare_reservations(intent, actual)
+
+    assert report.actionable is False
+    assert report.format_summary() == (
+        "1 ecart(s) — 0 declaree(s) active(s), 1 sur le routeur\n"
+        "  DECLAREE HORS PERIMETRE DHCP 00:00:5e:00:53:40  dehors — "
+        "presente en 192.168.50.40 sur le routeur, IP epinglee absente, "
+        "invalide ou hors subnet (conservee)"
+    )
+    assert [d.mac for d in intent.target(actual)] == ["00:00:5e:00:53:40"]

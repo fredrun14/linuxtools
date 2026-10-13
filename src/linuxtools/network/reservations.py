@@ -48,6 +48,11 @@ class DriftItem:
         name: Libellé connu, ou "" si l'appareil n'est pas déclaré.
         expected_ip: IP attendue par l'intention, ou None.
         actual_ip: IP réellement portée par le routeur, ou None.
+        out_of_scope: Pour UNDECLARED : le client est déclaré dans le
+            TOML mais ignoré (IP absente, illisible ou hors subnet) ;
+            sa réservation routeur est conservée. Un drapeau plutôt
+            qu'un nouveau DriftKind : ``actionable`` et le tri par
+            gravité restent inchangés.
     """
 
     kind: DriftKind
@@ -55,6 +60,7 @@ class DriftItem:
     name: str = ""
     expected_ip: str | None = None
     actual_ip: str | None = None
+    out_of_scope: bool = False
 
 
 @dataclass(frozen=True)
@@ -137,6 +143,12 @@ def _describe(item: DriftItem) -> str:
             f"RESURGENTE  {item.mac}  {label} — retiree "
             f"volontairement, encore presente en {item.actual_ip}"
         )
+    if item.out_of_scope:
+        return (
+            f"DECLAREE HORS PERIMETRE DHCP {item.mac}  {label} — "
+            f"presente en {item.actual_ip} sur le routeur, IP epinglee "
+            "absente, invalide ou hors subnet (conservee)"
+        )
     return (
         f"NON DECLAREE {item.mac}  {label} — presente en "
         f"{item.actual_ip}, absente du TOML (conservee)"
@@ -197,16 +209,21 @@ def compare_reservations(
     # signalées, JAMAIS supprimées (F-17).
     declared = {d.mac.lower() for d in intent.active}
     declared |= {c.mac.lower() for c in intent.disabled}
+    ignored = {c.mac.lower(): c for c in intent.ignored}
     for device in actual:
-        if device.mac.lower() not in declared:
-            items.append(
-                DriftItem(
-                    kind=DriftKind.UNDECLARED,
-                    mac=device.mac.lower(),
-                    name=device.hostname,
-                    actual_ip=device.fixed_ip,
-                )
+        mac = device.mac.lower()
+        if mac in declared:
+            continue
+        client = ignored.get(mac)
+        items.append(
+            DriftItem(
+                kind=DriftKind.UNDECLARED,
+                mac=mac,
+                name=(client.name if client else None) or device.hostname,
+                actual_ip=device.fixed_ip,
+                out_of_scope=client is not None,
             )
+        )
     items.sort(key=lambda i: (_SEVERITY[i.kind], i.mac))
     return DriftReport(
         items=tuple(items),
