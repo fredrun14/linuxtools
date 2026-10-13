@@ -172,12 +172,12 @@ def compare_reservations(
     by_mac_router = {d.mac.lower(): d for d in actual}
     items: list[DriftItem] = []
     for wanted in intent.active:
-        device = by_mac_router.get(wanted.mac.lower())
+        device = by_mac_router.get(wanted.mac)
         if device is None:
             items.append(
                 DriftItem(
                     kind=DriftKind.MISSING,
-                    mac=wanted.mac.lower(),
+                    mac=wanted.mac,
                     name=wanted.hostname,
                     expected_ip=wanted.fixed_ip,
                 )
@@ -186,7 +186,7 @@ def compare_reservations(
             items.append(
                 DriftItem(
                     kind=DriftKind.IP_MISMATCH,
-                    mac=wanted.mac.lower(),
+                    mac=wanted.mac,
                     name=wanted.hostname,
                     expected_ip=wanted.fixed_ip,
                     actual_ip=device.fixed_ip,
@@ -207,7 +207,7 @@ def compare_reservations(
             )
     # Présentes sur le routeur mais absentes de l'intention :
     # signalées, JAMAIS supprimées (F-17).
-    declared = {d.mac.lower() for d in intent.active}
+    declared = {d.mac for d in intent.active}
     declared |= {c.mac.lower() for c in intent.disabled}
     ignored = {c.mac.lower(): c for c in intent.ignored}
     for device in actual:
@@ -322,7 +322,8 @@ class DhcpIntent:
     """Intention DHCP déclarée, répartie par statut.
 
     Attributes:
-        active: Réservations à porter par le routeur.
+        active: Réservations à porter par le routeur (MAC déjà en
+            minuscules : invariant garanti par ``from_clients``).
         disabled: Clients retirés volontairement (ne doivent pas
             figurer sur le routeur).
         ignored: Clients actifs sans IP épinglée ou hors du subnet.
@@ -410,7 +411,7 @@ class DhcpIntent:
                     f"({device.hostname or 'sans nom'})"
                 )
             seen[mac] = device
-        declared = {d.mac.lower() for d in self.active}
+        declared = {d.mac for d in self.active}
         declared |= {c.mac.lower() for c in self.disabled}
         kept = [d for m, d in seen.items() if m not in declared]
         self._check_kept_ips(kept)
