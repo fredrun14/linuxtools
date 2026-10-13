@@ -376,8 +376,10 @@ class DhcpIntent:
             routeur non déclarées (conservées, F-17).
 
         Raises:
-            ValueError: Si ``actual`` contient deux fois la même MAC
-                (message : IP et noms, jamais la MAC).
+            ValueError: Si ``actual`` contient deux fois la même MAC,
+                ou si une réservation conservée partage l'IP d'une
+                réservation active (messages : IP et noms, jamais la
+                MAC).
         """
         seen: dict[str, NetworkDevice] = {}
         for device in actual:
@@ -393,6 +395,32 @@ class DhcpIntent:
             seen[mac] = device
         declared = {d.mac.lower() for d in self.active}
         declared |= {c.mac.lower() for c in self.disabled}
-        kept = list(self.active)
-        kept.extend(d for m, d in seen.items() if m not in declared)
-        return tuple(kept)
+        kept = [d for m, d in seen.items() if m not in declared]
+        self._check_kept_ips(kept)
+        return (*self.active, *kept)
+
+    def _check_kept_ips(self, kept: Sequence[NetworkDevice]) -> None:
+        """Refuse une réservation conservée sur l'IP d'un actif.
+
+        Args:
+            kept: Réservations du routeur non déclarées (conservées).
+
+        Raises:
+            ValueError: Si l'une partage l'IP d'une réservation active
+                (message : l'IP et les deux noms, jamais de MAC).
+        """
+        owners = {
+            _normalize_ip(d.fixed_ip): d.hostname
+            for d in self.active
+            if d.fixed_ip is not None
+        }
+        for device in kept:
+            if device.fixed_ip is None:
+                continue
+            ip = _normalize_ip(device.fixed_ip)
+            if ip in owners:
+                raise ValueError(
+                    f"IP {ip} en double : "
+                    f"{owners[ip] or '(sans nom)'} et "
+                    f"{device.hostname or '(sans nom)'}"
+                )

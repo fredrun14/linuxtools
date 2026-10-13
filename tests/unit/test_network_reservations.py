@@ -182,6 +182,23 @@ def test_target_l_intention_l_emporte_sur_l_ip_lue_du_routeur() -> None:
     assert cible[1].fixed_ip == "192.168.50.99"
 
 
+def test_target_ip_actif_prise_par_conservee_leve_valueerror() -> None:
+    """Une non-déclarée conservée sur l'IP d'un actif : refus d'écrire.
+
+    Le message cite l'IP et les deux noms, jamais une MAC.
+    """
+    shield = LanClient(
+        mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
+    )
+    intent = DhcpIntent.from_clients([shield], _SUBNET)
+    actual = [_dev("AA:BB:CC:DD:EE:01", "192.168.50.3", "invite")]
+
+    with pytest.raises(ValueError) as exc:
+        intent.target(actual)
+
+    assert str(exc.value) == "IP 192.168.50.3 en double : shield et invite"
+
+
 def test_target_mac_en_double_sur_le_routeur_leve_valueerror() -> None:
     """Deux fois la même MAC lue (casse différente) : refus (F-17).
 
