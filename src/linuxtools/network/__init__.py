@@ -45,6 +45,13 @@ from linuxtools.network.reporter import (
 from linuxtools.network.repository import (
     JsonDeviceRepository,
 )
+from linuxtools.network.reservations import (
+    DhcpIntent,
+    DriftItem,
+    DriftKind,
+    DriftReport,
+    compare_reservations,
+)
 from linuxtools.network.scanner import (
     LinuxArpScanner,
     LinuxNmapScanner,
@@ -90,11 +97,15 @@ __all__ = [
     "CsvReporter",
     "DeviceReporter",
     "DeviceRepository",
+    "DhcpIntent",
     "DhcpRange",
     "DhcpReservationManager",
     "DiffReporter",
     "DnsConfig",
     "DnsManager",
+    "DriftItem",
+    "DriftKind",
+    "DriftReport",
     "JsonDeviceRepository",
     "JsonReporter",
     "LanClient",
@@ -111,6 +122,7 @@ __all__ = [
     "RouterAuthError",
     "RouterConfig",
     "RouterDhcpManager",
+    "compare_reservations",
     "load_lan_clients",
     "validate_cidr",
     "validate_hostname",

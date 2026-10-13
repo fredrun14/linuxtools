@@ -20,6 +20,9 @@ from linuxtools.network.router.client import (
 class AsusRouterDhcpManager(RouterDhcpManager):
     """Gestionnaire DHCP avec push direct vers le routeur ASUS.
 
+    Déprécié depuis 2.8.0 : utiliser `webapitools`
+    `AsusRouterActuator`. Suppression prévue en 3.0.0.
+
     Attributes:
         _config: Configuration reseau.
         _router_config: Configuration routeur.
