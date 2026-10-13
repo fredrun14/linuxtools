@@ -2130,9 +2130,12 @@ l'intention aux réservations lues sur le routeur et rend un `DriftReport`
 (`MISSING`, `IP_MISMATCH`, `STALE_DISABLED`, `UNDECLARED` ; `actionable` ignore
 les `UNDECLARED`). `DhcpIntent.target(actual)` calcule la liste à écrire en
 bloc : les actives **plus** les réservations non déclarées relues (jamais
-supprimées). Une MAC en double (intention ou routeur) ou une collision d'IP
-entre une active et une réservation conservée lève `ValueError` — refus
-d'écrire plutôt que deviner ; les messages ne citent jamais de MAC.
+supprimées). Une MAC en double (intention ou routeur), une IP en double entre
+deux actives ou une collision d'IP entre une active et une réservation
+conservée lève `ValueError` — refus d'écrire plutôt que deviner ; les messages
+ne citent jamais de MAC. Un client désactivé ne compte pas dans le contrôle
+d'IP (jamais poussé au routeur) : remplacer un appareil sur la même IP est
+admis ; la réactivation, édition explicite, est refusée si l'IP est prise.
 
 ### Documentation API
 
