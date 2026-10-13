@@ -5,6 +5,7 @@ from ipaddress import IPv4Network, IPv6Network
 import pytest
 
 from linuxtools.network.clients import LanClient
+from linuxtools.network.models import NetworkDevice
 from linuxtools.network.reservations import DhcpIntent
 
 _SUBNET = IPv4Network("192.168.50.0/24")
@@ -100,3 +101,78 @@ def test_from_clients_subnet_ipv6_ignore_les_ip_v4() -> None:
 
     assert intent.active == ()
     assert intent.ignored == (client,)
+
+
+def _dev(mac: str, ip: str, name: str = "") -> NetworkDevice:
+    """Construit une réservation observée sur le routeur."""
+    return NetworkDevice(ip=ip, mac=mac, hostname=name, fixed_ip=ip)
+
+
+def test_target_conserve_les_reservations_non_declarees() -> None:
+    """Une réservation du routeur absente du TOML survit (F-17)."""
+    shield = LanClient(
+        mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
+    )
+    intent = DhcpIntent.from_clients([shield], _SUBNET)
+    tierce = _dev("AA:BB:CC:DD:EE:01", "192.168.50.99", "invite")
+
+    cible = intent.target([tierce])
+
+    assert [d.mac for d in cible] == [
+        "00:00:5e:00:53:03",
+        "aa:bb:cc:dd:ee:01",
+    ]
+    assert cible[1].fixed_ip == "192.168.50.99"
+
+
+def test_target_exclut_les_desactivees_presentes_sur_le_routeur() -> None:
+    """Une désactivée encore sur le routeur disparaît de la cible."""
+    off = LanClient(
+        mac="00:00:5E:00:53:22",
+        name="msiwifi",
+        pinned_ip="192.168.50.22",
+        enabled=False,
+    )
+    intent = DhcpIntent.from_clients([off], _SUBNET)
+    actual = [
+        _dev("00:00:5E:00:53:22", "192.168.50.22", "msiwifi"),
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99"),
+    ]
+
+    cible = intent.target(actual)
+
+    assert [d.mac for d in cible] == ["aa:bb:cc:dd:ee:01"]
+
+
+def test_target_ne_contient_aucune_mac_en_double() -> None:
+    """Ni une MAC déclarée, ni une non-déclarée lue deux fois, ne double."""
+    shield = LanClient(
+        mac="00:00:5E:00:53:03", name="shield", pinned_ip="192.168.50.3"
+    )
+    intent = DhcpIntent.from_clients([shield], _SUBNET)
+    actual = [
+        _dev("00:00:5e:00:53:03", "192.168.50.143", "shield"),
+        _dev("AA:BB:CC:DD:EE:01", "192.168.50.99"),
+        _dev("aa:bb:cc:dd:ee:01", "192.168.50.98"),
+    ]
+
+    cible = intent.target(actual)
+
+    macs = [d.mac for d in cible]
+    assert macs == ["00:00:5e:00:53:03", "aa:bb:cc:dd:ee:01"]
+    # l'intention l'emporte sur l'IP lue pour une MAC déclarée
+    assert cible[0].fixed_ip == "192.168.50.3"
+    # la première occurrence lue est conservée
+    assert cible[1].fixed_ip == "192.168.50.99"
+
+
+def test_target_dedoublonne_une_mac_declaree_deux_fois() -> None:
+    """Deux clients de même MAC (casse différente) : un seul élément."""
+    a = LanClient(mac="AA:BB:CC:DD:EE:01", name="a", pinned_ip="192.168.50.10")
+    b = LanClient(mac="aa:bb:cc:dd:ee:01", name="b", pinned_ip="192.168.50.11")
+    intent = DhcpIntent.from_clients([a, b], _SUBNET)
+
+    cible = intent.target([])
+
+    assert [d.mac for d in cible] == ["aa:bb:cc:dd:ee:01"]
+    assert cible[0].fixed_ip == "192.168.50.10"

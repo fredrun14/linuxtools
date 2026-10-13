@@ -117,3 +117,26 @@ class DhcpIntent:
             disabled=tuple(disabled),
             ignored=tuple(ignored),
         )
+
+    def target(
+        self, actual: Sequence[NetworkDevice]
+    ) -> tuple[NetworkDevice, ...]:
+        """Calcule la liste complète à écrire en bloc sur le routeur.
+
+        Args:
+            actual: Réservations actuellement lues sur le routeur.
+
+        Returns:
+            Les réservations actives, suivies des réservations du
+            routeur non déclarées (conservées, F-17).
+        """
+        declared = {d.mac for d in self.active}
+        declared |= {c.mac.lower() for c in self.disabled}
+        kept: dict[str, NetworkDevice] = {}
+        for device in self.active:
+            kept.setdefault(device.mac.lower(), device)
+        for device in actual:
+            mac = device.mac.lower()
+            if mac not in declared:
+                kept.setdefault(mac, device)
+        return tuple(kept.values())
