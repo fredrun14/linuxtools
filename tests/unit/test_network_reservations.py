@@ -547,3 +547,17 @@ def test_compare_mac_en_double_sur_le_routeur_leve_valueerror(
     assert "192.168.50.143 (shield)" in message
     assert "192.168.50.3 (shield)" in message
     assert "00:00:5e" not in message.lower()
+
+
+def test_from_clients_ip_active_avec_espace_est_classee_pas_ignoree() -> None:
+    """Un actif " 192.168.50.6" est classé comme "192.168.50.6" (F10)."""
+    client = LanClient(
+        mac="00:00:5E:00:53:06", name="tv", pinned_ip=" 192.168.50.6"
+    )
+
+    intent = DhcpIntent.from_clients([client], _SUBNET)
+
+    assert intent.ignored == ()
+    assert len(intent.active) == 1
+    assert intent.active[0].hostname == "tv"
+    assert intent.active[0].fixed_ip == "192.168.50.6"

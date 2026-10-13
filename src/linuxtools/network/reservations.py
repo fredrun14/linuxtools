@@ -280,7 +280,7 @@ def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
         compris IP illisible ou IPv6).
     """
     try:
-        return ip_address(ip) in subnet
+        return ip_address(ip.strip()) in subnet
     except ValueError:
         return False
 
@@ -402,12 +402,13 @@ class DhcpIntent:
             ):
                 ignored.append(client)
                 continue
+            pinned = client.pinned_ip.strip()
             active.append(
                 NetworkDevice(
-                    ip=client.pinned_ip,
+                    ip=pinned,
                     mac=client.mac.lower(),
                     hostname=client.name or "",
-                    fixed_ip=client.pinned_ip,
+                    fixed_ip=pinned,
                 )
             )
         _check_no_duplicate_ip(active, disabled)
