@@ -2122,6 +2122,18 @@ clients = load_lan_clients(data.get("client", []), require_non_empty=True)
 actifs = [c for c in clients if c.enabled]  # filtre côté appelant
 ```
 
+Intention DHCP et dérive : `DhcpIntent.from_clients(clients, subnet)` sépare
+les clients en `active` (réservations à poser), `disabled` (à purger si
+présentes) et `ignored` (actifs sans IP ou hors sous-réseau IPv4).
+`compare_reservations(intent, actual)` (fonction pure, sans E/S) confronte
+l'intention aux réservations lues sur le routeur et rend un `DriftReport`
+(`MISSING`, `IP_MISMATCH`, `STALE_DISABLED`, `UNDECLARED` ; `actionable` ignore
+les `UNDECLARED`). `DhcpIntent.target(actual)` calcule la liste à écrire en
+bloc : les actives **plus** les réservations non déclarées relues (jamais
+supprimées). Une MAC en double (intention ou routeur) ou une collision d'IP
+entre une active et une réservation conservée lève `ValueError` — refus
+d'écrire plutôt que deviner ; les messages ne citent jamais de MAC.
+
 ### Documentation API
 
 | ABC (Interface) | Implémentation | Description |
