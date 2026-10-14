@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+## [2.8.2] - 2026-10-14
+
+### Déprécié
+
+- fix(network): `AsusRouterDhcpManager` émet désormais un
+  `DeprecationWarning` à l'instanciation (une fois par instance,
+  `stacklevel=2`), citant la suppression en 3.0.0 et le remplaçant
+  (`webapitools router-dhcp` / `AsusRouterActuator`). Jusque-là, la
+  dépréciation annoncée en 2.8.0 n'était que dans la docstring. Aucun autre
+  comportement modifié ; le README signale la dépréciation.
+
 ## [2.8.1] - 2026-10-13
 
 ### Corrigé

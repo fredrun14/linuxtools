@@ -733,6 +733,7 @@ class TestAsusRouterScannerAvecLogger:
 # Tests : AsusRouterDhcpManager
 # ---------------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:AsusRouterDhcpManager:DeprecationWarning")
 class TestAsusRouterDhcpManager:
     """Tests pour AsusRouterDhcpManager."""
 
@@ -910,6 +911,7 @@ class TestAsusRouterDhcpManager:
         mock_client.logout.assert_called_once()
 
 
+@pytest.mark.filterwarnings("ignore:AsusRouterDhcpManager:DeprecationWarning")
 class TestAsusRouterDhcpManagerEdgeCases:
     """Tests pour les cas limites d'AsusRouterDhcpManager."""
 
@@ -1178,6 +1180,7 @@ class TestTraductionRouterAuthError:
         ):
             scanner.scan(network_config)
 
+    @pytest.mark.filterwarnings("ignore:AsusRouterDhcpManager:DeprecationWarning")
     def test_dhcp_manager_traduit_autherror_en_routerautherror(
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
@@ -1263,3 +1266,49 @@ class TestReexportAsusRouterClient:
         assert (
             AsusRouterClientDepuisNetwork is AsusRouterClientDepuisRouter
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests : dépréciation d'AsusRouterDhcpManager
+# ---------------------------------------------------------------------------
+
+class TestAsusRouterDhcpManagerDeprecation:
+    """Le DeprecationWarning est émis à l'instanciation, et là seulement."""
+
+    def test_instanciation_emet_deprecation_warning(
+        self, router_config: RouterConfig, network_config: NetworkConfig
+    ) -> None:
+        """Une instanciation émet un seul DeprecationWarning explicite."""
+        with pytest.warns(DeprecationWarning) as record:
+            AsusRouterDhcpManager(
+                network_config,
+                router_config,
+                client=MagicMock(spec=AsusRouterClient),
+            )
+
+        deprecations = [
+            w for w in record if issubclass(w.category, DeprecationWarning)
+        ]
+        assert len(deprecations) == 1
+        message = str(deprecations[0].message)
+        assert "3.0.0" in message
+        assert "webapitools router-dhcp" in message
+        assert "AsusRouterActuator" in message
+        # stacklevel=2 : le warning est attribué à l'appelant (ce fichier)
+        assert deprecations[0].filename == __file__
+
+    def test_autres_usages_n_emettent_aucun_warning(
+        self,
+        router_config: RouterConfig,
+        network_config: NetworkConfig,
+        mock_client: MagicMock,
+    ) -> None:
+        """Scanner, import paresseux et classe seule restent silencieux."""
+        import warnings
+
+        import linuxtools
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            AsusRouterScanner(router_config, client=mock_client)
+            assert linuxtools.AsusRouterDhcpManager is AsusRouterDhcpManager
