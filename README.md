@@ -2146,7 +2146,7 @@ admis ; la réactivation, édition explicite, est refusée si l'IP est prise.
 | `NetworkScanner` | `AsusRouterScanner` | Scan via API HTTP du routeur ASUS (sans root) |
 | `DeviceRepository` | `JsonDeviceRepository` | Persistance JSON de l'inventaire |
 | `DhcpReservationManager` | `LinuxDhcpReservationManager` | Réservations DHCP (export config dnsmasq) |
-| `RouterDhcpManager` (← `DhcpReservationManager`) | `AsusRouterDhcpManager` | Réservations DHCP appliquées directement au routeur ASUS |
+| `RouterDhcpManager` (← `DhcpReservationManager`) | `AsusRouterDhcpManager` | **Déprécié depuis 2.8.0** (`DeprecationWarning` à l'instanciation, suppression en 3.0.0 : utiliser `webapitools router-dhcp` / `AsusRouterActuator`). Réservations DHCP appliquées directement au routeur ASUS |
 | `DnsManager` | `LinuxHostsFileManager` | Gestion `/etc/hosts` |
 | `DnsManager` | `LinuxDnsmasqConfigGenerator` | Génération config dnsmasq |
 | `DeviceReporter` | `ConsoleTableReporter` | Tableau ASCII |

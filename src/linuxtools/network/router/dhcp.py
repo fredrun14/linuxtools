@@ -1,5 +1,7 @@
 """Gestionnaire DHCP avec push direct vers le routeur ASUS."""
 
+import warnings
+
 from webapitools import AsusRouterClient
 from webapitools.core.exceptions import AuthError
 
@@ -45,6 +47,14 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             logger: Logger optionnel.
             client: Client HTTP optionnel (injection).
         """
+        # stacklevel=2 : le warning est attribué au code appelant
+        warnings.warn(
+            "AsusRouterDhcpManager est déprécié depuis 2.8.0 et sera "
+            "supprimé en 3.0.0 : utiliser `webapitools router-dhcp` "
+            "(ou `AsusRouterActuator` de webapitools).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._config = config
         self._router_config = router_config
         self._logger = logger
