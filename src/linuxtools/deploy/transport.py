@@ -23,6 +23,10 @@ if TYPE_CHECKING:
     from linuxtools.deploy.models import DeployTarget
     from linuxtools.logging.base import Logger
 
+DEFAULT_RSYNC_OPTIONS: tuple[str, ...] = ("-a", "--delete", "--mkpath")
+"""Options rsync par défaut : archive, suppression des orphelins,
+création récursive du chemin de destination (rsync >= 3.2.3)."""
+
 
 class Transport(ABC):
     """Interface d'acheminement du source vers l'hôte cible."""
@@ -62,7 +66,7 @@ class RsyncTransport(Transport):
         self,
         local_executor: CommandExecutor | None = None,
         logger: Logger | None = None,
-        extra_options: tuple[str, ...] = ("-a", "--delete", "--mkpath"),
+        extra_options: tuple[str, ...] = DEFAULT_RSYNC_OPTIONS,
         timeout: int | None = 300,
     ) -> None:
         """Initialise le transport rsync.
