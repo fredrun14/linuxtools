@@ -2,6 +2,18 @@
 
 ## [Non publié]
 
+## [2.9.1] - 2026-10-14
+
+### Modifié
+
+- chore(deps): `uv.lock` n'est plus versionné (retiré du suivi, ajouté au
+  `.gitignore`) : les sources frères éditables le périmaient à chaque bump.
+- chore(deps): outils de dev épinglés avec `==` dans les extras `dev` et `test` :
+  pytest 9.0.3, pytest-cov 7.1.0, pytest-mock 3.15.1, mypy 2.1.0,
+  ruff 0.15.15, bandit 1.9.4, pip-audit 2.10.1. Montée de version volontaire.
+- ci: la CI résout les dépendances à neuf (`uv sync`) ; `pip-audit` audite la
+  résolution du jour.
+
 ## [2.9.0] - 2026-10-14
 
 ### Ajouté

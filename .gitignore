@@ -57,3 +57,7 @@ venv.bak/
 .vscode/
 *.swp
 *.swo
+
+# uv.lock non versionné : les sources frères éditables (webapitools) périment
+# le lock à chaque bump ; les outils de dev sont épinglés dans pyproject.toml
+/uv.lock
