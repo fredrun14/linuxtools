@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+## [2.9.0] - 2026-10-14
+
+### Ajouté
+
+- feat(deploy): constante publique `DEFAULT_RSYNC_OPTIONS`
+  (`-a --delete --mkpath`), défaut de `RsyncTransport`, exportée par
+  `linuxtools.deploy`.
+- feat(deploy): `Deployer.for_target(rsync_options=None)` — options rsync
+  personnalisées transmises au `RsyncTransport` (ex. exclusions).
+  `None` conserve le comportement actuel (rétrocompatible).
+
 ## [2.8.2] - 2026-10-14
 
 ### Déprécié
