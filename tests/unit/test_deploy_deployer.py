@@ -508,6 +508,38 @@ class TestDeployerForTarget:
         )
         assert deployer._secrets_provisioner is not None
 
+    def test_for_target_sans_rsync_options_garde_le_defaut(self) -> None:
+        """rsync_options=None : le transport garde les options par
+        défaut (comportement inchangé)."""
+        deployer = Deployer.for_target(DeployTarget())
+
+        assert isinstance(deployer._transport, RsyncTransport)
+        assert deployer._transport._extra_options == (
+            "-a",
+            "--delete",
+            "--mkpath",
+        )
+
+    def test_for_target_rsync_options_se_retrouvent_dans_la_commande(
+        self, tmp_path: Path
+    ) -> None:
+        """rsync_options fourni : les options figurent dans la commande
+        rsync réellement construite par le transport."""
+        deployer = Deployer.for_target(
+            DeployTarget(),
+            rsync_options=("-a", "--exclude=/config/"),
+        )
+        assert isinstance(deployer._transport, RsyncTransport)
+        local = MagicMock()
+        local.run.return_value = _result(success=True)
+        deployer._transport._local = local
+
+        deployer._transport.transfer(tmp_path, Path("/dest"), DeployTarget())
+
+        command = local.run.call_args.args[0]
+        assert command[:3] == ["rsync", "-a", "--exclude=/config/"]
+        assert "--delete" not in command
+
 
 def _make_config_with_phases(**overrides: object) -> DeployConfig:
     """Étend _make_config() avec les specs des 3 nouvelles phases."""

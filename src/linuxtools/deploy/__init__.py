@@ -124,7 +124,11 @@ from linuxtools.deploy.models import (
 from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.ssh_executor import SshCommandExecutor
 from linuxtools.deploy.timer_deployer import TimerDeployer
-from linuxtools.deploy.transport import RsyncTransport, Transport
+from linuxtools.deploy.transport import (
+    DEFAULT_RSYNC_OPTIONS,
+    RsyncTransport,
+    Transport,
+)
 from linuxtools.deploy.usb_export import (
     UsbExportConfig,
     UsbExporter,
@@ -141,6 +145,7 @@ from linuxtools.deploy.version_checker import (
 )
 
 __all__ = [
+    "DEFAULT_RSYNC_OPTIONS",
     "CheckResult",
     "CheckVersionCommand",
     "ConfigDeploySpec",

@@ -7,7 +7,11 @@ import pytest
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.models import DeployTarget
-from linuxtools.deploy.transport import RsyncTransport, Transport
+from linuxtools.deploy.transport import (
+    DEFAULT_RSYNC_OPTIONS,
+    RsyncTransport,
+    Transport,
+)
 
 
 def _make_local_mock(return_code: int = 0) -> MagicMock:
@@ -170,3 +174,21 @@ class TestRsyncTransportTransfer:
         transport.transfer(tmp_path, Path("/dst"), DeployTarget())
 
         assert logger.log_info.call_count == 2
+
+
+class TestDefaultRsyncOptions:
+    """Tests pour la constante publique DEFAULT_RSYNC_OPTIONS."""
+
+    def test_defaut_du_transport_est_la_constante(
+        self, tmp_path: Path
+    ) -> None:
+        """Sans extra_options, la commande rsync porte les options par
+        défaut littérales, inchangées par rapport à avant l'extraction."""
+        local = _make_local_mock()
+        transport = RsyncTransport(local_executor=local)
+
+        transport.transfer(tmp_path, Path("/dest"), DeployTarget())
+
+        command = local.run.call_args.args[0]
+        assert DEFAULT_RSYNC_OPTIONS == ("-a", "--delete", "--mkpath")
+        assert list(command[:4]) == ["rsync", "-a", "--delete", "--mkpath"]
