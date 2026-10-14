@@ -648,6 +648,7 @@ class Deployer:
         credential_manager_factory: (
             Callable[[str], CredentialManager] | None
         ) = None,
+        rsync_options: tuple[str, ...] | None = None,
     ) -> Deployer:
         """Fabrique un Deployer complet pour une cible donnée.
 
@@ -669,6 +670,9 @@ class Deployer:
                 un CredentialManager par service, pour la résolution
                 des secrets. Si None, la phase SECRETS échoue
                 proprement si elle est configurée.
+            rsync_options: Options rsync remplaçant celles par défaut
+                (`DEFAULT_RSYNC_OPTIONS`) du RsyncTransport. Si None,
+                les options par défaut sont conservées.
 
         Returns:
             Deployer prêt à l'emploi pour target.
@@ -679,7 +683,13 @@ class Deployer:
             if target.is_remote
             else local_exec
         )
-        transport = RsyncTransport(local_exec, logger)
+        transport = (
+            RsyncTransport(local_exec, logger)
+            if rsync_options is None
+            else RsyncTransport(
+                local_exec, logger, extra_options=rsync_options
+            )
+        )
         installer = VenvInstaller(target_exec, logger)
         verifier = InstallVerifier(target_exec, logger)
         config_deployer = ConfigDeployer(logger)
