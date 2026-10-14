@@ -672,7 +672,10 @@ class Deployer:
                 proprement si elle est configurée.
             rsync_options: Options rsync remplaçant celles par défaut
                 (`DEFAULT_RSYNC_OPTIONS`) du RsyncTransport. Si None,
-                les options par défaut sont conservées.
+                les options par défaut sont conservées. Aucun
+                contrôle n'est fait : partir de
+                `(*DEFAULT_RSYNC_OPTIONS, ...)`, car sans `-a` (ou
+                avec `()`) rien n'est transféré.
 
         Returns:
             Deployer prêt à l'emploi pour target.

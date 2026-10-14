@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import shlex
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from linuxtools.commands.builder import CommandBuilder
 from linuxtools.commands.runner import LinuxCommandExecutor
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from linuxtools.deploy.models import DeployTarget
     from linuxtools.logging.base import Logger
 
-DEFAULT_RSYNC_OPTIONS: tuple[str, ...] = ("-a", "--delete", "--mkpath")
+DEFAULT_RSYNC_OPTIONS: Final[tuple[str, ...]] = ("-a", "--delete", "--mkpath")
 """Options rsync par défaut : archive, suppression des orphelins,
 création récursive du chemin de destination (rsync >= 3.2.3)."""
 
@@ -58,7 +58,8 @@ class RsyncTransport(Transport):
         _local: LinuxCommandExecutor local (rsync tourne toujours
             en local, même vers une cible distante).
         _logger: Logger optionnel.
-        _extra_options: Options rsync additionnelles.
+        _extra_options: Options rsync complètes, qui REMPLACENT
+            DEFAULT_RSYNC_OPTIONS (elles ne s'y ajoutent pas).
         _timeout: Timeout en secondes pour l'appel rsync.
     """
 
@@ -75,10 +76,14 @@ class RsyncTransport(Transport):
             local_executor: Exécuteur local pour lancer rsync. Si
                 None, un LinuxCommandExecutor est créé.
             logger: Logger optionnel.
-            extra_options: Options rsync additionnelles (défaut :
-                archive + suppression des fichiers orphelins + création
-                récursive du chemin de destination manquant, y compris
-                sur une cible SSH distante — requiert rsync >= 3.2.3).
+            extra_options: Options rsync qui REMPLACENT
+                DEFAULT_RSYNC_OPTIONS (défaut : archive + suppression
+                des fichiers orphelins + création récursive du chemin
+                de destination manquant, y compris sur une cible SSH
+                distante — requiert rsync >= 3.2.3). Aucun contrôle
+                n'est fait : l'appelant doit partir de
+                `(*DEFAULT_RSYNC_OPTIONS, ...)`, car sans `-a` rien
+                n'est transféré.
             timeout: Timeout en secondes pour l'appel rsync.
         """
         self._local = local_executor or LinuxCommandExecutor(logger=logger)
