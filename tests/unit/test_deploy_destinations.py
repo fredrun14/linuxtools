@@ -68,12 +68,12 @@ class TestRemoteDestination:
     """Tests de RemoteDestination.write (executor.run install -m -T)."""
 
     def test_remote_ecrit_via_install_cas_nominal(self) -> None:
-        """Cas nominal : un seul appel `install -m <mode> -T
-        /dev/stdin <dest>`, contenu par stdin."""
+        """Cas nominal : `mkdir -p --` du parent puis `install -m <mode>
+        -T /dev/stdin <dest>`, contenu par stdin."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True)]
+        executor.run.side_effect = [_result(True), _result(True)]
         destination = RemoteDestination(executor)
 
         # Act
@@ -82,6 +82,10 @@ class TestRemoteDestination:
         # Assert
         assert outcome.success is True
         assert executor.run.call_args_list == [
+            (
+                (["mkdir", "-p", "--", "/etc/app"],),
+                {},
+            ),
             (
                 (
                     [
@@ -112,22 +116,24 @@ class TestRemoteDestination:
     ) -> None:
         """Le mode POSIX est formaté en octal 3 chiffres pour `-m`."""
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True)]
+        executor.run.side_effect = [_result(True), _result(True)]
         destination = RemoteDestination(executor)
 
         destination.write(Path("/tmp/x"), "x", mode)
 
-        install_call = executor.run.call_args_list[0]
+        install_call = executor.run.call_args_list[1]
         assert install_call.args[0][2] == expected
 
     def test_remote_echec_install_retourne_outcome_echec(self) -> None:
-        """L'échec d'`install` retourne un outcome en échec."""
+        """L'échec d'`install` retourne un outcome en échec (mkdir a
+        réussi)."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.return_value = _result(
-            success=False, stderr="permission denied"
-        )
+        executor.run.side_effect = [
+            _result(True),
+            _result(success=False, stderr="permission denied"),
+        ]
         destination = RemoteDestination(executor)
 
         # Act
@@ -136,7 +142,47 @@ class TestRemoteDestination:
         # Assert
         assert outcome.success is False
         assert "permission denied" in outcome.detail
-        executor.run.assert_called_once()
+        assert executor.run.call_count == 2
+
+    def test_remote_echec_mkdir_retourne_outcome_echec_sans_appeler_install(
+        self,
+    ) -> None:
+        """L'échec de `mkdir -p` retourne un outcome en échec et
+        n'appelle jamais `install`."""
+        # Arrange
+        dest_path = Path("/etc/app/config.toml")
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.return_value = _result(
+            success=False, stderr="Permission denied"
+        )
+        destination = RemoteDestination(executor)
+
+        # Act
+        outcome = destination.write(dest_path, "contenu", 0o644)
+
+        # Assert
+        assert outcome.success is False
+        assert "création du répertoire distant /etc/app" in outcome.detail
+        assert "Permission denied" in outcome.detail
+        assert executor.run.call_count == 1
+
+    def test_remote_mkdir_protege_un_parent_commencant_par_tiret(self) -> None:
+        """`--` empêche un parent relatif en `-x` d'être lu comme option."""
+        # Arrange
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.side_effect = [_result(True), _result(True)]
+        destination = RemoteDestination(executor)
+
+        # Act
+        destination.write("-x/f", "c", 0o600)
+
+        # Assert
+        assert executor.run.call_args_list[0].args[0] == [
+            "mkdir",
+            "-p",
+            "--",
+            "-x",
+        ]
 
 
 class TestDestinationFor:
