@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+## [2.9.2] - 2026-10-18
+
+### Corrigé
+
+- fix(deploy): `RemoteDestination` crée le répertoire parent distant avant
+  l'écriture. `install -m ... -T /dev/stdin <dest>` (sans `-D`) échouait quand
+  le parent de `dest` n'existait pas sur l'hôte cible (constaté sur un nœud
+  vierge, `/etc/webapitools/` absent). Un `mkdir -p -- <parent>` est exécuté
+  via l'`executor` avant `install`, sans mode explicite (umask root) ; `install`
+  n'est pas tenté si `mkdir` échoue. `remote_write.py` inchangé.
+
 ## [2.9.1] - 2026-10-14
 
 ### Modifié
