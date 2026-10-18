@@ -182,13 +182,13 @@ class TestTomlSink:
         """Chemin distant : le TOML rendu transite par stdin d'`install`."""
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.side_effect = [_result(True)]
+        executor.run.side_effect = [_result(True), _result(True)]
         sink = TomlSink(RemoteDestination(executor))
 
         result = sink.write(dest_path, {"port": 8080}, mode=0o600)
 
         assert result is True
-        assert executor.run.call_args_list[0] == (
+        assert executor.run.call_args_list[1] == (
             (
                 [
                     "install",
