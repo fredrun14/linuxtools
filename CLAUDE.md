@@ -26,11 +26,9 @@ rien ne se propage seul. Après le tag :
 1. Lister les consommateurs (hors linuxtools) :
    `grep -l linuxtools ~/PycharmProjects/*/pyproject.toml | grep -v '/linuxtools/'`.
 2. Dans chacun : relever le pin de `pyproject.toml` (+ `uv sync`, tests, `mypy --strict`).
-3. **webapitools** : bumper aussi les 3 `--branch vX.Y.Z` de `.forgejo/workflows/ci.yml`
-   (la CI clone linuxtools par tag figé).
-4. Une PR par consommateur. Un consommateur laissé en retard est un choix assumé
+3. Une PR par consommateur. Un consommateur laissé en retard est un choix assumé
    et consigné, pas un oubli.
-5. Les copies déployées sur le nœud pve (`/opt/<appli>/venv`) ne suivent qu'à
+4. Les copies déployées sur le nœud pve (`/opt/<appli>/venv`) ne suivent qu'à
    leur redéploiement.
 
 ## Commandes et architecture
