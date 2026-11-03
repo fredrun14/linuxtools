@@ -225,7 +225,7 @@ jobs:
   # Promotion — propage vers GitHub le commit/tag qui a passé TOUTE la CI.
   # Ne tourne QUE sur Forgejo (GitHub ne lit pas .forgejo/) et seulement sur
   # un push master ou un tag v* validé. Déclenche la synchro du miroir de
-  # push Forgejo→GitHub via l'API : le PAT GitHub vit dans la config du
+  # push Forgejo→GitHub via l'API : la deploy key SSH vit dans la config du
   # miroir, pas ici — on n'a besoin que d'un jeton Forgejo. Sans ce
   # déclencheur sur tag, un tag poussé sur Forgejo n'atteint jamais GitHub
   # tout seul (le push de tag ne matche pas `on.push.branches`), et
@@ -285,11 +285,13 @@ jobs:
               echo "SYNCHRO FORGEJO -> GITHUB EN ÉCHEC (HTTP ${code})." >&2
               echo "Le jeton Forgejo est valide : c'est le push vers GitHub qui" >&2
               echo "a échoué. Causes par ordre de fréquence :" >&2
-              echo "  1. PAT GitHub du miroir expiré ou révoqué -> le renouveler" >&2
-              echo "     dans Settings > Mirror Settings (puis retirer le refspec" >&2
-              echo "     fetch que l'UI réintroduit)." >&2
-              echo "  2. Un commit poussé modifie .github/workflows/ alors que le" >&2
-              echo "     PAT n'a pas la permission Workflows." >&2
+              echo "  1. Deploy key du miroir retirée de GitHub ou sans write" >&2
+              echo "     access ; miroir recréé sans reposer sa nouvelle clé" >&2
+              echo "     publique. Corriger dans Settings > Mirror Settings et" >&2
+              echo "     GitHub > Settings > Deploy keys, puis retirer le refspec" >&2
+              echo "     fetch que l'UI réintroduit." >&2
+              echo "  2. Un commit modifie .github/workflows/ : push par deploy" >&2
+              echo "     key non vérifié sur ce cas." >&2
               echo "  3. Une branche obsolète côté Forgejo casse le refspec." >&2
               echo "Détail exact : docker logs forgejo | grep mirror_push" >&2
               exit 1
@@ -327,5 +329,5 @@ jobs:
           echo "GITHUB N'A PAS REÇU LA RÉF ${ref} après 60 s." >&2
           echo "Attendu : ${expected:-<ref présente>} — obtenu : ${got:-<absente>}" >&2
           echo "La synchro a répondu 2xx mais n'a rien propagé : vérifier le" >&2
-          echo "miroir (PAT, refspecs) avant de considérer master comme promu." >&2
+          echo "miroir (deploy key, refspecs) avant de considérer ${ref} promu." >&2
           exit 1
