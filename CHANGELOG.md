@@ -2,6 +2,12 @@
 
 ## [Non publié]
 
+### Modifié
+
+- ci(promote): le miroir de push vers GitHub s'authentifie par clé SSH (deploy key
+  avec write access, sans expiration) au lieu d'un PAT ; diagnostics du job
+  `promote` réécrits en conséquence.
+
 ## [2.9.2] - 2026-10-18
 
 ### Corrigé
