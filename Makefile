@@ -44,7 +44,7 @@ test-unit:
 	uv run pytest tests/unit/ -m "not integration"
 
 test-integration:
-	uv run pytest tests/integration/ -m integration
+	uv run pytest tests/integration/ -m integration --no-cov
 
 test-verbose:
 	uv run pytest tests/ -v
