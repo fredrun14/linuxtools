@@ -380,7 +380,7 @@ class Deployer:
         config: DeployConfig,
         checks: tuple[CheckResult, ...],
         messages: tuple[str, ...],
-    ) -> DeployReport | None:
+    ) -> DeployReport | tuple[str, ...]:
         """Exécute la phase d'installation du service+timer, si configurée.
 
         Args:
@@ -389,8 +389,9 @@ class Deployer:
             messages: Messages déjà accumulés.
 
         Returns:
-            None si la phase a réussi (continuer), sinon un
-            DeployReport d'échec prêt à renvoyer tel quel.
+            Le tuple des messages de succès à ajouter au rapport si la
+            phase a réussi (continuer), sinon un DeployReport d'échec
+            prêt à renvoyer tel quel.
         """
         if self._target_executor is None:
             return DeployReport(
@@ -415,10 +416,10 @@ class Deployer:
                 ),
             )
         assert config.timer_deploy is not None
-        ok = self._timer_deployer.deploy(
+        outcome = self._timer_deployer.deploy(
             config.timer_deploy, config.target, self._target_executor
         )
-        if not ok:
+        if not outcome.success:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TIMER,
@@ -426,7 +427,7 @@ class Deployer:
                 messages=messages
                 + ("Installation du service+timer échouée.",),
             )
-        return None
+        return ("Service+timer installés.",) + outcome.messages
 
     def _run_post_install_phases(
         self,
@@ -463,10 +464,10 @@ class Deployer:
             messages = messages + secrets_result
 
         if config.timer_deploy is not None:
-            report = self._run_timer_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Service+timer installés.",)
+            timer_result = self._run_timer_phase(config, checks, messages)
+            if isinstance(timer_result, DeployReport):
+                return timer_result
+            messages = messages + timer_result
 
         return messages
 

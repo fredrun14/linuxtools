@@ -606,7 +606,7 @@ class TestDeployerNouvellesPhases:
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
         secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
-        timer_deployer.deploy.return_value = True
+        timer_deployer.deploy.return_value = PhaseOutcome(True)
         target_executor = MagicMock(spec=CommandExecutor)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
@@ -816,7 +816,7 @@ class TestDeployerNouvellesPhases:
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
         secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
-        timer_deployer.deploy.return_value = False
+        timer_deployer.deploy.return_value = PhaseOutcome(False)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
             secrets=_SECRETS_SPEC,
@@ -890,6 +890,33 @@ class TestDeployerPhaseSecretsMessages:
 
         assert report.success is False
         assert "raison précise" in report.messages
+
+
+class TestDeployerPhaseTimerMessages:
+    """Messages de la phase TIMER."""
+
+    def test_timer_phase_ajoute_les_messages_de_l_issue(self) -> None:
+        """Les messages de l'issue (linger) côtoient le message habituel."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        timer_deployer.deploy.return_value = PhaseOutcome(
+            True, ("Linger inactif pour fred.",)
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(
+            _make_config_with_phases(timer_deploy=_TIMER_SPEC)
+        )
+
+        assert report.success is True
+        assert "Linger inactif pour fred." in report.messages
+        assert "Service+timer installés." in report.messages
 
 
 class TestDeployerDeployAtomicSwap:
