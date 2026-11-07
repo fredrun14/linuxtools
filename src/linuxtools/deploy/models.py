@@ -131,11 +131,31 @@ class SecretsSpec:
             SecretsProvisioner).
         dest_path: Chemin du fichier EnvironmentFile= sur la cible.
         mode: Permissions POSIX du fichier déposé (défaut 0o600).
+        values_from: Origine des valeurs. ``"source"`` (défaut) résout
+            les valeurs sur le poste source via les CredentialManager ;
+            ``"target"`` dépose un squelette ``CLE=`` sans valeur, créé
+            seulement si le fichier est absent (aucun secret du poste
+            source n'est lu ni copié).
     """
 
     keys: tuple[tuple[str, str], ...]
     dest_path: Path
     mode: int = 0o600
+    values_from: Literal["source", "target"] = "source"
+
+
+@dataclass(frozen=True)
+class PhaseOutcome:
+    """Résultat d'une phase de déploiement.
+
+    Attributes:
+        success: True si la phase a réussi.
+        messages: Messages destinés au rapport (jamais de valeur de
+            secret).
+    """
+
+    success: bool
+    messages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

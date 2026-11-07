@@ -16,7 +16,7 @@ import pytest
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.credentials.exceptions import CredentialNotFoundError
 from linuxtools.credentials.manager import CredentialManager
-from linuxtools.deploy.models import DeployTarget, SecretsSpec
+from linuxtools.deploy.models import DeployTarget, PhaseOutcome, SecretsSpec
 from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 
 
@@ -28,6 +28,18 @@ def _result(success: bool = True, stderr: str = "") -> CommandResult:
         stdout="",
         stderr=stderr,
         success=success,
+        duration=0.01,
+    )
+
+
+def _result_code(code: int) -> CommandResult:
+    """CommandResult avec un code de retour précis."""
+    return CommandResult(
+        command=(),
+        return_code=code,
+        stdout="",
+        stderr="",
+        success=code == 0,
         duration=0.01,
     )
 
@@ -71,7 +83,7 @@ class TestSecretsProvisionerProvisionLocal:
         )
 
         # Assert
-        assert result is True
+        assert result.success is True
         assert dest_path.read_text(encoding="utf-8") == (
             "GOTIFY_TOKEN=tok-abc123\nAPI_KEY=key-xyz\n"
         )
@@ -95,7 +107,7 @@ class TestSecretsProvisionerProvisionLocal:
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
         )
 
-        assert result is True
+        assert result.success is True
         assert dest_path.read_text(encoding="utf-8") == ""
         credentials.require.assert_not_called()
 
@@ -124,7 +136,7 @@ class TestSecretsProvisionerProvisionLocal:
         )
 
         # Assert
-        assert result is False
+        assert result.success is False
         assert not dest_path.exists()
         logger.log_error.assert_called_once()
         error_message = logger.log_error.call_args.args[0]
@@ -148,7 +160,7 @@ class TestSecretsProvisionerProvisionLocal:
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
         )
 
-        assert result is False
+        assert result.success is False
         assert not dest_path.exists()
         logger.log_error.assert_called_once()
         error_message = logger.log_error.call_args.args[0]
@@ -169,7 +181,7 @@ class TestSecretsProvisionerProvisionLocal:
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
         )
 
-        assert result is False
+        assert result.success is False
         assert not dest_path.exists()
 
 
@@ -208,7 +220,7 @@ class TestSecretsProvisionerMultiServices:
         )
 
         # Assert
-        assert result is True
+        assert result.success is True
         content = dest_path.read_text(encoding="utf-8")
         assert "APP_PASSWORD=pw-pihole" in content
         assert "GOTIFY_TOKEN=tok-gotify" in content
@@ -239,7 +251,7 @@ class TestSecretsProvisionerMultiServices:
         )
 
         # Assert
-        assert result is True
+        assert result.success is True
         assert factory.call_count == 1
 
     def test_provision_local_echec_reproduit_le_cas_pihole_schedule(
@@ -279,7 +291,7 @@ class TestSecretsProvisionerMultiServices:
         )
 
         # Assert
-        assert result is False
+        assert result.success is False
         assert not dest_path.exists()
         logger.log_error.assert_called_once()
         error_message = logger.log_error.call_args.args[0]
@@ -311,7 +323,7 @@ class TestSecretsProvisionerProvisionRemote:
         )
 
         # Assert
-        assert result is True
+        assert result.success is True
         install_call = executor.run.call_args_list[1]
         assert install_call.args[0] == [
             "install",
@@ -342,6 +354,171 @@ class TestSecretsProvisionerProvisionRemote:
             spec, DeployTarget(host="srv01"), executor
         )
 
-        assert result is False
+        assert result.success is False
         logger.log_error.assert_called_once()
         _assert_no_secret_leaked(logger, "s3cr3t-val")
+
+
+_SENTINELLE = "SENTINELLE-secret-poste-source-9f3a"
+
+
+def _factory_piegee(service: str) -> CredentialManager:
+    """Factory qui échoue si le mode « target » la sollicite."""
+    raise AssertionError(f"factory appelée pour {service!r}")
+
+
+class TestSecretsProvisionerModeTarget:
+    """Mode ``values_from="target"`` : squelette sans valeur."""
+
+    def test_provision_target_ne_lit_aucune_valeur_sentinelle(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """F-05 : aucune valeur du poste source ne fuit (env, .env)."""
+        # Arrange : sentinelle dans l'environnement et dans un .env
+        monkeypatch.setenv("GOTIFY_TOKEN", _SENTINELLE)
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".env").write_text(
+            f"GOTIFY_TOKEN={_SENTINELLE}\n", encoding="utf-8"
+        )
+        dest_local = tmp_path / "cible" / "secrets.env"
+        dest_local.parent.mkdir()
+        spec = SecretsSpec(
+            keys=(("bpm", "GOTIFY_TOKEN"),),
+            dest_path=dest_local,
+            values_from="target",
+        )
+        logger = MagicMock()
+        provisioner = SecretsProvisioner(_factory_piegee, logger)
+        executor_distant = MagicMock(spec=CommandExecutor)
+        executor_distant.run.side_effect = [
+            _result_code(1),
+            _result(True),
+            _result(True),
+            _result(True),
+            _result(True),
+        ]
+
+        # Act
+        local = provisioner.provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+        distant = provisioner.provision(
+            spec, DeployTarget(host="srv"), executor_distant
+        )
+
+        # Assert
+        assert local.success is True
+        assert distant.success is True
+        rendu = (
+            dest_local.read_text(encoding="utf-8")
+            + str(local.messages)
+            + str(distant.messages)
+            + str(logger.mock_calls)
+            + str(executor_distant.run.mock_calls)
+        )
+        assert _SENTINELLE not in rendu
+
+    def test_provision_target_cree_squelette_0600_sans_valeur(
+        self, tmp_path: Path
+    ) -> None:
+        """A-07 : CLE= par clé dédoublonnée, mode 0600, sans valeur."""
+        dest = tmp_path / "secrets.env"
+        spec = SecretsSpec(
+            keys=(("a", "TOKEN"), ("b", "TOKEN"), ("a", "PASS")),
+            dest_path=dest,
+            values_from="target",
+        )
+
+        outcome = SecretsProvisioner().provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        assert outcome.success is True
+        lignes = dest.read_text(encoding="utf-8").splitlines()
+        assert [ligne for ligne in lignes if not ligne.startswith("#")] == [
+            "TOKEN=",
+            "PASS=",
+        ]
+        assert oct(os.stat(dest).st_mode)[-3:] == "600"
+
+    def test_provision_target_fichier_existant_non_modifie(
+        self, tmp_path: Path
+    ) -> None:
+        """F-07 / A-06 : contenu, mode et mtime intacts."""
+        dest = tmp_path / "secrets.env"
+        dest.write_text("TOKEN=reel\n", encoding="utf-8")
+        os.chmod(dest, 0o640)
+        os.utime(dest, (1_000_000, 1_000_000))
+        spec = SecretsSpec(
+            keys=(("a", "TOKEN"),), dest_path=dest, values_from="target"
+        )
+
+        outcome = SecretsProvisioner().provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        assert outcome.success is True
+        assert "déjà présent" in outcome.messages[0]
+        assert dest.read_text(encoding="utf-8") == "TOKEN=reel\n"
+        assert oct(os.stat(dest).st_mode)[-3:] == "640"
+        assert os.stat(dest).st_mtime == 1_000_000
+
+    def test_provision_target_message_liste_les_cles_sans_valeur(
+        self, tmp_path: Path
+    ) -> None:
+        """Le message de création cite chemin, mode et noms de clés."""
+        dest = tmp_path / "secrets.env"
+        spec = SecretsSpec(
+            keys=(("a", "TOKEN"), ("a", "PASS")),
+            dest_path=dest,
+            values_from="target",
+        )
+
+        outcome = SecretsProvisioner().provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        assert outcome.messages == (
+            f"Fichier de secrets créé (0600) : {dest} — valeurs à "
+            "renseigner sur ce poste : TOKEN, PASS",
+        )
+
+    def test_provision_target_echec_ecriture_retourne_echec(self) -> None:
+        """Écriture distante refusée -> PhaseOutcome(False) + log."""
+        spec = SecretsSpec(
+            keys=(("a", "TOKEN"),),
+            dest_path=Path("/etc/app/secrets.env"),
+            values_from="target",
+        )
+        executor = MagicMock(spec=CommandExecutor)
+        executor.run.return_value = _result_code(255)
+        logger = MagicMock()
+
+        outcome = SecretsProvisioner(None, logger).provision(
+            spec, DeployTarget(host="srv"), executor
+        )
+
+        assert outcome.success is False
+        logger.log_error.assert_called_once()
+
+
+class TestSecretsProvisionerSansFactory:
+    """Mode « source » sans factory : échec fermé."""
+
+    def test_provision_source_sans_factory_echoue_ferme(
+        self, tmp_path: Path
+    ) -> None:
+        """Pas de factory -> échec, rien n'est écrit, erreur loguée."""
+        dest = tmp_path / "secrets.env"
+        spec = SecretsSpec(keys=(("a", "TOKEN"),), dest_path=dest)
+        logger = MagicMock()
+
+        outcome = SecretsProvisioner(None, logger).provision(
+            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        )
+
+        assert outcome == PhaseOutcome(False)
+        assert not dest.exists()
+        logger.log_error.assert_called_once()

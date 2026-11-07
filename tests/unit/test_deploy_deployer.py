@@ -17,7 +17,9 @@ from linuxtools.deploy.models import (
     ConfigDeploySpec,
     DeployConfig,
     DeployPhase,
+    DeployReport,
     DeployTarget,
+    PhaseOutcome,
     SecretsSpec,
     TimerDeploySpec,
     VerificationSpec,
@@ -508,6 +510,13 @@ class TestDeployerForTarget:
         )
         assert deployer._secrets_provisioner is not None
 
+    def test_for_target_sans_factory_construit_quand_meme_le_provisionneur(
+        self,
+    ) -> None:
+        """Sans factory, le provisionneur existe (mode « target »)."""
+        deployer = Deployer.for_target(DeployTarget())
+        assert isinstance(deployer._secrets_provisioner, SecretsProvisioner)
+
     def test_for_target_sans_rsync_options_garde_le_defaut(self) -> None:
         """rsync_options=None : le transport garde les options par
         défaut (comportement inchangé)."""
@@ -595,7 +604,7 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = True
+        secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
         timer_deployer.deploy.return_value = True
         target_executor = MagicMock(spec=CommandExecutor)
@@ -768,7 +777,7 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = False
+        secrets_provisioner.provision.return_value = PhaseOutcome(False)
         timer_deployer = MagicMock(spec=TimerDeployer)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
@@ -805,7 +814,7 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = True
+        secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
         timer_deployer.deploy.return_value = False
         config = _make_config_with_phases(
@@ -833,6 +842,54 @@ class TestDeployerNouvellesPhases:
             "Installation du service+timer échouée." in m
             for m in report.messages
         )
+
+
+class TestDeployerPhaseSecretsMessages:
+    """Messages de la phase SECRETS selon ``values_from``."""
+
+    @staticmethod
+    def _deploy_with(spec: SecretsSpec, outcome: PhaseOutcome) -> DeployReport:
+        """Déploie avec un provisionneur scripté sur ``outcome``."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        provisioner = MagicMock(spec=SecretsProvisioner)
+        provisioner.provision.return_value = outcome
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            secrets_provisioner=provisioner,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+        return deployer.deploy(_make_config_with_phases(secrets=spec))
+
+    def test_secrets_target_succes_n_ajoute_pas_secrets_provisionnes(
+        self,
+    ) -> None:
+        """Mode target : seuls les messages de l'issue sont ajoutés."""
+        spec = replace(_SECRETS_SPEC, values_from="target")
+
+        report = self._deploy_with(spec, PhaseOutcome(True, ("créé : x",)))
+
+        assert report.success is True
+        assert "créé : x" in report.messages
+        assert "Secrets provisionnés." not in report.messages
+
+    def test_secrets_source_garde_message_secrets_provisionnes(
+        self,
+    ) -> None:
+        """Mode source : message historique conservé."""
+        report = self._deploy_with(_SECRETS_SPEC, PhaseOutcome(True))
+
+        assert "Secrets provisionnés." in report.messages
+
+    def test_secrets_echec_reprend_les_messages_de_l_issue(self) -> None:
+        """Un échec avec messages les reporte tels quels."""
+        report = self._deploy_with(
+            _SECRETS_SPEC, PhaseOutcome(False, ("raison précise",))
+        )
+
+        assert report.success is False
+        assert "raison précise" in report.messages
 
 
 class TestDeployerDeployAtomicSwap:
