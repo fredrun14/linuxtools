@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linuxtools.systemd.base import ServiceConfig, _resolve_user_unit_path
+from linuxtools.systemd.base import (
+    ServiceConfig,
+    UserUnitManager,
+    _resolve_user_unit_path,
+)
 from linuxtools.systemd.user_service import LinuxUserServiceUnitManager
 
 
@@ -83,3 +87,27 @@ def test_user_unit_manager_ecrit_dans_le_dossier_xdg(
     assert resultat is True
     fichier = tmp_path / "systemd" / "user" / "mon-outil.service"
     assert fichier.exists()
+
+
+def test_user_unit_manager_constante_publique_inchangee() -> None:
+    """La constante publique garde sa valeur historique."""
+    # Assert
+    assert UserUnitManager.SYSTEMD_USER_UNIT_PATH == "~/.config/systemd/user"
+
+
+def test_user_unit_manager_surcharge_garde_expanduser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Une sous-classe surchargeant la constante ignore XDG."""
+    # Arrange
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+
+    class SurchargeManager(LinuxUserServiceUnitManager):
+        SYSTEMD_USER_UNIT_PATH = "~/x"
+
+    # Act
+    manager = SurchargeManager(MagicMock(), MagicMock())
+
+    # Assert
+    assert manager.unit_path == str(tmp_path / "x")
