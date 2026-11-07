@@ -4,6 +4,15 @@
 
 ### Ajouté
 
+- feat(config): `XdgAppConfig.find_config_file` cherche aussi dans les dossiers
+  de `XDG_CONFIG_DIRS` (défaut XDG `/etc/xdg/<app>`), en troisième niveau :
+  `$XDG_CONFIG_HOME/<app>` → `/etc/<app>` → `XDG_CONFIG_DIRS` (T1, T2).
+  Nouvelle propriété `xdg_config_dirs` (`list[Path]`) : chemins absolus
+  seulement (entrées vides ou relatives écartées, quelle que soit la version de
+  `platformdirs`, T3), doublons supprimés en gardant l'ordre (T6). `/etc/<app>`
+  reste lu avant ce niveau : les fichiers posés par `linuxtools.deploy` sont
+  toujours trouvés. Un fichier présent seulement dans `/etc/xdg/<app>/`, jusque-là
+  ignoré, est maintenant retourné. Tests de priorité et d'ordre (T4, T7).
 - feat(logging): `default_log_dir(app_name)` (exportée par `linuxtools.logging`)
   retourne le dossier de logs par défaut : `/var/log/<app>` sous root,
   `$XDG_STATE_HOME/<app>` (`~/.local/state/<app>`) sinon, via `platformdirs`
