@@ -35,6 +35,8 @@ hooks:
 	chmod +x .githooks/*
 	@echo "Hooks Git activés (core.hooksPath -> .githooks)"
 
+# Effet temporaire : le prochain `uv run` (test, lint...) réinstalle le projet
+# dans le venv. Cible conservée pour un retrait ponctuel.
 uninstall:
 	uv pip uninstall linuxtools
 
