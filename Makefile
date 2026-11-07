@@ -5,9 +5,9 @@
 # Cible par défaut
 help:
 	@echo "Commandes disponibles:"
-	@echo "  make install        Installer la bibliothèque en local"
-	@echo "  make install-dev    Installer avec dépendances de développement"
-	@echo "  make uninstall      Désinstaller la bibliothèque"
+	@echo "  make install        Installer le projet et tous les extras (uv sync --all-extras)"
+	@echo "  make install-dev    Alias de install + activation des hooks Git"
+	@echo "  make uninstall      Retirer linuxtools du venv (uv pip uninstall)"
 	@echo "  make test           Lancer les tests"
 	@echo "  make test-unit      Lancer uniquement les tests unitaires"
 	@echo "  make test-integration  Lancer uniquement les tests d'intégration"
@@ -15,16 +15,18 @@ help:
 	@echo "  make test-cov       Lancer les tests avec couverture"
 	@echo "  make lint           Vérifier le style PEP8, ruff et le typage (mypy)"
 	@echo "  make clean          Nettoyer les fichiers générés"
-	@echo "  make build          Construire le package"
+	@echo "  make build          Construire wheel + sdist (uv build)"
 	@echo "  make hooks          Activer les hooks Git versionnés (.githooks)"
 	@echo "  make all            Lint + tests + build"
 
 # Installation
+# `--all-extras` est obligatoire : uv sync est « exact » et désinstallerait
+# les extras non demandés (ex. webapitools, requis par mypy).
 install:
-	pip install -e .
+	uv sync --all-extras
 
-install-dev: hooks
-	pip install -e ".[dev]"
+# Alias : les dépendances de dev sont des extras, déjà couverts par install.
+install-dev: install hooks
 
 # Hooks Git versionnés : pointe core.hooksPath vers .githooks/ et rend
 # les hooks exécutables. À lancer une fois après un clone.
@@ -33,8 +35,10 @@ hooks:
 	chmod +x .githooks/*
 	@echo "Hooks Git activés (core.hooksPath -> .githooks)"
 
+# Effet temporaire : le prochain `uv run` (test, lint...) réinstalle le projet
+# dans le venv. Cible conservée pour un retrait ponctuel.
 uninstall:
-	pip uninstall -y linuxtools
+	uv pip uninstall linuxtools
 
 # Tests
 test:
@@ -72,7 +76,7 @@ clean:
 
 # Build
 build: clean
-	python -m build
+	uv build
 
 # Tout lancer
 all: lint test build
