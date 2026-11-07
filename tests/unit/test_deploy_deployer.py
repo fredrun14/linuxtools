@@ -844,6 +844,91 @@ class TestDeployerNouvellesPhases:
         )
 
 
+class TestDeployerDryRunPhases:
+    """Dry-run : rendu des unités et annonce du squelette (F-12, A-08)."""
+
+    @staticmethod
+    def _dry_run(config: DeployConfig, executor: MagicMock) -> None:
+        """Lance un dry-run avec un exécuteur cible piégé."""
+        transport, installer, verifier = _make_collaborators()
+        Deployer(
+            transport,
+            installer,
+            verifier,
+            dry_run=True,
+            target_executor=executor,
+        ).deploy(config)
+
+    def test_dry_run_affiche_les_unites_sans_ecrire(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Les contenus .service et .timer sont affichés avec leur chemin."""
+        config = _make_config_with_phases(timer_deploy=_TIMER_SPEC)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert "/etc/systemd/system/backup.service" in out
+        assert "/etc/systemd/system/backup.timer" in out
+        assert "ExecStart=/usr/bin/backup" in out
+        assert "OnCalendar=daily" in out
+        assert "installation service+timer backup" in out
+
+    def test_dry_run_scope_user_affiche_le_chemin_xdg(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Scope user : chemin sous $XDG_CONFIG_HOME/systemd/user."""
+        spec = replace(_TIMER_SPEC, scope="user")
+        config = _make_config_with_phases(timer_deploy=spec)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert "$XDG_CONFIG_HOME/systemd/user/backup.service" in out
+        assert "$XDG_CONFIG_HOME/systemd/user/backup.timer" in out
+
+    def test_dry_run_n_appelle_pas_l_executeur(self) -> None:
+        """A-08 : aucune commande n'atteint l'exécuteur cible."""
+        executor = MagicMock(spec=CommandExecutor)
+        config = _make_config_with_phases(
+            secrets=replace(_SECRETS_SPEC, values_from="target"),
+            timer_deploy=replace(_TIMER_SPEC, scope="user"),
+        )
+
+        self._dry_run(config, executor)
+
+        executor.run.assert_not_called()
+
+    def test_dry_run_annonce_le_squelette_de_secrets_en_mode_target(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Mode target : annonce « créerait … s'il est absent »."""
+        config = _make_config_with_phases(
+            secrets=replace(_SECRETS_SPEC, values_from="target")
+        )
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert (
+            "secrets : créerait /etc/app/secrets.env (clés sans valeur, "
+            "0600) s'il est absent" in out
+        )
+
+    def test_dry_run_secrets_mode_source_garde_le_libelle_actuel(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Mode source : libellé historique conservé."""
+        config = _make_config_with_phases(secrets=_SECRETS_SPEC)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        assert (
+            "provisioning secrets -> /etc/app/secrets.env"
+            in capsys.readouterr().out
+        )
+
+
 class TestDeployerPhaseSecretsMessages:
     """Messages de la phase SECRETS selon ``values_from``."""
 

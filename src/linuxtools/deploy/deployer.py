@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from linuxtools.commands.base import CommandExecutor
     from linuxtools.credentials.manager import CredentialManager
-    from linuxtools.deploy.models import CheckResult
+    from linuxtools.deploy.models import CheckResult, TimerDeploySpec
     from linuxtools.logging.base import Logger
 
 
@@ -211,18 +211,51 @@ class Deployer:
                 f"dépôt config -> {config.config_deploy.dest_path}"
             )
         if config.secrets is not None:
-            ctx.would_run_command(
-                f"provisioning secrets -> {config.secrets.dest_path}"
-            )
+            if config.secrets.values_from == "target":
+                ctx.would_run_command(
+                    f"secrets : créerait {config.secrets.dest_path} "
+                    f"(clés sans valeur, {config.secrets.mode:04o}) "
+                    "s'il est absent"
+                )
+            else:
+                ctx.would_run_command(
+                    f"provisioning secrets -> {config.secrets.dest_path}"
+                )
         if config.timer_deploy is not None:
-            ctx.would_run_command(
-                f"installation service+timer {config.timer_deploy.unit_name}"
-            )
+            self._dry_run_timer_units(ctx, config.timer_deploy)
         return DeployReport(
             success=True,
             phase_reached=DeployPhase.DONE,
             messages=messages + ("Dry-run : aucune action réelle.",),
         )
+
+    @staticmethod
+    def _dry_run_timer_units(
+        ctx: DryRunContext, spec: TimerDeploySpec
+    ) -> None:
+        """Affiche les unités service+timer qui seraient installées.
+
+        Aucune sonde : le home distant n'est pas lu, le chemin du scope
+        « user » est affiché tel quel.
+
+        Args:
+            ctx: Contexte de dry-run.
+            spec: Spécification de l'unité à installer.
+        """
+        base = (
+            "$XDG_CONFIG_HOME/systemd/user"
+            if spec.scope == "user"
+            else "/etc/systemd/system"
+        )
+        ctx.would_write(
+            f"{base}/{spec.unit_name}.service",
+            spec.service_config.to_unit_file(),
+        )
+        ctx.would_write(
+            f"{base}/{spec.unit_name}.timer",
+            spec.timer_config.to_unit_file(),
+        )
+        ctx.would_run_command(f"installation service+timer {spec.unit_name}")
 
     def _rollback_if_possible(
         self, config: DeployConfig, backup_path: Path | None
