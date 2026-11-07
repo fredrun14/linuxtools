@@ -8,11 +8,16 @@ invariant projet dans `CONTEXT.md`).
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol
 
-from linuxtools.commands.remote_write import build_remote_write_command
+from linuxtools.commands.remote_write import (
+    build_remote_exists_command,
+    build_remote_link_command,
+    build_remote_write_command,
+)
 from linuxtools.filesystem.linux import write_text_secure
 
 if TYPE_CHECKING:
@@ -148,8 +153,9 @@ class RemoteDestination:
             path: Chemin de destination sur l'hôte cible.
             content: Contenu à écrire.
             mode: Permissions POSIX du fichier.
-            if_exists: Accepté pour respecter le Protocol ; le mode
-                ``"keep"`` distant est traité par la tâche T3.
+            if_exists: ``"keep"`` : création exclusive (sonde
+                d'existence, écriture temporaire puis ``ln``) ; un fichier
+                existant n'est jamais modifié (``kept=True``).
 
         Returns:
             `WriteOutcome(True)` si `mkdir -p` et `install` réussissent,
@@ -157,6 +163,8 @@ class RemoteDestination:
             (`install` n'est pas tenté si `mkdir -p` échoue).
         """
         dest = str(path)
+        if if_exists == "keep":
+            return self._write_exclusive(dest, content, mode)
         parent = str(PurePosixPath(dest).parent)
         mkdir_result = self.executor.run(["mkdir", "-p", "--", parent])
         if not mkdir_result.success:
@@ -174,6 +182,66 @@ class RemoteDestination:
                 False,
                 f"Échec du dépôt distant de {dest} : {write_result.stderr}",
             )
+        return WriteOutcome(True)
+
+    def _write_exclusive(
+        self, dest: str, content: str, mode: int
+    ) -> WriteOutcome:
+        """Crée `dest` seulement s'il n'existe pas (sonde, tmp, ``ln``).
+
+        Étapes : sonde d'existence (code 0 = présent -> ``kept``, 1 =
+        absent, autre = échec fermé), ``mkdir -p`` du parent, écriture
+        d'un temporaire (contenu par stdin), publication par ``ln -T``
+        (échoue si `dest` est apparu entre-temps), puis ``rm -f`` du
+        temporaire dans tous les cas.
+
+        Args:
+            dest: Chemin de destination sur l'hôte distant.
+            content: Contenu à écrire (jamais en argv).
+            mode: Permissions POSIX du fichier.
+
+        Returns:
+            `WriteOutcome(True, kept=True)` si présent, `WriteOutcome(True)`
+            si créé, `WriteOutcome(False, detail=...)` sinon.
+        """
+        probe = self.executor.run(build_remote_exists_command(dest))
+        if probe.return_code == 0:
+            return WriteOutcome(True, kept=True)
+        if probe.return_code != 1:
+            return WriteOutcome(
+                False,
+                f"Sonde d'existence ambiguë pour {dest} : "
+                f"code {probe.return_code}",
+            )
+        parent = str(PurePosixPath(dest).parent)
+        mkdir_result = self.executor.run(["mkdir", "-p", "--", parent])
+        if not mkdir_result.success:
+            return WriteOutcome(
+                False,
+                f"Échec de la création du répertoire distant {parent} : "
+                f"{mkdir_result.stderr}",
+            )
+        tmp = f"{dest}.{secrets.token_hex(8)}.tmp"
+        try:
+            write_result = self.executor.run(
+                build_remote_write_command(mode, tmp), stdin=content
+            )
+            if not write_result.success:
+                return WriteOutcome(
+                    False,
+                    f"Échec du dépôt distant de {tmp} : {write_result.stderr}",
+                )
+            link_result = self.executor.run(
+                build_remote_link_command(tmp, dest)
+            )
+            if not link_result.success:
+                return WriteOutcome(
+                    False,
+                    f"Création de {dest} impossible (existe déjà ?) : "
+                    f"{link_result.stderr}",
+                )
+        finally:
+            self.executor.run(["rm", "-f", "--", tmp])
         return WriteOutcome(True)
 
 

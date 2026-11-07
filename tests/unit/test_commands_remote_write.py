@@ -10,7 +10,11 @@ import inspect
 
 import pytest
 
-from linuxtools.commands.remote_write import build_remote_write_command
+from linuxtools.commands.remote_write import (
+    build_remote_exists_command,
+    build_remote_link_command,
+    build_remote_write_command,
+)
 
 
 def test_build_remote_write_command_cas_nominal() -> None:
@@ -81,3 +85,26 @@ def test_build_remote_write_command_ne_contient_jamais_le_contenu() -> None:
     parametres = inspect.signature(build_remote_write_command).parameters
 
     assert set(parametres) == {"mode", "dest"}
+
+
+def test_build_remote_exists_command_utilise_test_e_ou_l() -> None:
+    """La sonde couvre fichier existant et lien cassé."""
+    assert build_remote_exists_command("/etc/a.env") == [
+        "test",
+        "-e",
+        "/etc/a.env",
+        "-o",
+        "-L",
+        "/etc/a.env",
+    ]
+
+
+def test_build_remote_link_command_utilise_ln_t() -> None:
+    """Lien dur atomique, échoue si la destination existe."""
+    assert build_remote_link_command("/etc/a.env.x.tmp", "/etc/a.env") == [
+        "ln",
+        "-T",
+        "--",
+        "/etc/a.env.x.tmp",
+        "/etc/a.env",
+    ]
