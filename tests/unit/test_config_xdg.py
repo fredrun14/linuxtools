@@ -20,7 +20,7 @@ _TEMPLATE = "[log]\nlevel = 'INFO'\n"
 def xdg(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[XdgAppConfig]:
-    """XdgAppConfig hermétique : config_dir et XDG_CONFIG_DIRS dans tmp_path."""
+    """XdgAppConfig hermétique : config_dir et XDG_CONFIG_DIRS isolés."""
     monkeypatch.setenv("XDG_CONFIG_DIRS", str(tmp_path / "shared"))
     with patch(
         "linuxtools.config.xdg.user_config_path",
@@ -194,7 +194,6 @@ class TestXdgAppConfig:
         monkeypatch.setenv("XDG_CONFIG_DIRS", f"{a}{os.pathsep}{b}")
 
         assert xdg.xdg_config_dirs == [a / _APP, b / _APP]
-
 
     def test_xdg_config_dirs_defaut_etc_xdg(
         self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
