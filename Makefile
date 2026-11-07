@@ -50,7 +50,7 @@ test-verbose:
 	uv run pytest tests/ -v
 
 test-cov:
-	uv run pytest tests/ --cov=linuxtools --cov-report=term-missing
+	uv run pytest tests/ --cov-report=term-missing
 
 # Linting
 lint:
