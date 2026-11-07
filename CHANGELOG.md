@@ -47,6 +47,13 @@
   `PATH`. `test-integration` n'applique plus le seuil de couverture de 90 %
   (`--no-cov`) : il ne portait que sur un sous-ensemble des tests, donc la cible
   échouait toujours. `install*`, `uninstall` et `build` restent inchangés.
+- build(make): `install` lance `uv sync --all-extras` (venv du projet en mode
+  éditable, avec tous les extras : un `uv sync` partiel désinstallerait par
+  exemple `webapitools` et casserait mypy), `install-dev` devient un alias de
+  `install` + `hooks`, `uninstall` lance `uv pip uninstall linuxtools` et `build`
+  lance `uv build`, au lieu de `pip` et `python -m build`. Commentaire du hook
+  `pre-commit` corrigé : il joue `make lint` + `make test-unit`, pas la CI complète
+  (T1, T2).
 
 ## [2.9.2] - 2026-10-18
 
