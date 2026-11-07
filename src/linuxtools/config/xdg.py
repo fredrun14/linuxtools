@@ -1,10 +1,11 @@
 """Gestion du répertoire de configuration XDG pour une application."""
 
 # stdlib
+import os
 from pathlib import Path
 
 # third-party
-from platformdirs import user_config_path
+from platformdirs import site_config_dir, user_config_path
 
 
 class XdgAppConfig:
@@ -52,6 +53,19 @@ class XdgAppConfig:
         """
         return Path("/etc") / self._app_name
 
+    @property
+    def xdg_config_dirs(self) -> list[Path]:
+        """Retourne les dossiers de config partagés de ``XDG_CONFIG_DIRS``.
+
+        Un dossier par entrée de la variable, par priorité décroissante
+        (défaut XDG : ``/etc/xdg/<app_name>``). Non créés.
+
+        Returns:
+            Liste des chemins ``<dossier>/<app_name>``.
+        """
+        raw = site_config_dir(self._app_name, multipath=True)
+        return [Path(p) for p in raw.split(os.pathsep)]
+
     def find_config_file(self, filename: str = "global.toml") -> Path | None:
         """Retourne le premier fichier de config trouvé dans la cascade.
 
@@ -59,7 +73,9 @@ class XdgAppConfig:
 
         1. ``~/.config/<app_name>/<filename>`` (XDG user)
         2. ``/etc/<app_name>/<filename>`` (système)
-        3. ``None`` si aucun n'existe.
+        3. ``<dossier>/<app_name>/<filename>`` pour chaque dossier de
+           ``XDG_CONFIG_DIRS``, dans l'ordre (défaut ``/etc/xdg``)
+        4. ``None`` si aucun n'existe.
 
         Args:
             filename: Nom du fichier à rechercher. Défaut : 'global.toml'.
@@ -73,6 +89,10 @@ class XdgAppConfig:
         system_path = self.system_config_dir / filename
         if system_path.exists():
             return system_path
+        for shared_dir in self.xdg_config_dirs:
+            shared_path = shared_dir / filename
+            if shared_path.exists():
+                return shared_path
         return None
 
     def ensure_subdir(self, name: str) -> Path:
