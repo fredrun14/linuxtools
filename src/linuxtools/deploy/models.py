@@ -149,7 +149,8 @@ class TimerDeploySpec:
         timer_config: Configuration du timer.
         scope: Portée d'installation — "system" (défaut,
             /etc/systemd/system/, nécessite root) ou "user"
-            (~/.config/systemd/user/, systemctl --user, sans
+            (`$XDG_CONFIG_HOME/systemd/user/`,
+            `~/.config/systemd/user/` par défaut, systemctl --user, sans
             élévation de privilèges).
     """
 

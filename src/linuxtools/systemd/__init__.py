@@ -11,7 +11,8 @@ Unités système (root, /etc/systemd/system):
 - LinuxTimerUnitManager: Gestion des unités .timer
 - LinuxServiceUnitManager: Gestion des unités .service
 
-Unités utilisateur (sans root, ~/.config/systemd/user):
+Unités utilisateur (sans root, $XDG_CONFIG_HOME/systemd/user,
+~/.config/systemd/user par défaut):
 - LinuxUserTimerUnitManager: Gestion des unités .timer utilisateur
 - LinuxUserServiceUnitManager: Gestion des unités .service utilisateur
 

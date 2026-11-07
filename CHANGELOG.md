@@ -2,6 +2,16 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(systemd): `UserUnitManager` écrit les unités utilisateur dans
+  `$XDG_CONFIG_HOME/systemd/user/` (`~/.config/systemd/user/` si la variable n'est pas
+  définie), comme systemd les lit, via `platformdirs` (T1). Avant, le chemin
+  `~/.config/systemd/user` était figé : avec `XDG_CONFIG_HOME` ailleurs, l'unité
+  était écrite hors du dossier lu par `systemctl --user`. `SYSTEMD_USER_UNIT_PATH`
+  garde son type et sa valeur ; la surcharger par une sous-classe désactive la
+  résolution XDG. Les unités déjà installées dans l'ancien dossier ne sont pas
+  déplacées. Docstrings alignées (T2, T3), tests de contrat (T4).
 ### Modifié
 
 - ci(promote): le miroir de push vers GitHub s'authentifie par clé SSH (deploy key

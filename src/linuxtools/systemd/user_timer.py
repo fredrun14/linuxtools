@@ -14,8 +14,10 @@ class LinuxUserTimerUnitManager(_TimerOperationsMixin, UserTimerUnitManager):
     Génère et installe des fichiers unit systemd pour la planification
     de tâches récurrentes ou ponctuelles dans l'espace utilisateur.
 
-    Les unités sont stockées dans ~/.config/systemd/user/ et ne
-    nécessitent pas de privilèges root.
+    Les unités sont stockées dans ``$XDG_CONFIG_HOME/systemd/user/``
+    (``~/.config/systemd/user/`` par défaut) et ne nécessitent pas de
+    privilèges root. Surcharger ``SYSTEMD_USER_UNIT_PATH`` désactive la
+    résolution XDG.
 
     Attributes:
         logger: Instance de Logger pour le logging.

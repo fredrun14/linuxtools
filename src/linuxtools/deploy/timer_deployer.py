@@ -45,8 +45,8 @@ class TimerDeployer:
 
         Le scope (`spec.scope`) détermine le chemin d'installation :
         "system" (défaut, /etc/systemd/system/, nécessite root) ou
-        "user" (~/.config/systemd/user/, systemctl --user, sans
-        élévation de privilèges).
+        "user" (`$XDG_CONFIG_HOME/systemd/user/`, `~/.config/systemd/user/`
+        par défaut, systemctl --user, sans élévation de privilèges).
 
         Args:
             spec: Spécification de l'unité (nom, ServiceConfig,

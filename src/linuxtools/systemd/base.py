@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from platformdirs import user_config_path
+
 from linuxtools.commands.remote_write import build_remote_write_command
 from linuxtools.systemd.base_config import (
     AutomountConfig,
@@ -1169,19 +1171,49 @@ class ServiceUnitManager(_ServiceUnitContract, UnitManager):
 # =============================================================================
 
 
+# Valeur par défaut de SYSTEMD_USER_UNIT_PATH, conservée telle quelle.
+_DEFAULT_USER_UNIT_PATH: str = "~/.config/systemd/user"
+
+
+def _resolve_user_unit_path(configured: str) -> str:
+    """Résout le dossier des unités systemd utilisateur.
+
+    Sans surcharge de ``SYSTEMD_USER_UNIT_PATH``, suit la spécification
+    XDG, comme systemd : ``$XDG_CONFIG_HOME/systemd/user``, ou
+    ``~/.config/systemd/user`` si la variable n'est pas définie.
+
+    Args:
+        configured: Valeur de ``SYSTEMD_USER_UNIT_PATH`` de la classe.
+
+    Returns:
+        Chemin du dossier, sous forme de chaîne.
+
+    Raises:
+        RuntimeError: Si le dossier personnel est introuvable (``HOME``
+            absent ou vide et aucun home dans passwd) ; l'erreur de
+            ``platformdirs`` remonte telle quelle.
+    """
+    if configured == _DEFAULT_USER_UNIT_PATH:
+        return str(user_config_path("systemd") / "user")
+    return os.path.expanduser(configured)
+
+
 class UserUnitManager(_BaseUnitManagerMixin):
     """Classe de base pour les gestionnaires d'unités systemd utilisateur.
 
-    Les unités utilisateur sont stockées dans ~/.config/systemd/user/
-    et ne nécessitent pas de privilèges root.
+    Les unités utilisateur sont stockées dans
+    ``$XDG_CONFIG_HOME/systemd/user/`` (``~/.config/systemd/user/`` par
+    défaut) et ne nécessitent pas de privilèges root. Surcharger
+    ``SYSTEMD_USER_UNIT_PATH`` désactive la résolution XDG.
 
     Attributes:
         logger: Instance de Logger pour le logging.
         executor: Instance de UserSystemdExecutor pour les opérations.
-        SYSTEMD_USER_UNIT_PATH: Chemin du répertoire des unités utilisateur.
+        SYSTEMD_USER_UNIT_PATH: Valeur par défaut ou surcharge ; le chemin
+            effectif est ``unit_path``.
     """
 
-    SYSTEMD_USER_UNIT_PATH: str = "~/.config/systemd/user"
+    SYSTEMD_USER_UNIT_PATH: str = _DEFAULT_USER_UNIT_PATH
 
     def __init__(
         self,
@@ -1200,13 +1232,17 @@ class UserUnitManager(_BaseUnitManagerMixin):
                 distante). Si False (défaut), écriture locale
                 TOCTOU-safe — comportement identique aux versions
                 précédentes.
+
+        Raises:
+            RuntimeError: Si le dossier personnel est introuvable
+                (``platformdirs``, voir ``_resolve_user_unit_path``).
         """
         super().__init__(logger, executor, remote_write)
-        self._unit_path = os.path.expanduser(self.SYSTEMD_USER_UNIT_PATH)
+        self._unit_path = _resolve_user_unit_path(self.SYSTEMD_USER_UNIT_PATH)
 
     @property
     def unit_path(self) -> str:
-        """Retourne le chemin absolu du répertoire des unités."""
+        """Retourne le chemin du répertoire des unités."""
         return self._unit_path
 
     def _ensure_unit_directory(self) -> bool:
