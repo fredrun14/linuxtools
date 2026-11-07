@@ -5,10 +5,10 @@
 # Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
 # `make hooks` (voir Makefile) après tout clone.
 #
-# Périmètre identique à `make lint` + `make test` (donc à la CI Forgejo) :
-# lance la suite complète plutôt que les seuls fichiers indexés, pour que
-# « ça passe en local » garantisse « ça passe en CI ». Contournement
-# volontaire : `git commit --no-verify`.
+# Périmètre : `make lint` + `make test-unit` (tests unitaires seulement) ;
+# les tests d'intégration, `pip-audit` et le build sont joués par la CI
+# Forgejo. Lance la suite unitaire complète plutôt que les seuls fichiers
+# indexés. Contournement volontaire : `git commit --no-verify`.
 
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
