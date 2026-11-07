@@ -41,7 +41,7 @@ def _validate_name(
         raise ValueError(
             f"Nom {entity} invalide (traversée interdite) : {name!r}"
         )
-    if not pattern.match(name):
+    if not pattern.fullmatch(name):
         raise ValueError(f"Nom {entity} invalide : {name!r}")
     return name
 

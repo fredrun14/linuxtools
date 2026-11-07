@@ -21,7 +21,7 @@ _SENTINELLE = "SENTINELLE-secret-journal-77c1"
 class TestOpenDeployJournal:
     """Ouverture du journal d'un déploiement."""
 
-    @pytest.mark.parametrize("label", ["../x", "a b", "a/b", "", "a%h"])
+    @pytest.mark.parametrize("label", ["../x", "a b", "a/b", "", "a%h", "x\n"])
     def test_open_deploy_journal_rejette_label_traversant(
         self, tmp_path: Path, label: str
     ) -> None:

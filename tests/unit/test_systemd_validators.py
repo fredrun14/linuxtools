@@ -92,6 +92,11 @@ class TestValidateServiceName:
         with pytest.raises(ValueError, match="traversée"):
             validate_service_name("foo/bar")
 
+    def test_validate_service_name_rejette_saut_de_ligne_final(self) -> None:
+        """SEC : un ``\\n`` final ne passe pas (fullmatch, pas match)."""
+        with pytest.raises(ValueError, match="invalide"):
+            validate_service_name("x\n")
+
     def test_rejet_point(self) -> None:
         """Vérifie le rejet de points (contrairement à unit_name)."""
         with pytest.raises(ValueError, match="invalide"):
