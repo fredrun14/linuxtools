@@ -14,7 +14,9 @@ def default_log_dir(app_name: str) -> Path:
     Le dossier n'est pas créé : ``FileLogger`` crée son dossier parent.
 
     Args:
-        app_name: Nom de l'application (kebab-case).
+        app_name: Nom simple de l'application (kebab-case), sans
+            séparateur ni valeur vide : sous root, un nom absolu
+            remplacerait ``/var/log``. Il n'est pas validé.
 
     Returns:
         Chemin du dossier de logs (non créé).
