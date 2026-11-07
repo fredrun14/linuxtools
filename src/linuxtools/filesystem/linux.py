@@ -37,6 +37,7 @@ def write_text_secure(
     mode: int = 0o644,
     *,
     encoding: str = "utf-8",
+    exclusive: bool = False,
 ) -> None:
     """Écrit un fichier texte sans suivre les symlinks.
 
@@ -49,11 +50,17 @@ def write_text_secure(
         content: Contenu texte à écrire.
         mode: Permissions POSIX (défaut 0o644).
         encoding: Encodage du fichier (défaut UTF-8).
+        exclusive: Si True, création exclusive (``O_EXCL``, sans
+            troncature) : un fichier existant n'est jamais modifié.
 
     Raises:
-        OSError: Si la cible est un symlink ou en cas d'erreur d'E/S.
+        FileExistsError: Si ``exclusive`` et que ``path`` existe déjà
+            (lien symbolique, même cassé, compris).
+        OSError: Lien symbolique (mode non exclusif) ou erreur d'E/S.
     """
-    fd = _open_secure(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, mode)
+    flags = os.O_CREAT | os.O_WRONLY
+    flags |= os.O_EXCL if exclusive else os.O_TRUNC
+    fd = _open_secure(path, flags, mode)
     try:
         os.fchmod(fd, mode)
         f = os.fdopen(fd, "w", encoding=encoding)

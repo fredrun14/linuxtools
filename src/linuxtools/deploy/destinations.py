@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol
 
 from linuxtools.commands.remote_write import build_remote_write_command
 from linuxtools.filesystem.linux import write_text_secure
@@ -29,10 +29,13 @@ class WriteOutcome:
     Attributes:
         success: True si l'écriture a réussi.
         detail: Message d'erreur préformaté si échec, vide sinon.
+        kept: True si le fichier existait déjà et a été laissé intact
+            (``if_exists="keep"``).
     """
 
     success: bool
     detail: str = ""
+    kept: bool = False
 
 
 class WriteDestination(Protocol):
@@ -48,13 +51,23 @@ class WriteDestination(Protocol):
         """Nom court de la destination (ex. `"local"`, `"distant"`)."""
         ...  # pragma: no cover
 
-    def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
+    def write(
+        self,
+        path: str | Path,
+        content: str,
+        mode: int,
+        *,
+        if_exists: Literal["replace", "keep"] = "replace",
+    ) -> WriteOutcome:
         """Écrit `content` sur `path` avec les permissions `mode`.
 
         Args:
             path: Chemin de destination.
             content: Contenu à écrire.
             mode: Permissions POSIX du fichier.
+            if_exists: ``"replace"`` (défaut) remplace le fichier ;
+                ``"keep"`` ne modifie jamais un fichier existant
+                (``WriteOutcome.kept``).
 
         Returns:
             Résultat de l'écriture (succès + détail d'erreur éventuel).
@@ -68,19 +81,35 @@ class LocalDestination:
 
     label: ClassVar[str] = "local"
 
-    def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
+    def write(
+        self,
+        path: str | Path,
+        content: str,
+        mode: int,
+        *,
+        if_exists: Literal["replace", "keep"] = "replace",
+    ) -> WriteOutcome:
         """Écrit localement via `write_text_secure`.
 
         Args:
             path: Chemin de destination.
             content: Contenu à écrire.
             mode: Permissions POSIX du fichier.
+            if_exists: ``"replace"`` (défaut) ou ``"keep"`` (création
+                exclusive : un fichier existant reste intact).
 
         Returns:
-            `WriteOutcome(True)` — les erreurs d'écriture locale
-            (ex. symlink détecté) propagent l'`OSError` de
-            `write_text_secure`, comme avant cette extraction.
+            `WriteOutcome(True)` ; `WriteOutcome(True, kept=True)` si
+            ``keep`` et que le fichier existe déjà. Les autres erreurs
+            d'écriture locale (ex. symlink détecté) propagent l'`OSError`
+            de `write_text_secure`, comme avant cette extraction.
         """
+        if if_exists == "keep":
+            try:
+                write_text_secure(path, content, mode=mode, exclusive=True)
+            except FileExistsError:
+                return WriteOutcome(True, kept=True)
+            return WriteOutcome(True)
         write_text_secure(path, content, mode=mode)
         return WriteOutcome(True)
 
@@ -96,7 +125,14 @@ class RemoteDestination:
     executor: CommandExecutor
     label: ClassVar[str] = "distant"
 
-    def write(self, path: str | Path, content: str, mode: int) -> WriteOutcome:
+    def write(
+        self,
+        path: str | Path,
+        content: str,
+        mode: int,
+        *,
+        if_exists: Literal["replace", "keep"] = "replace",
+    ) -> WriteOutcome:
         """Écrit à distance via `install -m <mode> -T /dev/stdin <dest>`.
 
         Le répertoire parent de `dest` est créé au préalable (`mkdir -p`,
@@ -112,6 +148,8 @@ class RemoteDestination:
             path: Chemin de destination sur l'hôte cible.
             content: Contenu à écrire.
             mode: Permissions POSIX du fichier.
+            if_exists: Accepté pour respecter le Protocol ; le mode
+                ``"keep"`` distant est traité par la tâche T3.
 
         Returns:
             `WriteOutcome(True)` si `mkdir -p` et `install` réussissent,

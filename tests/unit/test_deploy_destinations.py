@@ -10,6 +10,7 @@ from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.destinations import (
     LocalDestination,
     RemoteDestination,
+    WriteOutcome,
     destination_for,
 )
 from linuxtools.deploy.models import DeployTarget
@@ -62,6 +63,66 @@ class TestLocalDestination:
             destination.write(dest_path, "contenu malveillant", 0o644)
         # La cible réelle n'a pas été altérée
         assert real_target.read_text(encoding="utf-8") == "original"
+
+    def test_write_keep_local_laisse_fichier_existant_intact(
+        self, tmp_path: Path
+    ) -> None:
+        """F-07 : un fichier présent garde contenu, mode et mtime."""
+        dest_path = tmp_path / "secrets.env"
+        dest_path.write_text("SECRET=1\n", encoding="utf-8")
+        os.chmod(dest_path, 0o640)
+        os.utime(dest_path, (1_000_000, 1_000_000))
+
+        outcome = LocalDestination().write(
+            dest_path, "VIDE=\n", 0o600, if_exists="keep"
+        )
+
+        assert outcome.success is True
+        assert outcome.kept is True
+        assert dest_path.read_text(encoding="utf-8") == "SECRET=1\n"
+        stat = os.stat(dest_path)
+        assert oct(stat.st_mode)[-3:] == "640"
+        assert stat.st_mtime == 1_000_000
+
+    def test_write_keep_local_cree_fichier_absent(
+        self, tmp_path: Path
+    ) -> None:
+        """Un fichier absent est créé, kept reste False."""
+        dest_path = tmp_path / "secrets.env"
+
+        outcome = LocalDestination().write(
+            dest_path, "A=\n", 0o600, if_exists="keep"
+        )
+
+        assert outcome == WriteOutcome(True)
+        assert dest_path.read_text(encoding="utf-8") == "A=\n"
+        assert oct(os.stat(dest_path).st_mode)[-3:] == "600"
+
+    def test_write_keep_local_lien_symbolique_casse_est_conserve(
+        self, tmp_path: Path
+    ) -> None:
+        """Un lien cassé compte comme existant ; rien n'est créé."""
+        lien = tmp_path / "lien"
+        lien.symlink_to(tmp_path / "rien")
+
+        outcome = LocalDestination().write(
+            lien, "A=\n", 0o600, if_exists="keep"
+        )
+
+        assert outcome.kept is True
+        assert not (tmp_path / "rien").exists()
+
+    def test_write_replace_local_comportement_inchange(
+        self, tmp_path: Path
+    ) -> None:
+        """Non-régression : replace écrase un fichier existant."""
+        dest_path = tmp_path / "f.txt"
+        dest_path.write_text("ancien", encoding="utf-8")
+
+        outcome = LocalDestination().write(dest_path, "neuf", 0o644)
+
+        assert outcome == WriteOutcome(True)
+        assert dest_path.read_text(encoding="utf-8") == "neuf"
 
 
 class TestRemoteDestination:
