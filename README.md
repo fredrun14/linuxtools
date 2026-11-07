@@ -1347,7 +1347,7 @@ service_mgr.stop_service("myapp")
 
 #### Unités Utilisateur (sans root)
 
-Les unités utilisateur sont stockées dans `~/.config/systemd/user/` et ne nécessitent pas de privilèges root.
+Les unités utilisateur sont stockées dans `$XDG_CONFIG_HOME/systemd/user/` (`~/.config/systemd/user/` par défaut) et ne nécessitent pas de privilèges root.
 
 ##### Timers Utilisateur
 
@@ -1461,6 +1461,9 @@ ok, name = user_restorer.restore(
     Path("~/.config/systemd/user").expanduser(),
 )
 
+# Dossier des unités utilisateur : $XDG_CONFIG_HOME/systemd/user, ou
+# ~/.config/systemd/user si la variable n'est pas définie. L'exemple ci-dessous
+# suppose ce défaut ; sinon, passer manager.unit_path.
 # Sans executor injecté : fallback subprocess direct, avec flag --user si besoin
 restorer_bare = SystemdUnitRestorer(logger=logger)
 ok, name = restorer_bare.restore(
