@@ -4,6 +4,7 @@ import pytest
 
 from linuxtools.systemd.validators import (
     reject_control_chars,
+    validate_dependency_unit_name,
     validate_full_unit_name,
     validate_unit_name,
     validate_service_name,
@@ -177,3 +178,24 @@ class TestValidateFullUnitName:
         """Rejette une tentative de path traversal."""
         with pytest.raises(ValueError):
             validate_full_unit_name("../../etc/cron.service")
+
+
+class TestValidateDependencyUnitName:
+    """Tests pour validate_dependency_unit_name."""
+
+    def test_validate_dependency_unit_name_accepte_target(self) -> None:
+        """Accepte l'extension target en plus de la liste blanche."""
+        name = "network-online.target"
+        assert validate_dependency_unit_name(name) == name
+        assert validate_dependency_unit_name("a.service") == "a.service"
+
+    @pytest.mark.parametrize("name", ["backup", "a.sh", "a/b.target"])
+    def test_validate_dependency_unit_name_rejette(self, name: str) -> None:
+        """Rejette sans extension, extension inconnue, traversée."""
+        with pytest.raises(ValueError):
+            validate_dependency_unit_name(name)
+
+    def test_validate_full_unit_name_refuse_toujours_target(self) -> None:
+        """La liste globale n'est pas élargie."""
+        with pytest.raises(ValueError, match="non autorisée"):
+            validate_full_unit_name("a.target")

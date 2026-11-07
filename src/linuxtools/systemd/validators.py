@@ -13,6 +13,9 @@ _EXTENSIONS_VALIDES = frozenset(
     {"service", "timer", "mount", "automount", "socket"}
 )
 
+# Extensions admises dans ``After=`` : les précédentes + ``target``
+_EXTENSIONS_DEPENDANCE = _EXTENSIONS_VALIDES | {"target"}
+
 
 def _validate_name(
     name: str,
@@ -86,6 +89,30 @@ def validate_full_unit_name(unit_name: str) -> str:
         raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
     radical, ext = unit_name.rsplit(".", 1)
     if ext not in _EXTENSIONS_VALIDES:
+        raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
+    validate_unit_name(radical)
+    return unit_name
+
+
+def validate_dependency_unit_name(unit_name: str) -> str:
+    """Valide le nom complet d'une unité citée dans ``After=``.
+
+    Comme ``validate_full_unit_name`` mais accepte aussi l'extension
+    ``target`` (ex. ``network-online.target``).
+
+    Args:
+        unit_name: Nom complet de l'unité (ex: ``network-online.target``).
+
+    Returns:
+        Le nom validé.
+
+    Raises:
+        ValueError: Si le nom est invalide ou l'extension non autorisée.
+    """
+    if "." not in unit_name:
+        raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
+    radical, ext = unit_name.rsplit(".", 1)
+    if ext not in _EXTENSIONS_DEPENDANCE:
         raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
     validate_unit_name(radical)
     return unit_name

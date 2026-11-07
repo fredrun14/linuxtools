@@ -1,5 +1,6 @@
 """Dataclasses de configuration pour les unités systemd."""
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import ClassVar
@@ -9,7 +10,12 @@ from linuxtools.systemd.validators import (
 )
 from linuxtools.systemd.validators import (
     reject_control_chars,
+    validate_dependency_unit_name,
+    validate_unit_name,
 )
+
+# Chemin absolu sans espace, '%', '$', '\\' ni caractère de contrôle
+_MOUNT_PATH_RE = re.compile(r"^/[^\s%$\\\x00-\x1f]*$")
 
 
 def _optional_line(label: str, value: str, field_name: str) -> str | None:
@@ -329,6 +335,15 @@ class ServiceConfig(BaseSystemdConfig):
             de chaîner une notification (ex. un template
             ``notify-failure@%N.service``) sans dépendre d'un drop-in
             manuel non versionné.
+        after: Unités citées dans ``After=`` (noms complets, ``target``
+            admis) ; non rendu si vide.
+        requires_mounts_for: Chemins absolus rendus dans
+            ``RequiresMountsFor=`` ; non rendu si vide.
+        nice: Valeur de ``Nice=`` (-20 à 19) ; ``None`` = non rendu
+            (``0`` est rendu).
+        io_scheduling_class: ``IOSchedulingClass=`` ("realtime",
+            "best-effort", "idle") ; non rendu si vide.
+        syslog_identifier: ``SyslogIdentifier=`` ; non rendu si vide.
     """
 
     _VALID_TYPES: ClassVar[tuple[str, ...]] = (
@@ -348,6 +363,12 @@ class ServiceConfig(BaseSystemdConfig):
         "on-abnormal",
         "on-abort",
         "on-watchdog",
+    )
+    _VALID_IO_CLASSES: ClassVar[tuple[str, ...]] = (
+        "",
+        "realtime",
+        "best-effort",
+        "idle",
     )
     _VALID_PROTECT_SYSTEM: ClassVar[tuple[str, ...]] = (
         "",
@@ -373,6 +394,11 @@ class ServiceConfig(BaseSystemdConfig):
     private_tmp: bool = False
     read_write_paths: tuple[str, ...] = ()
     on_failure: str = ""
+    after: tuple[str, ...] = ()
+    requires_mounts_for: tuple[str, ...] = ()
+    nice: int | None = None
+    io_scheduling_class: str = ""
+    syslog_identifier: str = ""
 
     def __post_init__(self) -> None:
         """Valide que les champs requis sont présents et cohérents."""
@@ -391,6 +417,7 @@ class ServiceConfig(BaseSystemdConfig):
             )
         self._validate_environment()
         self._validate_protect_system()
+        self._validate_dependencies()
 
     def _validate_protect_system(self) -> None:
         """Valide que ``protect_system`` est une valeur systemd connue.
@@ -403,6 +430,32 @@ class ServiceConfig(BaseSystemdConfig):
                 f"protect_system invalide : {self.protect_system!r} "
                 f"(valeurs : {', '.join(self._VALID_PROTECT_SYSTEM)})"
             )
+
+    def _validate_dependencies(self) -> None:
+        """Valide nice, classe d'E/S, After, montages et identifiant syslog.
+
+        Raises:
+            ValueError: Si une valeur est hors plage ou mal formée.
+        """
+        if self.nice is not None and (
+            isinstance(self.nice, bool) or not -20 <= self.nice <= 19
+        ):
+            raise ValueError(
+                f"nice invalide : {self.nice!r} (entier de -20 à 19)"
+            )
+        if self.io_scheduling_class not in self._VALID_IO_CLASSES:
+            raise ValueError(
+                f"io_scheduling_class invalide : "
+                f"{self.io_scheduling_class!r} "
+                f"(valeurs : {', '.join(self._VALID_IO_CLASSES)})"
+            )
+        for unit in self.after:
+            validate_dependency_unit_name(unit)
+        for path in self.requires_mounts_for:
+            if not _MOUNT_PATH_RE.fullmatch(path):
+                raise ValueError(f"Chemin de montage invalide : {path!r}")
+        if self.syslog_identifier:
+            validate_unit_name(self.syslog_identifier)
 
     def _validate_environment(self) -> None:
         """Valide les variables d'environnement contre l'injection."""
@@ -429,6 +482,17 @@ class ServiceConfig(BaseSystemdConfig):
             f"Description="
             f"{reject_control_chars(self.description, 'description')}",
         ]
+        if self.after:
+            joined_after = " ".join(
+                reject_control_chars(unit, "after") for unit in self.after
+            )
+            lines.append(f"After={joined_after}")
+        if self.requires_mounts_for:
+            joined_mounts = " ".join(
+                reject_control_chars(path, "requires_mounts_for")
+                for path in self.requires_mounts_for
+            )
+            lines.append(f"RequiresMountsFor={joined_mounts}")
         on_failure_line = _optional_line(
             "OnFailure", self.on_failure, "on_failure"
         )
@@ -487,6 +551,15 @@ class ServiceConfig(BaseSystemdConfig):
                 for path in self.read_write_paths
             )
             lines.append(f"ReadWritePaths={joined}")
+        if self.nice is not None:
+            lines.append(f"Nice={self.nice}")
+        for label, value, name in (
+            ("IOSchedulingClass", self.io_scheduling_class, "io"),
+            ("SyslogIdentifier", self.syslog_identifier, "syslog"),
+        ):
+            line = _optional_line(label, value, name)
+            if line:
+                lines.append(line)
 
         lines.extend(
             [
