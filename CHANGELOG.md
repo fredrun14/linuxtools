@@ -46,7 +46,7 @@
   via `uv run` (venv du projet, comme le hook `pre-commit`) et non les outils du
   `PATH`. `test-integration` n'applique plus le seuil de couverture de 90 %
   (`--no-cov`) : il ne portait que sur un sous-ensemble des tests, donc la cible
-  échouait toujours. `install*`, `uninstall` et `build` restent inchangés.
+  échouait toujours.
 - build(make): `install` lance `uv sync --all-extras` (venv du projet en mode
   éditable, avec tous les extras : un `uv sync` partiel désinstallerait par
   exemple `webapitools` et casserait mypy), `install-dev` devient un alias de
