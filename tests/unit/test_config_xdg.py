@@ -190,10 +190,10 @@ class TestXdgAppConfig:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """xdg_config_dirs liste un dossier par entrée de la variable."""
-        a, b = tmp_path / "a", tmp_path / "b"
-        monkeypatch.setenv("XDG_CONFIG_DIRS", f"{a}{os.pathsep}{b}")
+        b, a = tmp_path / "b", tmp_path / "a"
+        monkeypatch.setenv("XDG_CONFIG_DIRS", f"{b}{os.pathsep}{a}")
 
-        assert xdg.xdg_config_dirs == [a / _APP, b / _APP]
+        assert xdg.xdg_config_dirs == [b / _APP, a / _APP]
 
     def test_xdg_config_dirs_defaut_etc_xdg(
         self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
@@ -247,7 +247,7 @@ class TestXdgAppConfig:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """L'ordre de XDG_CONFIG_DIRS est respecté."""
-        first, second = tmp_path / "a", tmp_path / "b"
+        first, second = tmp_path / "b", tmp_path / "a"
         for base in (first, second):
             (base / _APP).mkdir(parents=True)
             (base / _APP / "global.toml").write_text(
@@ -271,7 +271,9 @@ class TestXdgAppConfig:
         """Une entrée relative (ancienne platformdirs) est écartée."""
         with patch(
             "linuxtools.config.xdg.site_config_dir",
-            return_value="app:rel/app:/opt/c/app",
+            return_value=os.pathsep.join(
+                ["app", "rel/app", "/opt/c/app"]
+            ),
         ):
             assert xdg.xdg_config_dirs == [Path("/opt/c/app")]
 
@@ -336,7 +338,7 @@ class TestXdgAppConfig:
     ) -> None:
         """Un dossier répété dans la variable n'apparaît qu'une fois."""
         monkeypatch.setenv(
-            "XDG_CONFIG_DIRS", os.pathsep.join(["/a", "/b", "/a"])
+            "XDG_CONFIG_DIRS", os.pathsep.join(["/b", "/a", "/b"])
         )
 
-        assert xdg.xdg_config_dirs == [Path("/a") / _APP, Path("/b") / _APP]
+        assert xdg.xdg_config_dirs == [Path("/b") / _APP, Path("/a") / _APP]
