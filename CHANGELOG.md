@@ -29,6 +29,7 @@
   garde son type et sa valeur ; la surcharger par une sous-classe désactive la
   résolution XDG. Les unités déjà installées dans l'ancien dossier ne sont pas
   déplacées. Docstrings alignées (T2, T3), tests de contrat (T4).
+
 ### Modifié
 
 - build(deps): `platformdirs>=4.12` (au lieu de `>=4.0`), dépendance runtime et
@@ -40,6 +41,10 @@
 - ci(promote): le miroir de push vers GitHub s'authentifie par clé SSH (deploy key
   avec write access, sans expiration) au lieu d'un PAT ; diagnostics du job
   `promote` réécrits en conséquence.
+- build(make): les cibles `test`, `test-unit`, `test-integration`, `test-verbose`,
+  `test-cov` et `lint` du Makefile lancent `pytest`, `ruff`, `bandit` et `mypy`
+  via `uv run` (venv du projet, comme le hook `pre-commit`) et non les outils du
+  `PATH`. `install*`, `uninstall` et `build` restent inchangés.
 
 ## [2.9.2] - 2026-10-18
 
