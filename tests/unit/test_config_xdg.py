@@ -306,3 +306,28 @@ class TestXdgAppConfig:
         )
 
         assert xdg.xdg_config_dirs == [Path("/etc/xdg") / _APP]
+
+    def test_find_config_file_second_dossier_xdg_config_dirs_si_premier_absent(
+        self,
+        xdg: XdgAppConfig,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Un premier dossier sans fichier n'empêche pas le second."""
+        first, second = tmp_path / "a", tmp_path / "b"
+        (first / _APP).mkdir(parents=True)
+        (second / _APP).mkdir(parents=True)
+        (second / _APP / "global.toml").write_text(
+            "second", encoding="utf-8"
+        )
+        monkeypatch.setenv(
+            "XDG_CONFIG_DIRS", f"{first}{os.pathsep}{second}"
+        )
+
+        with patch.object(
+            type(xdg), "system_config_dir", new_callable=PropertyMock,
+            return_value=tmp_path / "nowhere"
+        ):
+            result = xdg.find_config_file()
+
+        assert result == second / _APP / "global.toml"
