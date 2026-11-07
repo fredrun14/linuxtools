@@ -330,3 +330,13 @@ class TestXdgAppConfig:
             result = xdg.find_config_file()
 
         assert result == second / _APP / "global.toml"
+
+    def test_xdg_config_dirs_supprime_doublons_en_gardant_l_ordre(
+        self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Un dossier répété dans la variable n'apparaît qu'une fois."""
+        monkeypatch.setenv(
+            "XDG_CONFIG_DIRS", os.pathsep.join(["/a", "/b", "/a"])
+        )
+
+        assert xdg.xdg_config_dirs == [Path("/a") / _APP, Path("/b") / _APP]

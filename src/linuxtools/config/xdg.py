@@ -67,7 +67,8 @@ class XdgAppConfig:
         Un dossier par entrée de la variable, par priorité décroissante
         (défaut XDG : ``/etc/xdg/<app_name>``). Non créés. Chemins
         absolus uniquement : les entrées vides ou relatives sont écartées,
-        quelle que soit la version de platformdirs.
+        quelle que soit la version de platformdirs. Doublons supprimés,
+        ordre conservé.
 
         Returns:
             Liste des chemins ``<dossier>/<app_name>``. Avec une ancienne
@@ -76,7 +77,7 @@ class XdgAppConfig:
         """
         raw = site_config_dir(self._app_name, multipath=True)
         paths = (Path(p) for p in raw.split(os.pathsep))
-        return [p for p in paths if p.is_absolute()]
+        return [p for p in dict.fromkeys(paths) if p.is_absolute()]
 
     def find_config_file(self, filename: str = "global.toml") -> Path | None:
         """Retourne le premier fichier de config trouvé dans la cascade.
