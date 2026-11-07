@@ -38,26 +38,26 @@ uninstall:
 
 # Tests
 test:
-	pytest tests/
+	uv run pytest tests/
 
 test-unit:
-	pytest tests/unit/ -m "not integration"
+	uv run pytest tests/unit/ -m "not integration"
 
 test-integration:
-	pytest tests/integration/ -m integration
+	uv run pytest tests/integration/ -m integration
 
 test-verbose:
-	pytest tests/ -v
+	uv run pytest tests/ -v
 
 test-cov:
-	pytest tests/ --cov=linuxtools --cov-report=term-missing
+	uv run pytest tests/ --cov=linuxtools --cov-report=term-missing
 
 # Linting
 lint:
-	ruff check src/
-	ruff format --check src/
-	bandit -ll -r src/linuxtools/
-	mypy src/linuxtools/ tests/
+	uv run ruff check src/
+	uv run ruff format --check src/
+	uv run bandit -ll -r src/linuxtools/
+	uv run mypy src/linuxtools/ tests/
 
 # Nettoyage
 clean:
