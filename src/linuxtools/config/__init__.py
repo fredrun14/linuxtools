@@ -4,7 +4,8 @@ Fournit deux familles de chargeurs de configuration : un accès générique
 par chemin pointé (ConfigManager / ConfigurationManager) et un chargement
 typé de section TOML/JSON vers dataclass (ConfigLoader / ConfigFileLoader).
 Complété par XdgAppConfig pour résoudre le répertoire de configuration
-XDG (``~/.config/<app_name>/``) d'une application.
+XDG (``~/.config/<app_name>/``) d'une application et rechercher son
+fichier de configuration dans une cascade à trois niveaux.
 
 Accès par chemin pointé:
 - ConfigManager: Interface abstraite (get, get_section par chemin pointé)
@@ -17,7 +18,10 @@ Chargement typé (fichier → dataclass):
   à une dataclass de configuration (un par type de config)
 
 Répertoire XDG:
-- XdgAppConfig: Résout ``~/.config/<app_name>/`` et initialise un fichier
+- XdgAppConfig: Résout ``~/.config/<app_name>/``, initialise un fichier
+  et cherche un fichier de config dans la cascade : répertoire
+  utilisateur, ``/etc/<app_name>/``, puis dossiers de ``XDG_CONFIG_DIRS``
+  (défaut ``/etc/xdg``)
 
 Exemple d'utilisation (accès par chemin pointé):
     from pathlib import Path

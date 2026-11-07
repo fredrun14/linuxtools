@@ -15,6 +15,13 @@ class XdgAppConfig:
     le répertoire de configuration utilisateur par défaut est
     ``~/.config/<app_name>/`` sur Linux.
 
+    La recherche d'un fichier (``find_config_file``) suit une cascade à
+    trois niveaux : le répertoire utilisateur (``$XDG_CONFIG_HOME``),
+    puis ``/etc/<app_name>/``, puis les dossiers de ``XDG_CONFIG_DIRS``
+    dans l'ordre de la variable (défaut XDG : ``/etc/xdg``). Seul le
+    répertoire utilisateur est écrit ; les deux autres niveaux sont en
+    lecture seule.
+
     Attributes:
         _app_name: Nom de l'application (slug kebab-case).
 
