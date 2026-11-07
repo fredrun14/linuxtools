@@ -43,7 +43,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 
 ## ✨ Fonctionnalités
 
-- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML)
+- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML), `default_log_dir` (dossier de logs par défaut, FHS/XDG)
 - **⚙️ Configuration flexible** — Support TOML/JSON avec fusion profonde et profils
 - **📁 Gestion de fichiers** — CRUD fichiers et sauvegardes TOCTOU-safe, copie récursive sécurisée (`copytree_secure`)
 - **🔧 Systemd complet** — Gestion services, timers et unités de montage (système et utilisateur)
@@ -464,6 +464,11 @@ logger.log_success("Opération terminée")  # délègue à log_info par défaut
 
 # Avec sortie console simultanée
 logger = FileLogger("/var/log/myapp.log", console_output=True)
+
+# Dossier de logs par défaut : /var/log/<app> sous root, sinon
+# $XDG_STATE_HOME/<app> (~/.local/state/<app>). Non créé : FileLogger le crée.
+from linuxtools.logging import default_log_dir
+logger = FileLogger(default_log_dir("myapp") / "app.log")
 
 # Logger console uniquement (pas de fichier — dry-run, tests, scripts légers)
 console = ConsoleLogger()

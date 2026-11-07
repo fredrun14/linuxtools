@@ -2,6 +2,14 @@
 
 ## [Non publié]
 
+### Ajouté
+
+- feat(logging): `default_log_dir(app_name)` (exportée par `linuxtools.logging`)
+  retourne le dossier de logs par défaut : `/var/log/<app>` sous root,
+  `$XDG_STATE_HOME/<app>` (`~/.local/state/<app>`) sinon, via `platformdirs`
+  (T1, T2). Le dossier n'est pas créé, `FileLogger` crée son dossier parent ;
+  `FileLogger` et `RotatingFileLogger` sont inchangés.
+
 ### Corrigé
 
 - fix(systemd): `UserUnitManager` écrit les unités utilisateur dans
