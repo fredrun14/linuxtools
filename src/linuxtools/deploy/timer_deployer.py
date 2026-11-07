@@ -71,12 +71,12 @@ class TimerDeployer:
         if spec.scope == "user":
             if not self._deploy_user(spec, target, executor, logger):
                 return PhaseOutcome(False)
-            return PhaseOutcome(True, (self._probe_linger(executor, logger),))
+            return PhaseOutcome(True, (self._probe_linger(executor),))
         return PhaseOutcome(
             self._deploy_system(spec, target, executor, logger)
         )
 
-    def _probe_linger(self, executor: CommandExecutor, logger: Logger) -> str:
+    def _probe_linger(self, executor: CommandExecutor) -> str:
         """Lit l'état du linger de l'utilisateur de la cible (lecture seule).
 
         Ne provoque jamais d'échec de phase et n'exécute jamais
@@ -85,7 +85,6 @@ class TimerDeployer:
 
         Args:
             executor: Exécuteur de commandes ciblant l'hôte.
-            logger: Logger déjà résolu.
 
         Returns:
             Le message de rapport sur l'état du linger.
@@ -106,7 +105,6 @@ class TimerDeployer:
                 f"hors session. À lancer : sudo loginctl enable-linger "
                 f"{user}"
             )
-            logger.log_warning(message)
             return message
         return f"Linger indéterminé pour {user}."
 

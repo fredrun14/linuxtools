@@ -354,7 +354,9 @@ class TestTimerDeployerLinger:
     """Sonde linger du scope « user » (lecture seule)."""
 
     @staticmethod
-    def _deploy_user(executor: MagicMock) -> PhaseOutcome:
+    def _deploy_user(
+        executor: MagicMock, logger: MagicMock | None = None
+    ) -> PhaseOutcome:
         """Déploie en scope user avec managers mockés en succès."""
         spec = replace(_make_spec(), scope="user")
         with (
@@ -365,7 +367,7 @@ class TestTimerDeployerLinger:
             m_service.return_value.install_service_unit_with_name.return_value = True
             m_timer.return_value.install_timer_unit.return_value = True
             m_timer.return_value.enable_timer.return_value = True
-            return TimerDeployer(MagicMock()).deploy(
+            return TimerDeployer(logger or MagicMock()).deploy(
                 spec, DeployTarget(), executor
             )
 
@@ -380,6 +382,15 @@ class TestTimerDeployerLinger:
             "Linger inactif pour fred : le timer ne tournera pas hors "
             "session. À lancer : sudo loginctl enable-linger fred",
         )
+
+    def test_deploy_user_linger_inactif_n_appelle_pas_le_logger(self) -> None:
+        """F03 : le message passe par PhaseOutcome, pas par log_warning."""
+        logger = MagicMock()
+
+        outcome = self._deploy_user(_linger_executor("fred", "no"), logger)
+
+        assert "Linger inactif pour fred" in outcome.messages[0]
+        logger.log_warning.assert_not_called()
 
     def test_deploy_user_linger_actif_message_neutre(self) -> None:
         """Linger « yes » -> message neutre."""
