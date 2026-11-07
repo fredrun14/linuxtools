@@ -66,3 +66,13 @@ def test_default_log_dir_ne_cree_pas_le_dossier(
 
     # Assert
     assert not resultat.exists()
+
+
+def test_default_log_dir_exporte_par_linuxtools_logging() -> None:
+    """``default_log_dir`` est importable depuis ``linuxtools.logging``."""
+    # Arrange / Act
+    import linuxtools.logging as logging_pkg
+
+    # Assert
+    assert "default_log_dir" in logging_pkg.__all__
+    assert logging_pkg.default_log_dir is default_log_dir

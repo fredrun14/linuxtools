@@ -15,6 +15,9 @@ Interface et implémentations:
 Utilitaires:
 - AnsiColors: Codes couleur ANSI utilisés par ConsoleLogger
 - TeeStream: Duplique un flux texte vers un fichier de log en parallèle
+- default_log_dir: Dossier de logs par défaut d'une application
+  (``/var/log/<app>`` sous root, sinon ``$XDG_STATE_HOME/<app>``) ;
+  le dossier n'est pas créé, ``FileLogger`` crée son dossier parent
 
 Journalisation d'événements de sécurité:
 - SecurityLogger: Formate un SecurityEvent en JSON, masque les clés
@@ -22,7 +25,9 @@ Journalisation d'événements de sécurité:
 - SecurityEvent, SecurityEventType: Structure et typologie d'un événement
 
 Exemple d'utilisation:
-    from linuxtools.logging import FileLogger, RotatingFileLogger
+    from linuxtools.logging import (
+        FileLogger, RotatingFileLogger, default_log_dir,
+    )
 
     logger = FileLogger("/var/log/app.log")
     logger.log_info("Démarrage")
@@ -31,6 +36,8 @@ Exemple d'utilisation:
         "/var/log/app.log", max_bytes=10_485_760, backup_count=5,
         console_output=True, colored_console=True,
     )
+
+    logger = FileLogger(default_log_dir("mon-app") / "app.log")
 
 Exemple d'utilisation (événement de sécurité):
     from linuxtools.logging import (
@@ -51,6 +58,7 @@ from linuxtools.logging.base import Logger
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.factory import build_logger
 from linuxtools.logging.file_logger import FileLogger
+from linuxtools.logging.paths import default_log_dir
 from linuxtools.logging.rotating_file_logger import RotatingFileLogger
 from linuxtools.logging.security_logger import (
     SecurityEvent,
@@ -63,6 +71,7 @@ __all__ = [
     "AnsiColors",
     "build_logger",
     "ConsoleLogger",
+    "default_log_dir",
     "FileLogger",
     "Logger",
     "RotatingFileLogger",
