@@ -265,3 +265,44 @@ class TestXdgAppConfig:
             result = xdg.find_config_file()
 
         assert result == first / _APP / "global.toml"
+
+    def test_xdg_config_dirs_ignore_entrees_relatives_ancienne_version(
+        self, xdg: XdgAppConfig
+    ) -> None:
+        """Une entrée relative (ancienne platformdirs) est écartée."""
+        with patch(
+            "linuxtools.config.xdg.site_config_dir",
+            return_value="app:rel/app:/opt/c/app",
+        ):
+            assert xdg.xdg_config_dirs == [Path("/opt/c/app")]
+
+    def test_xdg_config_dirs_ignore_entrees_vides_ancienne_version(
+        self, xdg: XdgAppConfig
+    ) -> None:
+        """Une entrée vide (ancienne platformdirs) est écartée."""
+        with patch(
+            "linuxtools.config.xdg.site_config_dir",
+            return_value=f"/opt/a/app{os.pathsep}{os.pathsep}/opt/b/app",
+        ):
+            assert xdg.xdg_config_dirs == [
+                Path("/opt/a/app"),
+                Path("/opt/b/app"),
+            ]
+
+    def test_xdg_config_dirs_variable_vide_defaut_etc_xdg(
+        self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Une variable vide retombe sur le défaut /etc/xdg."""
+        monkeypatch.setenv("XDG_CONFIG_DIRS", "")
+
+        assert xdg.xdg_config_dirs == [Path("/etc/xdg") / _APP]
+
+    def test_xdg_config_dirs_variable_relative_defaut_etc_xdg(
+        self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Une variable entièrement relative retombe sur /etc/xdg."""
+        monkeypatch.setenv(
+            "XDG_CONFIG_DIRS", f"rel/a{os.pathsep}rel/b"
+        )
+
+        assert xdg.xdg_config_dirs == [Path("/etc/xdg") / _APP]
