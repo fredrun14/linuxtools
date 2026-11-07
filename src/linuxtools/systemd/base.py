@@ -1232,13 +1232,17 @@ class UserUnitManager(_BaseUnitManagerMixin):
                 distante). Si False (défaut), écriture locale
                 TOCTOU-safe — comportement identique aux versions
                 précédentes.
+
+        Raises:
+            RuntimeError: Si le dossier personnel est introuvable
+                (``platformdirs``, voir ``_resolve_user_unit_path``).
         """
         super().__init__(logger, executor, remote_write)
         self._unit_path = _resolve_user_unit_path(self.SYSTEMD_USER_UNIT_PATH)
 
     @property
     def unit_path(self) -> str:
-        """Retourne le chemin absolu du répertoire des unités."""
+        """Retourne le chemin du répertoire des unités."""
         return self._unit_path
 
     def _ensure_unit_directory(self) -> bool:
