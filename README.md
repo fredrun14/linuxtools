@@ -882,7 +882,9 @@ if not xdg.find_config_file():
     cfg_init = ConfigurationManager(default_config=DEFAULT_CONFIG)
     cfg_init.create_default_config(xdg.config_dir / "global.toml")
 
-# Cascade XDG : ~/.config/mon-appli/global.toml → /etc/mon-appli/global.toml
+# find_config_file() suit la cascade : ~/.config/mon-appli/global.toml
+# → /etc/mon-appli/global.toml → dossiers de XDG_CONFIG_DIRS
+# (défaut /etc/xdg/mon-appli/global.toml)
 cfg = ConfigurationManager(
     default_config=DEFAULT_CONFIG,
     search_paths=[
@@ -892,6 +894,10 @@ cfg = ConfigurationManager(
 )
 level = cfg.get("logging.level", "INFO")
 ```
+
+`xdg.xdg_config_dirs` retourne les dossiers de `XDG_CONFIG_DIRS` (chemins
+absolus, dans l'ordre de la variable, sans doublon) ; ils sont en lecture
+seule : seul `config_dir` reçoit des fichiers.
 
 ### Documentation API
 

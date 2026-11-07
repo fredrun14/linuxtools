@@ -4,6 +4,15 @@
 
 ### Ajouté
 
+- feat(config): `XdgAppConfig.find_config_file` cherche aussi dans les dossiers
+  de `XDG_CONFIG_DIRS` (défaut XDG `/etc/xdg/<app>`), en troisième niveau :
+  `$XDG_CONFIG_HOME/<app>` → `/etc/<app>` → `XDG_CONFIG_DIRS` (T1, T2).
+  Nouvelle propriété `xdg_config_dirs` (`list[Path]`) : chemins absolus
+  seulement (entrées vides ou relatives écartées, quelle que soit la version de
+  `platformdirs`, T3), doublons supprimés en gardant l'ordre (T6). `/etc/<app>`
+  reste lu avant ce niveau : les fichiers posés par `linuxtools.deploy` sont
+  toujours trouvés. Un fichier présent seulement dans `/etc/xdg/<app>/`, jusque-là
+  ignoré, est maintenant retourné. Tests de priorité et d'ordre (T4, T7).
 - feat(logging): `default_log_dir(app_name)` (exportée par `linuxtools.logging`)
   retourne le dossier de logs par défaut : `/var/log/<app>` sous root,
   `$XDG_STATE_HOME/<app>` (`~/.local/state/<app>`) sinon, via `platformdirs`
@@ -22,6 +31,12 @@
   déplacées. Docstrings alignées (T2, T3), tests de contrat (T4).
 ### Modifié
 
+- build(deps): `platformdirs>=4.12` (au lieu de `>=4.0`), dépendance runtime et
+  extra `dev`. `platformdirs` écarte les entrées relatives de `XDG_CONFIG_DIRS`,
+  comme le veut la spécification XDG, depuis la 4.11.8 ; le plancher 4.12 couvre
+  ce comportement et le filtre de `xdg_config_dirs` reste en défense en profondeur
+  (T8, T9). Les projets qui consomment le socle doivent résoudre `platformdirs`
+  en 4.12 ou plus.
 - ci(promote): le miroir de push vers GitHub s'authentifie par clé SSH (deploy key
   avec write access, sans expiration) au lieu d'un PAT ; diagnostics du job
   `promote` réécrits en conséquence.
