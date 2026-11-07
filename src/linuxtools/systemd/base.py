@@ -1186,7 +1186,12 @@ def _resolve_user_unit_path(configured: str) -> str:
         configured: Valeur de ``SYSTEMD_USER_UNIT_PATH`` de la classe.
 
     Returns:
-        Chemin absolu du dossier, sous forme de chaîne.
+        Chemin du dossier, sous forme de chaîne.
+
+    Raises:
+        RuntimeError: Si le dossier personnel est introuvable (``HOME``
+            absent ou vide et aucun home dans passwd) ; l'erreur de
+            ``platformdirs`` remonte telle quelle.
     """
     if configured == _DEFAULT_USER_UNIT_PATH:
         return str(user_config_path("systemd") / "user")
@@ -1204,7 +1209,8 @@ class UserUnitManager(_BaseUnitManagerMixin):
     Attributes:
         logger: Instance de Logger pour le logging.
         executor: Instance de UserSystemdExecutor pour les opérations.
-        SYSTEMD_USER_UNIT_PATH: Chemin du répertoire des unités utilisateur.
+        SYSTEMD_USER_UNIT_PATH: Valeur par défaut ou surcharge ; le chemin
+            effectif est ``unit_path``.
     """
 
     SYSTEMD_USER_UNIT_PATH: str = _DEFAULT_USER_UNIT_PATH

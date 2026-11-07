@@ -530,7 +530,8 @@ class UserSystemdExecutor(SystemdExecutor):
     status).
 
     Les unités utilisateur ne nécessitent pas de privilèges root et
-    sont stockées dans ~/.config/systemd/user/.
+    sont stockées dans `$XDG_CONFIG_HOME/systemd/user/`
+    (`~/.config/systemd/user/` par défaut).
 
     Attributes:
         logger: Instance de Logger pour le logging.
