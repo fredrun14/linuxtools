@@ -32,10 +32,11 @@
 ### Modifié
 
 - build(deps): `platformdirs>=4.12` (au lieu de `>=4.0`), dépendance runtime et
-  extra `dev`. Dès 4.12, `XDG_CONFIG_DIRS` n'est lu que pour ses entrées absolues,
-  comme le veut la spécification XDG ; le filtre de `xdg_config_dirs` reste en
-  défense en profondeur (T8). Les projets qui consomment le socle doivent résoudre
-  `platformdirs` en 4.12 ou plus.
+  extra `dev`. `platformdirs` écarte les entrées relatives de `XDG_CONFIG_DIRS`,
+  comme le veut la spécification XDG, depuis la 4.11.8 ; le plancher 4.12 couvre
+  ce comportement et le filtre de `xdg_config_dirs` reste en défense en profondeur
+  (T8, T9). Les projets qui consomment le socle doivent résoudre `platformdirs`
+  en 4.12 ou plus.
 - ci(promote): le miroir de push vers GitHub s'authentifie par clé SSH (deploy key
   avec write access, sans expiration) au lieu d'un PAT ; diagnostics du job
   `promote` réécrits en conséquence.
