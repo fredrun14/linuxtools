@@ -437,8 +437,12 @@ class ServiceConfig(BaseSystemdConfig):
         Raises:
             ValueError: Si une valeur est hors plage ou mal formée.
         """
-        if self.nice is not None and (
-            isinstance(self.nice, bool) or not -20 <= self.nice <= 19
+        # Vu comme ``object`` : le typage ne protège pas à l'exécution.
+        nice: object = self.nice
+        if nice is not None and (
+            not isinstance(nice, int)
+            or isinstance(nice, bool)
+            or not -20 <= nice <= 19
         ):
             raise ValueError(
                 f"nice invalide : {self.nice!r} (entier de -20 à 19)"

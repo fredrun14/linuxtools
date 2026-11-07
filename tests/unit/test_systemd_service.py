@@ -1132,7 +1132,7 @@ class TestServiceConfigHardening:
 class TestServiceConfigDependances:
     """Tests des champs after, requires_mounts_for, nice, io, syslog."""
 
-    @pytest.mark.parametrize("nice", [20, -21, True])
+    @pytest.mark.parametrize("nice", [20, -21, True, 1.5, "5"])
     def test_service_config_rejette_nice_hors_plage(self, nice: Any) -> None:
         """Refuse un Nice hors de [-20, 19] ou booléen."""
         with pytest.raises(ValueError, match="nice"):
