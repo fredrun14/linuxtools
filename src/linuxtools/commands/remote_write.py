@@ -43,6 +43,21 @@ def build_remote_exists_command(dest: str) -> list[str]:
     return ["test", "-e", dest, "-o", "-L", dest]
 
 
+def build_remote_is_dir_command(dest: str) -> list[str]:
+    """Construit ``test -d <dest> -a ! -L <dest>``.
+
+    Sonde « dossier réel » : un lien symbolique vers un dossier n'en est
+    pas un (il reste traité comme un fichier présent). Code 0 = dossier.
+
+    Args:
+        dest: Chemin à sonder sur l'hôte distant.
+
+    Returns:
+        La commande sous forme de liste.
+    """
+    return ["test", "-d", dest, "-a", "!", "-L", dest]
+
+
 def build_remote_link_command(tmp: str, dest: str) -> list[str]:
     """Construit ``ln -T -- <tmp> <dest>``.
 

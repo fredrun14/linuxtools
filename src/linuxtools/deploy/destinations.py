@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, Protocol
 
 from linuxtools.commands.remote_write import (
     build_remote_exists_command,
+    build_remote_is_dir_command,
     build_remote_link_command,
     build_remote_write_command,
 )
@@ -193,11 +194,11 @@ class RemoteDestination:
     ) -> WriteOutcome:
         """Crée `dest` seulement s'il n'existe pas (sonde, tmp, ``ln``).
 
-        Étapes : sonde d'existence (code 0 = présent -> ``kept``, 1 =
-        absent, autre = échec fermé), ``mkdir -p`` du parent, écriture
-        d'un temporaire (contenu par stdin), publication par ``ln -T``
-        (échoue si `dest` est apparu entre-temps), puis ``rm -f`` du
-        temporaire dans tous les cas.
+        Étapes : sonde d'existence (code 0 = présent -> ``kept``, sauf
+        dossier = échec explicite ; 1 = absent, autre = échec fermé),
+        ``mkdir -p`` du parent, écriture d'un temporaire (contenu par
+        stdin), publication par ``ln -T`` (échoue si `dest` est apparu
+        entre-temps), puis ``rm -f`` du temporaire dans tous les cas.
 
         Args:
             dest: Chemin de destination sur l'hôte distant.
@@ -210,6 +211,11 @@ class RemoteDestination:
         """
         probe = self.executor.run(build_remote_exists_command(dest))
         if probe.return_code == 0:
+            if self.executor.run(build_remote_is_dir_command(dest)).success:
+                return WriteOutcome(
+                    False,
+                    f"{dest} est un dossier : fichier de secrets attendu",
+                )
             return WriteOutcome(True, kept=True)
         if probe.return_code != 1:
             return WriteOutcome(

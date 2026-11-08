@@ -12,6 +12,7 @@ import pytest
 
 from linuxtools.commands.remote_write import (
     build_remote_exists_command,
+    build_remote_is_dir_command,
     build_remote_link_command,
     build_remote_write_command,
 )
@@ -107,4 +108,17 @@ def test_build_remote_link_command_utilise_ln_t() -> None:
         "--",
         "/etc/a.env.x.tmp",
         "/etc/a.env",
+    ]
+
+
+def test_build_remote_is_dir_command_exclut_les_liens_symboliques() -> None:
+    """Dossier réel seulement : ``test -d <dest> -a ! -L <dest>``."""
+    assert build_remote_is_dir_command("/etc/a") == [
+        "test",
+        "-d",
+        "/etc/a",
+        "-a",
+        "!",
+        "-L",
+        "/etc/a",
     ]

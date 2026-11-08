@@ -263,7 +263,9 @@ def _scripted_executor(
 ) -> MagicMock:
     """Exécuteur dont le code de retour dépend de la commande (argv[0])."""
     executor = MagicMock(spec=CommandExecutor)
-    executor.run.side_effect = lambda cmd, **_kw: _rc(codes.get(cmd[0], 0))
+    executor.run.side_effect = lambda cmd, **_kw: _rc(
+        codes.get(" ".join(cmd[:2]), codes.get(cmd[0], 0))
+    )
     return executor
 
 
@@ -279,14 +281,30 @@ class TestRemoteDestinationKeep:
         self,
     ) -> None:
         """F-07 : sonde code 0 -> kept, aucune autre commande."""
-        executor = _scripted_executor({"test": 0})
+        executor = _scripted_executor({"test": 0, "test -d": 1})
 
         outcome = RemoteDestination(executor).write(
             "/etc/a.env", "A=\n", 0o600, if_exists="keep"
         )
 
         assert outcome == WriteOutcome(True, kept=True)
-        assert _argv0(executor) == ["test"]
+        assert _argv0(executor) == ["test", "test"]
+
+    def test_write_keep_distant_dossier_existant_echoue_explicitement(
+        self,
+    ) -> None:
+        """F08 : un dossier n'est pas « déjà présent » -> échec explicite."""
+        executor = _scripted_executor({"test": 0, "test -d": 0})
+
+        outcome = RemoteDestination(executor).write(
+            "/etc/a.env", "A=\n", 0o600, if_exists="keep"
+        )
+
+        assert outcome.success is False
+        assert outcome.kept is False
+        assert "dossier" in outcome.detail
+        assert "/etc/a.env" in outcome.detail
+        assert _argv0(executor) == ["test", "test"]
 
     @pytest.mark.parametrize("code", [2, 127, 255])
     def test_write_keep_distant_sonde_code_2_echoue_sans_ecriture(
@@ -400,7 +418,7 @@ class TestRemoteDestinationKeep:
         self,
     ) -> None:
         """Lien planté : la sonde -L répond 0 -> kept, rien n'est suivi."""
-        executor = _scripted_executor({"test": 0})
+        executor = _scripted_executor({"test": 0, "test -d": 1})
 
         outcome = RemoteDestination(executor).write(
             "/etc/lien", "A=\n", 0o600, if_exists="keep"
@@ -408,7 +426,7 @@ class TestRemoteDestinationKeep:
 
         assert outcome.kept is True
         assert "-L" in executor.run.call_args_list[0].args[0]
-        assert _argv0(executor) == ["test"]
+        assert _argv0(executor) == ["test", "test"]
 
     def test_write_keep_distant_ne_met_jamais_le_contenu_en_argv(
         self,
