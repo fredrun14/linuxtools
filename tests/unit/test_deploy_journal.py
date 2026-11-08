@@ -5,11 +5,14 @@ import re
 import stat
 import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.deploy import journal as module_journal
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.journal import DeployJournal, open_deploy_journal
 from linuxtools.deploy.models import (
@@ -23,6 +26,7 @@ from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.transport import Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.logging import retention
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.file_logger import FileLogger
 
@@ -156,9 +160,18 @@ class TestOpenDeployJournal:
         assert recent.exists()
 
     def test_open_deploy_journal_purge_garde_le_nouveau_journal(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """F-04 : le journal créé n'est jamais purgé, même à 1 jour."""
+        """F-04 : le journal créé reste même s'il paraît ancien."""
+        vrai = time.time()
+        # L'horloge de la purge avance de 2 j : le nouveau journal
+        # (retention_days=1) paraît ancien et ne survit que grâce à keep
+        monkeypatch.setattr(
+            retention,
+            "time",
+            SimpleNamespace(time=lambda: vrai + 2 * 86_400),
+        )
+
         journal = open_deploy_journal(
             "bpm",
             "nas",
@@ -169,6 +182,34 @@ class TestOpenDeployJournal:
 
         assert journal.path is not None
         assert journal.path.exists()
+
+    def test_open_deploy_journal_passe_le_journal_en_keep(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """F-04 : la purge reçoit le nouveau journal en keep, motif deploy_*."""
+        appels: list[tuple[Path, str, Path | None]] = []
+        vraie_purge = retention.purge_old_logs
+
+        def espion(
+            log_dir: Path,
+            pattern: str,
+            *,
+            keep: Path | None = None,
+            **kwargs: Any,
+        ) -> list[Path]:
+            appels.append((log_dir, pattern, keep))
+            return vraie_purge(log_dir, pattern, keep=keep, **kwargs)
+
+        monkeypatch.setattr(module_journal, "purge_old_logs", espion)
+
+        journal = open_deploy_journal(
+            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
+        )
+
+        assert journal.path is not None
+        assert appels == [
+            (tmp_path / "logs" / "deploy", "deploy_*.log", journal.path)
+        ]
 
     def test_open_deploy_journal_retention_none_ne_purge_pas(
         self, tmp_path: Path
