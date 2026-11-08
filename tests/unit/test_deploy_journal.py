@@ -139,14 +139,14 @@ class TestOpenDeployJournal:
     def test_open_deploy_journal_nom_horodate_et_label(
         self, tmp_path: Path
     ) -> None:
-        """Nommage : deploy_<label>_<AAAAMMJJ_HHMMSS>.log."""
+        """Nommage : deploy_<label>_<AAAAMMJJ_HHMMSS>Z.log (Z = UTC)."""
         journal = open_deploy_journal(
             "bpm", "nas-01", dry_run=False, log_dir=tmp_path
         )
 
         assert journal.path is not None
         assert re.fullmatch(
-            r"deploy_nas-01_\d{8}_\d{6}\.log", journal.path.name
+            r"deploy_nas-01_\d{8}_\d{6}Z\.log", journal.path.name
         )
 
     def test_open_deploy_journal_log_dir_par_defaut(

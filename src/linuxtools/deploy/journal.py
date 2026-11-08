@@ -58,9 +58,10 @@ def open_deploy_journal(
 ) -> DeployJournal:
     """Ouvre le journal d'un déploiement (console + fichier).
 
-    Le fichier est ``<log_dir>/deploy/deploy_<label>_<AAAAMMJJ_HHMMSS>.log``
-    (dossier en 0700, fichier en clair 0600 ouvert sans suivre les liens
-    symboliques). En dry-run, rien n'est créé sur disque.
+    Le fichier est ``<log_dir>/deploy/deploy_<label>_<AAAAMMJJ_HHMMSS>Z.log``
+    (horodatage en UTC, d'où le suffixe ``Z`` ; dossier en 0700, fichier
+    en clair 0600 ouvert sans suivre les liens symboliques). En dry-run,
+    rien n'est créé sur disque.
 
     Args:
         app_name: Nom de l'application (kebab-case), pour le dossier par
@@ -91,7 +92,7 @@ def open_deploy_journal(
     if existed:
         os.chmod(base, 0o700)
 
-    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%SZ")
     path = base / f"deploy_{label}_{stamp}.log"
     logger = FileLogger(path, console_output=True, colored_console=True)
     return DeployJournal(logger, path)
