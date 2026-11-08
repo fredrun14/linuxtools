@@ -8,14 +8,36 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linuxtools.commands.base import CommandExecutor
+from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.journal import DeployJournal, open_deploy_journal
-from linuxtools.deploy.models import DeployTarget, SecretsSpec
+from linuxtools.deploy.models import (
+    CheckResult,
+    DeployConfig,
+    DeployTarget,
+    SecretsSpec,
+    VerificationSpec,
+)
 from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
+from linuxtools.deploy.transport import Transport
+from linuxtools.deploy.venv_installer import VenvInstaller
+from linuxtools.deploy.verifier import InstallVerifier
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.file_logger import FileLogger
 
 _SENTINELLE = "SENTINELLE-secret-journal-77c1"
+
+
+def _ok() -> CommandResult:
+    """Résultat de commande en succès."""
+    return CommandResult(
+        command=(),
+        return_code=0,
+        stdout="",
+        stderr="",
+        success=True,
+        duration=0.01,
+    )
 
 
 class TestOpenDeployJournal:
@@ -144,32 +166,74 @@ class TestOpenDeployJournal:
     def test_journal_ne_contient_aucune_valeur_sentinelle(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A-13 : un déploiement simulé ne laisse aucun secret du poste."""
+        """A-13 : un déploiement via Deployer ne journalise aucun secret.
+
+        La sentinelle est dans l'environnement du poste ; le journal doit
+        contenir une ligne attendue (le test ne passe pas à vide) et pas
+        la sentinelle.
+        """
         monkeypatch.setenv("GOTIFY_TOKEN", _SENTINELLE)
         journal = open_deploy_journal(
             "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
         )
-        dest = tmp_path / "secrets.env"
-        spec = SecretsSpec(
-            keys=(("bpm", "GOTIFY_TOKEN"),),
-            dest_path=dest,
-            values_from="target",
+        transport = MagicMock(spec=Transport)
+        transport.transfer.return_value = _ok()
+        installer = MagicMock(spec=VenvInstaller)
+        installer.backup_venv.return_value = None
+        installer.install.return_value = _ok()
+        verifier = MagicMock(spec=InstallVerifier)
+        verifier.verify.return_value = [CheckResult(label="import", ok=True)]
+        # Exécuteur de la cible distante : la sonde répond « ambigu » (2)
+        sonde = MagicMock(spec=CommandExecutor)
+        sonde.run.return_value = CommandResult(
+            command=(),
+            return_code=2,
+            stdout="",
+            stderr="",
+            success=False,
+            duration=0.01,
         )
 
-        outcome = SecretsProvisioner(None, journal.logger).provision(
-            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
+        def deployer_pour(executor: MagicMock) -> Deployer:
+            return Deployer(
+                transport,
+                installer,
+                verifier,
+                logger=journal.logger,
+                secrets_provisioner=SecretsProvisioner(None, journal.logger),
+                target_executor=executor,
+            )
+
+        def config(dest: Path, target: DeployTarget) -> DeployConfig:
+            return DeployConfig(
+                source_dir=Path(__file__).parent,
+                venv_path=Path("/opt/app/venv"),
+                remote_source_dir=Path("/opt/app/src"),
+                target=target,
+                verification=VerificationSpec(imports=("app",)),
+                cli_bin="app-cli",
+                secrets=SecretsSpec(
+                    keys=(("bpm", "GOTIFY_TOKEN"),),
+                    dest_path=dest,
+                    values_from="target",
+                ),
+            )
+
+        ok = deployer_pour(MagicMock(spec=CommandExecutor)).deploy(
+            config(tmp_path / "secrets.env", DeployTarget())
         )
-        # Chemin d'erreur : fichier de secrets illisible côté écriture
-        SecretsProvisioner(None, journal.logger).provision(
-            SecretsSpec(
-                keys=(("bpm", "GOTIFY_TOKEN"),),
-                dest_path=tmp_path / "absent" / "s.env",
-                values_from="target",
-            ),
-            DeployTarget(host="srv"),
-            MagicMock(spec=CommandExecutor),
+        # Chemin d'erreur : sonde distante ambiguë -> ligne d'erreur loguée
+        ko = deployer_pour(sonde).deploy(
+            config(Path("/etc/app/s.env"), DeployTarget(host="srv"))
         )
 
-        assert outcome.success is True
+        assert ok.success is True
+        assert ko.success is False
         assert journal.path is not None
-        assert _SENTINELLE not in journal.path.read_text(encoding="utf-8")
+        contenu = journal.path.read_text(encoding="utf-8")
+        assert "ERROR" in contenu
+        assert "Sonde d'existence ambiguë" in contenu
+        assert _SENTINELLE not in contenu
+        assert _SENTINELLE not in (tmp_path / "secrets.env").read_text(
+            encoding="utf-8"
+        )
