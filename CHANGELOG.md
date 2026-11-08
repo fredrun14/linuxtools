@@ -2,6 +2,27 @@
 
 ## [Non publié]
 
+### Ajouté
+
+- feat(logging): `purge_old_logs(log_dir, pattern, *, max_age_days=90,
+  keep=None, dry_run=False)` (exportée par `linuxtools.logging`, avec
+  `DEFAULT_RETENTION_DAYS`) supprime les fichiers de logs de plus de
+  `max_age_days` jours dans un dossier (T1, T2). Seuls les fichiers réguliers
+  dont le nom correspond au motif (`fnmatch`, sans séparateur de chemin) sont
+  visés : liens symboliques, sous-dossiers et fichiers hors motif sont
+  conservés, `keep` (suivi si lien symbolique) n'est jamais supprimé. Parcours
+  par descripteur de dossier (`O_NOFOLLOW`, `dir_fd`), identique de Python 3.11
+  à 3.14 ; best-effort, aucune `OSError` propagée ; retourne les fichiers
+  supprimés (T4, F01 F02 F03 F05 F07 F10).
+
+### Modifié
+
+- feat(deploy): `open_deploy_journal` reçoit `retention_days` (défaut 90) et
+  supprime à l'ouverture les `deploy_*.log` plus anciens de son dossier
+  `deploy/`, sauf le nouveau journal ; `retention_days=None` désactive la
+  purge, aucune purge en dry-run. **Changement de comportement** : des
+  journaux de plus de 90 jours disparaissent sans action de l'appelant (T3).
+
 ## [2.10.0] - 2026-11-08
 
 ### Ajouté

@@ -3,12 +3,16 @@
 import os
 import re
 import stat
+import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.deploy import journal as module_journal
 from linuxtools.deploy.deployer import Deployer
 from linuxtools.deploy.journal import DeployJournal, open_deploy_journal
 from linuxtools.deploy.models import (
@@ -22,6 +26,7 @@ from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 from linuxtools.deploy.transport import Transport
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.deploy.verifier import InstallVerifier
+from linuxtools.logging import retention
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.file_logger import FileLogger
 
@@ -123,6 +128,182 @@ class TestOpenDeployJournal:
             open_deploy_journal("bpm", "nas", dry_run=False, log_dir=logs)
 
         assert list(ailleurs.iterdir()) == []
+
+    @staticmethod
+    def _vieux_fichier(chemin: Path, jours: int) -> Path:
+        """Crée un fichier dont la date de modification est simulée."""
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        chemin.write_text("ancien", encoding="utf-8")
+        t = time.time() - jours * 86_400
+        os.utime(chemin, (t, t))
+        return chemin
+
+    def test_open_deploy_journal_purge_anciens_journaux_par_defaut(
+        self, tmp_path: Path
+    ) -> None:
+        """A-04 : journal de 91 j supprimé, autre fichier et récent gardés."""
+        base = tmp_path / "logs" / "deploy"
+        vieux = self._vieux_fichier(
+            base / "deploy_nas_20200101_000000Z.log", 91
+        )
+        autre = self._vieux_fichier(base / "notes.txt", 400)
+        recent = self._vieux_fichier(
+            base / "deploy_nas_20260101_000000Z.log", 5
+        )
+
+        open_deploy_journal(
+            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
+        )
+
+        assert not vieux.exists()
+        assert autre.exists()
+        assert recent.exists()
+
+    def test_open_deploy_journal_purge_garde_le_nouveau_journal(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """F-04 : le journal créé reste même s'il paraît ancien."""
+        vrai = time.time()
+        # L'horloge de la purge avance de 2 j : le nouveau journal
+        # (retention_days=1) paraît ancien et ne survit que grâce à keep
+        monkeypatch.setattr(
+            retention,
+            "time",
+            SimpleNamespace(time=lambda: vrai + 2 * 86_400),
+        )
+
+        journal = open_deploy_journal(
+            "bpm",
+            "nas",
+            dry_run=False,
+            log_dir=tmp_path / "logs",
+            retention_days=1,
+        )
+
+        assert journal.path is not None
+        assert journal.path.exists()
+
+    def test_open_deploy_journal_passe_le_journal_en_keep(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """F-04 : la purge reçoit le nouveau journal en keep, motif deploy_*."""
+        appels: list[tuple[Path, str, Path | None]] = []
+        vraie_purge = retention.purge_old_logs
+
+        def espion(
+            log_dir: Path,
+            pattern: str,
+            *,
+            keep: Path | None = None,
+            **kwargs: Any,
+        ) -> list[Path]:
+            appels.append((log_dir, pattern, keep))
+            return vraie_purge(log_dir, pattern, keep=keep, **kwargs)
+
+        monkeypatch.setattr(module_journal, "purge_old_logs", espion)
+
+        journal = open_deploy_journal(
+            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
+        )
+
+        assert journal.path is not None
+        assert appels == [
+            (tmp_path / "logs" / "deploy", "deploy_*.log", journal.path)
+        ]
+
+    def test_open_deploy_journal_retention_none_ne_purge_pas(
+        self, tmp_path: Path
+    ) -> None:
+        """A-06 : retention_days=None désactive la purge."""
+        base = tmp_path / "logs" / "deploy"
+        vieux = self._vieux_fichier(
+            base / "deploy_nas_20200101_000000Z.log", 400
+        )
+
+        open_deploy_journal(
+            "bpm",
+            "nas",
+            dry_run=False,
+            log_dir=tmp_path / "logs",
+            retention_days=None,
+        )
+
+        assert vieux.exists()
+
+    def test_open_deploy_journal_dry_run_ne_purge_pas(
+        self, tmp_path: Path
+    ) -> None:
+        """A-07 : en dry-run, un vieux journal présent reste en place."""
+        base = tmp_path / "logs" / "deploy"
+        vieux = self._vieux_fichier(
+            base / "deploy_nas_20200101_000000Z.log", 400
+        )
+
+        open_deploy_journal(
+            "bpm", "nas", dry_run=True, log_dir=tmp_path / "logs"
+        )
+
+        assert vieux.exists()
+
+    def test_open_deploy_journal_ne_leve_pas_si_purge_echoue(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A-05 : une suppression refusée n'empêche pas d'ouvrir le journal."""
+        base = tmp_path / "logs" / "deploy"
+        vieux = self._vieux_fichier(
+            base / "deploy_nas_20200101_000000Z.log", 400
+        )
+
+        appels: list[object] = []
+
+        def refuser(*args: object, **kwargs: object) -> None:
+            appels.append(args)
+            raise PermissionError("refusé")
+
+        monkeypatch.setattr(os, "unlink", refuser)
+
+        journal = open_deploy_journal(
+            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
+        )
+
+        assert journal.path is not None
+        assert len(appels) >= 1  # la purge a bien été tentée
+        assert vieux.exists()
+        contenu = journal.path.read_text(encoding="utf-8")
+        assert "Rétention :" not in contenu
+
+    def test_open_deploy_journal_signale_les_fichiers_supprimes(
+        self, tmp_path: Path
+    ) -> None:
+        """F-07 : le journal note le nombre purgé, sans nom de fichier."""
+        base = tmp_path / "logs" / "deploy"
+        self._vieux_fichier(
+            base / "deploy_secret-nom_20200101_000000Z.log", 400
+        )
+
+        journal = open_deploy_journal(
+            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
+        )
+
+        assert journal.path is not None
+        contenu = journal.path.read_text(encoding="utf-8")
+        assert "Rétention : 1 ancien(s) journal(aux) supprimé(s)" in contenu
+        assert "secret-nom" not in contenu
+
+    def test_open_deploy_journal_rejette_retention_invalide(
+        self, tmp_path: Path
+    ) -> None:
+        """retention_days=0 -> ValueError, aucun dossier créé."""
+        with pytest.raises(ValueError):
+            open_deploy_journal(
+                "bpm",
+                "nas",
+                dry_run=False,
+                log_dir=tmp_path / "logs",
+                retention_days=0,
+            )
+
+        assert not (tmp_path / "logs").exists()
 
     def test_open_deploy_journal_dry_run_ne_cree_aucun_fichier(
         self, tmp_path: Path

@@ -43,7 +43,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 
 ## ✨ Fonctionnalités
 
-- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML), `default_log_dir` (dossier de logs par défaut, FHS/XDG)
+- **📝 Logging robuste** — `FileLogger` (fichier + console, UTF-8), `RotatingFileLogger` (rotation par taille, TOCTOU-safe), `ConsoleLogger` (stdout/stderr sans fichier), `SecurityLogger` (JSON structuré pour audit trail), `build_logger` (factory pilotée par config TOML), `default_log_dir` (dossier de logs par défaut, FHS/XDG), `purge_old_logs` (rétention par âge des fichiers de logs)
 - **⚙️ Configuration flexible** — Support TOML/JSON avec fusion profonde et profils
 - **📁 Gestion de fichiers** — CRUD fichiers et sauvegardes TOCTOU-safe, copie récursive sécurisée (`copytree_secure`)
 - **🔧 Systemd complet** — Gestion services, timers et unités de montage (système et utilisateur)
@@ -267,6 +267,7 @@ linuxtools/
 │   │   ├── console_logger.py        # ConsoleLogger (stdout/stderr, sans fichier)
 │   │   ├── file_logger.py           # FileLogger (TOCTOU-safe, O_NOFOLLOW/0o600)
 │   │   ├── rotating_file_logger.py  # RotatingFileLogger (rotation par taille)
+│   │   ├── retention.py             # purge_old_logs() — rétention par âge
 │   │   ├── factory.py               # build_logger() — factory pilotée par config
 │   │   ├── security_logger.py       # SecurityLogger, SecurityEvent, SecurityEventType
 │   │   └── tee_stream.py            # TeeStream (duplication flux, pattern tee Unix)
@@ -471,6 +472,16 @@ logger = FileLogger("/var/log/myapp.log", console_output=True)
 from linuxtools.logging import default_log_dir
 logger = FileLogger(default_log_dir("myapp") / "app.log")
 
+# Rétention : un fichier de log par exécution s'accumule sans limite.
+# purge_old_logs supprime les fichiers réguliers du dossier qui correspondent
+# au motif (nom seul, sans séparateur) et ont plus de 90 jours (mtime). Les
+# liens symboliques, sous-dossiers et fichiers hors motif sont conservés ;
+# `keep` protège le log du run. Best-effort : aucune OSError n'est propagée.
+from linuxtools.logging import purge_old_logs
+log_path = default_log_dir("myapp") / "run_2026.log"
+removed = purge_old_logs(log_path.parent, "run_*.log", keep=log_path)
+# max_age_days=30 pour changer la durée, dry_run=True pour lister sans supprimer
+
 # Logger console uniquement (pas de fichier — dry-run, tests, scripts légers)
 console = ConsoleLogger()
 console.log_info("Démarrage...")      # → stdout
@@ -636,6 +647,7 @@ finally:
 | `Logger` | `FileLogger` | Logging fichier/console (UTF-8, flush immédiat, O_NOFOLLOW) |
 | `Logger` | `RotatingFileLogger` | Rotation par taille (`max_bytes`), TOCTOU-safe post-rotation |
 | `Logger` | `ConsoleLogger` | Logging stdout/stderr sans fichier (dry-run, tests) |
+| — | `purge_old_logs` | Rétention par âge des fichiers de logs d'un dossier (90 jours par défaut) |
 | — | `build_logger` | Factory — instancie le bon Logger depuis la section `[logging]` |
 | — | `TeeStream` | Duplique stdout/stderr vers terminal ET fichier log |
 | — | `SecurityLogger` | Journalisation structurée JSON des événements de sécurité |
@@ -1987,7 +1999,7 @@ mon-outil check-version --host pve --user root \
 - **Secrets en mode cible** : `SecretsSpec(values_from="target")` écrit `CLE=` sans valeur dans le fichier d'environnement du poste cible, ne lit aucun secret et n'appelle jamais la factory ; un fichier déjà présent est conservé (`WriteOutcome.kept`). Le mode `"source"` reste le défaut.
 - **Retour de phase** : `SecretsProvisioner.provision` et `TimerDeployer.deploy` retournent `PhaseOutcome(success, messages)`, toujours vrai en test booléen : lire `.success`.
 - **Linger** : sonde en lecture seule pour les unités utilisateur, jamais d'`enable-linger`.
-- **Journal** : `open_deploy_journal(app_name, label, dry_run=False)` retourne un `DeployJournal(logger, path)` (console + fichier 0600, dossier 0700, aucun fichier en dry-run).
+- **Journal** : `open_deploy_journal(app_name, label, dry_run=False)` retourne un `DeployJournal(logger, path)` (console + fichier 0600, dossier 0700, aucun fichier en dry-run). À l'ouverture, il supprime les `deploy_*.log` du dossier `deploy/` de plus de 90 jours (`retention_days=90` ; `retention_days=None` désactive la purge ; jamais en dry-run ; le nouveau journal n'est jamais supprimé).
 
 ```python
 from linuxtools.deploy import open_deploy_journal

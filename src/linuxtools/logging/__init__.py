@@ -18,6 +18,8 @@ Utilitaires:
 - default_log_dir: Dossier de logs par défaut d'une application
   (``/var/log/<app>`` sous root, sinon ``$XDG_STATE_HOME/<app>``) ;
   le dossier n'est pas créé, ``FileLogger`` crée son dossier parent
+- purge_old_logs: Supprime les anciens fichiers de logs d'un dossier
+  (rétention par âge, 90 jours par défaut)
 
 Journalisation d'événements de sécurité:
 - SecurityLogger: Formate un SecurityEvent en JSON, masque les clés
@@ -26,7 +28,7 @@ Journalisation d'événements de sécurité:
 
 Exemple d'utilisation:
     from linuxtools.logging import (
-        FileLogger, RotatingFileLogger, default_log_dir,
+        FileLogger, RotatingFileLogger, default_log_dir, purge_old_logs,
     )
 
     logger = FileLogger("/var/log/app.log")
@@ -38,6 +40,9 @@ Exemple d'utilisation:
     )
 
     logger = FileLogger(default_log_dir("mon-app") / "app.log")
+
+    log_path = default_log_dir("mon-app") / "run_x.log"
+    purge_old_logs(default_log_dir("mon-app"), "run_*.log", keep=log_path)
 
 Exemple d'utilisation (événement de sécurité):
     from linuxtools.logging import (
@@ -59,6 +64,7 @@ from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.logging.factory import build_logger
 from linuxtools.logging.file_logger import FileLogger
 from linuxtools.logging.paths import default_log_dir
+from linuxtools.logging.retention import DEFAULT_RETENTION_DAYS, purge_old_logs
 from linuxtools.logging.rotating_file_logger import RotatingFileLogger
 from linuxtools.logging.security_logger import (
     SecurityEvent,
@@ -72,8 +78,10 @@ __all__ = [
     "build_logger",
     "ConsoleLogger",
     "default_log_dir",
+    "DEFAULT_RETENTION_DAYS",
     "FileLogger",
     "Logger",
+    "purge_old_logs",
     "RotatingFileLogger",
     "SecurityEvent",
     "SecurityEventType",
