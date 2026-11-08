@@ -102,11 +102,12 @@ class SecretsProvisioner:
         """
         factory = self._credential_manager_factory
         if factory is None:
-            self._log_error(
+            message = (
                 "Provisioning impossible : factory de CredentialManager "
                 "requise en mode 'source'."
             )
-            return PhaseOutcome(False)
+            self._log_error(message)
+            return PhaseOutcome(False, (message,))
         managers: dict[str, CredentialManager] = {}
         resolved: dict[str, str] = {}
         for service, key in spec.keys:

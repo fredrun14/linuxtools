@@ -519,6 +519,9 @@ class TestSecretsProvisionerSansFactory:
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
         )
 
-        assert outcome == PhaseOutcome(False)
+        assert outcome.success is False
+        assert len(outcome.messages) == 1
+        assert "factory" in outcome.messages[0]
+        assert "'source'" in outcome.messages[0]
         assert not dest.exists()
         logger.log_error.assert_called_once()
