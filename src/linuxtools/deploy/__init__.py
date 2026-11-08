@@ -109,6 +109,7 @@ from linuxtools.deploy.discovery import (
     find_project_source,
 )
 from linuxtools.deploy.exceptions import DeployError
+from linuxtools.deploy.journal import DeployJournal, open_deploy_journal
 from linuxtools.deploy.models import (
     CheckResult,
     ConfigDeploySpec,
@@ -116,6 +117,7 @@ from linuxtools.deploy.models import (
     DeployPhase,
     DeployReport,
     DeployTarget,
+    PhaseOutcome,
     SecretsSpec,
     TimerDeploySpec,
     VerificationSpec,
@@ -153,11 +155,13 @@ __all__ = [
     "DeployCommand",
     "DeployConfig",
     "DeployError",
+    "DeployJournal",
     "DeployPhase",
     "DeployReport",
     "DeployTarget",
     "Deployer",
     "InstallVerifier",
+    "PhaseOutcome",
     "RsyncTransport",
     "SecretsProvisioner",
     "SecretsSpec",
@@ -177,5 +181,6 @@ __all__ = [
     "check_target_version",
     "find_editable_source",
     "find_project_source",
+    "open_deploy_journal",
     "read_source_version",
 ]

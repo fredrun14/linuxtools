@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
+from linuxtools.deploy.models import PhaseOutcome
 from linuxtools.logging.console_logger import ConsoleLogger
 from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
 from linuxtools.systemd.service import LinuxServiceUnitManager
@@ -18,6 +20,9 @@ if TYPE_CHECKING:
     from linuxtools.commands.base import CommandExecutor
     from linuxtools.deploy.models import DeployTarget, TimerDeploySpec
     from linuxtools.logging.base import Logger
+
+# Nom d'utilisateur POSIX, relu sur la cible avant d'être réinjecté
+_USER_RE = re.compile(r"^[a-z_][a-z0-9_-]*\$?$")
 
 
 class TimerDeployer:
@@ -40,7 +45,7 @@ class TimerDeployer:
         spec: TimerDeploySpec,
         target: DeployTarget,
         executor: CommandExecutor,
-    ) -> bool:
+    ) -> PhaseOutcome:
         """Installe et active le service+timer de `spec` sur la cible.
 
         Le scope (`spec.scope`) détermine le chemin d'installation :
@@ -55,13 +60,53 @@ class TimerDeployer:
                 distant).
             executor: Exécuteur de commandes ciblant `target`.
 
+        En scope "user", l'état du linger est signalé dans les messages
+        de l'issue (lecture seule : `enable-linger` n'est jamais lancé).
+
         Returns:
-            True si l'installation et l'activation ont réussi.
+            `PhaseOutcome(True, messages)` si l'installation et
+            l'activation ont réussi, `PhaseOutcome(False)` sinon.
         """
         logger = self._logger or ConsoleLogger()
         if spec.scope == "user":
-            return self._deploy_user(spec, target, executor, logger)
-        return self._deploy_system(spec, target, executor, logger)
+            if not self._deploy_user(spec, target, executor, logger):
+                return PhaseOutcome(False)
+            return PhaseOutcome(True, (self._probe_linger(executor),))
+        return PhaseOutcome(
+            self._deploy_system(spec, target, executor, logger)
+        )
+
+    def _probe_linger(self, executor: CommandExecutor) -> str:
+        """Lit l'état du linger de l'utilisateur de la cible (lecture seule).
+
+        Ne provoque jamais d'échec de phase et n'exécute jamais
+        `enable-linger`. Le nom d'utilisateur lu sur la cible est validé
+        (`_USER_RE`) avant d'être passé à `loginctl`.
+
+        Args:
+            executor: Exécuteur de commandes ciblant l'hôte.
+
+        Returns:
+            Le message de rapport sur l'état du linger.
+        """
+        who = executor.run(["id", "-un"])
+        user = who.stdout.strip() if who.success else ""
+        if not _USER_RE.fullmatch(user):
+            return "Linger indéterminé (utilisateur introuvable)."
+        result = executor.run(
+            ["loginctl", "show-user", user, "-p", "Linger", "--value"]
+        )
+        state = result.stdout.strip() if result.success else ""
+        if state == "yes":
+            return f"Linger actif pour {user}."
+        if state == "no":
+            message = (
+                f"Linger inactif pour {user} : le timer ne tournera pas "
+                f"hors session. À lancer : sudo loginctl enable-linger "
+                f"{user}"
+            )
+            return message
+        return f"Linger indéterminé pour {user}."
 
     def _deploy_system(
         self,

@@ -11,7 +11,7 @@ from linuxtools.filesystem.backup import (
     LinuxFileBackup,
     copytree_secure,
 )
-from linuxtools.filesystem.linux import LinuxFileManager
+from linuxtools.filesystem.linux import LinuxFileManager, write_text_secure
 
 
 class TestLinuxFileManager:
@@ -429,3 +429,81 @@ class TestCopytreeSecure:
         dst = tmp_path / "dst"
         copytree_secure(src, dst, follow_symlinks=True)
         assert not (dst / "dead_link").exists()
+
+
+class TestWriteTextSecureExclusive:
+    """Tests de write_text_secure(exclusive=True)."""
+
+    def test_write_text_secure_exclusive_leve_si_fichier_existe(
+        self, tmp_path: Path
+    ) -> None:
+        """Un fichier existant n'est ni tronqué ni modifié."""
+        cible = tmp_path / "a.env"
+        cible.write_text("ancien", encoding="utf-8")
+
+        with pytest.raises(FileExistsError):
+            write_text_secure(cible, "nouveau", 0o600, exclusive=True)
+
+        assert cible.read_text(encoding="utf-8") == "ancien"
+
+    def test_write_text_secure_exclusive_cree_en_0600_cas_nominal(
+        self, tmp_path: Path
+    ) -> None:
+        """Un fichier absent est créé avec le mode demandé."""
+        cible = tmp_path / "a.env"
+
+        write_text_secure(cible, "x=1\n", 0o600, exclusive=True)
+
+        assert cible.read_text(encoding="utf-8") == "x=1\n"
+        assert oct(cible.stat().st_mode)[-3:] == "600"
+
+    def test_write_text_secure_exclusive_lien_symbolique_casse_leve_fileexistserror(
+        self, tmp_path: Path
+    ) -> None:
+        """Un lien cassé compte comme existant ; sa cible n'est pas créée."""
+        lien = tmp_path / "lien"
+        lien.symlink_to(tmp_path / "rien")
+
+        with pytest.raises(FileExistsError):
+            write_text_secure(lien, "x", 0o600, exclusive=True)
+
+        assert not (tmp_path / "rien").exists()
+
+    def test_write_text_secure_exclusive_supprime_le_fichier_si_fchmod_echoue(
+        self, tmp_path: Path
+    ) -> None:
+        """F05 : un fichier partiel ne doit pas subsister (sinon kept)."""
+        cible = tmp_path / "s.env"
+
+        with (
+            patch("linuxtools.filesystem.linux.os.fchmod", side_effect=OSError),
+            pytest.raises(OSError),
+        ):
+            write_text_secure(cible, "x=1\n", 0o600, exclusive=True)
+
+        assert not cible.exists()
+
+    def test_write_text_secure_exclusive_supprime_le_fichier_si_ecriture_echoue(
+        self, tmp_path: Path
+    ) -> None:
+        """F05 : échec d'écriture (encodage) -> fichier créé supprimé."""
+        cible = tmp_path / "s.env"
+
+        with pytest.raises(UnicodeEncodeError):
+            write_text_secure(
+                cible, "é", 0o600, encoding="ascii", exclusive=True
+            )
+
+        assert not cible.exists()
+
+    def test_write_text_secure_non_exclusif_conserve_le_fichier_existant_si_echec(
+        self, tmp_path: Path
+    ) -> None:
+        """Hors mode exclusif, aucun fichier n'est supprimé (inchangé)."""
+        cible = tmp_path / "s.env"
+        cible.write_text("ancien")
+
+        with pytest.raises(UnicodeEncodeError):
+            write_text_secure(cible, "é", 0o600, encoding="ascii")
+
+        assert cible.exists()

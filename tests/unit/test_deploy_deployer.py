@@ -17,7 +17,9 @@ from linuxtools.deploy.models import (
     ConfigDeploySpec,
     DeployConfig,
     DeployPhase,
+    DeployReport,
     DeployTarget,
+    PhaseOutcome,
     SecretsSpec,
     TimerDeploySpec,
     VerificationSpec,
@@ -508,6 +510,13 @@ class TestDeployerForTarget:
         )
         assert deployer._secrets_provisioner is not None
 
+    def test_for_target_sans_factory_construit_quand_meme_le_provisionneur(
+        self,
+    ) -> None:
+        """Sans factory, le provisionneur existe (mode « target »)."""
+        deployer = Deployer.for_target(DeployTarget())
+        assert isinstance(deployer._secrets_provisioner, SecretsProvisioner)
+
     def test_for_target_sans_rsync_options_garde_le_defaut(self) -> None:
         """rsync_options=None : le transport garde les options par
         défaut (comportement inchangé)."""
@@ -595,9 +604,9 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = True
+        secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
-        timer_deployer.deploy.return_value = True
+        timer_deployer.deploy.return_value = PhaseOutcome(True)
         target_executor = MagicMock(spec=CommandExecutor)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
@@ -768,7 +777,7 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = False
+        secrets_provisioner.provision.return_value = PhaseOutcome(False)
         timer_deployer = MagicMock(spec=TimerDeployer)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
@@ -805,9 +814,9 @@ class TestDeployerNouvellesPhases:
         config_deployer = MagicMock(spec=ConfigDeployer)
         config_deployer.deploy.return_value = True
         secrets_provisioner = MagicMock(spec=SecretsProvisioner)
-        secrets_provisioner.provision.return_value = True
+        secrets_provisioner.provision.return_value = PhaseOutcome(True)
         timer_deployer = MagicMock(spec=TimerDeployer)
-        timer_deployer.deploy.return_value = False
+        timer_deployer.deploy.return_value = PhaseOutcome(False)
         config = _make_config_with_phases(
             config_deploy=_CONFIG_SPEC,
             secrets=_SECRETS_SPEC,
@@ -833,6 +842,166 @@ class TestDeployerNouvellesPhases:
             "Installation du service+timer échouée." in m
             for m in report.messages
         )
+
+
+class TestDeployerDryRunPhases:
+    """Dry-run : rendu des unités et annonce du squelette (F-12, A-08)."""
+
+    @staticmethod
+    def _dry_run(config: DeployConfig, executor: MagicMock) -> None:
+        """Lance un dry-run avec un exécuteur cible piégé."""
+        transport, installer, verifier = _make_collaborators()
+        Deployer(
+            transport,
+            installer,
+            verifier,
+            dry_run=True,
+            target_executor=executor,
+        ).deploy(config)
+
+    def test_dry_run_affiche_les_unites_sans_ecrire(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Les contenus .service et .timer sont affichés avec leur chemin."""
+        config = _make_config_with_phases(timer_deploy=_TIMER_SPEC)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert "/etc/systemd/system/backup.service" in out
+        assert "/etc/systemd/system/backup.timer" in out
+        assert "ExecStart=/usr/bin/backup" in out
+        assert "OnCalendar=daily" in out
+        assert "installation service+timer backup" in out
+
+    def test_dry_run_scope_user_affiche_le_chemin_xdg(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Scope user : chemin sous $XDG_CONFIG_HOME/systemd/user."""
+        spec = replace(_TIMER_SPEC, scope="user")
+        config = _make_config_with_phases(timer_deploy=spec)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert "$XDG_CONFIG_HOME/systemd/user/backup.service" in out
+        assert "$XDG_CONFIG_HOME/systemd/user/backup.timer" in out
+
+    def test_dry_run_n_appelle_pas_l_executeur(self) -> None:
+        """A-08 : aucune commande n'atteint l'exécuteur cible."""
+        executor = MagicMock(spec=CommandExecutor)
+        config = _make_config_with_phases(
+            secrets=replace(_SECRETS_SPEC, values_from="target"),
+            timer_deploy=replace(_TIMER_SPEC, scope="user"),
+        )
+
+        self._dry_run(config, executor)
+
+        executor.run.assert_not_called()
+
+    def test_dry_run_annonce_le_squelette_de_secrets_en_mode_target(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Mode target : annonce « créerait … s'il est absent »."""
+        config = _make_config_with_phases(
+            secrets=replace(_SECRETS_SPEC, values_from="target")
+        )
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        out = capsys.readouterr().out
+        assert (
+            "secrets : créerait /etc/app/secrets.env (clés sans valeur, "
+            "0600) s'il est absent" in out
+        )
+
+    def test_dry_run_secrets_mode_source_garde_le_libelle_actuel(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Mode source : libellé historique conservé."""
+        config = _make_config_with_phases(secrets=_SECRETS_SPEC)
+
+        self._dry_run(config, MagicMock(spec=CommandExecutor))
+
+        assert (
+            "provisioning secrets -> /etc/app/secrets.env"
+            in capsys.readouterr().out
+        )
+
+
+class TestDeployerPhaseSecretsMessages:
+    """Messages de la phase SECRETS selon ``values_from``."""
+
+    @staticmethod
+    def _deploy_with(spec: SecretsSpec, outcome: PhaseOutcome) -> DeployReport:
+        """Déploie avec un provisionneur scripté sur ``outcome``."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        provisioner = MagicMock(spec=SecretsProvisioner)
+        provisioner.provision.return_value = outcome
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            secrets_provisioner=provisioner,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+        return deployer.deploy(_make_config_with_phases(secrets=spec))
+
+    def test_secrets_target_succes_n_ajoute_pas_secrets_provisionnes(
+        self,
+    ) -> None:
+        """Mode target : seuls les messages de l'issue sont ajoutés."""
+        spec = replace(_SECRETS_SPEC, values_from="target")
+
+        report = self._deploy_with(spec, PhaseOutcome(True, ("créé : x",)))
+
+        assert report.success is True
+        assert "créé : x" in report.messages
+        assert "Secrets provisionnés." not in report.messages
+
+    def test_secrets_source_garde_message_secrets_provisionnes(
+        self,
+    ) -> None:
+        """Mode source : message historique conservé."""
+        report = self._deploy_with(_SECRETS_SPEC, PhaseOutcome(True))
+
+        assert "Secrets provisionnés." in report.messages
+
+    def test_secrets_echec_reprend_les_messages_de_l_issue(self) -> None:
+        """Un échec avec messages les reporte tels quels."""
+        report = self._deploy_with(
+            _SECRETS_SPEC, PhaseOutcome(False, ("raison précise",))
+        )
+
+        assert report.success is False
+        assert "raison précise" in report.messages
+
+
+class TestDeployerPhaseTimerMessages:
+    """Messages de la phase TIMER."""
+
+    def test_timer_phase_ajoute_les_messages_de_l_issue(self) -> None:
+        """Les messages de l'issue (linger) côtoient le message habituel."""
+        transport, installer, verifier = _make_successful_base_collaborators()
+        timer_deployer = MagicMock(spec=TimerDeployer)
+        timer_deployer.deploy.return_value = PhaseOutcome(
+            True, ("Linger inactif pour fred.",)
+        )
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            timer_deployer=timer_deployer,
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        report = deployer.deploy(
+            _make_config_with_phases(timer_deploy=_TIMER_SPEC)
+        )
+
+        assert report.success is True
+        assert "Linger inactif pour fred." in report.messages
+        assert "Service+timer installés." in report.messages
 
 
 class TestDeployerDeployAtomicSwap:

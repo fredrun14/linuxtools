@@ -25,3 +25,51 @@ def build_remote_write_command(mode: int, dest: str) -> list[str]:
         de même signature, ex. `SystemdExecutor.run_raw`).
     """
     return ["install", "-m", format(mode, "03o"), "-T", "/dev/stdin", dest]
+
+
+def build_remote_exists_command(dest: str) -> list[str]:
+    """Construit ``test -e <dest> -o -L <dest>``.
+
+    Sonde d'existence : vrai pour un fichier existant comme pour un lien
+    symbolique, même cassé. Code 0 = existe, 1 = absent, autre = sonde
+    ambiguë (à traiter en échec fermé).
+
+    Args:
+        dest: Chemin à sonder sur l'hôte distant.
+
+    Returns:
+        La commande sous forme de liste.
+    """
+    return ["test", "-e", dest, "-o", "-L", dest]
+
+
+def build_remote_is_dir_command(dest: str) -> list[str]:
+    """Construit ``test -d <dest> -a ! -L <dest>``.
+
+    Sonde « dossier réel » : un lien symbolique vers un dossier n'en est
+    pas un (il reste traité comme un fichier présent). Code 0 = dossier.
+
+    Args:
+        dest: Chemin à sonder sur l'hôte distant.
+
+    Returns:
+        La commande sous forme de liste.
+    """
+    return ["test", "-d", dest, "-a", "!", "-L", dest]
+
+
+def build_remote_link_command(tmp: str, dest: str) -> list[str]:
+    """Construit ``ln -T -- <tmp> <dest>``.
+
+    Lien dur atomique : échoue si ``dest`` existe déjà, ce qui garantit la
+    création exclusive (``noclobber`` n'est pas utilisé : il diffère
+    entre bash et dash).
+
+    Args:
+        tmp: Fichier temporaire déjà écrit.
+        dest: Destination finale, qui ne doit pas exister.
+
+    Returns:
+        La commande sous forme de liste.
+    """
+    return ["ln", "-T", "--", tmp, dest]

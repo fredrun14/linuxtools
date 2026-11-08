@@ -336,6 +336,7 @@ linuxtools/
 │   │   ├── venv_installer.py    # VenvInstaller (backup/install/restore/prune)
 │   │   ├── verifier.py          # InstallVerifier (imports/subcmds/régression)
 │   │   ├── version_checker.py   # VersionChecker, check_target_version, read_source_version
+│   │   ├── journal.py           # open_deploy_journal, DeployJournal
 │   │   ├── deployer.py          # Deployer (orchestrateur 4 phases + rollback)
 │   │   └── cli.py               # DeployCommand, CheckVersionCommand (CliCommand)
 │   ├── identity/
@@ -1877,7 +1878,7 @@ print(report.format_summary())   # Résumé lisible (deps, avertissements...)
 
 ## 🚀 Module `deploy`
 
-Déploiement/mise à jour d'un outil Python maison sur un hôte (poste ou serveur), en local ou à distance via SSH. Orchestre **4 phases** — transport du source → (ré)installation dans le venv cible → vérification post-install déclarative → **rollback automatique** si une vérification échoue. Le déployeur gère le **code**, pas la config runtime ni les secrets.
+Déploiement/mise à jour d'un outil Python maison sur un hôte (poste ou serveur), en local ou à distance via SSH. Orchestre **4 phases** — transport du source → (ré)installation dans le venv cible → vérification post-install déclarative → **rollback automatique** si une vérification échoue. Le déployeur gère le **code** et peut créer les unités systemd ; il ne copie jamais de secret et ne réécrit pas une config existante.
 
 ### Utilisation
 
@@ -1978,6 +1979,21 @@ illisible) :
 ```bash
 mon-outil check-version --host pve --user root \
     --venv /opt/mon-outil/venv
+```
+
+### Unités identiques, secrets en mode cible et journal
+
+- **Unités** : `ServiceConfig` accepte `after`, `requires_mounts_for`, `nice`, `io_scheduling_class` et `syslog_identifier` ; `validate_dependency_unit_name` valide les dépendances (`network-online.target` compris).
+- **Secrets en mode cible** : `SecretsSpec(values_from="target")` écrit `CLE=` sans valeur dans le fichier d'environnement du poste cible, ne lit aucun secret et n'appelle jamais la factory ; un fichier déjà présent est conservé (`WriteOutcome.kept`). Le mode `"source"` reste le défaut.
+- **Retour de phase** : `SecretsProvisioner.provision` et `TimerDeployer.deploy` retournent `PhaseOutcome(success, messages)`, toujours vrai en test booléen : lire `.success`.
+- **Linger** : sonde en lecture seule pour les unités utilisateur, jamais d'`enable-linger`.
+- **Journal** : `open_deploy_journal(app_name, label, dry_run=False)` retourne un `DeployJournal(logger, path)` (console + fichier 0600, dossier 0700, aucun fichier en dry-run).
+
+```python
+from linuxtools.deploy import open_deploy_journal
+
+journal = open_deploy_journal("mon-outil", "poste-salon", dry_run=False)
+journal.logger.log_info("Déploiement démarré")
 ```
 
 ### Documentation API

@@ -1127,3 +1127,119 @@ class TestServiceConfigHardening:
         )
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
+
+
+class TestServiceConfigDependances:
+    """Tests des champs after, requires_mounts_for, nice, io, syslog."""
+
+    @pytest.mark.parametrize("nice", [20, -21, True, 1.5, "5"])
+    def test_service_config_rejette_nice_hors_plage(self, nice: Any) -> None:
+        """Refuse un Nice hors de [-20, 19] ou booléen."""
+        with pytest.raises(ValueError, match="nice"):
+            ServiceConfig(description="T", exec_start="/bin/x", nice=nice)
+
+    def test_service_config_rejette_io_class_inconnue(self) -> None:
+        """Refuse une classe d'ordonnancement E/S inconnue."""
+        with pytest.raises(ValueError, match="io_scheduling_class"):
+            ServiceConfig(
+                description="T", exec_start="/bin/x", io_scheduling_class="rt"
+            )
+
+    @pytest.mark.parametrize("unit", ["x y", "a/b.target", "a.sh"])
+    def test_service_config_rejette_after_invalide(self, unit: str) -> None:
+        """Refuse un nom d'unité invalide dans After."""
+        with pytest.raises(ValueError):
+            ServiceConfig(description="T", exec_start="/bin/x", after=(unit,))
+
+    @pytest.mark.parametrize(
+        "path", ["rel/path", "/a b", "/a%h", "/a$x", "/a\\b", "/a\nb", "/a\n"]
+    )
+    def test_service_config_rejette_chemin_montage_invalide(
+        self, path: str
+    ) -> None:
+        """Refuse un chemin de montage relatif ou dangereux."""
+        with pytest.raises(ValueError, match="montage"):
+            ServiceConfig(
+                description="T",
+                exec_start="/bin/x",
+                requires_mounts_for=(path,),
+            )
+
+    @pytest.mark.parametrize("ident", ["a b", "../x"])
+    def test_service_config_rejette_syslog_identifier_invalide(
+        self, ident: str
+    ) -> None:
+        """Refuse un identifiant syslog invalide."""
+        with pytest.raises(ValueError):
+            ServiceConfig(
+                description="T", exec_start="/bin/x", syslog_identifier=ident
+            )
+
+    def test_service_config_rend_requires_mounts_for(self) -> None:
+        """RequiresMountsFor= est rendu dans [Unit]."""
+        config = ServiceConfig(
+            description="T",
+            exec_start="/bin/x",
+            requires_mounts_for=("/mnt/a", "/mnt/b"),
+        )
+        unit, service = config.to_unit_file().split("[Service]")
+        assert "RequiresMountsFor=/mnt/a /mnt/b\n" in unit
+
+    def test_service_config_rend_after(self) -> None:
+        """After= est rendu dans [Unit], target admis."""
+        config = ServiceConfig(
+            description="T",
+            exec_start="/bin/x",
+            after=("network-online.target", "mnt.mount"),
+        )
+        unit = config.to_unit_file().split("[Service]")[0]
+        assert "After=network-online.target mnt.mount\n" in unit
+
+    def test_service_config_rend_nice_et_io_scheduling(self) -> None:
+        """Nice= et IOSchedulingClass= sont rendus dans [Service]."""
+        config = ServiceConfig(
+            description="T",
+            exec_start="/bin/x",
+            nice=10,
+            io_scheduling_class="idle",
+        )
+        service = config.to_unit_file().split("[Service]")[1]
+        assert "Nice=10\n" in service
+        assert "IOSchedulingClass=idle\n" in service
+
+    def test_service_config_rend_nice_zero(self) -> None:
+        """Nice=0 n'est pas perdu."""
+        config = ServiceConfig(description="T", exec_start="/bin/x", nice=0)
+        assert "Nice=0\n" in config.to_unit_file()
+
+    def test_service_config_rend_syslog_identifier(self) -> None:
+        """SyslogIdentifier= est rendu dans [Service]."""
+        config = ServiceConfig(
+            description="T", exec_start="/bin/x", syslog_identifier="bpm"
+        )
+        assert "SyslogIdentifier=bpm\n" in config.to_unit_file()
+
+    def test_service_config_rendu_par_defaut_inchange(self) -> None:
+        """Sans nouveau champ, le rendu est celui d'avant."""
+        config = ServiceConfig(description="T", exec_start="/bin/x")
+        assert config.to_unit_file() == (
+            "[Unit]\nDescription=T\n\n[Service]\nType=simple\n"
+            "ExecStart=/bin/x\n\n[Install]\nWantedBy=multi-user.target\n"
+        )
+
+
+class TestServiceConfigNomsDeChampDansLesMessages:
+    """F13 : les messages d'erreur citent le vrai nom de champ."""
+
+    @pytest.mark.parametrize(
+        "champ", ["io_scheduling_class", "syslog_identifier"]
+    )
+    def test_to_unit_file_cite_le_nom_exact_du_champ(
+        self, champ: str
+    ) -> None:
+        """Un champ falsifié après construction nomme son attribut."""
+        config = ServiceConfig(description="T", exec_start="/bin/x")
+        object.__setattr__(config, champ, "idle\nExecStart=/bin/evil")
+
+        with pytest.raises(ValueError, match=f"'{champ}'"):
+            config.to_unit_file()

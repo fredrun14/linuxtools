@@ -19,6 +19,25 @@
   (T1, T2). Le dossier n'est pas créé, `FileLogger` crée son dossier parent ;
   `FileLogger` et `RotatingFileLogger` sont inchangés.
 
+- feat(systemd): `ServiceConfig` reçoit `after`, `requires_mounts_for`, `nice`,
+  `io_scheduling_class` et `syslog_identifier`, rendus dans l'unité. Nouveau
+  `validate_dependency_unit_name` (accepte `.target`, refusé par
+  `validate_full_unit_name`). `nice` n'accepte que des entiers de -20 à 19 (T1, A2, A10).
+- feat(deploy): création exclusive d'un fichier : `WriteDestination.write(...,
+  if_exists="replace"|"keep")` retourne `WriteOutcome(success, detail, kept)`.
+  En local `O_CREAT|O_EXCL|O_NOFOLLOW` (fichier partiel supprimé en cas d'échec) ;
+  à distance sonde, fichier temporaire puis `ln -T` atomique. Un dossier ou un
+  lien existant n'est jamais écrasé (T2, T3, A5 à A7).
+- feat(deploy): `SecretsSpec.values_from="source"|"target"` (défaut `source`).
+  En mode `target`, le fichier d'environnement est créé avec `CLE=` sans valeur,
+  sans rien lire ni appeler la factory de secrets ; un fichier existant est conservé (T4, A8).
+- feat(deploy): sonde du linger en lecture seule (`id -un`, `loginctl show-user`),
+  jamais d'`enable-linger` ; le constat est remonté dans le rapport (T5).
+- feat(deploy): le dry-run affiche les unités rendues et le squelette de secrets (T6).
+- feat(deploy): `open_deploy_journal(app_name, label, *, dry_run, log_dir=None)`
+  retourne un `DeployJournal(logger, path)` : fichier 0600 dans un dossier 0700,
+  label validé, horodatage UTC suffixé `Z`, lien symbolique refusé, aucun fichier en dry-run (T7, A1, A9).
+
 ### Corrigé
 
 - fix(systemd): `UserUnitManager` écrit les unités utilisateur dans
@@ -32,6 +51,12 @@
 
 ### Modifié
 
+- feat(deploy)!: **rupture** : `SecretsProvisioner.provision` et
+  `TimerDeployer.deploy` retournent un `PhaseOutcome(success, messages)` au lieu
+  d'un booléen. Un `PhaseOutcome` est toujours vrai dans un test booléen : un
+  appelant externe resté sur `if provision(...)` prendrait un échec pour un
+  succès. Utiliser `.success`. Seul `Deployer` appelait ces méthodes dans les
+  projets maison (T4, T5). Version cible 2.10.0.
 - build(deps): `platformdirs>=4.12` (au lieu de `>=4.0`), dépendance runtime et
   extra `dev`. `platformdirs` écarte les entrées relatives de `XDG_CONFIG_DIRS`,
   comme le veut la spécification XDG, depuis la 4.11.8 ; le plancher 4.12 couvre

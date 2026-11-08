@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from linuxtools.commands.base import CommandExecutor
     from linuxtools.credentials.manager import CredentialManager
-    from linuxtools.deploy.models import CheckResult
+    from linuxtools.deploy.models import CheckResult, TimerDeploySpec
     from linuxtools.logging.base import Logger
 
 
@@ -211,18 +211,51 @@ class Deployer:
                 f"dépôt config -> {config.config_deploy.dest_path}"
             )
         if config.secrets is not None:
-            ctx.would_run_command(
-                f"provisioning secrets -> {config.secrets.dest_path}"
-            )
+            if config.secrets.values_from == "target":
+                ctx.would_run_command(
+                    f"secrets : créerait {config.secrets.dest_path} "
+                    f"(clés sans valeur, {config.secrets.mode:04o}) "
+                    "s'il est absent"
+                )
+            else:
+                ctx.would_run_command(
+                    f"provisioning secrets -> {config.secrets.dest_path}"
+                )
         if config.timer_deploy is not None:
-            ctx.would_run_command(
-                f"installation service+timer {config.timer_deploy.unit_name}"
-            )
+            self._dry_run_timer_units(ctx, config.timer_deploy)
         return DeployReport(
             success=True,
             phase_reached=DeployPhase.DONE,
             messages=messages + ("Dry-run : aucune action réelle.",),
         )
+
+    @staticmethod
+    def _dry_run_timer_units(
+        ctx: DryRunContext, spec: TimerDeploySpec
+    ) -> None:
+        """Affiche les unités service+timer qui seraient installées.
+
+        Aucune sonde : le home distant n'est pas lu, le chemin du scope
+        « user » est affiché tel quel.
+
+        Args:
+            ctx: Contexte de dry-run.
+            spec: Spécification de l'unité à installer.
+        """
+        base = (
+            "$XDG_CONFIG_HOME/systemd/user"
+            if spec.scope == "user"
+            else "/etc/systemd/system"
+        )
+        ctx.would_write(
+            f"{base}/{spec.unit_name}.service",
+            spec.service_config.to_unit_file(),
+        )
+        ctx.would_write(
+            f"{base}/{spec.unit_name}.timer",
+            spec.timer_config.to_unit_file(),
+        )
+        ctx.would_run_command(f"installation service+timer {spec.unit_name}")
 
     def _rollback_if_possible(
         self, config: DeployConfig, backup_path: Path | None
@@ -324,7 +357,7 @@ class Deployer:
         config: DeployConfig,
         checks: tuple[CheckResult, ...],
         messages: tuple[str, ...],
-    ) -> DeployReport | None:
+    ) -> DeployReport | tuple[str, ...]:
         """Exécute la phase de provisioning de secrets, si configurée.
 
         Args:
@@ -333,8 +366,9 @@ class Deployer:
             messages: Messages déjà accumulés.
 
         Returns:
-            None si la phase a réussi (continuer), sinon un
-            DeployReport d'échec prêt à renvoyer tel quel.
+            Le tuple des messages de succès à ajouter au rapport si la
+            phase a réussi (continuer), sinon un DeployReport d'échec
+            prêt à renvoyer tel quel.
         """
         if self._target_executor is None:
             return DeployReport(
@@ -359,24 +393,27 @@ class Deployer:
                 ),
             )
         assert config.secrets is not None
-        ok = self._secrets_provisioner.provision(
+        outcome = self._secrets_provisioner.provision(
             config.secrets, config.target, self._target_executor
         )
-        if not ok:
+        if not outcome.success:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages + ("Provisioning des secrets échoué.",),
+                messages=messages
+                + (outcome.messages or ("Provisioning des secrets échoué.",)),
             )
-        return None
+        if config.secrets.values_from == "source":
+            return outcome.messages + ("Secrets provisionnés.",)
+        return outcome.messages
 
     def _run_timer_phase(
         self,
         config: DeployConfig,
         checks: tuple[CheckResult, ...],
         messages: tuple[str, ...],
-    ) -> DeployReport | None:
+    ) -> DeployReport | tuple[str, ...]:
         """Exécute la phase d'installation du service+timer, si configurée.
 
         Args:
@@ -385,8 +422,9 @@ class Deployer:
             messages: Messages déjà accumulés.
 
         Returns:
-            None si la phase a réussi (continuer), sinon un
-            DeployReport d'échec prêt à renvoyer tel quel.
+            Le tuple des messages de succès à ajouter au rapport si la
+            phase a réussi (continuer), sinon un DeployReport d'échec
+            prêt à renvoyer tel quel.
         """
         if self._target_executor is None:
             return DeployReport(
@@ -411,10 +449,10 @@ class Deployer:
                 ),
             )
         assert config.timer_deploy is not None
-        ok = self._timer_deployer.deploy(
+        outcome = self._timer_deployer.deploy(
             config.timer_deploy, config.target, self._target_executor
         )
-        if not ok:
+        if not outcome.success:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TIMER,
@@ -422,7 +460,7 @@ class Deployer:
                 messages=messages
                 + ("Installation du service+timer échouée.",),
             )
-        return None
+        return ("Service+timer installés.",) + outcome.messages
 
     def _run_post_install_phases(
         self,
@@ -453,16 +491,16 @@ class Deployer:
             messages = messages + ("Config déployée.",)
 
         if config.secrets is not None:
-            report = self._run_secrets_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Secrets provisionnés.",)
+            secrets_result = self._run_secrets_phase(config, checks, messages)
+            if isinstance(secrets_result, DeployReport):
+                return secrets_result
+            messages = messages + secrets_result
 
         if config.timer_deploy is not None:
-            report = self._run_timer_phase(config, checks, messages)
-            if report is not None:
-                return report
-            messages = messages + ("Service+timer installés.",)
+            timer_result = self._run_timer_phase(config, checks, messages)
+            if isinstance(timer_result, DeployReport):
+                return timer_result
+            messages = messages + timer_result
 
         return messages
 
@@ -656,10 +694,9 @@ class Deployer:
         local, SshCommandExecutor si la cible est distante,
         RsyncTransport (toujours local), VenvInstaller et
         InstallVerifier ciblant l'hôte, ainsi que ConfigDeployer,
-        TimerDeployer et VenvReleaser (toujours construits) et
-        SecretsProvisioner (uniquement si
-        `credential_manager_factory` est fourni, pour ne pas forcer
-        la dépendance optionnelle `credentials`).
+        TimerDeployer, VenvReleaser et SecretsProvisioner (toujours
+        construits : `credential_manager_factory` est facultative, le
+        mode ``values_from="target"`` n'en a pas besoin).
 
         Args:
             target: Description de l'hôte cible (local ou distant).
@@ -668,8 +705,9 @@ class Deployer:
             dry_run: Si True, le Deployer simule sans effet de bord.
             credential_manager_factory: Factory optionnelle résolvant
                 un CredentialManager par service, pour la résolution
-                des secrets. Si None, la phase SECRETS échoue
-                proprement si elle est configurée.
+                des secrets en mode ``"source"``. Si None, la phase
+                SECRETS en mode ``"source"`` échoue proprement ; le mode
+                ``"target"`` n'en a pas besoin.
             rsync_options: Options rsync remplaçant celles par défaut
                 (`DEFAULT_RSYNC_OPTIONS`) du RsyncTransport. Si None,
                 les options par défaut sont conservées. Aucun
@@ -698,10 +736,8 @@ class Deployer:
         config_deployer = ConfigDeployer(logger)
         timer_deployer = TimerDeployer(logger)
         releaser = VenvReleaser(target_exec, installer, logger)
-        secrets_provisioner = (
-            SecretsProvisioner(credential_manager_factory, logger)
-            if credential_manager_factory is not None
-            else None
+        secrets_provisioner = SecretsProvisioner(
+            credential_manager_factory, logger
         )
         return cls(
             transport,
