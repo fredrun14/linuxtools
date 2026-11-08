@@ -2,6 +2,8 @@
 
 ## [Non publié]
 
+## [2.11.0] - 2026-11-08
+
 ### Ajouté
 
 - feat(logging): `purge_old_logs(log_dir, pattern, *, max_age_days=90,
