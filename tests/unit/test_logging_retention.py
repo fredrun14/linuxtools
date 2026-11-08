@@ -3,6 +3,7 @@
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -185,6 +186,54 @@ def test_purge_old_logs_motif_double_etoile_avec_suffixe_valide(
     ancien = _creer(tmp_path / "run_vieux.log", 400)
 
     assert purge_old_logs(tmp_path, "**.log") == [ancien]
+    assert not ancien.exists()
+
+
+def test_purge_old_logs_stat_en_echec_ignore_le_fichier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F04 : un stat en échec sur un nom l'écarte, les autres sont traités."""
+    illisible = _creer(tmp_path / "run_illisible.log", 400)
+    ancien = _creer(tmp_path / "run_vieux.log", 400)
+    vrai_stat = os.stat
+
+    def stat_selectif(path: Any, *args: Any, **kwargs: Any) -> Any:
+        if path == "run_illisible.log":
+            raise OSError("stat impossible")
+        return vrai_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", stat_selectif)
+
+    assert purge_old_logs(tmp_path, "run_*.log") == [ancien]
+    assert illisible.exists()
+
+
+def test_purge_old_logs_listage_en_echec_retourne_vide(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F04 : un listage impossible donne une liste vide, sans exception."""
+    ancien = _creer(tmp_path / "run_vieux.log", 400)
+
+    def echouer(*args: object, **kwargs: object) -> None:
+        raise OSError("listage impossible")
+
+    monkeypatch.setattr(os, "scandir", echouer)
+
+    assert purge_old_logs(tmp_path, "run_*.log") == []
+    assert ancien.exists()
+
+
+def test_purge_old_logs_keep_inexistant_ne_protege_rien(
+    tmp_path: Path,
+) -> None:
+    """F04 : un `keep` introuvable n'empêche pas la purge des autres."""
+    ancien = _creer(tmp_path / "run_vieux.log", 400)
+
+    supprimes = purge_old_logs(
+        tmp_path, "run_*.log", keep=tmp_path / "run_absent.log"
+    )
+
+    assert supprimes == [ancien]
     assert not ancien.exists()
 
 
