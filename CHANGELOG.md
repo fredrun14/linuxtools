@@ -2,6 +2,8 @@
 
 ## [Non publié]
 
+## [2.10.0] - 2026-11-08
+
 ### Ajouté
 
 - feat(config): `XdgAppConfig.find_config_file` cherche aussi dans les dossiers
@@ -56,7 +58,7 @@
   d'un booléen. Un `PhaseOutcome` est toujours vrai dans un test booléen : un
   appelant externe resté sur `if provision(...)` prendrait un échec pour un
   succès. Utiliser `.success`. Seul `Deployer` appelait ces méthodes dans les
-  projets maison (T4, T5). Version cible 2.10.0.
+  projets maison (T4, T5).
 - build(deps): `platformdirs>=4.12` (au lieu de `>=4.0`), dépendance runtime et
   extra `dev`. `platformdirs` écarte les entrées relatives de `XDG_CONFIG_DIRS`,
   comme le veut la spécification XDG, depuis la 4.11.8 ; le plancher 4.12 couvre
