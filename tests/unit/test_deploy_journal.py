@@ -254,7 +254,10 @@ class TestOpenDeployJournal:
             base / "deploy_nas_20200101_000000Z.log", 400
         )
 
+        appels: list[object] = []
+
         def refuser(*args: object, **kwargs: object) -> None:
+            appels.append(args)
             raise PermissionError("refusé")
 
         monkeypatch.setattr(os, "unlink", refuser)
@@ -264,7 +267,10 @@ class TestOpenDeployJournal:
         )
 
         assert journal.path is not None
+        assert len(appels) >= 1  # la purge a bien été tentée
         assert vieux.exists()
+        contenu = journal.path.read_text(encoding="utf-8")
+        assert "Rétention :" not in contenu
 
     def test_open_deploy_journal_signale_les_fichiers_supprimes(
         self, tmp_path: Path
