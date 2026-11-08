@@ -253,3 +253,19 @@ def test_purge_old_logs_rejette_duree_invalide(
     """Une durée inférieure à 1 jour -> ValueError."""
     with pytest.raises(ValueError):
         purge_old_logs(tmp_path, "run_*.log", max_age_days=duree)
+
+
+def test_purge_old_logs_keep_lien_symbolique_protege_la_cible(
+    tmp_path: Path,
+) -> None:
+    """F10 : `keep` lien symbolique protège le fichier qu'il désigne."""
+    dossier = tmp_path / "logs"
+    dossier.mkdir()
+    cible = _creer(dossier / "run_courant.log", 400)
+    lien = tmp_path / "lien_courant.log"
+    lien.symlink_to(cible)
+
+    supprimes = purge_old_logs(dossier, "run_*.log", keep=lien)
+
+    assert supprimes == []
+    assert cible.exists()

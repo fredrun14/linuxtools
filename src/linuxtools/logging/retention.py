@@ -39,7 +39,8 @@ def purge_old_logs(
             ``"*"`` et ``"**"`` visent tous les fichiers du dossier, jamais
             ceux d'un sous-dossier.
         max_age_days: Âge minimal, en jours, avant suppression (>= 1).
-        keep: Fichier à ne jamais supprimer (log du run en cours).
+        keep: Fichier à ne jamais supprimer (log du run en cours). Un lien
+            symbolique est suivi : sa cible est protégée.
         dry_run: Si True, liste sans supprimer.
 
     Returns:
@@ -103,11 +104,11 @@ def _purge_names(
         Fichiers supprimés (ou qui le seraient en dry-run), triés.
     """
     cutoff = time.time() - max_age_days * _SECONDS_PER_DAY
-    # Identité du fichier à garder : insensible à l'écriture du chemin
+    # Identité du fichier à garder (lien suivi), insensible à l'écriture
     keep_id: tuple[int, int] | None = None
     if keep is not None:
         try:
-            keep_info = os.stat(keep, follow_symlinks=False)
+            keep_info = os.stat(keep)
             keep_id = (keep_info.st_dev, keep_info.st_ino)
         except OSError:
             keep_id = None
