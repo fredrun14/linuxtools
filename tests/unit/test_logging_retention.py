@@ -101,6 +101,22 @@ def test_purge_old_logs_dry_run_liste_sans_supprimer(tmp_path: Path) -> None:
     assert ancien.exists()
 
 
+@pytest.mark.parametrize("motif", ["**", "*"])
+def test_purge_old_logs_motif_double_etoile_ne_descend_pas_dans_les_sous_dossiers(
+    tmp_path: Path, motif: str
+) -> None:
+    """F01 : `**` et `*` ne touchent jamais un fichier de sous-dossier."""
+    sous_dossier = tmp_path / "sub"
+    sous_dossier.mkdir()
+    profond = _creer(sous_dossier / "run_vieux.log", 400)
+    direct = _creer(tmp_path / "run_direct.log", 400)
+
+    supprimes = purge_old_logs(tmp_path, motif)
+
+    assert supprimes == [direct]
+    assert profond.exists()
+
+
 def test_purge_old_logs_dossier_absent_retourne_vide(tmp_path: Path) -> None:
     """F-10 : un dossier absent donne une liste vide, sans exception."""
     assert purge_old_logs(tmp_path / "absent", "run_*.log") == []
@@ -126,16 +142,53 @@ def test_purge_old_logs_echec_suppression_ne_leve_pas(
     """F-10 : un unlink refusé est ignoré et le fichier n'est pas listé."""
     ancien = _creer(tmp_path / "run_vieux.log", 400)
 
-    def refuser(self: Path, missing_ok: bool = False) -> None:
+    def refuser(*args: object, **kwargs: object) -> None:
         raise PermissionError("refusé")
 
-    monkeypatch.setattr(Path, "unlink", refuser)
+    monkeypatch.setattr(os, "unlink", refuser)
 
     assert purge_old_logs(tmp_path, "run_*.log") == []
     assert ancien.exists()
 
 
-@pytest.mark.parametrize("motif", ["", "../x", "a/b", "/etc/*"])
+def test_purge_old_logs_dossier_non_traversable_retourne_vide(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F02 : un dossier qu'on ne peut pas ouvrir donne une liste vide."""
+    ancien = _creer(tmp_path / "run_vieux.log", 400)
+
+    def refuser(*args: object, **kwargs: object) -> int:
+        raise PermissionError("non traversable")
+
+    monkeypatch.setattr(os, "open", refuser)
+
+    assert purge_old_logs(tmp_path, "run_*.log") == []
+    assert ancien.exists()
+
+
+def test_purge_old_logs_keep_relatif_ou_autre_ecriture_est_conserve(
+    tmp_path: Path,
+) -> None:
+    """F05 : `keep` écrit autrement (via `..`) désigne le même fichier."""
+    (tmp_path / "sub").mkdir()
+    courant = _creer(tmp_path / "run_courant.log", 400)
+    autre_ecriture = tmp_path / "sub" / ".." / "run_courant.log"
+
+    assert purge_old_logs(tmp_path, "run_*.log", keep=autre_ecriture) == []
+    assert courant.exists()
+
+
+def test_purge_old_logs_motif_double_etoile_avec_suffixe_valide(
+    tmp_path: Path,
+) -> None:
+    """F07 : `**.log` est un motif valide, comparé au nom du fichier."""
+    ancien = _creer(tmp_path / "run_vieux.log", 400)
+
+    assert purge_old_logs(tmp_path, "**.log") == [ancien]
+    assert not ancien.exists()
+
+
+@pytest.mark.parametrize("motif", ["", "../x", "a/b", "/etc/*", "**/x"])
 def test_purge_old_logs_rejette_motif_invalide(
     tmp_path: Path, motif: str
 ) -> None:

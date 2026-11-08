@@ -213,10 +213,10 @@ class TestOpenDeployJournal:
             base / "deploy_nas_20200101_000000Z.log", 400
         )
 
-        def refuser(self: Path, missing_ok: bool = False) -> None:
+        def refuser(*args: object, **kwargs: object) -> None:
             raise PermissionError("refusé")
 
-        monkeypatch.setattr(Path, "unlink", refuser)
+        monkeypatch.setattr(os, "unlink", refuser)
 
         journal = open_deploy_journal(
             "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"

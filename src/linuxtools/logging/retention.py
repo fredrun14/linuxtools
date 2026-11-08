@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import fnmatch
+import os
 import stat
 import time
 from typing import TYPE_CHECKING
@@ -32,9 +34,10 @@ def purge_old_logs(
     Args:
         log_dir: Dossier de logs de l'application (non suivi s'il est un
             lien symbolique).
-        pattern: Motif glob de noms de fichiers (ex. ``"deploy_*.log"``),
-            sans séparateur de chemin. Attention : ``"*"`` viserait tous
-            les fichiers du dossier.
+        pattern: Motif comparé au nom des fichiers (``fnmatch``, ex.
+            ``"deploy_*.log"``), sans séparateur de chemin. Attention :
+            ``"*"`` et ``"**"`` visent tous les fichiers du dossier, jamais
+            ceux d'un sous-dossier.
         max_age_days: Âge minimal, en jours, avant suppression (>= 1).
         keep: Fichier à ne jamais supprimer (log du run en cours).
         dry_run: Si True, liste sans supprimer.
@@ -54,32 +57,80 @@ def purge_old_logs(
     if max_age_days < 1:
         raise ValueError("max_age_days doit être supérieur ou égal à 1")
 
-    # Un dossier absent, non dossier ou lien symbolique n'est pas parcouru
-    if log_dir.is_symlink() or not log_dir.is_dir():
+    # Ouverture sans suivre de lien : absent, non dossier, lien symbolique
+    # (ELOOP) ou non traversable -> rien à purger. Le parcours se fait
+    # ensuite par descripteur, à l'abri d'un remplacement du dossier.
+    try:
+        fd = os.open(log_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError:
         return []
 
-    removed: list[Path] = []
-    cutoff = time.time() - max_age_days * _SECONDS_PER_DAY
     try:
-        for path in log_dir.glob(pattern):
+        try:
+            with os.scandir(fd) as entries:
+                names = [entry.name for entry in entries]
+        except OSError:
+            # Listage impossible : rien n'a été traité
+            return []
+        return _purge_names(
+            fd, log_dir, names, pattern, max_age_days, keep, dry_run
+        )
+    finally:
+        os.close(fd)
+
+
+def _purge_names(
+    fd: int,
+    log_dir: Path,
+    names: list[str],
+    pattern: str,
+    max_age_days: int,
+    keep: Path | None,
+    dry_run: bool,
+) -> list[Path]:
+    """Supprime, relativement au descripteur ``fd``, les noms éligibles.
+
+    Args:
+        fd: Descripteur ouvert du dossier de logs.
+        log_dir: Chemin du dossier, pour construire les chemins rendus.
+        names: Noms des entrées du dossier.
+        pattern: Motif ``fnmatch`` appliqué au nom.
+        max_age_days: Âge minimal, en jours, avant suppression.
+        keep: Fichier à ne jamais supprimer.
+        dry_run: Si True, liste sans supprimer.
+
+    Returns:
+        Fichiers supprimés (ou qui le seraient en dry-run), triés.
+    """
+    cutoff = time.time() - max_age_days * _SECONDS_PER_DAY
+    # Identité du fichier à garder : insensible à l'écriture du chemin
+    keep_id: tuple[int, int] | None = None
+    if keep is not None:
+        try:
+            keep_info = os.stat(keep, follow_symlinks=False)
+            keep_id = (keep_info.st_dev, keep_info.st_ino)
+        except OSError:
+            keep_id = None
+
+    removed: list[Path] = []
+    for name in names:
+        if not fnmatch.fnmatchcase(name, pattern):
+            continue
+        try:
+            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+        except OSError:
+            continue
+        # Fichiers réguliers seulement (ni lien, ni dossier)
+        if not stat.S_ISREG(info.st_mode):
+            continue
+        if keep_id == (info.st_dev, info.st_ino):
+            continue
+        if info.st_mtime >= cutoff:
+            continue
+        if not dry_run:
             try:
-                info = path.lstat()
+                os.unlink(name, dir_fd=fd)
             except OSError:
                 continue
-            # Fichiers réguliers seulement (ni lien, ni dossier)
-            if not stat.S_ISREG(info.st_mode):
-                continue
-            if keep is not None and path == keep:
-                continue
-            if info.st_mtime >= cutoff:
-                continue
-            if not dry_run:
-                try:
-                    path.unlink()
-                except OSError:
-                    continue
-            removed.append(path)
-    except OSError:
-        # Listage impossible : on rend ce qui est déjà traité
-        pass
+        removed.append(log_dir / name)
     return sorted(removed)
