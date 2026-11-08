@@ -1,5 +1,6 @@
 """Implémentation Linux de la gestion des fichiers."""
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -57,18 +58,28 @@ def write_text_secure(
         FileExistsError: Si ``exclusive`` et que ``path`` existe déjà
             (lien symbolique, même cassé, compris).
         OSError: Lien symbolique (mode non exclusif) ou erreur d'E/S.
+            En mode exclusif, un fichier partiel créé par l'appel est
+            supprimé avant de propager l'erreur.
     """
     flags = os.O_CREAT | os.O_WRONLY
     flags |= os.O_EXCL if exclusive else os.O_TRUNC
     fd = _open_secure(path, flags, mode)
     try:
-        os.fchmod(fd, mode)
-        f = os.fdopen(fd, "w", encoding=encoding)
+        try:
+            os.fchmod(fd, mode)
+            f = os.fdopen(fd, "w", encoding=encoding)
+        except BaseException:
+            os.close(fd)
+            raise
+        with f:
+            f.write(content)
     except BaseException:
-        os.close(fd)
+        if exclusive:
+            # Fichier créé par cet appel et resté partiel : on le retire,
+            # sinon un déploiement suivant le croirait « déjà présent ».
+            with contextlib.suppress(OSError):
+                os.unlink(path)
         raise
-    with f:
-        f.write(content)
 
 
 class LinuxFileManager(FileManager):

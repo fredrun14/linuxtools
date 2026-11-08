@@ -468,3 +468,42 @@ class TestWriteTextSecureExclusive:
             write_text_secure(lien, "x", 0o600, exclusive=True)
 
         assert not (tmp_path / "rien").exists()
+
+    def test_write_text_secure_exclusive_supprime_le_fichier_si_fchmod_echoue(
+        self, tmp_path: Path
+    ) -> None:
+        """F05 : un fichier partiel ne doit pas subsister (sinon kept)."""
+        cible = tmp_path / "s.env"
+
+        with (
+            patch("linuxtools.filesystem.linux.os.fchmod", side_effect=OSError),
+            pytest.raises(OSError),
+        ):
+            write_text_secure(cible, "x=1\n", 0o600, exclusive=True)
+
+        assert not cible.exists()
+
+    def test_write_text_secure_exclusive_supprime_le_fichier_si_ecriture_echoue(
+        self, tmp_path: Path
+    ) -> None:
+        """F05 : échec d'écriture (encodage) -> fichier créé supprimé."""
+        cible = tmp_path / "s.env"
+
+        with pytest.raises(UnicodeEncodeError):
+            write_text_secure(
+                cible, "é", 0o600, encoding="ascii", exclusive=True
+            )
+
+        assert not cible.exists()
+
+    def test_write_text_secure_non_exclusif_conserve_le_fichier_existant_si_echec(
+        self, tmp_path: Path
+    ) -> None:
+        """Hors mode exclusif, aucun fichier n'est supprimé (inchangé)."""
+        cible = tmp_path / "s.env"
+        cible.write_text("ancien")
+
+        with pytest.raises(UnicodeEncodeError):
+            write_text_secure(cible, "é", 0o600, encoding="ascii")
+
+        assert cible.exists()
