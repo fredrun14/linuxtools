@@ -28,7 +28,7 @@ Journalisation d'événements de sécurité:
 
 Exemple d'utilisation:
     from linuxtools.logging import (
-        FileLogger, RotatingFileLogger, default_log_dir,
+        FileLogger, RotatingFileLogger, default_log_dir, purge_old_logs,
     )
 
     logger = FileLogger("/var/log/app.log")
@@ -41,6 +41,7 @@ Exemple d'utilisation:
 
     logger = FileLogger(default_log_dir("mon-app") / "app.log")
 
+    log_path = default_log_dir("mon-app") / "run_x.log"
     purge_old_logs(default_log_dir("mon-app"), "run_*.log", keep=log_path)
 
 Exemple d'utilisation (événement de sécurité):
@@ -73,11 +74,11 @@ from linuxtools.logging.security_logger import (
 from linuxtools.logging.tee_stream import TeeStream
 
 __all__ = [
-    "DEFAULT_RETENTION_DAYS",
     "AnsiColors",
     "build_logger",
     "ConsoleLogger",
     "default_log_dir",
+    "DEFAULT_RETENTION_DAYS",
     "FileLogger",
     "Logger",
     "purge_old_logs",
