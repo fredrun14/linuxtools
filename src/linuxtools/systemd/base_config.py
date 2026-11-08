@@ -558,8 +558,12 @@ class ServiceConfig(BaseSystemdConfig):
         if self.nice is not None:
             lines.append(f"Nice={self.nice}")
         for label, value, name in (
-            ("IOSchedulingClass", self.io_scheduling_class, "io"),
-            ("SyslogIdentifier", self.syslog_identifier, "syslog"),
+            (
+                "IOSchedulingClass",
+                self.io_scheduling_class,
+                "io_scheduling_class",
+            ),
+            ("SyslogIdentifier", self.syslog_identifier, "syslog_identifier"),
         ):
             line = _optional_line(label, value, name)
             if line:

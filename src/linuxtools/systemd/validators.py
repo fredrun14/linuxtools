@@ -70,6 +70,30 @@ def reject_control_chars(value: str, champ: str) -> str:
     return value
 
 
+def _validate_unit_with_extensions(
+    unit_name: str, extensions: frozenset[str]
+) -> str:
+    """Valide un nom complet d'unité contre une liste d'extensions.
+
+    Args:
+        unit_name: Nom complet de l'unité (ex: ``backup.service``).
+        extensions: Extensions autorisées.
+
+    Returns:
+        Le nom validé.
+
+    Raises:
+        ValueError: Si le nom est invalide ou l'extension non autorisée.
+    """
+    if "." not in unit_name:
+        raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
+    radical, ext = unit_name.rsplit(".", 1)
+    if ext not in extensions:
+        raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
+    validate_unit_name(radical)
+    return unit_name
+
+
 def validate_full_unit_name(unit_name: str) -> str:
     """Valide le nom complet d'une unité systemd (radical + extension).
 
@@ -85,13 +109,7 @@ def validate_full_unit_name(unit_name: str) -> str:
     Raises:
         ValueError: Si le nom est invalide ou l'extension non autorisée.
     """
-    if "." not in unit_name:
-        raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
-    radical, ext = unit_name.rsplit(".", 1)
-    if ext not in _EXTENSIONS_VALIDES:
-        raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
-    validate_unit_name(radical)
-    return unit_name
+    return _validate_unit_with_extensions(unit_name, _EXTENSIONS_VALIDES)
 
 
 def validate_dependency_unit_name(unit_name: str) -> str:
@@ -109,13 +127,7 @@ def validate_dependency_unit_name(unit_name: str) -> str:
     Raises:
         ValueError: Si le nom est invalide ou l'extension non autorisée.
     """
-    if "." not in unit_name:
-        raise ValueError(f"Nom d'unité sans extension : {unit_name!r}")
-    radical, ext = unit_name.rsplit(".", 1)
-    if ext not in _EXTENSIONS_DEPENDANCE:
-        raise ValueError(f"Extension d'unité non autorisée : {ext!r}")
-    validate_unit_name(radical)
-    return unit_name
+    return _validate_unit_with_extensions(unit_name, _EXTENSIONS_DEPENDANCE)
 
 
 def path_to_unit_name(mount_path: str) -> str:

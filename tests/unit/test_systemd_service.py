@@ -1226,3 +1226,20 @@ class TestServiceConfigDependances:
             "[Unit]\nDescription=T\n\n[Service]\nType=simple\n"
             "ExecStart=/bin/x\n\n[Install]\nWantedBy=multi-user.target\n"
         )
+
+
+class TestServiceConfigNomsDeChampDansLesMessages:
+    """F13 : les messages d'erreur citent le vrai nom de champ."""
+
+    @pytest.mark.parametrize(
+        "champ", ["io_scheduling_class", "syslog_identifier"]
+    )
+    def test_to_unit_file_cite_le_nom_exact_du_champ(
+        self, champ: str
+    ) -> None:
+        """Un champ falsifié après construction nomme son attribut."""
+        config = ServiceConfig(description="T", exec_start="/bin/x")
+        object.__setattr__(config, champ, "idle\nExecStart=/bin/evil")
+
+        with pytest.raises(ValueError, match=f"'{champ}'"):
+            config.to_unit_file()
