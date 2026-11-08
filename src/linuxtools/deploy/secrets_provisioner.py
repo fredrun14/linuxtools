@@ -164,7 +164,7 @@ class SecretsProvisioner:
         """
         keys = tuple(dict.fromkeys(key for _service, key in spec.keys))
         content = _SKELETON_HEADER + "".join(f"{key}=\n" for key in keys)
-        outcome = destination_for(target, executor).write(
+        outcome = destination_for(target, executor, self._logger).write(
             spec.dest_path, content, spec.mode, if_exists="keep"
         )
         if not outcome.success:

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from linuxtools.commands.base import CommandExecutor
     from linuxtools.deploy.models import DeployTarget
+    from linuxtools.logging.base import Logger
 
 
 @dataclass(frozen=True)
@@ -125,9 +126,12 @@ class RemoteDestination:
 
     Attributes:
         executor: Exécuteur de commandes ciblant l'hôte distant.
+        logger: Logger optionnel, pour signaler un nettoyage incomplet
+            (temporaire distant non supprimé).
     """
 
     executor: CommandExecutor
+    logger: Logger | None = None
     label: ClassVar[str] = "distant"
 
     def write(
@@ -241,13 +245,19 @@ class RemoteDestination:
                     f"{link_result.stderr}",
                 )
         finally:
-            self.executor.run(["rm", "-f", "--", tmp])
+            rm_result = self.executor.run(["rm", "-f", "--", tmp])
+            if not rm_result.success and self.logger is not None:
+                self.logger.log_warning(
+                    f"Fichier temporaire distant non supprimé : {tmp} "
+                    f"({rm_result.stderr})"
+                )
         return WriteOutcome(True)
 
 
 def destination_for(
     target: DeployTarget,
     executor: CommandExecutor,
+    logger: Logger | None = None,
 ) -> WriteDestination:
     """Construit la destination correspondant à une cible de déploiement.
 
@@ -258,11 +268,12 @@ def destination_for(
     Args:
         target: Cible du déploiement.
         executor: Exécuteur de commandes ciblant `target`.
+        logger: Logger optionnel transmis à la destination distante.
 
     Returns:
-        `RemoteDestination(executor)` si `target.is_remote`,
+        `RemoteDestination(executor, logger)` si `target.is_remote`,
         `LocalDestination()` sinon.
     """
     if target.is_remote:
-        return RemoteDestination(executor)
+        return RemoteDestination(executor, logger)
     return LocalDestination()

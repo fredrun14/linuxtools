@@ -319,6 +319,35 @@ class TestRemoteDestinationKeep:
         assert "existe déjà" in outcome.detail
         assert _argv0(executor) == ["test", "mkdir", "install", "ln", "rm"]
 
+    def test_write_keep_distant_rm_temporaire_echoue_avertit(self) -> None:
+        """F07 : un temporaire non supprimé est signalé (warning)."""
+        executor = _scripted_executor({"test": 1, "rm": 1})
+        logger = MagicMock()
+
+        with patch(
+            "linuxtools.deploy.destinations.secrets.token_hex",
+            return_value="ab12",
+        ):
+            outcome = RemoteDestination(executor, logger).write(
+                "/etc/a.env", "A=\n", 0o600, if_exists="keep"
+            )
+
+        assert outcome == WriteOutcome(True)
+        logger.log_warning.assert_called_once()
+        assert "/etc/a.env.ab12.tmp" in logger.log_warning.call_args.args[0]
+
+    def test_write_keep_distant_rm_echoue_sans_logger_ne_leve_pas(
+        self,
+    ) -> None:
+        """Sans logger, l'échec du nettoyage reste silencieux."""
+        executor = _scripted_executor({"test": 1, "rm": 1})
+
+        outcome = RemoteDestination(executor).write(
+            "/etc/a.env", "A=\n", 0o600, if_exists="keep"
+        )
+
+        assert outcome == WriteOutcome(True)
+
     def test_write_keep_distant_absent_cree_via_install_puis_ln_puis_rm(
         self,
     ) -> None:
