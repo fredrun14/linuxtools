@@ -85,9 +85,18 @@ class TestValidateUnitName:
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name(name)
 
-    @pytest.mark.parametrize("name", ["a\\x00", "a\\x00b", "a\\x2d\\x00"])
-    def test_rejet_echappement_nul(self, name: str) -> None:
-        """Rejette ``\\x00`` (octet NUL échappé)."""
+    @pytest.mark.parametrize("name", [r"a\x20", r"a\x7e", r"a\x80", r"a\xff"])
+    def test_acceptation_echappement_non_controle(self, name: str) -> None:
+        """Accepte les échappements hors contrôles (``\\x20``, ``\\x7e``…)."""
+        assert validate_unit_name(name) == name
+
+    @pytest.mark.parametrize("name", [
+        "a\\x00", "a\\x00b", "a\\x2d\\x00",
+        "a\\x01", "a\\x0a", "a\\x0d", "a\\x10", "a\\x1f", "a\\x7f",
+        "a\\x2d\\x1f",
+    ])
+    def test_rejet_echappement_controle(self, name: str) -> None:
+        """Rejette ``\\x00``-``\\x1f`` et ``\\x7f`` (contrôles)."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name(name)
 
