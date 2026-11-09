@@ -172,6 +172,15 @@ class TestSystemdExecutorMocked:
         args = command_executor.run.call_args[0][0]
         assert "--now" in args
 
+    def test_enable_unit_accepte_nom_echappe_systemd(self) -> None:
+        """enable_unit() accepte un nom produit par systemd-escape."""
+        executor, _, command_executor = self._make_executor()
+        command_executor.run.return_value = _result()
+        nom = r"media-nas\x2dbackup.mount"
+        assert executor.enable_unit(nom) is True
+        args = command_executor.run.call_args[0][0]
+        assert nom in args
+
     def test_enable_unit_succes_sans_now(self) -> None:
         """enable_unit() avec now=False ne passe pas --now."""
         executor, _, command_executor = self._make_executor()

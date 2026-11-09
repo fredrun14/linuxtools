@@ -22,9 +22,14 @@ class TestValidateUnitName:
         "sys:name",
         "A1",
         "backup-daily_2",
+        r"media-nas\x2dbackup",
+        r"a\x2d\x2f\x5c",
     ])
     def test_noms_valides(self, name: str) -> None:
-        """Vérifie l'acceptation de noms d'unités valides."""
+        """Vérifie l'acceptation de noms d'unités valides.
+
+        Inclut les échappements ``\\xNN`` de ``systemd-escape --path``.
+        """
         assert validate_unit_name(name) == name
 
     def test_rejet_nom_vide(self) -> None:
@@ -154,6 +159,8 @@ class TestValidateFullUnitName:
         "media-nas.mount",
         "sshd.socket",
         "my_unit.automount",
+        r"media-nas\x2dbackup.mount",
+        r"media-nas\x2dbackup.automount",
     ])
     def test_noms_complets_valides(self, name: str) -> None:
         """Accepte les noms complets avec extension autorisée."""
