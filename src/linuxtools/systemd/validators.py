@@ -146,8 +146,13 @@ def path_to_unit_name(mount_path: str) -> str:
         Nom de l'unité validé (sans extension).
 
     Raises:
-        ValueError: Si le nom produit est invalide.
+        ValueError: Si le chemin contient un backslash ou si le nom
+            produit est invalide.
     """
+    if "\\" in mount_path:
+        raise ValueError(
+            f"Chemin de montage invalide (backslash interdit) : {mount_path!r}"
+        )
     name = mount_path.strip("/").replace("/", "-")
     return validate_unit_name(name)
 

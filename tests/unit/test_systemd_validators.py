@@ -3,6 +3,7 @@
 import pytest
 
 from linuxtools.systemd.validators import (
+    path_to_unit_name,
     reject_control_chars,
     validate_dependency_unit_name,
     validate_full_unit_name,
@@ -255,3 +256,21 @@ class TestValidateDependencyUnitName:
         """La liste globale n'est pas élargie."""
         with pytest.raises(ValueError, match="non autorisée"):
             validate_full_unit_name("a.target")
+
+
+class TestPathToUnitName:
+    """Tests pour path_to_unit_name."""
+
+    def test_chemin_simple(self) -> None:
+        """Convertit un chemin sans caractère spécial."""
+        assert path_to_unit_name("/media/nas/backup") == "media-nas-backup"
+
+    @pytest.mark.parametrize("chemin", [
+        "/media/a\\x2fb",
+        "/media/a\\b",
+        "/media/a\\",
+    ])
+    def test_rejet_backslash_dans_chemin(self, chemin: str) -> None:
+        """Rejette un backslash littéral du chemin (collision systemd)."""
+        with pytest.raises(ValueError, match="backslash"):
+            path_to_unit_name(chemin)
