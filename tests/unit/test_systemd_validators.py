@@ -62,6 +62,34 @@ class TestValidateUnitName:
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("name with spaces")
 
+    @pytest.mark.parametrize("name", [
+        "a\\",
+        "a\\n",
+        "a\\x",
+        "a\\x2",
+        "a\\xZZ",
+        "a\\x2D",
+        "a\\x2g",
+        "a\\u002d",
+        "a\\\\x2d",
+        "a\\x2d\\",
+        "a\\x2d\n",
+        "a\\x2d%n",
+        "a\\x2d/b",
+        "a\\x2d..b",
+        "\\x2da",
+    ])
+    def test_rejet_backslash_hors_echappement_hex(self, name: str) -> None:
+        """Rejette tout backslash qui n'est pas ``\\x`` + 2 hex minuscules."""
+        with pytest.raises(ValueError, match="invalide"):
+            validate_unit_name(name)
+
+    @pytest.mark.parametrize("name", ["a\\x00", "a\\x00b", "a\\x2d\\x00"])
+    def test_rejet_echappement_nul(self, name: str) -> None:
+        """Rejette ``\\x00`` (octet NUL échappé)."""
+        with pytest.raises(ValueError, match="invalide"):
+            validate_unit_name(name)
+
     def test_rejet_debut_non_alphanum(self) -> None:
         """Vérifie le rejet d'un nom commençant par un tiret."""
         with pytest.raises(ValueError, match="invalide"):
@@ -101,6 +129,11 @@ class TestValidateServiceName:
         """SEC : un ``\\n`` final ne passe pas (fullmatch, pas match)."""
         with pytest.raises(ValueError, match="invalide"):
             validate_service_name("x\n")
+
+    def test_validate_service_name_rejette_echappement_systemd(self) -> None:
+        """validate_service_name reste restrictif : pas de ``\\xNN``."""
+        with pytest.raises(ValueError, match="invalide"):
+            validate_service_name("a\\x2db")
 
     def test_rejet_point(self) -> None:
         """Vérifie le rejet de points (contrairement à unit_name)."""
@@ -185,6 +218,17 @@ class TestValidateFullUnitName:
         """Rejette un radical contenant des caractères interdits."""
         with pytest.raises(ValueError):
             validate_full_unit_name("../etc.service")
+
+    @pytest.mark.parametrize("name", [
+        "a\\x00.mount",
+        "a\\.mount",
+        "a\\n.service",
+        "a\\x2D.mount",
+    ])
+    def test_rejet_echappements_invalides_radical(self, name: str) -> None:
+        """Rejette les radicaux avec backslash ou échappement invalide."""
+        with pytest.raises(ValueError, match="invalide"):
+            validate_full_unit_name(name)
 
     def test_rejet_traversal_dans_radical(self) -> None:
         """Rejette une tentative de path traversal."""

@@ -3,8 +3,11 @@
 import re
 
 # Nom d'unité systemd : lettres, chiffres, points, tirets, underscores, ':'
-# et séquences d'échappement ``\xNN`` (``systemd-escape``, hex minuscule).
-_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9:._-]|\\x[0-9a-f]{2})*$")
+# et séquences d'échappement ``\xNN`` (``systemd-escape``, hex minuscule,
+# ``\x00`` exclu : octet NUL).
+_UNIT_NAME_RE = re.compile(
+    r"^[a-zA-Z0-9](?:[a-zA-Z0-9:._-]|\\x(?!00)[0-9a-f]{2})*$"
+)
 
 # Nom de service : plus restrictif, pas de '.' ni ':'
 _SERVICE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
@@ -155,7 +158,8 @@ def validate_unit_name(name: str) -> str:
     Accepte les caractères : lettres, chiffres, points, tirets,
     underscores et deux-points, ainsi que les séquences d'échappement
     systemd ``\\xNN`` (``\\x`` suivi de deux chiffres hexadécimaux
-    minuscules, ex. ``\\x2d``, produites par ``systemd-escape --path``).
+    minuscules, ex. ``\\x2d``, produites par ``systemd-escape --path``),
+    sauf ``\\x00`` (NUL).
     Tout autre backslash est refusé. Le premier caractère doit être
     alphanumérique.
 
