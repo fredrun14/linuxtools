@@ -85,7 +85,10 @@ class TestValidateUnitName:
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name(name)
 
-    @pytest.mark.parametrize("name", [r"a\x20", r"a\x7e", r"a\x80", r"a\xff"])
+    @pytest.mark.parametrize("name", [
+        r"a\x20", r"a\x7e", r"a\x80", r"a\xff",
+        r"a\xc3\xa9", r"a\x8f", r"a\x9f",
+    ])
     def test_acceptation_echappement_non_controle(self, name: str) -> None:
         """Accepte les échappements hors contrôles (``\\x20``, ``\\x7e``…)."""
         assert validate_unit_name(name) == name
