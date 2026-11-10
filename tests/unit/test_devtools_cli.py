@@ -181,6 +181,125 @@ def test_refuse_tag_absent_du_depot_linuxtools(
     assert ex.calls[-1].cwd == str(tmp_path / "lt")
 
 
+def test_refuse_origin_de_linuxtools_hors_forgejo(
+    tmp_path: Path,
+    projets: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ex = _base(projets)
+
+    def miroir(call: Call) -> CommandResult | None:
+        if call.cwd != str(tmp_path / "lt"):
+            return None
+        url = "https://github.com/fred/linuxtools.git"
+        return CommandResult(call.argv, 0, url + "\n", "", True, 0.0)
+
+    ex.on("git", "remote", "get-url", "origin", handler=miroir)
+
+    code = _lancer(ex, tmp_path, "--dry-run", "v2.11.1")
+
+    assert code == 2
+    assert "git.ricfasohel.fr" in capsys.readouterr().err
+    assert not any(a[:3] == ("git", "ls-remote", "--tags") for a in ex.argvs())
+
+
+def test_option_linuxtools_dir_designe_le_depot_du_tag(
+    tmp_path: Path, projets: Path
+) -> None:
+    ex = _base(projets)
+    autre = tmp_path / "ailleurs"
+
+    code = _lancer(
+        ex, tmp_path, "--dry-run", "--linuxtools-dir", str(autre), "v2.11.1"
+    )
+
+    assert code == 0
+    cwds = {
+        c.cwd for c in ex.calls if c.argv[:3] == ("git", "ls-remote", "--tags")
+    }
+    assert cwds == {str(autre)}
+
+
+def _faux_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    pyproject: str | None,
+    *,
+    git: bool = True,
+) -> Path:
+    """Place `cli.__file__` dans un faux dépôt `tmp_path/depot`."""
+    depot = tmp_path / "depot"
+    fichier = depot / "src" / "linuxtools" / "devtools" / "cli.py"
+    fichier.parent.mkdir(parents=True)
+    if pyproject is not None:
+        (depot / "pyproject.toml").write_text(pyproject)
+    if git:
+        (depot / ".git").mkdir()
+    monkeypatch.setattr(cli, "__file__", str(fichier))
+    return depot
+
+
+def _sans_option(
+    ex: ScriptedExecutor, projets: Path
+) -> tuple[BumpConsumersCommand, argparse.Namespace]:
+    """Commande sans `linuxtools_dir` injecté, ni option."""
+    commande = BumpConsumersCommand(
+        executor_factory=lambda logger, dry_run: ex
+    )
+    return commande, _args(commande, projets, "--dry-run", "v2.11.1")
+
+
+def test_checkout_detecte_sert_de_depot_par_defaut(
+    tmp_path: Path,
+    projets: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    depot = _faux_cli(
+        tmp_path, monkeypatch, '[project]\nname = "linuxtools"\n'
+    )
+    ex = _base(projets)
+    commande, args = _sans_option(ex, projets)
+
+    with pytest.raises(SystemExit) as exc:
+        commande.execute(args)
+
+    assert exc.value.code == 0
+    cwds = {
+        c.cwd for c in ex.calls if c.argv[:3] == ("git", "ls-remote", "--tags")
+    }
+    assert cwds == {str(depot)}
+
+
+@pytest.mark.parametrize(
+    ("pyproject", "git"),
+    [
+        (None, True),
+        ("[project\n", True),
+        ('[project]\nname = "autre"\n', True),
+        ('[project]\nname = "linuxtools"\n', False),
+    ],
+    ids=["sans-pyproject", "toml-invalide", "autre-nom", "sans-git"],
+)
+def test_hors_checkout_sans_option_erreur_claire(
+    tmp_path: Path,
+    projets: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    pyproject: str | None,
+    git: bool,
+) -> None:
+    _faux_cli(tmp_path, monkeypatch, pyproject, git=git)
+    ex = _base(projets)
+    commande, args = _sans_option(ex, projets)
+
+    with pytest.raises(SystemExit) as exc:
+        commande.execute(args)
+
+    assert exc.value.code == 2
+    assert "--linuxtools-dir" in capsys.readouterr().err
+    assert not any(a[:3] == ("git", "ls-remote", "--tags") for a in ex.argvs())
+
+
 def test_refuse_tag_si_ls_remote_echoue(tmp_path: Path, projets: Path) -> None:
     ex = _base(projets)
     ex.on("git", "ls-remote", "--tags", rc=128, stderr="réseau")

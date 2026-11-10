@@ -96,7 +96,7 @@ def _output(result: CommandResult) -> str:
     )
 
 
-def _host(url: str) -> str:
+def url_host(url: str) -> str:
     """Extrait le nom d'hôte d'une URL git (https, ssh ou scp).
 
     Retourne une chaîne vide si la forme n'est pas dans la liste blanche.
@@ -524,7 +524,7 @@ class ConsumerBumper:
             ["remote", "get-url", "--push", "origin"],
         ):
             url = self._git(args, cwd).stdout.strip()
-            if _host(url) != FORGEJO_HOST:
+            if url_host(url) != FORGEJO_HOST:
                 raise _AbortError(
                     Status.REFUSE,
                     f"origin ({url}) n'est pas sur {FORGEJO_HOST}",
