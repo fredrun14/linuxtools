@@ -49,6 +49,7 @@ def _repos(root: Path, *noms: str) -> None:
 def _base(root: Path, pyproject: str | None = None) -> ScriptedExecutor:
     """Exécuteur nominal : sondes de l'outil + sondes du bumper."""
     ex = _executor(pyproject)
+    ex.on("git", "remote", "get-url", "origin", stdout=_FORGEJO + "\n")
     ex.on("git", "--version", stdout="git version 2.56.0\n")
     ex.on("uv", "--version", stdout="uv 0.13.5\n")
     ex.on("git", "ls-remote", "--tags", stdout="abc\trefs/tags/v2.11.1\n")
@@ -422,6 +423,7 @@ def test_un_echec_n_arrete_pas_les_suivants_et_exit_1(
         "git",
         "remote",
         "get-url",
+        "--all",
         "origin",
         stdout=_FORGEJO + "\n",
         handler=origine,

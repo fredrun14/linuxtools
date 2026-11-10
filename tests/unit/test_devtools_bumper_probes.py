@@ -53,8 +53,17 @@ def _executor(
 ) -> ScriptedExecutor:
     """Scénario nominal : tout est sain, pin à monter de v2.10.0."""
     ex = ScriptedExecutor()
-    ex.on("git", "remote", "get-url", "origin", stdout=fetch_url + "\n")
-    ex.on("git", "remote", "get-url", "--push", stdout=push_url + "\n")
+    ex.on(
+        "git", "remote", "get-url", "--all", "origin", stdout=fetch_url + "\n"
+    )
+    ex.on(
+        "git",
+        "remote",
+        "get-url",
+        "--push",
+        "--all",
+        stdout=push_url + "\n",
+    )
     ex.on(
         "git",
         "ls-remote",
@@ -156,6 +165,32 @@ def test_origin_forme_trompeuse_refusee(tmp_path: Path, url: str) -> None:
 
     assert outcome.status is Status.REFUSE
     assert not any(a[:2] == ("git", "show") for a in ex.argvs())
+
+
+@pytest.mark.parametrize("push", [False, True])
+def test_deuxieme_url_github_d_origin_refusee(
+    tmp_path: Path, push: bool
+) -> None:
+    """Une 2e `url`/`pushurl` miroir échappe à `get-url` sans `--all`."""
+    miroir = "git@github.com:fred/app.git"
+    doublon = f"{_FORGEJO}\n{miroir}"
+    ex = _executor(
+        fetch_url=doublon if not push else _FORGEJO,
+        push_url=doublon if push else _FORGEJO,
+    )
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert not any(a[:2] == ("git", "show") for a in ex.argvs())
+
+
+def test_urls_multiples_toutes_forgejo_acceptees(tmp_path: Path) -> None:
+    deux = f"{_FORGEJO}\ngit@git.ricfasohel.fr:fred/app.git"
+
+    outcome = _bump(_executor(fetch_url=deux, push_url=deux), tmp_path)
+
+    assert outcome.status is Status.SIMULE
 
 
 def test_jeton_de_l_origin_absent_du_detail_et_du_journal(
@@ -498,7 +533,7 @@ def test_changelog_suivi_sans_section_non_publie_ignore(
 
 def test_echec_d_une_sonde_donne_echec_avec_stderr(tmp_path: Path) -> None:
     ex = _executor()
-    ex.on("git", "remote", "get-url", "origin", rc=2, stderr="boum\n")
+    ex.on("git", "remote", "get-url", "--all", rc=2, stderr="boum\n")
 
     outcome = _bump(ex, tmp_path)
 

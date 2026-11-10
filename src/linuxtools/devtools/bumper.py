@@ -519,16 +519,19 @@ class ConsumerBumper:
 
     def _probe_origin(self, cwd: str) -> str:
         """Vérifie les URL d'origin et retourne la branche par défaut."""
+        # `--all` : `git push origin` pousse vers TOUTES les pushurl
+        # (ou url), une 2e URL miroir ne doit donc pas échapper au contrôle.
         for args in (
-            ["remote", "get-url", "origin"],
-            ["remote", "get-url", "--push", "origin"],
+            ["remote", "get-url", "--all", "origin"],
+            ["remote", "get-url", "--push", "--all", "origin"],
         ):
-            url = self._git(args, cwd).stdout.strip()
-            if url_host(url) != FORGEJO_HOST:
-                raise _AbortError(
-                    Status.REFUSE,
-                    f"origin ({url}) n'est pas sur {FORGEJO_HOST}",
-                )
+            urls = self._git(args, cwd).stdout.splitlines() or [""]
+            for url in (u.strip() for u in urls):
+                if url_host(url) != FORGEJO_HOST:
+                    raise _AbortError(
+                        Status.REFUSE,
+                        f"origin ({url}) n'est pas sur {FORGEJO_HOST}",
+                    )
         out = self._git(["ls-remote", "--symref", "origin", "HEAD"], cwd)
         match = _DEFAULT_BRANCH_RE.search(out.stdout)
         if match is None or not _SAFE_BRANCH_RE.match(match["branch"]):
