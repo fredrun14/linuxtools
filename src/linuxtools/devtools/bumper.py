@@ -286,7 +286,7 @@ class ConsumerBumper:
         result = self._executor.run(argv, cwd=cwd, timeout=self._timeout)
         if not result.success:
             if self._branch_exists(cwd, plan.branch):
-                self._delete_branch(cwd, plan.branch)
+                self._delete_branch(cwd, plan.branch, space.worktree)
             raise _AbortError(
                 Status.ECHEC,
                 f"git worktree add a échoué "
@@ -319,17 +319,45 @@ class ConsumerBumper:
             )
         shutil.rmtree(space.tmp, ignore_errors=True)
         if drop_branch:
-            self._delete_branch(cwd, branch)
+            self._delete_branch(cwd, branch, space.worktree)
 
-    def _delete_branch(self, cwd: str, branch: str) -> None:
+    def _delete_branch(self, cwd: str, branch: str, worktree: Path) -> None:
         """Supprime la branche locale (échec journalisé).
 
-        ``worktree prune`` d'abord : si ``worktree remove`` a échoué puis
-        que le dossier a été supprimé, le worktree reste enregistré
-        (« prunable ») et git refuserait ``branch -D``.
+        ``worktree prune`` d'abord, mais seulement si NOTRE worktree est
+        « prunable » (``worktree remove`` a échoué puis le dossier a été
+        supprimé : git refuserait ``branch -D``). Le prune est global :
+        sans cette garde, il désenregistrerait aussi un worktree de
+        l'utilisateur momentanément absent.
         """
-        self._cleanup_step(["git", "worktree", "prune"], cwd)
+        if self._worktree_prunable(cwd, worktree):
+            self._cleanup_step(["git", "worktree", "prune"], cwd)
         self._cleanup_step(["git", "branch", "-D", branch], cwd)
+
+    def _worktree_prunable(self, cwd: str, worktree: Path) -> bool:
+        """Indique si ``worktree`` figure « prunable » dans git."""
+        argv = ["git", "worktree", "list", "--porcelain"]
+        result = self._executor.run(argv, cwd=cwd, timeout=self._timeout)
+        if not result.success:
+            self._logger.log_warning(
+                f"nettoyage : git worktree list a échoué "
+                f"(code {result.return_code}) : {_output(result)}"
+            )
+            return False
+        target = worktree.resolve()
+        for block in result.stdout.split("\n\n"):
+            lines = block.splitlines()
+            listed = next(
+                (
+                    ln[len("worktree ") :]
+                    for ln in lines
+                    if ln.startswith("worktree ")
+                ),
+                None,
+            )
+            if listed is not None and Path(listed).resolve() == target:
+                return any(ln.split()[:1] == ["prunable"] for ln in lines)
+        return False
 
     def _cleanup_step(self, argv: list[str], cwd: str) -> None:
         """Lance une commande de nettoyage et journalise son échec."""

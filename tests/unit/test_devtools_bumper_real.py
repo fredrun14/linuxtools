@@ -171,6 +171,7 @@ def _scenario(
         handler=worktree_add,
     )
     ex.on("git", "worktree", "remove")
+    ex.on("git", "worktree", "list")
     ex.on("git", "worktree", "prune")
     ex.on("git", "branch", "-D")
     ex.on("uv", "lock", handler=uv_lock if lock else None)
@@ -546,6 +547,27 @@ def test_worktree_prune_avant_la_suppression_de_la_branche(
     run = _scenario(tmp_path, monkeypatch, check_rc={"mypy": 1})
     run.ex.on("git", "worktree", "remove", rc=1, stderr="wt verrouillé")
 
+    def liste(call: Call) -> None:
+        assert run.wt is not None
+        run.ex.on(
+            "git",
+            "worktree",
+            "list",
+            stdout=(
+                "worktree /home/u/app\nHEAD aaa\nbranch refs/heads/x\n\n"
+                f"worktree {run.wt}\nHEAD bbb\nprunable gitdir absent\n"
+            ),
+        )
+
+    run.ex.on(
+        "git",
+        "worktree",
+        "remove",
+        rc=1,
+        stderr="wt verrouillé",
+        handler=liste,
+    )
+
     outcome = run.outcome()
 
     assert outcome.status is Status.ECHEC
@@ -553,6 +575,25 @@ def test_worktree_prune_avant_la_suppression_de_la_branche(
     prune = run.index("git", "worktree", "prune")
     delete = run.index("git", "branch", "-D")
     assert remove < prune < delete
+
+
+def test_pas_de_prune_si_notre_worktree_n_est_pas_prunable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un autre worktree « prunable » ne justifie pas le prune global."""
+    run = _scenario(tmp_path, monkeypatch, check_rc={"mypy": 1})
+    run.ex.on(
+        "git",
+        "worktree",
+        "list",
+        stdout="worktree /home/u/ailleurs\nHEAD aaa\nprunable gitdir absent\n",
+    )
+
+    outcome = run.outcome()
+
+    assert outcome.status is Status.ECHEC
+    assert run.has("git", "branch", "-D")
+    assert not run.has("git", "worktree", "prune")
 
 
 def test_pas_de_prune_quand_la_branche_est_conservee(
@@ -582,3 +623,16 @@ def test_nettoyage_worktree_meme_en_exception(
     assert run.has("git", "worktree", "remove", "--force")
     assert ("git", "branch", "-D", _BRANCHE) in run.argvs()
     assert run.tmp is not None and not run.tmp.exists()
+
+
+def test_echec_de_worktree_list_journalise_et_n_elague_pas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _scenario(tmp_path, monkeypatch, check_rc={"mypy": 1})
+    run.ex.on("git", "worktree", "list", rc=1, stderr="illisible")
+
+    outcome = run.outcome()
+
+    assert outcome.status is Status.ECHEC
+    assert not run.has("git", "worktree", "prune")
+    assert run.has("git", "branch", "-D")

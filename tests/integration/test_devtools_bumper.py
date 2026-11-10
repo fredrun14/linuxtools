@@ -18,6 +18,7 @@ red-green sur du comportement nouveau.
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -458,3 +459,28 @@ def test_commit_avec_fichier_a_espace_inattendu_cite_en_entier(
 
     assert status is Status.ECHEC
     assert "a b.txt" in detail
+
+
+# --- T35/F26 : le nettoyage n'élague que notre worktree -----------------
+
+
+def test_nettoyage_n_elague_pas_le_worktree_absent_de_l_utilisateur(
+    env: _Env, tmp_path: Path
+) -> None:
+    """Un autre worktree momentanément absent reste enregistré."""
+    ailleurs = tmp_path / "ailleurs"
+    _git(env.app, "worktree", "add", "-b", "autre", str(ailleurs))
+    shutil.rmtree(ailleurs)  # disque démonté, dossier déplacé...
+    stub = env.uv_log.parent / "bin" / "uv"
+    stub.write_text(stub.read_text().replace("exit 0", "exit 1", 1))
+
+    outcome = _bumper(dry_run=False, root=env.app.parent).bump(
+        Consumer("app", env.app)
+    )
+
+    assert outcome.status is Status.ECHEC
+    assert str(ailleurs) in _git(env.app, "worktree", "list", "--porcelain")
+    assert (
+        _BRANCH
+        not in _git(env.app, "branch", "--format=%(refname:short)").split()
+    )
