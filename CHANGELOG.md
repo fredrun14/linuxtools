@@ -2,6 +2,42 @@
 
 ## [Non publié]
 
+### Ajouté
+
+- feat(devtools): commande `bump-consumers vX.Y.Z` (package
+  `linuxtools.devtools`, outil de mainteneur hors API publique, lancé par
+  `python -m linuxtools.devtools`, sans point d'entrée). Elle monte le pin
+  `linuxtools @ git+https://git.ricfasohel.fr/fred/linuxtools.git@vX.Y.Z` des
+  projets consommateurs sur une branche `chore/pin-linuxtools-X-Y-Z`, dans un
+  worktree temporaire basé sur `origin/<défaut>` : réécriture du seul pin,
+  entrée « Modifié » du CHANGELOG, régénération d'`uv.lock` (changements
+  limités à la fermeture de `linuxtools`), `uv sync --no-sources`, contrôles
+  du consommateur, commit puis push vérifié vers `origin`. Options `--root`,
+  `--only`/`--exclude` (exclusives), `--dry-run`, `--no-push`,
+  `--co-authored-by`. Statuts À JOUR, EN ATTENTE, SIMULÉ, POUSSÉ, COMMITÉ
+  (succès), REFUSÉ, BLOQUÉ, ÉCHEC, PUSH ÉCHOUÉ (code 1) ; usage ou
+  environnement invalide : code 2. Jamais de PR, de tag ni de force ; refus en
+  root et si `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `UV_FROZEN`,
+  `UV_LOCKED`, `UV_NO_SYNC`, `UV_PROJECT` ou `UV_PROJECT_ENVIRONMENT` est
+  défini ; tag vérifié par `git ls-remote` sur l'URL Forgejo de linuxtools
+  (T1 à T8, F01 à F28).
+- feat(devtools): contrat `[tool.linuxtools.consumer]` du `pyproject.toml`
+  consommateur, **obligatoire** (sans lui : REFUSÉ) : `sync-args` (liste
+  blanche : `--all-extras`, `--all-groups`, `--extra NOM`, `--group NOM`) et
+  `checks` (liste d'argv exécutés depuis le venv temporaire) (T1, F10).
+- build(make): cible `bump-consumers TAG=vX.Y.Z [ARGS=...]` ; `TAG` et `ARGS`
+  passent par l'environnement, jamais interprétés par le shell (T8, T20/F11).
+- build(make): cible `format-check` (`ruff format --check` sur `src/` et les
+  tests de `linuxtools.devtools`), source unique du gate de format appelée par
+  `make lint`, le hook pre-commit et la CI (T21/F12, T31/F22).
+- test(devtools): test d'intégration de `ConsumerBumper` avec un vrai git
+  (origin nu) et un `uv` bouchonné (T9).
+
+### Modifié
+
+- build(lint): `make lint` exécute d'abord `format-check`, et la CI et le hook
+  pre-commit appellent la même cible (T21, T31/F22).
+
 ## [2.11.1] - 2026-11-10
 
 ### Corrigé
