@@ -92,3 +92,14 @@ def test_format_report_sans_detail_pas_de_bloc_details() -> None:
     rapport = format_report([_outcome(Status.POUSSE)])
 
     assert "Détails" not in rapport
+
+
+def test_format_report_masque_le_userinfo_des_url() -> None:
+    detail = "origin (https://tok:s3cret@github.com/x.git) refusé"
+    outcome = _outcome(Status.REFUSE, detail=detail)
+
+    rapport = format_report([outcome])
+
+    assert "s3cret" not in rapport
+    assert "tok" not in rapport
+    assert "https://***@github.com/x.git" in rapport

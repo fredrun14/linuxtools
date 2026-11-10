@@ -1,12 +1,26 @@
 """Statuts, rapport final et code de sortie de ``bump-consumers``."""
 
 # stdlib
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
 _MAX_DETAIL_LINES = 20
+_USERINFO_RE = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/\s]*@")
 _HEADERS = ("projet", "ancien pin", "statut", "contrôles", "problème")
+
+
+def mask_userinfo(text: str) -> str:
+    """Masque l'userinfo (jeton, mot de passe) des URL d'un texte.
+
+    Args:
+        text: Texte libre pouvant contenir ``scheme://user:jeton@hôte/``.
+
+    Returns:
+        Texte où chaque userinfo est remplacé par ``***``.
+    """
+    return _USERINFO_RE.sub(r"\g<scheme>***@", text)
 
 
 class Status(Enum):
@@ -43,7 +57,7 @@ def _row(outcome: BumpOutcome) -> tuple[str, ...]:
     """Cellules du tableau pour un résultat."""
     problem = ""
     if outcome.status in _FAILURES and outcome.detail:
-        problem = outcome.detail.splitlines()[0]
+        problem = mask_userinfo(outcome.detail.splitlines()[0])
     return (
         outcome.project,
         outcome.old_pin,
@@ -94,7 +108,9 @@ def format_report(outcomes: Sequence[BumpOutcome]) -> str:
         lines.extend(["", "Détails"])
         for outcome in shown:
             lines.append(f"* {outcome.project} ({outcome.status.value})")
-            lines.extend(f"    {ln}" for ln in _truncate(outcome.detail))
+            lines.extend(
+                f"    {ln}" for ln in _truncate(mask_userinfo(outcome.detail))
+            )
     return "\n".join(lines)
 
 

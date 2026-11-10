@@ -158,6 +158,29 @@ def test_origin_forme_trompeuse_refusee(tmp_path: Path, url: str) -> None:
     assert not any(a[:2] == ("git", "show") for a in ex.argvs())
 
 
+def test_jeton_de_l_origin_absent_du_detail_et_du_journal(
+    tmp_path: Path,
+) -> None:
+    url = "https://tok:s3cret@github.com/fred/app.git"
+    ex = _executor(fetch_url=url, push_url=url)
+    logger = MagicMock()
+    bumper = ConsumerBumper(
+        ex,
+        logger,
+        tag="v2.11.1",
+        root=tmp_path,
+        dry_run=True,
+        push=True,
+        co_author=_CO_AUTHOR,
+    )
+
+    outcome = bumper.bump(Consumer("app", tmp_path / "app"))
+
+    assert outcome.status is Status.REFUSE
+    assert "s3cret" not in outcome.detail
+    assert "s3cret" not in str(logger.mock_calls)
+
+
 def test_pin_deja_a_jour(tmp_path: Path) -> None:
     ex = _executor(_pyproject("v2.11.1"))
 

@@ -24,7 +24,7 @@ from linuxtools.devtools.manifest import (
     pinned_linuxtools_tags,
     rewrite_pin,
 )
-from linuxtools.devtools.report import BumpOutcome, Status
+from linuxtools.devtools.report import BumpOutcome, Status, mask_userinfo
 from linuxtools.logging.base import Logger
 from linuxtools.updates.version_compare import parse_version
 
@@ -172,23 +172,24 @@ class ConsumerBumper:
         try:
             return self._bump(consumer, state)
         except _AbortError as stop:
+            detail = mask_userinfo(stop.detail)
             self._logger.log_warning(
-                f"{consumer.name} : {stop.status.value} : {stop.detail}"
+                f"{consumer.name} : {stop.status.value} : {detail}"
             )
             return BumpOutcome(
                 consumer.name,
                 state.old_pin,
                 stop.status,
                 checks=stop.checks,
-                detail=stop.detail,
+                detail=detail,
             )
         except Exception as exc:  # frontière : tout devient un statut
-            self._logger.log_error(f"{consumer.name} : {exc!r}")
+            self._logger.log_error(mask_userinfo(f"{consumer.name} : {exc!r}"))
             return BumpOutcome(
                 consumer.name,
                 state.old_pin,
                 Status.ECHEC,
-                detail=f"{type(exc).__name__} : {exc}",
+                detail=mask_userinfo(f"{type(exc).__name__} : {exc}"),
             )
 
     # -- orchestration -------------------------------------------------
