@@ -175,11 +175,19 @@ def test_refuse_tag_absent_du_depot_linuxtools(
     assert "n'existe pas" in capsys.readouterr().err
 
 
-def test_tag_verifie_sur_l_url_du_pin_sans_depot_local(
+def test_tag_verifie_sur_l_url_du_pin_depuis_un_dossier_neutre(
     tmp_path: Path, projets: Path
 ) -> None:
-    """L'URL du pin désigne le dépôt : aucun dossier ni origin local."""
+    """URL du pin, cwd neutre (vide, créé pour la sonde puis supprimé)."""
     ex = _base(projets)
+    vu: list[tuple[bool, list[Path]]] = []
+
+    def sonde(call: Call) -> None:
+        assert call.cwd is not None
+        dossier = Path(call.cwd)
+        vu.append((dossier.is_dir(), list(dossier.iterdir())))
+
+    ex.on("git", "ls-remote", "--tags", handler=sonde, stdout="abc\tx\n")
 
     code = _lancer(ex, tmp_path, "--dry-run", "v2.11.1")
 
@@ -188,49 +196,39 @@ def test_tag_verifie_sur_l_url_du_pin_sans_depot_local(
     assert [c.argv for c in sondes] == [
         (*_LS_TAGS, _URL_PIN, "refs/tags/v2.11.1")
     ]
-    assert sondes[0].cwd is None
-    assert not any(
-        c.argv[:3] == ("git", "remote", "get-url") and c.cwd is None
-        for c in ex.calls
-    )
+    cwd = sondes[0].cwd
+    assert cwd is not None
+    assert Path(cwd).name.startswith("linuxtools-tag-")
+    assert Path(cwd) not in (Path.cwd(), projets, tmp_path)
+    assert vu == [(True, [])]
+    assert not Path(cwd).exists()
 
 
-def test_option_linuxtools_dir_sert_de_repertoire_de_travail(
+def test_dossier_neutre_supprime_meme_si_la_sonde_echoue(
     tmp_path: Path, projets: Path
 ) -> None:
-    """Le dossier ne change pas le dépôt interrogé (URL du pin)."""
     ex = _base(projets)
-    autre = tmp_path / "ailleurs"
-    autre.mkdir()
+    ex.on("git", "ls-remote", "--tags", rc=128, stderr="réseau")
 
-    code = _lancer(
-        ex, tmp_path, "--dry-run", "--linuxtools-dir", str(autre), "v2.11.1"
-    )
+    assert _lancer(ex, tmp_path, "--dry-run", "v2.11.1") == 2
 
-    assert code == 0
-    sondes = [c for c in ex.calls if c.argv[:3] == _LS_TAGS]
-    assert [c.argv[3] for c in sondes] == [_URL_PIN]
-    assert {c.cwd for c in sondes} == {str(autre)}
+    cwd = next(c.cwd for c in ex.calls if c.argv[:3] == _LS_TAGS)
+    assert cwd is not None
+    assert not Path(cwd).exists()
 
 
-def test_linuxtools_dir_inexistant_erreur_claire(
+def test_option_linuxtools_dir_retiree(
     tmp_path: Path,
     projets: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     ex = _base(projets)
-    absent = tmp_path / "absent"
 
-    code = _lancer(
-        ex, tmp_path, "--dry-run", "--linuxtools-dir", str(absent), "v2.11.1"
-    )
+    with pytest.raises(SystemExit) as exc:
+        _lancer(ex, tmp_path, "--dry-run", "--linuxtools-dir", "/x", "v2.11.1")
 
-    assert code == 2
-    erreur = capsys.readouterr().err
-    assert "--linuxtools-dir" in erreur
-    assert str(absent) in erreur
-    assert "inexistant" in erreur
-    assert not any(a[:3] == _LS_TAGS for a in ex.argvs())
+    assert exc.value.code == 2  # rejet argparse
+    assert "--linuxtools-dir" in capsys.readouterr().err
 
 
 def test_refuse_tag_si_ls_remote_echoue(

@@ -17,6 +17,7 @@ red-green sur du comportement nouveau.
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import stat
@@ -30,8 +31,11 @@ import pytest
 
 from linuxtools.commands.base import CommandResult
 from linuxtools.commands.runner import LinuxCommandExecutor
+from linuxtools.devtools import cli
 from linuxtools.devtools.bumper import ConsumerBumper
+from linuxtools.devtools.cli import BumpConsumersCommand
 from linuxtools.devtools.discovery import Consumer
+from linuxtools.devtools.manifest import LINUXTOOLS_URL
 from linuxtools.devtools.report import Status
 
 if TYPE_CHECKING:
@@ -484,3 +488,57 @@ def test_nettoyage_n_elague_pas_le_worktree_absent_de_l_utilisateur(
         _BRANCH
         not in _git(env.app, "branch", "--format=%(refname:short)").split()
     )
+
+
+# --- T36/F27 : la sonde du tag ignore la config git du cwd ---------------
+
+
+def test_sonde_du_tag_ignore_la_config_locale_du_repertoire_courant(
+    env: _Env, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un ``insteadOf`` local ne peut pas rediriger ``LINUXTOOLS_URL``.
+
+    Le dépôt « réel » (config globale) n'a pas le tag ; le dépôt du cwd le
+    redirige vers un faux dépôt qui l'a. La sonde doit voir le premier.
+    """
+    depot = tmp_path / "depot"
+    depot.mkdir()
+    vrai = depot / "linuxtools.git"
+    faux = tmp_path / "faux.git"
+    for bare in (vrai, faux):
+        _git(tmp_path, "init", "--bare", "-b", "main", str(bare))
+    graine = tmp_path / "graine"
+    _git(tmp_path, "clone", str(faux), str(graine))
+    _git(graine, "config", "user.name", "Test")
+    _git(graine, "config", "user.email", "test@example.com")
+    (graine / "f").write_text("x\n")
+    _git(graine, "add", ".")
+    _git(graine, "commit", "-m", "x")
+    _git(graine, "tag", "v9.9.9")
+    _git(graine, "push", "origin", "main", "v9.9.9")
+    globale = tmp_path / "gitconfig"
+    # Préfixe court (global) vs URL complète (local) : le plus long gagne.
+    prefixe = LINUXTOOLS_URL.rsplit("/", 1)[0] + "/"
+    globale.write_text(f'[url "{depot}/"]\n\tinsteadOf = {prefixe}\n')
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(globale))
+    piege = tmp_path / "piege"
+    piege.mkdir()
+    _git(piege, "init", "-b", "main")
+    _git(piege, "config", f"url.{faux}.insteadOf", LINUXTOOLS_URL)
+    monkeypatch.chdir(piege)
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    for name in cli.FORBIDDEN_ENV:
+        monkeypatch.delenv(name, raising=False)
+    vide = tmp_path / "vide"
+    vide.mkdir()
+    commande = BumpConsumersCommand()
+    parser = argparse.ArgumentParser(prog="linuxtools-dev")
+    commande.register(parser.add_subparsers(dest="command", required=True))
+    args = parser.parse_args(
+        ["bump-consumers", "--dry-run", "--root", str(vide), "v9.9.9"]
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        commande.execute(args)
+
+    assert exc.value.code == 2

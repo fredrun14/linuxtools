@@ -9,7 +9,9 @@ Lancée par ``python -m linuxtools.devtools`` (aucun point d'entrée).
 import argparse
 import os
 import re
+import shutil
 import sys
+import tempfile
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -61,21 +63,15 @@ class BumpConsumersCommand(CliCommand):
     """Sous-commande ``bump-consumers`` : monte le pin sur les projets."""
 
     def __init__(
-        self,
-        executor_factory: ExecutorFactory | None = None,
-        linuxtools_dir: Path | None = None,
+        self, executor_factory: ExecutorFactory | None = None
     ) -> None:
         """Initialise la commande.
 
         Args:
             executor_factory: Fabrique ``(logger, dry_run) -> executor``
                 (défaut : ``LinuxCommandExecutor``).
-            linuxtools_dir: Répertoire de travail de la vérification du
-                tag (facultatif, doit exister ; ``--linuxtools-dir``
-                l'emporte). Le dépôt interrogé est toujours l'URL du pin.
         """
         self._executor_factory = executor_factory or self.make_executor
-        self._linuxtools_dir = linuxtools_dir
 
     @property
     def name(self) -> str:
@@ -118,18 +114,6 @@ class BumpConsumersCommand(CliCommand):
         )
         add_dry_run_argument(parser)
         parser.add_argument(
-            "--linuxtools-dir",
-            type=Path,
-            default=None,
-            dest="linuxtools_dir",
-            metavar="DOSSIER",
-            help=(
-                "Répertoire de travail de la vérification du tag (facultatif, "
-                "doit exister). Le tag est vérifié sur l'URL du pin, pas "
-                "sur ce dossier."
-            ),
-        )
-        parser.add_argument(
             "--no-push",
             action="store_true",
             dest="no_push",
@@ -169,7 +153,7 @@ class BumpConsumersCommand(CliCommand):
         )
         executor = self._executor_factory(logger, args.dry_run)
         self._check_tools(executor)
-        self._check_tag_exists(executor, args.tag, args.linuxtools_dir)
+        self._check_tag_exists(executor, args.tag)
         try:
             consumers = discover_consumers(args.root, args.only, args.exclude)
         except ValueError as exc:
@@ -224,29 +208,28 @@ class BumpConsumersCommand(CliCommand):
         if not executor.probe(["uv", "--version"]).success:
             raise _UsageError("uv introuvable")
 
-    def _work_dir(self, option: Path | None) -> str | None:
-        """Répertoire de travail de la vérification du tag (ou None)."""
-        directory = option if option is not None else self._linuxtools_dir
-        if directory is None:
-            return None
-        if not directory.is_dir():
-            raise _UsageError(
-                f"--linuxtools-dir : dossier inexistant ({directory})"
-            )
-        return str(directory)
-
-    def _check_tag_exists(
-        self, executor: CommandExecutor, tag: str, option: Path | None
-    ) -> None:
+    def _check_tag_exists(self, executor: CommandExecutor, tag: str) -> None:
         """Le tag doit exister sur le dépôt de l'URL du pin (Forgejo).
 
         Aucun dépôt local n'est requis : ``ls-remote`` interroge l'URL
-        épinglée, qui ne peut donc pas désigner un autre dépôt.
+        épinglée. La sonde tourne dans un dossier neutre et vide, pour
+        qu'aucune config git locale du répertoire courant (``insteadOf``)
+        ne puisse rediriger l'URL.
         """
-        result = executor.probe(
-            ["git", "ls-remote", "--tags", LINUXTOOLS_URL, f"refs/tags/{tag}"],
-            cwd=self._work_dir(option),
-        )
+        neutral = tempfile.mkdtemp(prefix="linuxtools-tag-")
+        try:
+            result = executor.probe(
+                [
+                    "git",
+                    "ls-remote",
+                    "--tags",
+                    LINUXTOOLS_URL,
+                    f"refs/tags/{tag}",
+                ],
+                cwd=neutral,
+            )
+        finally:
+            shutil.rmtree(neutral, ignore_errors=True)
         if not result.success:
             raise _UsageError(
                 f"impossible de vérifier le tag {tag} : "
