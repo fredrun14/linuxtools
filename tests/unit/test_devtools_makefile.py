@@ -101,3 +101,46 @@ def test_sans_tag_affiche_l_usage_et_sort_en_2(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "Usage" in result.stdout + result.stderr
     assert argv == []
+
+
+def _make_n(cible: str) -> str:
+    """Commandes que ``make <cible>`` lancerait (``-n`` : rien n'est exécuté)."""
+    assert _MAKE is not None
+    result = subprocess.run(  # noqa: S603
+        [_MAKE, "-n", "-C", str(_RACINE), cible],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
+
+
+def test_gate_de_format_unique_couvre_src_et_tests_devtools() -> None:
+    commandes = _make_n("format-check")
+
+    assert "ruff format --check" in commandes
+    assert "src/" in commandes
+    assert "tests/unit/test_devtools_bumper_real.py" in commandes
+    assert "tests/unit/scripted_executor.py" in commandes
+    assert "tests/integration/test_devtools_bumper.py" in commandes
+
+
+def test_make_lint_passe_par_le_gate_de_format() -> None:
+    assert _make_n("lint").count("ruff format --check") == 1
+    assert "tests/unit/test_devtools_report.py" in _make_n("lint")
+
+
+@pytest.mark.parametrize(
+    "fichier", [".forgejo/workflows/ci.yml", ".githooks/pre-commit"]
+)
+def test_ci_et_hook_appellent_le_gate_du_makefile(fichier: str) -> None:
+    texte = (_RACINE / fichier).read_text(encoding="utf-8")
+
+    assert "make format-check" in texte
+    # pas de copie du gate qui dériverait du Makefile (commentaires exclus)
+    code = [
+        ligne
+        for ligne in texte.splitlines()
+        if not ligne.lstrip().startswith("#")
+    ]
+    assert "ruff format" not in "\n".join(code).lower()
