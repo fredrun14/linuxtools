@@ -248,3 +248,23 @@ def test_pinned_linuxtools_tags_liste_les_pins() -> None:
 def test_pinned_linuxtools_tags_refuse_toml_invalide() -> None:
     with pytest.raises(ManifestError):
         pinned_linuxtools_tags("[project\n")
+
+
+def test_parse_refuse_pin_avec_saut_de_ligne_final() -> None:
+    # `$` accepterait le \n final ; `\Z` non.
+    pin = _PIN + "\\n"
+
+    with pytest.raises(ManifestError, match="pin linuxtools"):
+        ConsumerManifest.parse(_pyproject(deps=(pin,)))
+
+
+def test_parse_refuse_argv0_avec_saut_de_ligne_final() -> None:
+    contrat = '[tool.linuxtools.consumer]\nchecks = [["pytest\\n"]]\n'
+
+    with pytest.raises(ManifestError, match="contrat consommateur"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+def test_rewrite_pin_refuse_tag_avec_saut_de_ligne_final() -> None:
+    with pytest.raises(ManifestError, match="tag invalide"):
+        rewrite_pin(_pyproject(), "v2.11.1\n")

@@ -20,22 +20,22 @@ _PIN_HEAD = (
 _PIN_RE = re.compile(
     r"^linuxtools(?:\[(?P<extras>[^\]]*)\])?\s*@\s*"
     r"git\+https://git\.ricfasohel\.fr/fred/linuxtools\.git@"
-    rf"(?P<tag>{_TAG})$"
+    rf"(?P<tag>{_TAG})\Z"
 )
 # Pin repéré dans le texte brut, tag exclu (groupe `head` conservé).
 _PIN_TEXT_RE = re.compile(rf"(?P<head>{_PIN_HEAD}){_TAG}")
 _SIBLING_RE = re.compile(
     r"^(?P<name>[A-Za-z0-9._-]+)(?:\[[^\]]*\])?\s*@\s*"
     r"git\+(?P<url>https://git\.ricfasohel\.fr/fred/[^@\s]*\.git)"
-    r"@(?P<tag>\S+)$"
+    r"@(?P<tag>\S+)\Z"
 )
 _SIBLING_URL_RE = re.compile(
     r"^https://git\.ricfasohel\.fr/fred/"
     r"(?P<repo>[A-Za-z0-9][A-Za-z0-9._-]*)\.git\Z"
 )
 _SIBLING_TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\Z")
-_TAG_RE = re.compile(rf"^{_TAG}$")
-_ARGV0_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_TAG_RE = re.compile(rf"^{_TAG}\Z")
+_ARGV0_RE = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 
 class ManifestError(Exception):

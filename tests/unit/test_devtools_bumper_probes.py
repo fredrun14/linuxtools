@@ -435,7 +435,14 @@ def test_tag_invalide_refuse_a_la_construction(
 
 
 @pytest.mark.parametrize(
-    "co_author", ["x\ny <a@b.c>", "sans-adresse", "<a@b.c>", "X <a b@c.d>"]
+    "co_author",
+    [
+        "x\ny <a@b.c>",
+        "sans-adresse",
+        "<a@b.c>",
+        "X <a b@c.d>",
+        "X <a@b.c>\n",
+    ],
 )
 def test_co_author_invalide_refuse_a_la_construction(
     tmp_path: Path, co_author: str
