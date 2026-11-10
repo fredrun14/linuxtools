@@ -40,7 +40,8 @@ _HOST_RES = (
         r"^(?:https|ssh)://(?:[^/?#@\\\s]*@)?"
         r"(?P<host>[^/?#@:\\\s]+)(?::\d+)?/\S*\Z"
     ),
-    re.compile(r"^(?:[^/?#@:\\\s]+@)?(?P<host>[^/?#@:\\\s]+):(?!//)\S+\Z"),
+    # scp : ni `hôte://…` ni `hôte::adresse` (helper de transport git)
+    re.compile(r"^(?:[^/?#@:\\\s]+@)?(?P<host>[^/?#@:\\\s]+):(?!//|:)\S+\Z"),
 )
 _DEFAULT_BRANCH_RE = re.compile(
     r"^ref:\s+refs/heads/(?P<branch>\S+)\s+HEAD\s*$", re.MULTILINE

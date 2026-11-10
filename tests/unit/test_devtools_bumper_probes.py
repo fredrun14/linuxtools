@@ -148,6 +148,8 @@ def test_origin_github_refuse(
         _FORGEJO,
         "git@git.ricfasohel.fr:fred/app.git",
         "ssh://git@git.ricfasohel.fr:2222/fred/app.git",
+        "git@git.ricfasohel.fr:/srv/git/app.git",
+        "git.ricfasohel.fr:a:b.git",
         "https://user:pw@GIT.ricfasohel.fr/fred/app.git",
     ],
 )
@@ -170,6 +172,13 @@ def test_origin_forgejo_accepte_les_formes_usuelles(
         "file://git.ricfasohel.fr/fred/app.git",
         "git.ricfasohel.fr/fred/app.git",
         "git.ricfasohel.fr:fred/app.git\nautre",
+        # `hôte::adresse` : helper de transport git (`<helper>::<adresse>`)
+        "git.ricfasohel.fr::fred/app.git",
+        "git@git.ricfasohel.fr::fred/app.git",
+        "git.ricfasohel.fr::",
+        # `hôte://…` : forme schéma sans schéma reconnu
+        "git.ricfasohel.fr://fred/app.git",
+        "git@git.ricfasohel.fr://fred/app.git",
     ],
 )
 def test_origin_forme_trompeuse_refusee(tmp_path: Path, url: str) -> None:
