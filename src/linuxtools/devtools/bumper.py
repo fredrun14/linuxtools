@@ -316,7 +316,13 @@ class ConsumerBumper:
             self._delete_branch(cwd, branch)
 
     def _delete_branch(self, cwd: str, branch: str) -> None:
-        """Supprime la branche locale (échec journalisé)."""
+        """Supprime la branche locale (échec journalisé).
+
+        ``worktree prune`` d'abord : si ``worktree remove`` a échoué puis
+        que le dossier a été supprimé, le worktree reste enregistré
+        (« prunable ») et git refuserait ``branch -D``.
+        """
+        self._cleanup_step(["git", "worktree", "prune"], cwd)
         self._cleanup_step(["git", "branch", "-D", branch], cwd)
 
     def _cleanup_step(self, argv: list[str], cwd: str) -> None:

@@ -171,6 +171,7 @@ def _scenario(
         handler=worktree_add,
     )
     ex.on("git", "worktree", "remove")
+    ex.on("git", "worktree", "prune")
     ex.on("git", "branch", "-D")
     ex.on("uv", "lock", handler=uv_lock if lock else None)
     ex.on("uv", "sync")
@@ -536,6 +537,32 @@ def test_echec_du_nettoyage_est_journalise(
     messages = " ".join(str(c) for c in run.logger.log_warning.mock_calls)
     assert "wt verrouillé" in messages
     assert "branche tenue" in messages
+
+
+def test_worktree_prune_avant_la_suppression_de_la_branche(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`worktree remove` raté puis rmtree : le worktree est « prunable »."""
+    run = _scenario(tmp_path, monkeypatch, check_rc={"mypy": 1})
+    run.ex.on("git", "worktree", "remove", rc=1, stderr="wt verrouillé")
+
+    outcome = run.outcome()
+
+    assert outcome.status is Status.ECHEC
+    remove = run.index("git", "worktree", "remove")
+    prune = run.index("git", "worktree", "prune")
+    delete = run.index("git", "branch", "-D")
+    assert remove < prune < delete
+
+
+def test_pas_de_prune_quand_la_branche_est_conservee(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _scenario(tmp_path, monkeypatch, push_rc=1, remote_sha="")
+
+    run.outcome()
+
+    assert not run.has("git", "worktree", "prune")
 
 
 def test_nettoyage_worktree_meme_en_exception(
