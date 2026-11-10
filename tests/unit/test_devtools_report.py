@@ -9,6 +9,7 @@ from linuxtools.devtools.report import (
     Status,
     exit_code,
     format_report,
+    mask_userinfo,
 )
 
 _SUCCES = [
@@ -103,3 +104,28 @@ def test_format_report_masque_le_userinfo_des_url() -> None:
     assert "s3cret" not in rapport
     assert "tok" not in rapport
     assert "https://***@github.com/x.git" in rapport
+
+
+@pytest.mark.parametrize(
+    ("texte", "attendu"),
+    [
+        ("ssh://user:jeton@h/x.git", "ssh://***@h/x.git"),
+        ("git+ssh://u:jeton@h/x", "git+ssh://***@h/x"),
+        ("a.b://u:jeton@h/x", "a.b://***@h/x"),
+        ("a-b://u:jeton@h/x", "a-b://***@h/x"),
+        ("a1://u:jeton@h/x", "a1://***@h/x"),
+        (
+            "https://tok@h/x et ssh://u:p@h2/y",
+            "https://***@h/x et ssh://***@h2/y",
+        ),
+        ("HTTPS://u:jeton@h/x", "HTTPS://***@h/x"),
+        ("a://u:jeton@h/x", "a://***@h/x"),
+        ("https://@h/x", "https://***@h/x"),
+        ("https://x y@h/x", "https://x y@h/x"),
+        ("https://h/x sans userinfo", "https://h/x sans userinfo"),
+    ],
+)
+def test_mask_userinfo_masque_toute_forme_de_schema(
+    texte: str, attendu: str
+) -> None:
+    assert mask_userinfo(texte) == attendu

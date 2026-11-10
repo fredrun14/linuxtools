@@ -101,6 +101,20 @@ def _bumper(
     )
 
 
+def _bumper_avec_logger(
+    ex: ScriptedExecutor, tmp_path: Path, logger: MagicMock
+) -> ConsumerBumper:
+    return ConsumerBumper(
+        ex,
+        logger,
+        tag="v2.11.1",
+        root=tmp_path,
+        dry_run=True,
+        push=True,
+        co_author=_CO_AUTHOR,
+    )
+
+
 def _bump(ex: ScriptedExecutor, tmp_path: Path) -> BumpOutcome:
     bumper = _bumper(ex, tmp_path)
     return bumper.bump(Consumer("app", tmp_path / "app"))
@@ -583,6 +597,44 @@ def test_exception_inattendue_convertie_en_echec(tmp_path: Path) -> None:
 
     assert outcome.status is Status.ECHEC
     assert "disque" in outcome.detail
+
+
+def test_jeton_ssh_masque_dans_detail_et_journal_du_refus(
+    tmp_path: Path,
+) -> None:
+    url = "ssh://git:jetonssh@github.com/fred/app.git"
+    logger = MagicMock()
+    bumper = _bumper_avec_logger(_executor(fetch_url=url), tmp_path, logger)
+
+    outcome = bumper.bump(Consumer("app", tmp_path / "app"))
+
+    assert outcome.status is Status.REFUSE
+    assert "jetonssh" not in outcome.detail
+    assert "jetonssh" not in str(logger.mock_calls)
+    assert "ssh://***@github.com" in outcome.detail
+
+
+def test_jeton_masque_sur_le_chemin_d_exception_generique(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+
+    def boom(call: object) -> None:
+        raise OSError("échec sur https://tok:s3cret@github.com/fred/app.git")
+
+    ex.on("git", "show", "origin/main:pyproject.toml", handler=boom)
+    logger = MagicMock()
+    bumper = _bumper_avec_logger(ex, tmp_path, logger)
+
+    outcome = bumper.bump(Consumer("app", tmp_path / "app"))
+
+    assert outcome.status is Status.ECHEC
+    assert "s3cret" not in outcome.detail
+    assert "https://***@github.com" in outcome.detail
+    logger.log_error.assert_called_once()
+    journal = str(logger.log_error.call_args)
+    assert "s3cret" not in journal
+    assert "https://***@github.com" in journal
 
 
 @pytest.mark.parametrize(
