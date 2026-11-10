@@ -58,9 +58,12 @@ test-cov:
 	uv run pytest tests/ --cov-report=term-missing
 
 # Linting
+# Le gate de format couvre src/ et les tests de linuxtools.devtools (le
+# reste de tests/ n'est pas encore formaté : 57 fichiers hérités).
+DEVTOOLS_TESTS := tests/unit/scripted_executor.py $(wildcard tests/unit/test_devtools_*.py) tests/integration/test_devtools_bumper.py
 lint:
 	uv run ruff check src/
-	uv run ruff format --check src/
+	uv run ruff format --check src/ $(DEVTOOLS_TESTS)
 	uv run bandit -ll -r src/linuxtools/
 	uv run mypy src/linuxtools/ tests/
 

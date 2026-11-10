@@ -33,9 +33,7 @@ class ScriptedExecutor(CommandExecutor):
 
     def __init__(self) -> None:
         self.calls: list[Call] = []
-        self._rules: list[
-            tuple[tuple[str, ...], CommandResult | Handler]
-        ] = []
+        self._rules: list[tuple[tuple[str, ...], CommandResult | Handler]] = []
 
     def on(
         self,
