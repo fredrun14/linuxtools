@@ -2,6 +2,8 @@
 
 ## [Non publié]
 
+## [2.11.1] - 2026-11-10
+
 ### Corrigé
 
 - fix(systemd): `validate_unit_name` et `validate_full_unit_name` acceptent
