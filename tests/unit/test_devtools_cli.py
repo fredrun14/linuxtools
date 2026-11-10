@@ -49,7 +49,6 @@ def _repos(root: Path, *noms: str) -> None:
 def _base(root: Path, pyproject: str | None = None) -> ScriptedExecutor:
     """Exécuteur nominal : sondes de l'outil + sondes du bumper."""
     ex = _executor(pyproject)
-    ex.on("git", "remote", "get-url", "origin", stdout=_FORGEJO + "\n")
     ex.on("git", "--version", stdout="git version 2.56.0\n")
     ex.on("uv", "--version", stdout="uv 0.13.5\n")
     ex.on("git", "ls-remote", "--tags", stdout="abc\trefs/tags/v2.11.1\n")
@@ -62,9 +61,7 @@ def _commande(ex: CommandExecutor, tmp_path: Path) -> BumpConsumersCommand:
     def factory(logger: Logger, dry_run: bool) -> CommandExecutor:
         return ex
 
-    return BumpConsumersCommand(
-        executor_factory=factory, linuxtools_dir=tmp_path / "lt"
-    )
+    return BumpConsumersCommand(executor_factory=factory)
 
 
 def _args(
@@ -160,6 +157,10 @@ def test_refuse_tag_invalide(
     assert ex.calls == []
 
 
+_URL_PIN = "https://git.ricfasohel.fr/fred/linuxtools.git"
+_LS_TAGS = ("git", "ls-remote", "--tags")
+
+
 def test_refuse_tag_absent_du_depot_linuxtools(
     tmp_path: Path,
     projets: Path,
@@ -172,140 +173,76 @@ def test_refuse_tag_absent_du_depot_linuxtools(
 
     assert code == 2
     assert "n'existe pas" in capsys.readouterr().err
-    assert (
-        "git",
-        "ls-remote",
-        "--tags",
-        "origin",
-        "refs/tags/v2.11.1",
-    ) in ex.argvs()
-    assert ex.calls[-1].cwd == str(tmp_path / "lt")
 
 
-def test_refuse_origin_de_linuxtools_hors_forgejo(
-    tmp_path: Path,
-    projets: Path,
-    capsys: pytest.CaptureFixture[str],
+def test_tag_verifie_sur_l_url_du_pin_sans_depot_local(
+    tmp_path: Path, projets: Path
 ) -> None:
+    """L'URL du pin désigne le dépôt : aucun dossier ni origin local."""
     ex = _base(projets)
-
-    def miroir(call: Call) -> CommandResult | None:
-        if call.cwd != str(tmp_path / "lt"):
-            return None
-        url = "https://github.com/fred/linuxtools.git"
-        return CommandResult(call.argv, 0, url + "\n", "", True, 0.0)
-
-    ex.on("git", "remote", "get-url", "origin", handler=miroir)
 
     code = _lancer(ex, tmp_path, "--dry-run", "v2.11.1")
 
-    assert code == 2
-    assert "git.ricfasohel.fr" in capsys.readouterr().err
-    assert not any(a[:3] == ("git", "ls-remote", "--tags") for a in ex.argvs())
+    assert code == 0
+    sondes = [c for c in ex.calls if c.argv[:3] == _LS_TAGS]
+    assert [c.argv for c in sondes] == [
+        (*_LS_TAGS, _URL_PIN, "refs/tags/v2.11.1")
+    ]
+    assert sondes[0].cwd is None
+    assert not any(
+        c.argv[:3] == ("git", "remote", "get-url") and c.cwd is None
+        for c in ex.calls
+    )
 
 
-def test_option_linuxtools_dir_designe_le_depot_du_tag(
+def test_option_linuxtools_dir_sert_de_repertoire_de_travail(
     tmp_path: Path, projets: Path
 ) -> None:
+    """Le dossier ne change pas le dépôt interrogé (URL du pin)."""
     ex = _base(projets)
     autre = tmp_path / "ailleurs"
+    autre.mkdir()
 
     code = _lancer(
         ex, tmp_path, "--dry-run", "--linuxtools-dir", str(autre), "v2.11.1"
     )
 
     assert code == 0
-    cwds = {
-        c.cwd for c in ex.calls if c.argv[:3] == ("git", "ls-remote", "--tags")
-    }
-    assert cwds == {str(autre)}
+    sondes = [c for c in ex.calls if c.argv[:3] == _LS_TAGS]
+    assert [c.argv[3] for c in sondes] == [_URL_PIN]
+    assert {c.cwd for c in sondes} == {str(autre)}
 
 
-def _faux_cli(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    pyproject: str | None,
-    *,
-    git: bool = True,
-) -> Path:
-    """Place `cli.__file__` dans un faux dépôt `tmp_path/depot`."""
-    depot = tmp_path / "depot"
-    fichier = depot / "src" / "linuxtools" / "devtools" / "cli.py"
-    fichier.parent.mkdir(parents=True)
-    if pyproject is not None:
-        (depot / "pyproject.toml").write_text(pyproject)
-    if git:
-        (depot / ".git").mkdir()
-    monkeypatch.setattr(cli, "__file__", str(fichier))
-    return depot
-
-
-def _sans_option(
-    ex: ScriptedExecutor, projets: Path
-) -> tuple[BumpConsumersCommand, argparse.Namespace]:
-    """Commande sans `linuxtools_dir` injecté, ni option."""
-    commande = BumpConsumersCommand(
-        executor_factory=lambda logger, dry_run: ex
-    )
-    return commande, _args(commande, projets, "--dry-run", "v2.11.1")
-
-
-def test_checkout_detecte_sert_de_depot_par_defaut(
+def test_linuxtools_dir_inexistant_erreur_claire(
     tmp_path: Path,
     projets: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    depot = _faux_cli(
-        tmp_path, monkeypatch, '[project]\nname = "linuxtools"\n'
-    )
-    ex = _base(projets)
-    commande, args = _sans_option(ex, projets)
-
-    with pytest.raises(SystemExit) as exc:
-        commande.execute(args)
-
-    assert exc.value.code == 0
-    cwds = {
-        c.cwd for c in ex.calls if c.argv[:3] == ("git", "ls-remote", "--tags")
-    }
-    assert cwds == {str(depot)}
-
-
-@pytest.mark.parametrize(
-    ("pyproject", "git"),
-    [
-        (None, True),
-        ("[project\n", True),
-        ('[project]\nname = "autre"\n', True),
-        ('[project]\nname = "linuxtools"\n', False),
-    ],
-    ids=["sans-pyproject", "toml-invalide", "autre-nom", "sans-git"],
-)
-def test_hors_checkout_sans_option_erreur_claire(
-    tmp_path: Path,
-    projets: Path,
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    pyproject: str | None,
-    git: bool,
 ) -> None:
-    _faux_cli(tmp_path, monkeypatch, pyproject, git=git)
     ex = _base(projets)
-    commande, args = _sans_option(ex, projets)
+    absent = tmp_path / "absent"
 
-    with pytest.raises(SystemExit) as exc:
-        commande.execute(args)
+    code = _lancer(
+        ex, tmp_path, "--dry-run", "--linuxtools-dir", str(absent), "v2.11.1"
+    )
 
-    assert exc.value.code == 2
-    assert "--linuxtools-dir" in capsys.readouterr().err
-    assert not any(a[:3] == ("git", "ls-remote", "--tags") for a in ex.argvs())
+    assert code == 2
+    erreur = capsys.readouterr().err
+    assert "--linuxtools-dir" in erreur
+    assert str(absent) in erreur
+    assert "inexistant" in erreur
+    assert not any(a[:3] == _LS_TAGS for a in ex.argvs())
 
 
-def test_refuse_tag_si_ls_remote_echoue(tmp_path: Path, projets: Path) -> None:
+def test_refuse_tag_si_ls_remote_echoue(
+    tmp_path: Path,
+    projets: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     ex = _base(projets)
     ex.on("git", "ls-remote", "--tags", rc=128, stderr="réseau")
 
     assert _lancer(ex, tmp_path, "--dry-run", "v2.11.1") == 2
+    assert "réseau" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

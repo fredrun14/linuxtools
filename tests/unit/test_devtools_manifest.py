@@ -7,6 +7,7 @@ import tomllib
 import pytest
 
 from linuxtools.devtools.manifest import (
+    LINUXTOOLS_URL,
     ConsumerManifest,
     ManifestError,
     SiblingDep,
@@ -332,3 +333,13 @@ def test_parse_refuse_argv0_avec_saut_de_ligne_final() -> None:
 def test_rewrite_pin_refuse_tag_avec_saut_de_ligne_final() -> None:
     with pytest.raises(ManifestError, match="tag invalide"):
         rewrite_pin(_pyproject(), "v2.11.1\n")
+
+
+def test_url_de_reference_est_celle_du_pin_reconnu() -> None:
+    """Le tag est vérifié sur la même URL que celle que le pin désigne."""
+    texte = _pyproject().replace(
+        "https://git.ricfasohel.fr/fred/linuxtools.git", LINUXTOOLS_URL
+    )
+
+    assert ConsumerManifest.parse(texte).tag == "v2.10.0"
+    assert texte == _pyproject()

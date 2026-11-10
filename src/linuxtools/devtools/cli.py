@@ -10,7 +10,6 @@ import argparse
 import os
 import re
 import sys
-import tomllib
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -25,12 +24,11 @@ from linuxtools.commands.base import CommandExecutor
 from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.devtools.bumper import (
     CO_AUTHOR_RE,
-    FORGEJO_HOST,
     TAG_RE,
     ConsumerBumper,
-    url_host,
 )
 from linuxtools.devtools.discovery import discover_consumers
+from linuxtools.devtools.manifest import LINUXTOOLS_URL
 from linuxtools.devtools.report import BumpOutcome, exit_code, format_report
 from linuxtools.logging.base import Logger
 from linuxtools.logging.console_logger import ConsoleLogger
@@ -72,9 +70,9 @@ class BumpConsumersCommand(CliCommand):
         Args:
             executor_factory: Fabrique ``(logger, dry_run) -> executor``
                 (défaut : ``LinuxCommandExecutor``).
-            linuxtools_dir: Dépôt linuxtools où vérifier l'existence du
-                tag (défaut : racine du checkout contenant ce package ;
-                ``--linuxtools-dir`` l'emporte).
+            linuxtools_dir: Répertoire de travail de la vérification du
+                tag (facultatif, doit exister ; ``--linuxtools-dir``
+                l'emporte). Le dépôt interrogé est toujours l'URL du pin.
         """
         self._executor_factory = executor_factory or self.make_executor
         self._linuxtools_dir = linuxtools_dir
@@ -126,8 +124,9 @@ class BumpConsumersCommand(CliCommand):
             dest="linuxtools_dir",
             metavar="DOSSIER",
             help=(
-                "Dépôt linuxtools où vérifier le tag (défaut : le checkout "
-                "contenant ce package ; requis hors checkout)."
+                "Répertoire de travail de la vérification du tag (facultatif, "
+                "doit exister). Le tag est vérifié sur l'URL du pin, pas "
+                "sur ce dossier."
             ),
         )
         parser.add_argument(
@@ -225,37 +224,28 @@ class BumpConsumersCommand(CliCommand):
         if not executor.probe(["uv", "--version"]).success:
             raise _UsageError("uv introuvable")
 
-    def _resolve_linuxtools_dir(self, option: Path | None) -> Path:
-        """Dépôt linuxtools : option, sinon injecté, sinon checkout."""
-        if option is not None:
-            return option
-        if self._linuxtools_dir is not None:
-            return self._linuxtools_dir
-        root = Path(__file__).parents[3]
-        if not _is_linuxtools_checkout(root):
+    def _work_dir(self, option: Path | None) -> str | None:
+        """Répertoire de travail de la vérification du tag (ou None)."""
+        directory = option if option is not None else self._linuxtools_dir
+        if directory is None:
+            return None
+        if not directory.is_dir():
             raise _UsageError(
-                "linuxtools n'est pas installé depuis un checkout "
-                "(dépôt introuvable) : indiquer --linuxtools-dir"
+                f"--linuxtools-dir : dossier inexistant ({directory})"
             )
-        return root
+        return str(directory)
 
     def _check_tag_exists(
         self, executor: CommandExecutor, tag: str, option: Path | None
     ) -> None:
-        """Le tag doit exister dans le dépôt linuxtools (origin Forgejo)."""
-        directory = str(self._resolve_linuxtools_dir(option))
-        origin = executor.probe(
-            ["git", "remote", "get-url", "origin"], cwd=directory
-        )
-        host = url_host(origin.stdout) if origin.success else ""
-        if host != FORGEJO_HOST:
-            raise _UsageError(
-                f"l'origin de linuxtools ({directory}) n'est pas sur "
-                f"{FORGEJO_HOST} : tag non vérifiable"
-            )
+        """Le tag doit exister sur le dépôt de l'URL du pin (Forgejo).
+
+        Aucun dépôt local n'est requis : ``ls-remote`` interroge l'URL
+        épinglée, qui ne peut donc pas désigner un autre dépôt.
+        """
         result = executor.probe(
-            ["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"],
-            cwd=directory,
+            ["git", "ls-remote", "--tags", LINUXTOOLS_URL, f"refs/tags/{tag}"],
+            cwd=self._work_dir(option),
         )
         if not result.success:
             raise _UsageError(
@@ -264,16 +254,6 @@ class BumpConsumersCommand(CliCommand):
             )
         if not result.stdout.strip():
             raise _UsageError(f"le tag {tag} n'existe pas dans linuxtools")
-
-
-def _is_linuxtools_checkout(root: Path) -> bool:
-    """Indique si ``root`` est un checkout git du projet linuxtools."""
-    try:
-        text = (root / "pyproject.toml").read_text(encoding="utf-8")
-        name = tomllib.loads(text).get("project", {}).get("name")
-    except (OSError, tomllib.TOMLDecodeError):
-        return False
-    return name == "linuxtools" and (root / ".git").exists()
 
 
 def main() -> None:

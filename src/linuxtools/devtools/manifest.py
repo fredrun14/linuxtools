@@ -11,6 +11,8 @@ import tomllib
 from dataclasses import dataclass
 from typing import Any
 
+# Dépôt de référence des pins (Forgejo) : le tag cible y est vérifié.
+LINUXTOOLS_URL = "https://git.ricfasohel.fr/fred/linuxtools.git"
 _TAG = r"v\d+\.\d+\.\d+"
 _PIN_HEAD = (
     r"linuxtools(?:\[[^\]]*\])?\s*@\s*"
