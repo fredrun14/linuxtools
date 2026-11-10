@@ -129,3 +129,27 @@ def test_mask_userinfo_masque_toute_forme_de_schema(
     texte: str, attendu: str
 ) -> None:
     assert mask_userinfo(texte) == attendu
+
+
+def test_en_attente_rend_son_detail_dans_le_rapport() -> None:
+    outcome = BumpOutcome(
+        "app",
+        "v2.10.0",
+        Status.EN_ATTENTE,
+        detail="chore/pin est déjà poussée (contenu non vérifié : dry-run)",
+    )
+
+    rapport = format_report([outcome])
+
+    assert "Détails" in rapport
+    assert "* app (EN ATTENTE)" in rapport
+    assert "contenu non vérifié : dry-run" in rapport
+
+
+def test_a_jour_et_pousse_sans_detail_n_ouvrent_pas_de_bloc_details() -> None:
+    sorties = [
+        BumpOutcome("a", "v1.0.0", Status.A_JOUR),
+        BumpOutcome("b", "v1.0.0", Status.POUSSE, checks="pytest:ok"),
+    ]
+
+    assert "Détails" not in format_report(sorties)

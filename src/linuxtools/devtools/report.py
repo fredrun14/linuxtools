@@ -40,6 +40,9 @@ class Status(Enum):
 _FAILURES = frozenset(
     {Status.REFUSE, Status.BLOQUE, Status.ECHEC, Status.PUSH_ECHOUE}
 )
+# Statuts dont le détail est rendu : échecs, plan simulé, et attente
+# (le détail dit si la branche distante a été vérifiée ou non).
+_DETAILED = _FAILURES | {Status.SIMULE, Status.EN_ATTENTE}
 
 
 @dataclass(frozen=True)
@@ -81,7 +84,7 @@ def format_report(outcomes: Sequence[BumpOutcome]) -> str:
     """Rend le tableau récapitulatif suivi des détails.
 
     Le bloc « Détails » reprend ``detail`` (tronqué à 20 lignes) des
-    échecs et des simulations (plan d'exécution).
+    échecs, des simulations (plan d'exécution) et des mises en attente.
 
     Args:
         outcomes: Résultats par consommateur.
@@ -99,11 +102,7 @@ def format_report(outcomes: Sequence[BumpOutcome]) -> str:
     lines = [render(rows[0]), "-+-".join("-" * w for w in widths)]
     lines.extend(render(r) for r in rows[1:])
 
-    shown = [
-        o
-        for o in outcomes
-        if o.detail and (o.status in _FAILURES or o.status is Status.SIMULE)
-    ]
+    shown = [o for o in outcomes if o.detail and o.status in _DETAILED]
     if shown:
         lines.extend(["", "Détails"])
         for outcome in shown:
