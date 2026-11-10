@@ -53,6 +53,11 @@ _UNRELEASED = "## [Non publié]"
 _BUMP_FILES = frozenset({"pyproject.toml", "CHANGELOG.md", "uv.lock"})
 
 
+def _split_nul(output: str) -> set[str]:
+    """Noms de fichiers d'une sortie ``-z`` (séparés par NUL, sans quote)."""
+    return {name for name in output.split("\0") if name}
+
+
 class _AbortError(Exception):
     """Arrêt de la montée avec un statut (interne à ce module)."""
 
@@ -448,12 +453,12 @@ class ConsumerBumper:
             env={**space.env, "UV_FROZEN": "1"},
             stdin=message,
         )
-        touched = set(
+        touched = _split_nul(
             self._step(
                 ["git", "diff-tree", "--no-commit-id", "--name-only", "-r"]
-                + ["HEAD"],
+                + ["-z", "HEAD"],
                 cwd,
-            ).stdout.split()
+            ).stdout
         )
         extra = touched - set(files)
         if extra:
@@ -636,10 +641,12 @@ class ConsumerBumper:
                 f"{name} existe sur origin mais son sommet n'est pas un "
                 "commit simple (fusion ou racine) : à examiner ou supprimer",
             )
-        touched = set(
+        touched = _split_nul(
             self._git(
-                ["diff", "--name-only", f"origin/{default}...{sha}"], cwd
-            ).stdout.split()
+                ["diff", "--no-renames", "--name-only", "-z"]
+                + [f"origin/{default}...{sha}"],
+                cwd,
+            ).stdout
         )
         extra = touched - _BUMP_FILES
         if extra or not touched:

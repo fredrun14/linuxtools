@@ -365,7 +365,7 @@ def _branche_distante(
 ) -> None:
     """Déclare une branche de bump déjà poussée sur origin.
 
-    ``fichiers`` est la sortie de ``git diff --name-only origin/main...sha`` :
+    ``fichiers`` est la sortie de ``git diff --no-renames --name-only -z origin/main...sha`` (``\n`` du test devient NUL) :
     toute la branche, pas seulement son sommet.
     """
     ex.on(
@@ -393,7 +393,13 @@ def _branche_distante(
         stdout=" ".join([sha, *["a" * 40] * parents]) + "\n",
     )
     ex.on(
-        "git", "diff", "--name-only", f"origin/main...{sha}", stdout=fichiers
+        "git",
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        f"origin/main...{sha}",
+        stdout=fichiers.replace("\n", "\0"),
     )
 
 
@@ -488,9 +494,14 @@ def test_branche_poussee_commit_dessous_hors_perimetre_refusee(
 
     assert outcome.status is Status.REFUSE
     assert "src/cache/evil.py" in outcome.detail
-    assert ("git", "diff", "--name-only", f"origin/main...{_SHA_DISTANT}") in (
-        ex.argvs()
-    )
+    assert (
+        "git",
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        f"origin/main...{_SHA_DISTANT}",
+    ) in ex.argvs()
 
 
 def test_branche_poussee_sans_changement_refusee(tmp_path: Path) -> None:

@@ -191,9 +191,9 @@ def _scenario(
     ex.on(
         "git",
         "diff-tree",
-        stdout=diff_tree
-        if diff_tree is not None
-        else "\n".join(expected) + "\n",
+        stdout=(
+            diff_tree if diff_tree is not None else "\n".join(expected) + "\n"
+        ).replace("\n", "\0"),
     )
     ex.on("git", "rev-parse", "HEAD", stdout=_SHA + "\n")
     ex.on("git", "push", rc=push_rc, stderr="refusé" if push_rc else "")

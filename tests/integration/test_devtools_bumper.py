@@ -34,6 +34,7 @@ from linuxtools.devtools.discovery import Consumer
 from linuxtools.devtools.report import Status
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 pytestmark = pytest.mark.integration
@@ -337,3 +338,123 @@ def test_etat_apres_montee_peut_etre_rejoue_en_a_jour(env: _Env) -> None:
     outcome = bumper.bump(Consumer("app", env.app))
 
     assert outcome.status is Status.A_JOUR
+
+
+# --- T34/F25 : contrôle du contenu de la branche avec un vrai git -------
+
+
+def _publier_branche_de_bump(
+    env: _Env, tmp_path: Path, modifier: Callable[[Path], None]
+) -> None:
+    """Pousse sur origin une branche de bump que ``modifier`` altère.
+
+    ``main`` reçoit d'abord ``src/x.py`` (contenu de CHANGELOG) pour que la
+    branche puisse le renommer ; le pin passe à la version cible.
+    """
+    clone = tmp_path / "autre"
+    _git(tmp_path, "clone", str(env.origin), str(clone))
+    _git(clone, "config", "user.name", "Test")
+    _git(clone, "config", "user.email", "test@example.com")
+    (clone / "src").mkdir()
+    (clone / "src" / "x.py").write_text("# Journal\n\ncontenu\n")
+    _git(clone, "add", ".")
+    _git(clone, "commit", "-m", "ajoute x")
+    _git(clone, "push", "origin", "main")
+    _git(env.app, "fetch", "origin")
+    _git(clone, "switch", "-c", _BRANCH)
+    pin = (clone / "pyproject.toml").read_text()
+    (clone / "pyproject.toml").write_text(pin.replace("v2.10.0", "v2.11.1"))
+    modifier(clone)
+    _git(clone, "add", "-A")
+    _git(clone, "commit", "-m", "bump")
+    _git(clone, "push", "origin", _BRANCHE_REF)
+
+
+_BRANCHE_REF = f"refs/heads/{_BRANCH}:refs/heads/{_BRANCH}"
+
+
+def _rejouer(env: _Env) -> tuple[Status, str]:
+    outcome = _bumper(dry_run=False, root=env.app.parent).bump(
+        Consumer("app", env.app)
+    )
+    return outcome.status, outcome.detail
+
+
+@pytest.mark.parametrize("cible", ["CHANGELOG.md", "uv.lock"])
+def test_branche_distante_renommage_vers_fichier_attendu_refusee(
+    env: _Env, tmp_path: Path, cible: str
+) -> None:
+    """``git mv src/x.py CHANGELOG.md`` masquait la suppression de x.py."""
+
+    def renommer(clone: Path) -> None:
+        _git(clone, "mv", "src/x.py", cible)
+
+    _publier_branche_de_bump(env, tmp_path, renommer)
+
+    status, detail = _rejouer(env)
+
+    assert status is Status.REFUSE, detail
+    assert "src/x.py" in detail
+
+
+def test_branche_distante_nom_avec_espace_cite_en_entier(
+    env: _Env, tmp_path: Path
+) -> None:
+    def ajouter(clone: Path) -> None:
+        (clone / "src" / "a b.py").write_text("x\n")
+
+    _publier_branche_de_bump(env, tmp_path, ajouter)
+
+    status, detail = _rejouer(env)
+
+    assert status is Status.REFUSE
+    assert "src/a b.py" in detail
+
+
+def test_branche_distante_suppression_simple_refusee(
+    env: _Env, tmp_path: Path
+) -> None:
+    def supprimer(clone: Path) -> None:
+        _git(clone, "rm", "src/x.py")
+
+    _publier_branche_de_bump(env, tmp_path, supprimer)
+
+    status, detail = _rejouer(env)
+
+    assert status is Status.REFUSE
+    assert "src/x.py" in detail
+
+
+def test_branche_distante_fichiers_attendus_en_attente(
+    env: _Env, tmp_path: Path
+) -> None:
+    def changelog(clone: Path) -> None:
+        (clone / "CHANGELOG.md").write_text("# Journal\n")
+
+    _publier_branche_de_bump(env, tmp_path, changelog)
+
+    status, detail = _rejouer(env)
+
+    assert status is Status.EN_ATTENTE, detail
+
+
+def test_commit_avec_fichier_a_espace_inattendu_cite_en_entier(
+    env: _Env, tmp_path: Path
+) -> None:
+    """Un hook qui ajoute « a b.txt » : le nom doit rester entier."""
+    clone = tmp_path / "autre"
+    _git(tmp_path, "clone", str(env.origin), str(clone))
+    _git(clone, "config", "user.name", "Test")
+    _git(clone, "config", "user.email", "test@example.com")
+    hook = clone / ".githooks" / "pre-commit"
+    hook.write_text(
+        '#!/usr/bin/env bash\necho x > "a b.txt"\ngit add -- "a b.txt"\n'
+    )
+    _git(clone, "commit", "-am", "hook")
+    _git(clone, "push", "origin", "main")
+    _git(env.app, "fetch", "origin")
+
+    status, detail = _rejouer(env)
+
+    assert status is Status.ECHEC
+    assert "a b.txt" in detail
