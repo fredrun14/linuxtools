@@ -45,6 +45,8 @@ _HOST_RES = (
 _DEFAULT_BRANCH_RE = re.compile(
     r"^ref:\s+refs/heads/(?P<branch>\S+)\s+HEAD\s*$", re.MULTILINE
 )
+# Identifiant d'objet complet (SHA-1 ou SHA-256) tel que rendu par ls-remote.
+_SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 _SAFE_BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 _UNRELEASED = "## [Non publié]"
 _BUMP_FILES = frozenset({"pyproject.toml", "CHANGELOG.md", "uv.lock"})
@@ -207,7 +209,7 @@ class ConsumerBumper:
                 Status.REFUSE,
                 f"rétrogradation refusée : pin {manifest.tag} > {self._tag}",
             )
-        self._check_branch(cwd)
+        self._check_branch(cwd, default)
         plan = _Plan(
             default_branch=default,
             branch=self._branch,
@@ -552,7 +554,7 @@ class ConsumerBumper:
         except ManifestError as exc:
             raise _AbortError(Status.REFUSE, str(exc)) from exc
 
-    def _check_branch(self, cwd: str) -> None:
+    def _check_branch(self, cwd: str, default: str) -> None:
         """Refuse si la branche cible existe déjà (origin ou local).
 
         Une branche déjà poussée n'est « en attente » que si son
@@ -561,7 +563,9 @@ class ConsumerBumper:
         ref = f"refs/heads/{self._branch}"
         remote = self._git(["ls-remote", "--heads", "origin", ref], cwd)
         if remote.stdout.strip():
-            self._verify_remote_bump(cwd, ref, remote.stdout.split()[0])
+            self._verify_remote_bump(
+                cwd, ref, remote.stdout.split()[0], default
+            )
         local = self._git(
             ["rev-parse", "--verify", "--quiet", ref], cwd, check=False
         )
@@ -570,14 +574,24 @@ class ConsumerBumper:
                 Status.REFUSE, f"la branche locale {self._branch} existe"
             )
 
-    def _verify_remote_bump(self, cwd: str, ref: str, sha: str) -> None:
+    def _verify_remote_bump(
+        self, cwd: str, ref: str, sha: str, default: str
+    ) -> None:
         """Statue sur une branche de bump déjà poussée sur origin.
 
-        Lève ``EN_ATTENTE`` si son sommet pin le tag cible et ne
-        touche que les fichiers attendus, ``REFUSE`` sinon. En dry-run
-        (aucun fetch), un objet absent localement reste non vérifié.
+        Lève ``EN_ATTENTE`` si son sommet pin le tag cible, n'est pas
+        une fusion et si TOUTE la branche (par rapport à
+        ``origin/<défaut>``) ne touche que les fichiers attendus,
+        ``REFUSE`` sinon. En dry-run (aucun fetch), un objet absent
+        localement reste non vérifié.
         """
         name = self._branch
+        if not _SHA_RE.match(sha):
+            raise _AbortError(
+                Status.REFUSE,
+                f"{name} existe sur origin mais ls-remote rend un "
+                "identifiant de commit invalide",
+            )
         if not self._dry_run:
             self._step(["git", "fetch", "--no-tags", "origin", ref], cwd)
         if not self._git(
@@ -608,18 +622,25 @@ class ConsumerBumper:
                 "(pyproject illisible ou autre version) : "
                 "à examiner ou supprimer",
             )
+        parents = self._git(["rev-list", "--parents", "-n1", sha], cwd)
+        if len(parents.stdout.split()) != 2:
+            raise _AbortError(
+                Status.REFUSE,
+                f"{name} existe sur origin mais son sommet n'est pas un "
+                "commit simple (fusion ou racine) : à examiner ou supprimer",
+            )
         touched = set(
             self._git(
-                ["diff-tree", "--no-commit-id", "--name-only", "-r", sha],
-                cwd,
+                ["diff", "--name-only", f"origin/{default}...{sha}"], cwd
             ).stdout.split()
         )
         extra = touched - _BUMP_FILES
-        if extra:
+        if extra or not touched:
             raise _AbortError(
                 Status.REFUSE,
-                f"{name} existe sur origin mais son commit touche des "
-                "fichiers inattendus : " + ", ".join(sorted(extra)),
+                f"{name} existe sur origin mais sa branche touche des "
+                "fichiers inattendus ou aucun fichier : "
+                + (", ".join(sorted(extra)) or "(vide)"),
             )
         raise _AbortError(
             Status.EN_ATTENTE, f"{name} est déjà poussée sur origin"

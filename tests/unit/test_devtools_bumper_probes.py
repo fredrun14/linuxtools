@@ -351,25 +351,41 @@ def _branche_distante(
     pin: str = "v2.11.1",
     fichiers: str = "pyproject.toml\n",
     pyproject: str | None = None,
+    parents: int = 1,
+    sha: str = _SHA_DISTANT,
 ) -> None:
-    """Déclare une branche de bump déjà poussée sur origin."""
+    """Déclare une branche de bump déjà poussée sur origin.
+
+    ``fichiers`` est la sortie de ``git diff --name-only origin/main...sha`` :
+    toute la branche, pas seulement son sommet.
+    """
     ex.on(
         "git",
         "ls-remote",
         "--heads",
         "origin",
         f"refs/heads/{_BRANCHE}",
-        stdout=f"{_SHA_DISTANT}\trefs/heads/{_BRANCHE}\n",
+        stdout=f"{sha}\trefs/heads/{_BRANCHE}\n",
     )
     ex.on("git", "fetch")
     ex.on("git", "cat-file", "-e", rc=0 if objet else 1)
     ex.on(
         "git",
         "show",
-        f"{_SHA_DISTANT}:pyproject.toml",
+        f"{sha}:pyproject.toml",
         stdout=pyproject or _pyproject(pin),
     )
-    ex.on("git", "diff-tree", stdout=fichiers)
+    ex.on(
+        "git",
+        "rev-list",
+        "--parents",
+        "-n1",
+        sha,
+        stdout=" ".join([sha, *["a" * 40] * parents]) + "\n",
+    )
+    ex.on(
+        "git", "diff", "--name-only", f"origin/main...{sha}", stdout=fichiers
+    )
 
 
 def test_branche_poussee_avec_commit_de_bump_valide_en_attente(
@@ -450,6 +466,79 @@ def test_branche_poussee_avec_fichier_inattendu_refusee(
 
     assert outcome.status is Status.REFUSE
     assert "src/evil.py" in outcome.detail
+
+
+def test_branche_poussee_commit_dessous_hors_perimetre_refusee(
+    tmp_path: Path,
+) -> None:
+    """Le diff couvre toute la branche : un commit sous le sommet compte."""
+    ex = _executor()
+    _branche_distante(ex, fichiers="pyproject.toml\nsrc/cache/evil.py\n")
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert "src/cache/evil.py" in outcome.detail
+    assert ("git", "diff", "--name-only", f"origin/main...{_SHA_DISTANT}") in (
+        ex.argvs()
+    )
+
+
+def test_branche_poussee_sans_changement_refusee(tmp_path: Path) -> None:
+    ex = _executor()
+    _branche_distante(ex, fichiers="")
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+
+
+@pytest.mark.parametrize("parents", [0, 2, 3])
+def test_branche_poussee_fusion_refusee(tmp_path: Path, parents: int) -> None:
+    """Fusion ou racine (diff-tree vide) : pas un commit de bump."""
+    ex = _executor()
+    _branche_distante(ex, parents=parents)
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert "fusion" in outcome.detail
+
+
+@pytest.mark.parametrize(
+    "sha",
+    [
+        "--output=/tmp/x",
+        "HEAD",
+        "deadbeef",
+        "g" * 40,
+        "A" * 40,
+        "a" * 39,
+        "a" * 41,
+    ],
+)
+def test_branche_poussee_sha_non_hexadecimal_refuse(
+    tmp_path: Path, sha: str
+) -> None:
+    ex = _executor()
+    _branche_distante(ex, sha=sha)
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    # le SHA douteux n'atteint jamais une commande git de lecture d'objet
+    lecture = {"cat-file", "show", "diff", "rev-list", "fetch"}
+    assert not any(sha in " ".join(a) for a in ex.argvs() if a[1] in lecture)
+
+
+@pytest.mark.parametrize("sha", ["a" * 40, "0123456789abcdef" * 4])
+def test_branche_poussee_sha_complet_accepte(tmp_path: Path, sha: str) -> None:
+    ex = _executor()
+    _branche_distante(ex, sha=sha)
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.EN_ATTENTE
 
 
 def test_branche_poussee_avec_pyproject_illisible_refusee(
