@@ -104,6 +104,56 @@ def test_parse_refuse_contrat_absent_ou_invalide(contrat: str) -> None:
         ConsumerManifest.parse(_pyproject(contrat=contrat))
 
 
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--directory", "/tmp/x"],
+        ["--project=../x"],
+        ["--index-url=http://evil.example/simple"],
+        ["--python", "3.12"],
+        ["--extra"],
+        ["--extra", "--directory"],
+        ["--extra", "../x"],
+        ["--group=-x"],
+        ["--all-extras", "--frozen"],
+        ["dev"],
+    ],
+)
+def test_parse_refuse_sync_args_hors_liste_blanche(args: list[str]) -> None:
+    liste = ", ".join(f'"{a}"' for a in args)
+    contrat = (
+        "[tool.linuxtools.consumer]\n"
+        f"sync-args = [{liste}]\n"
+        'checks = [["pytest"]]\n'
+    )
+
+    with pytest.raises(ManifestError, match="sync-args"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+def test_parse_accepte_les_sync_args_de_la_liste_blanche() -> None:
+    args = [
+        "--extra",
+        "dev",
+        "--group",
+        "test.1",
+        "--extra=docs",
+        "--group=lint",
+        "--all-extras",
+        "--all-groups",
+    ]
+    liste = ", ".join(f'"{a}"' for a in args)
+    contrat = (
+        "[tool.linuxtools.consumer]\n"
+        f"sync-args = [{liste}]\n"
+        'checks = [["pytest"]]\n'
+    )
+
+    manifest = ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+    assert manifest.sync_args == tuple(args)
+
+
 def test_parse_sync_args_par_defaut_vide() -> None:
     contrat = '[tool.linuxtools.consumer]\nchecks = [["pytest"]]\n'
 

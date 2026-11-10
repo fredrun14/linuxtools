@@ -35,6 +35,11 @@ _SIBLING_URL_RE = re.compile(
 )
 _SIBLING_TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 _TAG_RE = re.compile(rf"^{_TAG}\Z")
+# Liste blanche de `sync-args` : options de sélection d'extras/groupes
+# seulement (ni `--directory`, `--project`, `--index-url`, `--python`…).
+_SYNC_FLAGS = frozenset({"--all-extras", "--all-groups"})
+_SYNC_VALUED = frozenset({"--extra", "--group"})
+_SYNC_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 _ARGV0_RE = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 
@@ -148,7 +153,7 @@ def _contract(
         raise ManifestError("contrat consommateur absent ou invalide : table")
     sync_args = section.get("sync-args", [])
     checks = section.get("checks")
-    if not _is_str_list(sync_args):
+    if not _is_str_list(sync_args) or not _sync_args_allowed(sync_args):
         raise ManifestError(
             "contrat consommateur absent ou invalide : sync-args"
         )
@@ -168,6 +173,26 @@ def _contract(
         tuple(sync_args),
         tuple(tuple(c) for c in checks),
     )
+
+
+def _sync_args_allowed(args: list[str]) -> bool:
+    """Indique si ``args`` ne contient que des options autorisées.
+
+    Formes admises : ``--all-extras``, ``--all-groups``, ``--extra NOM``,
+    ``--group NOM`` et ``--extra=NOM``, ``--group=NOM``.
+    """
+    todo = iter(args)
+    for arg in todo:
+        if arg in _SYNC_FLAGS:
+            continue
+        option, equal, value = arg.partition("=")
+        if option not in _SYNC_VALUED:
+            return False
+        if not equal:
+            value = next(todo, "")
+        if not _SYNC_NAME_RE.match(value):
+            return False
+    return True
 
 
 def _is_str_list(value: object) -> bool:
