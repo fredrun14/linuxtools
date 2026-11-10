@@ -3371,8 +3371,11 @@ make test-verbose
 # Lancer un test spécifique
 pytest tests/test_logging.py::TestFileLogger::test_log_info -v
 
-# Vérifier PEP8
+# Vérifier PEP8, ruff et mypy (inclut le gate de format)
 make lint
+
+# Gate de format seul (ruff format --check sur src/ et les tests devtools)
+make format-check
 
 # Tout lancer (lint + tests + build)
 make all
@@ -3561,6 +3564,74 @@ Les contributions sont les bienvenues !
 - Type hints requis (PEP 484)
 - Respecter l'architecture SOLID existante
 - Ajouter des tests pour les nouvelles fonctionnalités
+
+### Monter le pin des consommateurs (`bump-consumers`)
+
+Outil de mainteneur du package `linuxtools.devtools` (hors API publique, sans
+point d'entrée) : après un tag `vX.Y.Z`, il monte le pin
+`linuxtools @ git+https://git.ricfasohel.fr/fred/linuxtools.git@vX.Y.Z` des
+projets de `~/PycharmProjects` qui l'utilisent.
+
+```bash
+# Simulation : sondes seules, rien n'est écrit (aucun fetch)
+make bump-consumers TAG=v2.11.1 ARGS="--dry-run"
+
+# Un seul projet, sans pousser
+make bump-consumers TAG=v2.11.1 ARGS="--only claudetools --no-push"
+
+# Équivalent sans make
+uv run python -m linuxtools.devtools bump-consumers v2.11.1 --dry-run
+```
+
+| Option | Rôle |
+|---|---|
+| `tag` | Tag cible `vX.Y.Z` (doit exister sur Forgejo) |
+| `--root DIR` | Dossier des dépôts (défaut `~/PycharmProjects`) |
+| `--only NOM` / `--exclude NOM` | Sélection répétable, mutuellement exclusives |
+| `--dry-run`, `-n` | Simule et rend le plan, sans écrire ni fetch |
+| `--no-push` | Commit sans push (statut COMMITÉ) |
+| `--co-authored-by` | Trailer `Co-Authored-By` du commit |
+
+**Contrat consommateur** : chaque projet déclare dans son `pyproject.toml`
+(lu sur `origin/<branche par défaut>`) ce qu'il faut synchroniser et vérifier.
+Sans lui, le projet est REFUSÉ (`ci.yml` n'est jamais interprété).
+
+```toml
+[tool.linuxtools.consumer]
+sync-args = ["--extra", "dev"]
+checks = [["pytest"], ["mypy", "src/mon_projet/"]]
+```
+
+- `sync-args` (facultatif) : ajoutés à `uv sync --no-sources`. Liste blanche :
+  `--all-extras`, `--all-groups`, `--extra NOM`, `--group NOM` (et `--extra=NOM`,
+  `--group=NOM`).
+- `checks` (obligatoire, non vide) : liste d'argv, exécutés depuis le venv
+  temporaire (le premier mot est un nom d'outil simple, pas un chemin).
+
+**Statuts** : succès (code 0) = À JOUR, EN ATTENTE (branche de bump déjà poussée
+et vérifiée sur toute sa longueur), SIMULÉ, POUSSÉ, COMMITÉ ; échec (code 1) =
+REFUSÉ (contrat absent, origin hors Forgejo, rétrogradation, dépôt frère
+absent…), BLOQUÉ (une dépendance maison épingle une autre version de
+linuxtools), ÉCHEC (contrôle ou commande en erreur, montée annulée), PUSH
+ÉCHOUÉ (branche conservée). Code 2 : usage ou environnement invalide.
+
+**Garde-fous** :
+
+- jamais de PR, de tag ni de force-push : la PR reste à ouvrir à la main ;
+- push vers `origin` seul, dont toutes les URL (fetch et push) doivent être sur
+  `git.ricfasohel.fr`, avec refspec explicite et SHA vérifié par `ls-remote` ;
+- travail dans un worktree temporaire (`mkdtemp` 0700) basé sur
+  `origin/<défaut>` : le checkout de l'utilisateur n'est jamais modifié ;
+- refus en root, et si `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`,
+  `UV_FROZEN`, `UV_LOCKED`, `UV_NO_SYNC`, `UV_PROJECT` ou
+  `UV_PROJECT_ENVIRONMENT` est défini ;
+- le tag est vérifié par `git ls-remote` sur l'URL Forgejo de linuxtools,
+  depuis un dossier neutre ; `git` >= 2.32 et `uv` requis ;
+- les hooks du consommateur tournent (jamais `--no-verify`) ; un commit qui
+  touche d'autres fichiers que `pyproject.toml`, `CHANGELOG.md`, `uv.lock`
+  est un ÉCHEC.
+
+Un vert local ne garantit pas la CI du consommateur : la CI Forgejo reste juge.
 
 ### Développement Local
 

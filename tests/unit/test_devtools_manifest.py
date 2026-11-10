@@ -1,0 +1,345 @@
+"""Tests du manifeste consommateur (linuxtools.devtools.manifest)."""
+
+from __future__ import annotations
+
+import tomllib
+
+import pytest
+
+from linuxtools.devtools.manifest import (
+    LINUXTOOLS_URL,
+    ConsumerManifest,
+    ManifestError,
+    SiblingDep,
+    pinned_linuxtools_tags,
+    rewrite_pin,
+)
+
+_PIN = (
+    "linuxtools[credentials] @ "
+    "git+https://git.ricfasohel.fr/fred/linuxtools.git@v2.10.0"
+)
+
+_CONTRAT = """
+[tool.linuxtools.consumer]
+sync-args = ["--extra", "dev"]
+checks = [["pytest"], ["mypy", "src/app/"]]
+"""
+
+
+def _pyproject(
+    deps: tuple[str, ...] = (_PIN,),
+    contrat: str = _CONTRAT,
+    name: str = "demo",
+) -> str:
+    """Construit un pyproject consommateur minimal."""
+    lignes = ",\n    ".join(f'"{d}"' for d in deps)
+    return (
+        f'[project]\nname = "{name}"\nversion = "1.0"\n'
+        f"dependencies = [\n    {lignes},\n]\n{contrat}"
+    )
+
+
+def test_parse_extrait_extras_et_tag() -> None:
+    manifest = ConsumerManifest.parse(_pyproject())
+
+    assert manifest.name == "demo"
+    assert manifest.extras == ("credentials",)
+    assert manifest.tag == "v2.10.0"
+    assert manifest.siblings == ()
+    assert manifest.sync_args == ("--extra", "dev")
+    assert manifest.checks == (("pytest",), ("mypy", "src/app/"))
+
+
+def test_parse_pin_sans_extras_dans_optional_dependencies() -> None:
+    texte = (
+        '[project]\nname = "demo"\n'
+        "[project.optional-dependencies]\n"
+        'dev = ["linuxtools @ git+https://git.ricfasohel.fr/fred/'
+        'linuxtools.git@v1.2.3"]\n' + _CONTRAT
+    )
+
+    manifest = ConsumerManifest.parse(texte)
+
+    assert manifest.extras == ()
+    assert manifest.tag == "v1.2.3"
+
+
+def test_parse_refuse_toml_invalide() -> None:
+    with pytest.raises(ManifestError):
+        ConsumerManifest.parse("[project\nname =")
+
+
+def test_parse_refuse_sans_nom_de_projet() -> None:
+    with pytest.raises(ManifestError):
+        ConsumerManifest.parse(
+            f'[project]\ndependencies = ["{_PIN}"]\n{_CONTRAT}'
+        )
+
+
+def test_parse_refuse_sans_pin() -> None:
+    with pytest.raises(ManifestError, match="pin"):
+        ConsumerManifest.parse(_pyproject(deps=("requests>=2",)))
+
+
+def test_parse_refuse_pin_en_double() -> None:
+    with pytest.raises(ManifestError, match="pin"):
+        ConsumerManifest.parse(_pyproject(deps=(_PIN, _PIN)))
+
+
+@pytest.mark.parametrize(
+    "contrat",
+    [
+        "",
+        "[tool.linuxtools.consumer]\nsync-args = []\n",
+        "[tool.linuxtools.consumer]\nchecks = []\n",
+        '[tool.linuxtools.consumer]\nchecks = ["pytest"]\n',
+        "[tool.linuxtools.consumer]\nchecks = [[]]\n",
+        '[tool.linuxtools.consumer]\nchecks = [["pytest"]]\nsync-args = [1]\n',
+        '[tool.linuxtools.consumer]\nchecks = [["pytest", 2]]\n',
+        '[tool.linuxtools.consumer]\nchecks = [["pytest"]]\nsync-args = "x"\n',
+    ],
+)
+def test_parse_refuse_contrat_absent_ou_invalide(contrat: str) -> None:
+    with pytest.raises(ManifestError, match="contrat consommateur"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--directory", "/tmp/x"],
+        ["--project=../x"],
+        ["--index-url=http://evil.example/simple"],
+        ["--python", "3.12"],
+        ["--extra"],
+        ["--extra", "--directory"],
+        ["--extra", "../x"],
+        ["--group=-x"],
+        ["--all-extras", "--frozen"],
+        ["dev"],
+    ],
+)
+def test_parse_refuse_sync_args_hors_liste_blanche(args: list[str]) -> None:
+    liste = ", ".join(f'"{a}"' for a in args)
+    contrat = (
+        "[tool.linuxtools.consumer]\n"
+        f"sync-args = [{liste}]\n"
+        'checks = [["pytest"]]\n'
+    )
+
+    with pytest.raises(ManifestError, match="sync-args"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+def test_parse_accepte_les_sync_args_de_la_liste_blanche() -> None:
+    args = [
+        "--extra",
+        "dev",
+        "--group",
+        "test.1",
+        "--extra=docs",
+        "--group=lint",
+        "--all-extras",
+        "--all-groups",
+    ]
+    liste = ", ".join(f'"{a}"' for a in args)
+    contrat = (
+        "[tool.linuxtools.consumer]\n"
+        f"sync-args = [{liste}]\n"
+        'checks = [["pytest"]]\n'
+    )
+
+    manifest = ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+    assert manifest.sync_args == tuple(args)
+
+
+def test_parse_sync_args_par_defaut_vide() -> None:
+    contrat = '[tool.linuxtools.consumer]\nchecks = [["pytest"]]\n'
+
+    manifest = ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+    assert manifest.sync_args == ()
+
+
+@pytest.mark.parametrize("argv0", ["../bin/x", "a b", ";", "/bin/sh", ""])
+def test_parse_refuse_argv0_avec_separateur(argv0: str) -> None:
+    contrat = f'[tool.linuxtools.consumer]\nchecks = [["{argv0}"]]\n'
+
+    with pytest.raises(ManifestError, match="contrat consommateur"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+def test_parse_detecte_dependance_maison() -> None:
+    maison = (
+        "webapitools @ git+https://git.ricfasohel.fr/fred/"
+        "webapitools.git@v0.13.0"
+    )
+
+    manifest = ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
+
+    assert manifest.siblings == (
+        SiblingDep(
+            name="webapitools",
+            url="https://git.ricfasohel.fr/fred/webapitools.git",
+            tag="v0.13.0",
+            repo="webapitools",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "maison",
+    [
+        "x @ git+https://git.ricfasohel.fr/fred/a/../b.git@v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=/etc/p",
+        # sans `/` : seul le 1er caractère (ni `-` ni `.`) l'écarte
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=pwn",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@-v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@.v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@v1.0.0;rm",
+        "x @ git+https://git.ricfasohel.fr/fred/.git@v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/-x.git@v1.0.0",
+    ],
+)
+def test_parse_refuse_dependance_maison_suspecte(maison: str) -> None:
+    with pytest.raises(ManifestError, match="dépendance maison"):
+        ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
+
+
+@pytest.mark.parametrize("tag", ["1", "v1.0.0-rc1", "v1_0", "release-2"])
+def test_parse_accepte_les_tags_usuels_de_dependance_maison(tag: str) -> None:
+    maison = f"x @ git+https://git.ricfasohel.fr/fred/x.git@{tag}"
+
+    manifest = ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
+
+    assert manifest.siblings[0].tag == tag
+
+
+def test_rewrite_pin_ne_change_que_le_tag() -> None:
+    texte = _pyproject()
+
+    nouveau = rewrite_pin(texte, "v2.11.1")
+
+    assert nouveau == texte.replace("v2.10.0", "v2.11.1")
+    assert tomllib.loads(nouveau)["project"]["dependencies"] == [
+        _PIN.replace("v2.10.0", "v2.11.1")
+    ]
+
+
+def test_rewrite_pin_refuse_pin_en_double() -> None:
+    with pytest.raises(ManifestError):
+        rewrite_pin(_pyproject(deps=(_PIN, _PIN)), "v2.11.1")
+
+
+def test_rewrite_pin_refuse_pin_absent() -> None:
+    with pytest.raises(ManifestError):
+        rewrite_pin(_pyproject(deps=("requests>=2",)), "v2.11.1")
+
+
+def test_rewrite_pin_refuse_tag_invalide() -> None:
+    with pytest.raises(ManifestError):
+        rewrite_pin(_pyproject(), "v2.11.1; rm")
+
+
+def test_rewrite_pin_refuse_toml_invalide() -> None:
+    with pytest.raises(ManifestError):
+        rewrite_pin("[project\n", "v2.11.1")
+
+
+def test_rewrite_pin_refuse_pin_seulement_en_commentaire() -> None:
+    texte = (
+        '[project]\nname = "demo"\ndependencies = ["requests"]\n'
+        "# linuxtools @ git+https://git.ricfasohel.fr/fred/"
+        "linuxtools.git@v2.10.0\n"
+    )
+
+    with pytest.raises(ManifestError):
+        rewrite_pin(texte, "v2.11.1")
+
+
+@pytest.mark.parametrize(
+    "copie",
+    [
+        "# linuxtools @ git+https://git.ricfasohel.fr/fred/"
+        "linuxtools.git@v2.10.0\n",
+        '[tool.autre]\nnote = "linuxtools @ git+https://git.ricfasohel.fr/'
+        'fred/linuxtools.git@v2.10.0"\n',
+    ],
+    ids=["commentaire", "table-tool"],
+)
+def test_rewrite_pin_refuse_pin_valide_et_meme_chaine_ailleurs(
+    copie: str,
+) -> None:
+    # Le pin réel est unique côté TOML, mais la chaîne figure deux fois
+    # dans le texte : la substitution textuelle toucherait les deux.
+    texte = _pyproject() + copie
+
+    with pytest.raises(ManifestError, match="absent ou en double"):
+        rewrite_pin(texte, "v2.11.1")
+
+
+def test_rewrite_pin_refuse_reecriture_qui_deborde() -> None:
+    # Le pin réel est écrit avec une séquence d'échappement (invisible
+    # pour la regex texte) ; seul le commentaire serait réécrit.
+    texte = (
+        '[project]\nname = "demo"\n'
+        'dependencies = ["linuxtools\\u0020@ git+https://git.ricfasohel.fr/'
+        'fred/linuxtools.git@v2.10.0"]\n'
+        "# linuxtools @ git+https://git.ricfasohel.fr/fred/"
+        "linuxtools.git@v2.10.0\n"
+    )
+
+    with pytest.raises(ManifestError, match="plus que le pin"):
+        rewrite_pin(texte, "v2.11.1")
+
+
+def test_rewrite_pin_conserve_listes_et_tables_ailleurs() -> None:
+    texte = _pyproject() + '\n[tool.autre]\nx = [1, {a = "b"}]\n'
+
+    nouveau = rewrite_pin(texte, "v2.11.1")
+
+    assert tomllib.loads(nouveau)["tool"]["autre"] == {"x": [1, {"a": "b"}]}
+
+
+def test_pinned_linuxtools_tags_liste_les_pins() -> None:
+    texte = _pyproject(contrat="")
+
+    assert pinned_linuxtools_tags(texte) == ("v2.10.0",)
+    assert pinned_linuxtools_tags(_pyproject(deps=("requests",))) == ()
+
+
+def test_pinned_linuxtools_tags_refuse_toml_invalide() -> None:
+    with pytest.raises(ManifestError):
+        pinned_linuxtools_tags("[project\n")
+
+
+def test_parse_refuse_pin_avec_saut_de_ligne_final() -> None:
+    # `$` accepterait le \n final ; `\Z` non.
+    pin = _PIN + "\\n"
+
+    with pytest.raises(ManifestError, match="pin linuxtools"):
+        ConsumerManifest.parse(_pyproject(deps=(pin,)))
+
+
+def test_parse_refuse_argv0_avec_saut_de_ligne_final() -> None:
+    contrat = '[tool.linuxtools.consumer]\nchecks = [["pytest\\n"]]\n'
+
+    with pytest.raises(ManifestError, match="contrat consommateur"):
+        ConsumerManifest.parse(_pyproject(contrat=contrat))
+
+
+def test_rewrite_pin_refuse_tag_avec_saut_de_ligne_final() -> None:
+    with pytest.raises(ManifestError, match="tag invalide"):
+        rewrite_pin(_pyproject(), "v2.11.1\n")
+
+
+def test_url_de_reference_est_celle_du_pin_reconnu() -> None:
+    """Le tag est vérifié sur la même URL que celle que le pin désigne."""
+    texte = _pyproject().replace(
+        "https://git.ricfasohel.fr/fred/linuxtools.git", LINUXTOOLS_URL
+    )
+
+    assert ConsumerManifest.parse(texte).tag == "v2.10.0"
+    assert texte == _pyproject()

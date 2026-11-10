@@ -40,8 +40,10 @@ jobs:
       - name: Ruff check
         run: uv run ruff check src/
 
-      - name: Ruff format --check
-        run: uv run ruff format --check src/
+      # Même gate que `make lint` et le hook pre-commit (liste de fichiers
+      # définie une seule fois dans le Makefile).
+      - name: Gate de format
+        run: make format-check
 
       - name: Bandit (analyse statique de sécurité)
         run: uv run bandit -ll -r src/linuxtools/

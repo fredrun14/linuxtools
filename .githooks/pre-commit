@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hook pre-commit — bloque le commit si ruff, ruff format, bandit, mypy ou
+# Hook pre-commit — bloque le commit si ruff, le gate de format, bandit, mypy ou
 # pytest échouent.
 #
 # Versionné dans le dépôt (.githooks/). Activé via `core.hooksPath` par
@@ -16,8 +16,8 @@ cd "$(git rev-parse --show-toplevel)"
 echo "→ ruff check"
 uv run ruff check src/
 
-echo "→ ruff format --check"
-uv run ruff format --check src/
+echo "→ gate de format (make format-check)"
+make format-check
 
 echo "→ bandit"
 uv run bandit -ll -r src/linuxtools/
