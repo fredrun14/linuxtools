@@ -38,6 +38,11 @@
 - build(lint): `make lint` exécute d'abord `format-check`, et la CI et le hook
   pre-commit appellent la même cible (T21, T31/F22).
 
+### Corrigé
+
+- fix(devtools): ne plus importer `linuxtools.updates` (extra `network`) ;
+  job `test-integration` rouge (F29).
+
 ## [2.11.1] - 2026-11-10
 
 ### Corrigé

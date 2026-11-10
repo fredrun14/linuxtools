@@ -26,10 +26,10 @@ from linuxtools.devtools.manifest import (
 )
 from linuxtools.devtools.report import BumpOutcome, Status, mask_userinfo
 from linuxtools.logging.base import Logger
-from linuxtools.updates.version_compare import parse_version
 
 FORGEJO_HOST = "git.ricfasohel.fr"
 TAG_RE = re.compile(r"^v\d+\.\d+\.\d+\Z")
+_TAG_PARTS_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)\Z")
 CO_AUTHOR_RE = re.compile(r"^[^<>\n]+ <[^<>\s]+@[^<>\s]+>\Z")
 
 # Liste blanche des formes d'URL d'origin, lues comme git les lit : le
@@ -51,6 +51,27 @@ _SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 _SAFE_BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 _UNRELEASED = "## [Non publié]"
 _BUMP_FILES = frozenset({"pyproject.toml", "CHANGELOG.md", "uv.lock"})
+
+
+def _tag_tuple(tag: str) -> tuple[int, int, int] | None:
+    """Convertit un tag ``vX.Y.Z`` en tuple d'entiers comparable.
+
+    Remplace ``linuxtools.updates.version_compare.parse_version`` : ce
+    module tire l'extra optionnel ``network`` (``webapitools``), absent de
+    l'installation ``dev`` du job ``test-integration``.
+
+    Args:
+        tag: Tag à analyser.
+
+    Returns:
+        Le tuple ``(X, Y, Z)``, ou ``None`` si la forme n'est pas
+        strictement ``vX.Y.Z`` (aucun contrôle de rétrogradation alors).
+    """
+    match = _TAG_PARTS_RE.match(tag)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch)
 
 
 def _split_nul(output: str) -> set[str]:
@@ -207,7 +228,7 @@ class ConsumerBumper:
             self._fetch(cwd, default)
         manifest = self._read_manifest(cwd, default)
         state.old_pin = manifest.tag
-        old, new = parse_version(manifest.tag), parse_version(self._tag)
+        old, new = _tag_tuple(manifest.tag), _tag_tuple(self._tag)
         if old == new:
             return BumpOutcome(consumer.name, manifest.tag, Status.A_JOUR)
         if old is not None and new is not None and old > new:
