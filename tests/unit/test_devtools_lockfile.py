@@ -133,3 +133,48 @@ def test_fermeture_tolere_cycle_et_dependance_absente() -> None:
     )
 
     assert unexpected_lock_changes(old, new) == []
+
+
+def test_entrees_de_meme_nom_toutes_comparees() -> None:
+    # Forks de résolution uv : deux blocs `numpy`, un seul change. L'index
+    # par nom écrasait le premier et masquait ce changement.
+    old = _lock(
+        _pkg("linuxtools", "1", (), _GIT_V1),
+        _pkg("numpy", "1.0"),
+        _pkg("numpy", "2.0"),
+    )
+    new = _lock(
+        _pkg("linuxtools", "2", (), _GIT_V2),
+        _pkg("numpy", "1.1"),
+        _pkg("numpy", "2.0"),
+    )
+
+    assert unexpected_lock_changes(old, new) == ["numpy"]
+
+
+def test_entrees_de_meme_nom_inchangees_ne_signalent_rien() -> None:
+    old = _lock(_pkg("numpy", "1.0"), _pkg("numpy", "2.0"))
+    new = _lock(_pkg("numpy", "2.0"), _pkg("numpy", "1.0"))
+
+    assert unexpected_lock_changes(old, new) == []
+
+
+def test_fermeture_de_linuxtools_unit_les_dependances_des_forks() -> None:
+    # Les deux blocs `numpy` dépendent de paquets différents : tous deux
+    # sont dans la fermeture de linuxtools, donc autorisés.
+    old = _lock(
+        _pkg("linuxtools", "1", ("numpy",), _GIT_V1),
+        _pkg("numpy", "1.0", ("a",)),
+        _pkg("numpy", "2.0", ("b",)),
+        _pkg("a", "1"),
+        _pkg("b", "1"),
+    )
+    new = _lock(
+        _pkg("linuxtools", "2", ("numpy",), _GIT_V2),
+        _pkg("numpy", "1.0", ("a",)),
+        _pkg("numpy", "2.0", ("b",)),
+        _pkg("a", "2"),
+        _pkg("b", "2"),
+    )
+
+    assert unexpected_lock_changes(old, new) == []

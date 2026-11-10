@@ -4,23 +4,29 @@
 import tomllib
 from typing import Any
 
-_Index = dict[str, tuple[str, str]]
+_Index = dict[str, frozenset[tuple[str, str]]]
 _Graph = dict[str, set[str]]
 
 
 def _index(text: str) -> tuple[_Index, _Graph]:
-    """Indexe les paquets d'un lock : (version, source) et dépendances."""
+    """Indexe les paquets d'un lock : (version, source) et dépendances.
+
+    Un même nom peut apparaître dans plusieurs blocs ``[[package]]``
+    (forks de résolution) : toutes les entrées sont conservées et les
+    dépendances de chaque bloc sont réunies.
+    """
     packages = tomllib.loads(text).get("package", [])
     index: _Index = {}
     graph: _Graph = {}
     for pkg in packages:
         name = pkg["name"]
-        index[name] = (pkg.get("version", ""), repr(pkg.get("source")))
+        entry = (pkg.get("version", ""), repr(pkg.get("source")))
+        index[name] = index.get(name, frozenset()) | {entry}
         deps = {d["name"] for d in pkg.get("dependencies", [])}
         optional: dict[str, Any] = pkg.get("optional-dependencies", {})
         for group in optional.values():
             deps.update(d["name"] for d in group)
-        graph[name] = deps
+        graph.setdefault(name, set()).update(deps)
     return index, graph
 
 
