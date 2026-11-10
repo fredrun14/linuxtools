@@ -82,9 +82,14 @@ build: clean
 # Répercute un tag linuxtools sur les projets consommateurs (outil de
 # mainteneur, sans point d'entrée). Exemple :
 #   make bump-consumers TAG=v2.11.1 ARGS="--dry-run --only claudetools"
+# TAG et ARGS passent par l'environnement (`$$TAG`) : le shell n'interprète
+# jamais leur contenu comme du code. ARGS est découpé en mots (set -f :
+# pas de glob) ; la validation du tag est faite côté Python.
+bump-consumers: export TAG := $(TAG)
+bump-consumers: export ARGS := $(ARGS)
 bump-consumers:
-	@test -n "$(TAG)" || { echo "Usage: make bump-consumers TAG=vX.Y.Z [ARGS=...]"; exit 2; }
-	uv run python -m linuxtools.devtools bump-consumers $(TAG) $(ARGS)
+	@test -n "$$TAG" || { echo "Usage: make bump-consumers TAG=vX.Y.Z [ARGS=...]"; exit 2; }
+	@set -f; uv run python -m linuxtools.devtools bump-consumers "$$TAG" $$ARGS
 
 # Tout lancer
 all: lint test build
