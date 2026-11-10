@@ -47,6 +47,7 @@ _DEFAULT_BRANCH_RE = re.compile(
 )
 _SAFE_BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 _UNRELEASED = "## [Non publié]"
+_BUMP_FILES = frozenset({"pyproject.toml", "CHANGELOG.md", "uv.lock"})
 
 
 class _AbortError(Exception):
@@ -549,14 +550,15 @@ class ConsumerBumper:
             raise _AbortError(Status.REFUSE, str(exc)) from exc
 
     def _check_branch(self, cwd: str) -> None:
-        """Refuse si la branche cible existe déjà (origin ou local)."""
+        """Refuse si la branche cible existe déjà (origin ou local).
+
+        Une branche déjà poussée n'est « en attente » que si son
+        sommet est un vrai commit de bump (cf. ``_verify_remote_bump``).
+        """
         ref = f"refs/heads/{self._branch}"
         remote = self._git(["ls-remote", "--heads", "origin", ref], cwd)
         if remote.stdout.strip():
-            raise _AbortError(
-                Status.EN_ATTENTE,
-                f"{self._branch} est déjà poussée sur origin",
-            )
+            self._verify_remote_bump(cwd, ref, remote.stdout.split()[0])
         local = self._git(
             ["rev-parse", "--verify", "--quiet", ref], cwd, check=False
         )
@@ -564,6 +566,61 @@ class ConsumerBumper:
             raise _AbortError(
                 Status.REFUSE, f"la branche locale {self._branch} existe"
             )
+
+    def _verify_remote_bump(self, cwd: str, ref: str, sha: str) -> None:
+        """Statue sur une branche de bump déjà poussée sur origin.
+
+        Lève ``EN_ATTENTE`` si son sommet pin le tag cible et ne
+        touche que les fichiers attendus, ``REFUSE`` sinon. En dry-run
+        (aucun fetch), un objet absent localement reste non vérifié.
+        """
+        name = self._branch
+        if not self._dry_run:
+            self._step(["git", "fetch", "--no-tags", "origin", ref], cwd)
+        if not self._git(
+            ["cat-file", "-e", f"{sha}^{{commit}}"], cwd, check=False
+        ).success:
+            if self._dry_run:
+                raise _AbortError(
+                    Status.EN_ATTENTE,
+                    f"{name} est déjà poussée sur origin "
+                    "(contenu non vérifié : dry-run, objet absent)",
+                )
+            raise _AbortError(
+                Status.REFUSE,
+                f"{name} existe sur origin mais son commit {sha[:12]} "
+                "est introuvable",
+            )
+        shown = self._git(["show", f"{sha}:pyproject.toml"], cwd, check=False)
+        try:
+            tags = (
+                pinned_linuxtools_tags(shown.stdout) if shown.success else ()
+            )
+        except ManifestError:
+            tags = ()
+        if tags != (self._tag,):
+            raise _AbortError(
+                Status.REFUSE,
+                f"{name} existe sur origin mais ne pin pas {self._tag} "
+                "(pyproject illisible ou autre version) : "
+                "à examiner ou supprimer",
+            )
+        touched = set(
+            self._git(
+                ["diff-tree", "--no-commit-id", "--name-only", "-r", sha],
+                cwd,
+            ).stdout.split()
+        )
+        extra = touched - _BUMP_FILES
+        if extra:
+            raise _AbortError(
+                Status.REFUSE,
+                f"{name} existe sur origin mais son commit touche des "
+                "fichiers inattendus : " + ", ".join(sorted(extra)),
+            )
+        raise _AbortError(
+            Status.EN_ATTENTE, f"{name} est déjà poussée sur origin"
+        )
 
     def _tracked(self, cwd: str, default: str, name: str) -> bool:
         """Indique si ``name`` est suivi sur ``origin/<défaut>``."""

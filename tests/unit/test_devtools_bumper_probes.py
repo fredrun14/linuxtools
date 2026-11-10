@@ -282,20 +282,127 @@ def test_dependance_maison_suspecte_refusee(
     assert not any(a[:2] == ("git", "-C") for a in ex.argvs())
 
 
-def test_branche_deja_sur_origin_en_attente(tmp_path: Path) -> None:
-    ex = _executor()
+_SHA_DISTANT = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+
+def _branche_distante(
+    ex: ScriptedExecutor,
+    *,
+    objet: bool = True,
+    pin: str = "v2.11.1",
+    fichiers: str = "pyproject.toml\n",
+    pyproject: str | None = None,
+) -> None:
+    """Déclare une branche de bump déjà poussée sur origin."""
     ex.on(
         "git",
         "ls-remote",
         "--heads",
         "origin",
         f"refs/heads/{_BRANCHE}",
-        stdout=f"deadbeef\trefs/heads/{_BRANCHE}\n",
+        stdout=f"{_SHA_DISTANT}\trefs/heads/{_BRANCHE}\n",
     )
+    ex.on("git", "fetch")
+    ex.on("git", "cat-file", "-e", rc=0 if objet else 1)
+    ex.on(
+        "git",
+        "show",
+        f"{_SHA_DISTANT}:pyproject.toml",
+        stdout=pyproject or _pyproject(pin),
+    )
+    ex.on("git", "diff-tree", stdout=fichiers)
+
+
+def test_branche_poussee_avec_commit_de_bump_valide_en_attente(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex)
 
     outcome = _bump(ex, tmp_path)
 
     assert outcome.status is Status.EN_ATTENTE
+
+
+def test_branche_poussee_dry_run_objet_absent_non_verifie(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex, objet=False)
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.EN_ATTENTE
+    assert "non vérifié" in outcome.detail
+    assert not any(a[:2] == ("git", "fetch") for a in ex.argvs())
+
+
+def test_branche_poussee_reel_fetch_la_branche_puis_verifie(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex)
+    bumper = _bumper(ex, tmp_path, dry_run=False)
+
+    outcome = bumper.bump(Consumer("app", tmp_path / "app"))
+
+    assert outcome.status is Status.EN_ATTENTE
+    assert "non vérifié" not in outcome.detail
+    assert (
+        "git",
+        "fetch",
+        "--no-tags",
+        "origin",
+        f"refs/heads/{_BRANCHE}",
+    ) in ex.argvs()
+
+
+def test_branche_poussee_reel_objet_introuvable_refusee(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex, objet=False)
+    bumper = _bumper(ex, tmp_path, dry_run=False)
+
+    outcome = bumper.bump(Consumer("app", tmp_path / "app"))
+
+    assert outcome.status is Status.REFUSE
+    assert _BRANCHE in outcome.detail
+
+
+def test_branche_poussee_avec_autre_pin_refusee(tmp_path: Path) -> None:
+    ex = _executor()
+    _branche_distante(ex, pin="v2.10.0")
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert "v2.11.1" in outcome.detail
+    assert _BRANCHE in outcome.detail
+
+
+def test_branche_poussee_avec_fichier_inattendu_refusee(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex, fichiers="pyproject.toml\nsrc/evil.py\n")
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert "src/evil.py" in outcome.detail
+
+
+def test_branche_poussee_avec_pyproject_illisible_refusee(
+    tmp_path: Path,
+) -> None:
+    ex = _executor()
+    _branche_distante(ex, pyproject="[project\n")
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert _BRANCHE in outcome.detail
 
 
 def test_branche_locale_existante_refusee(tmp_path: Path) -> None:
