@@ -179,6 +179,27 @@ def test_rewrite_pin_refuse_pin_seulement_en_commentaire() -> None:
         rewrite_pin(texte, "v2.11.1")
 
 
+@pytest.mark.parametrize(
+    "copie",
+    [
+        "# linuxtools @ git+https://git.ricfasohel.fr/fred/"
+        "linuxtools.git@v2.10.0\n",
+        '[tool.autre]\nnote = "linuxtools @ git+https://git.ricfasohel.fr/'
+        'fred/linuxtools.git@v2.10.0"\n',
+    ],
+    ids=["commentaire", "table-tool"],
+)
+def test_rewrite_pin_refuse_pin_valide_et_meme_chaine_ailleurs(
+    copie: str,
+) -> None:
+    # Le pin réel est unique côté TOML, mais la chaîne figure deux fois
+    # dans le texte : la substitution textuelle toucherait les deux.
+    texte = _pyproject() + copie
+
+    with pytest.raises(ManifestError, match="absent ou en double"):
+        rewrite_pin(texte, "v2.11.1")
+
+
 def test_rewrite_pin_refuse_reecriture_qui_deborde() -> None:
     # Le pin réel est écrit avec une séquence d'échappement (invisible
     # pour la regex texte) ; seul le commentaire serait réécrit.
