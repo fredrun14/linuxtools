@@ -597,8 +597,10 @@ class ConsumerBumper:
     def _check_branch(self, cwd: str, default: str) -> None:
         """Refuse si la branche cible existe déjà (origin ou local).
 
-        Une branche déjà poussée n'est « en attente » que si son
-        sommet est un vrai commit de bump (cf. ``_verify_remote_bump``).
+        Une branche déjà poussée n'est « en attente » que si son sommet
+        pin le tag cible, n'est pas une fusion et si toute la branche
+        (par rapport à ``origin/<défaut>``) ne touche que les fichiers
+        attendus (cf. ``_verify_remote_bump``).
         """
         ref = f"refs/heads/{self._branch}"
         remote = self._git(["ls-remote", "--heads", "origin", ref], cwd)
