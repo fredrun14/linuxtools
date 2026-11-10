@@ -658,12 +658,21 @@ class ConsumerBumper:
             None,
             check=False,
         )
+        where = f"{sibling.name}@{sibling.tag}"
         if not out.success:
-            return False  # dépôt absent : l'erreur uv remontera
+            raise _AbortError(
+                Status.REFUSE,
+                f"dépendance maison {where} introuvable dans "
+                f"{self._root / sibling.repo} (dépôt ou tag absent) : "
+                f"{out.stderr.strip()}",
+            )
         try:
             tags = pinned_linuxtools_tags(out.stdout)
-        except ManifestError:
-            return False
+        except ManifestError as exc:
+            raise _AbortError(
+                Status.REFUSE,
+                f"dépendance maison {where} : pyproject illisible ({exc})",
+            ) from exc
         return any(tag != self._tag for tag in tags)
 
     # -- simulation ----------------------------------------------------

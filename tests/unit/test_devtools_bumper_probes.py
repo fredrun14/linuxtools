@@ -249,19 +249,29 @@ def test_dependance_maison_alignee_ne_bloque_pas(tmp_path: Path) -> None:
     assert _bump(ex, tmp_path).status is Status.SIMULE
 
 
-@pytest.mark.parametrize("sortie", ["", "[project\n"])
-def test_dependance_maison_illisible_ou_absente_ne_bloque_pas(
-    tmp_path: Path, sortie: str
+@pytest.mark.parametrize(
+    ("sortie", "rc", "motif"),
+    [
+        ("", 128, "introuvable"),
+        ("[project\n", 0, "illisible"),
+    ],
+)
+def test_dependance_maison_illisible_ou_absente_refusee(
+    tmp_path: Path, sortie: str, rc: int, motif: str
 ) -> None:
     maison = (
         "webapitools @ git+https://git.ricfasohel.fr/fred/"
         "webapitools.git@v0.13.0"
     )
     ex = _executor(_pyproject(extra_deps=(maison,)))
-    rc = 0 if sortie else 128
-    ex.on("git", "-C", stdout=sortie, rc=rc)
+    ex.on("git", "-C", stdout=sortie, rc=rc, stderr="fatal: pas de tag")
 
-    assert _bump(ex, tmp_path).status is Status.SIMULE
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert "webapitools" in outcome.detail
+    assert "v0.13.0" in outcome.detail
+    assert motif in outcome.detail
 
 
 @pytest.mark.parametrize(
