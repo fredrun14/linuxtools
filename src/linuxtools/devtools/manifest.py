@@ -26,9 +26,14 @@ _PIN_RE = re.compile(
 _PIN_TEXT_RE = re.compile(rf"(?P<head>{_PIN_HEAD}){_TAG}")
 _SIBLING_RE = re.compile(
     r"^(?P<name>[A-Za-z0-9._-]+)(?:\[[^\]]*\])?\s*@\s*"
-    r"git\+(?P<url>https://git\.ricfasohel\.fr/fred/[^@\s]+\.git)"
+    r"git\+(?P<url>https://git\.ricfasohel\.fr/fred/[^@\s]*\.git)"
     r"@(?P<tag>\S+)$"
 )
+_SIBLING_URL_RE = re.compile(
+    r"^https://git\.ricfasohel\.fr/fred/"
+    r"(?P<repo>[A-Za-z0-9][A-Za-z0-9._-]*)\.git\Z"
+)
+_SIBLING_TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 _TAG_RE = re.compile(rf"^{_TAG}$")
 _ARGV0_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -39,11 +44,12 @@ class ManifestError(Exception):
 
 @dataclass(frozen=True)
 class SiblingDep:
-    """Dépendance maison épinglée (nom, URL git, tag)."""
+    """Dépendance maison épinglée (nom, URL git, tag, dépôt validé)."""
 
     name: str
     url: str
     tag: str
+    repo: str
 
 
 @dataclass(frozen=True)
@@ -88,7 +94,7 @@ class ConsumerManifest:
         extras = tuple(e.strip() for e in extras_raw.split(",") if e.strip())
 
         siblings = tuple(
-            SiblingDep(m["name"], m["url"], m["tag"])
+            _sibling(m)
             for r in requirements
             if (m := _SIBLING_RE.match(r)) and m["name"] != "linuxtools"
         )
@@ -101,6 +107,18 @@ class ConsumerManifest:
             sync_args=sync_args,
             checks=checks,
         )
+
+
+def _sibling(match: re.Match[str]) -> SiblingDep:
+    """Valide une dépendance maison (dépôt et tag sûrs) ou refuse."""
+    url = _SIBLING_URL_RE.match(match["url"])
+    if url is None or not _SIBLING_TAG_RE.match(match["tag"]):
+        raise ManifestError(
+            f"dépendance maison {match['name']} : URL ou tag suspect"
+        )
+    return SiblingDep(
+        match["name"], match["url"], match["tag"], url.group("repo")
+    )
 
 
 def _load(text: str) -> dict[str, Any]:

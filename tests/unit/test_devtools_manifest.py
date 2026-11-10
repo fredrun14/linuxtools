@@ -133,8 +133,23 @@ def test_parse_detecte_dependance_maison() -> None:
             name="webapitools",
             url="https://git.ricfasohel.fr/fred/webapitools.git",
             tag="v0.13.0",
+            repo="webapitools",
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "maison",
+    [
+        "x @ git+https://git.ricfasohel.fr/fred/a/../b.git@v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=/etc/p",
+        "x @ git+https://git.ricfasohel.fr/fred/.git@v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/-x.git@v1.0.0",
+    ],
+)
+def test_parse_refuse_dependance_maison_suspecte(maison: str) -> None:
+    with pytest.raises(ManifestError, match="dépendance maison"):
+        ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
 
 
 def test_rewrite_pin_ne_change_que_le_tag() -> None:

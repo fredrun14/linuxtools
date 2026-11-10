@@ -46,10 +46,6 @@ _DEFAULT_BRANCH_RE = re.compile(
     r"^ref:\s+refs/heads/(?P<branch>\S+)\s+HEAD\s*$", re.MULTILINE
 )
 _SAFE_BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
-_SIBLING_URL_RE = re.compile(
-    r"^https://git\.ricfasohel\.fr/fred/"
-    r"(?P<repo>[A-Za-z0-9][A-Za-z0-9._-]*)\.git\Z"
-)
 _UNRELEASED = "## [Non publié]"
 
 
@@ -556,17 +552,10 @@ class ConsumerBumper:
 
     def _sibling_conflicts(self, sibling: SiblingDep) -> bool:
         """Lit le pyproject de la dépendance maison à son tag."""
-        url_match = _SIBLING_URL_RE.match(sibling.url)
-        if url_match is None or not _SAFE_BRANCH_RE.match(sibling.tag):
-            raise _AbortError(
-                Status.REFUSE,
-                f"dépendance maison {sibling.name} : URL ou tag suspect",
-            )
-        repo = url_match.group("repo")
         out = self._git(
             [
                 "-C",
-                str(self._root / repo),
+                str(self._root / sibling.repo),
                 "show",
                 f"{sibling.tag}:pyproject.toml",
             ],
