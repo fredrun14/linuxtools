@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from linuxtools.commands.base import CommandResult
 from linuxtools.devtools.bumper import ConsumerBumper
 from linuxtools.devtools.discovery import Consumer
 from linuxtools.devtools.report import BumpOutcome, Status
@@ -53,6 +54,7 @@ class _Run:
     commit_stdin: str | None = None
     check_env: dict[str, str] | None = None
     check_cwd: str | None = None
+    logger: MagicMock = field(default_factory=MagicMock)
     extra: dict[str, object] = field(default_factory=dict)
 
     def outcome(self) -> BumpOutcome:
@@ -110,16 +112,17 @@ def _scenario(
             stdout="CHANGELOG.md\n",
         )
         ex.on("git", "show", "origin/main:CHANGELOG.md", stdout=_CHANGELOG)
+    logger = MagicMock()
     bumper = ConsumerBumper(
         ex,
-        MagicMock(),
+        logger,
         tag="v2.11.1",
         root=tmp_path,
         dry_run=False,
         push=push,
         co_author=_CO_AUTHOR,
     )
-    run = _Run(ex, bumper, Consumer("app", tmp_path / "app"))
+    run = _Run(ex, bumper, Consumer("app", tmp_path / "app"), logger=logger)
     rc = check_rc or {}
 
     def worktree_add(call: Call) -> None:
@@ -493,6 +496,46 @@ def test_worktree_add_en_echec_ne_supprime_pas_de_branche(
     assert "pris" in outcome.detail
     assert not run.has("git", "branch", "-D")
     assert list((tmp_path / "tmp").iterdir()) == []
+
+
+def test_worktree_add_en_echec_apres_creation_de_branche_la_supprime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _scenario(tmp_path, monkeypatch, worktree_rc=128)
+
+    def branch_exists_after_add(call: Call) -> CommandResult:
+        # `worktree add -b` crée la branche avant d'échouer au checkout.
+        added = any(a[:3] == ("git", "worktree", "add") for a in run.argvs())
+        rc = 0 if added else 1
+        return CommandResult(call.argv, rc, "", "", rc == 0, 0.0)
+
+    run.ex.on(
+        "git",
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        handler=branch_exists_after_add,
+    )
+
+    outcome = run.outcome()
+
+    assert outcome.status is Status.ECHEC
+    assert ("git", "branch", "-D", _BRANCHE) in run.argvs()
+
+
+def test_echec_du_nettoyage_est_journalise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _scenario(tmp_path, monkeypatch, check_rc={"mypy": 1})
+    run.ex.on("git", "worktree", "remove", rc=1, stderr="wt verrouillé")
+    run.ex.on("git", "branch", "-D", rc=1, stderr="branche tenue")
+
+    outcome = run.outcome()
+
+    assert outcome.status is Status.ECHEC
+    messages = " ".join(str(c) for c in run.logger.log_warning.mock_calls)
+    assert "wt verrouillé" in messages
+    assert "branche tenue" in messages
 
 
 def test_nettoyage_worktree_meme_en_exception(

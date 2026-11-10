@@ -242,48 +242,87 @@ class ConsumerBumper:
             },
         )
         cwd = str(consumer.path)
-        created = False
-        keep = False
+        worktree = False
+        drop = False
         try:
-            self._step(
-                [
-                    "git",
-                    "worktree",
-                    "add",
-                    "--no-track",
-                    "-b",
-                    plan.branch,
-                    str(space.worktree),
-                    f"origin/{plan.default_branch}",
-                ],
-                cwd,
-            )
-            created = True
+            self._add_worktree(cwd, plan, space)
+            worktree = drop = True
             checks = self._prepare_and_check(plan, space)
             outcome = self._commit_and_push(consumer, plan, space, checks)
-            keep = True
+            drop = False
             return outcome
         except _AbortError as stop:
-            keep = stop.status is Status.PUSH_ECHOUE
+            drop = drop and stop.status is not Status.PUSH_ECHOUE
             raise
         finally:
-            self._cleanup(cwd, space, plan.branch, created and not keep)
+            self._cleanup(cwd, space, plan.branch, worktree, drop)
+
+    def _add_worktree(self, cwd: str, plan: _Plan, space: _Workspace) -> None:
+        """Crée la branche et son worktree.
+
+        ``worktree add -b`` peut créer la branche puis échouer au
+        checkout : la branche n'existait pas avant (``_check_branch``),
+        elle est donc à nous et on la supprime au nettoyage.
+        """
+        argv = [
+            "git",
+            "worktree",
+            "add",
+            "--no-track",
+            "-b",
+            plan.branch,
+            str(space.worktree),
+            f"origin/{plan.default_branch}",
+        ]
+        result = self._executor.run(argv, cwd=cwd, timeout=self._timeout)
+        if not result.success:
+            if self._branch_exists(cwd, plan.branch):
+                self._delete_branch(cwd, plan.branch)
+            raise _AbortError(
+                Status.ECHEC,
+                f"git worktree add a échoué "
+                f"(code {result.return_code}) :\n{_output(result)}",
+            )
+
+    def _branch_exists(self, cwd: str, branch: str) -> bool:
+        """Indique si la branche locale existe (sonde)."""
+        ref = f"refs/heads/{branch}"
+        return self._git(
+            ["rev-parse", "--verify", "--quiet", ref], cwd, check=False
+        ).success
 
     def _cleanup(
-        self, cwd: str, space: _Workspace, branch: str, drop_branch: bool
+        self,
+        cwd: str,
+        space: _Workspace,
+        branch: str,
+        worktree: bool,
+        drop_branch: bool,
     ) -> None:
-        """Supprime worktree, dossier temporaire et branche si échec."""
-        self._executor.run(
-            ["git", "worktree", "remove", "--force", str(space.worktree)],
-            cwd=cwd,
-            timeout=self._timeout,
-        )
+        """Supprime worktree, dossier temporaire et branche si échec.
+
+        Un échec de nettoyage est journalisé, jamais ignoré.
+        """
+        if worktree:
+            self._cleanup_step(
+                ["git", "worktree", "remove", "--force", str(space.worktree)],
+                cwd,
+            )
         shutil.rmtree(space.tmp, ignore_errors=True)
         if drop_branch:
-            self._executor.run(
-                ["git", "branch", "-D", branch],
-                cwd=cwd,
-                timeout=self._timeout,
+            self._delete_branch(cwd, branch)
+
+    def _delete_branch(self, cwd: str, branch: str) -> None:
+        """Supprime la branche locale (échec journalisé)."""
+        self._cleanup_step(["git", "branch", "-D", branch], cwd)
+
+    def _cleanup_step(self, argv: list[str], cwd: str) -> None:
+        """Lance une commande de nettoyage et journalise son échec."""
+        result = self._executor.run(argv, cwd=cwd, timeout=self._timeout)
+        if not result.success:
+            self._logger.log_warning(
+                f"nettoyage : {' '.join(argv[:3])} a échoué "
+                f"(code {result.return_code}) : {_output(result)}"
             )
 
     def _step(
