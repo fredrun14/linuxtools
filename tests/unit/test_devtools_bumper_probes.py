@@ -461,6 +461,15 @@ def test_dry_run_n_ecrit_rien_et_ne_fetch_pas(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
+def test_dry_run_signale_l_origin_local_non_rafraichi(
+    tmp_path: Path,
+) -> None:
+    outcome = _bump(_executor(), tmp_path)
+
+    assert outcome.status is Status.SIMULE
+    assert "origin/main local non rafraîchi" in outcome.detail
+
+
 def test_dry_run_sans_lock_ni_changelog_le_dit(tmp_path: Path) -> None:
     outcome = _bump(_executor(), tmp_path)
 

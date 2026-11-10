@@ -682,6 +682,8 @@ class ConsumerBumper:
         manifest = plan.manifest
         lines = [
             f"branche {plan.branch} depuis origin/{plan.default_branch}",
+            f"basé sur origin/{plan.default_branch} local non rafraîchi "
+            "(dry-run sans fetch : le réel peut différer)",
             f"pin linuxtools {manifest.tag} -> {self._tag}",
         ]
         if plan.changelog:
