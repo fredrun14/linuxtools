@@ -193,6 +193,11 @@ def test_parse_detecte_dependance_maison() -> None:
     [
         "x @ git+https://git.ricfasohel.fr/fred/a/../b.git@v1.0.0",
         "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=/etc/p",
+        # sans `/` : seul le 1er caractère (ni `-` ni `.`) l'écarte
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=pwn",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@-v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@.v1.0.0",
+        "x @ git+https://git.ricfasohel.fr/fred/x.git@v1.0.0;rm",
         "x @ git+https://git.ricfasohel.fr/fred/.git@v1.0.0",
         "x @ git+https://git.ricfasohel.fr/fred/-x.git@v1.0.0",
     ],
@@ -200,6 +205,15 @@ def test_parse_detecte_dependance_maison() -> None:
 def test_parse_refuse_dependance_maison_suspecte(maison: str) -> None:
     with pytest.raises(ManifestError, match="dépendance maison"):
         ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
+
+
+@pytest.mark.parametrize("tag", ["1", "v1.0.0-rc1", "v1_0", "release-2"])
+def test_parse_accepte_les_tags_usuels_de_dependance_maison(tag: str) -> None:
+    maison = f"x @ git+https://git.ricfasohel.fr/fred/x.git@{tag}"
+
+    manifest = ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
+
+    assert manifest.siblings[0].tag == tag
 
 
 def test_rewrite_pin_ne_change_que_le_tag() -> None:
