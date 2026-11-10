@@ -109,7 +109,21 @@ def test_refuse_root(
     assert ex.calls == []
 
 
-@pytest.mark.parametrize("nom", ["UV_FROZEN", "GIT_DIR", "UV_PROJECT"])
+# Liste littérale (plan, T8) : indépendante de `cli.FORBIDDEN_ENV`, sinon
+# retirer une variable de la constante retirerait aussi son test.
+@pytest.mark.parametrize(
+    "nom",
+    [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "UV_FROZEN",
+        "UV_LOCKED",
+        "UV_NO_SYNC",
+        "UV_PROJECT",
+        "UV_PROJECT_ENVIRONMENT",
+    ],
+)
 def test_refuse_variable_uv_frozen(
     tmp_path: Path,
     projets: Path,
