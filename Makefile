@@ -1,6 +1,6 @@
 # Makefile pour linuxtools
 
-.PHONY: help install install-dev uninstall test test-unit test-integration test-verbose test-cov lint clean build all hooks
+.PHONY: help install install-dev uninstall test test-unit test-integration test-verbose test-cov lint clean build all hooks bump-consumers
 
 # Cible par défaut
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  make build          Construire wheel + sdist (uv build)"
 	@echo "  make hooks          Activer les hooks Git versionnés (.githooks)"
 	@echo "  make all            Lint + tests + build"
+	@echo "  make bump-consumers TAG=vX.Y.Z [ARGS=...]  Monter le pin des consommateurs"
 
 # Installation
 # `--all-extras` est obligatoire : uv sync est « exact » et désinstallerait
@@ -77,6 +78,13 @@ clean:
 # Build
 build: clean
 	uv build
+
+# Répercute un tag linuxtools sur les projets consommateurs (outil de
+# mainteneur, sans point d'entrée). Exemple :
+#   make bump-consumers TAG=v2.11.1 ARGS="--dry-run --only claudetools"
+bump-consumers:
+	@test -n "$(TAG)" || { echo "Usage: make bump-consumers TAG=vX.Y.Z [ARGS=...]"; exit 2; }
+	uv run python -m linuxtools.devtools bump-consumers $(TAG) $(ARGS)
 
 # Tout lancer
 all: lint test build
