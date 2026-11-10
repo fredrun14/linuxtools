@@ -205,3 +205,26 @@ def rewrite_pin(text: str, new_tag: str) -> str:
     if _load(result) != _substitute(old_data, new_tag):
         raise ManifestError("la réécriture modifie plus que le pin")
     return result
+
+
+def pinned_linuxtools_tags(text: str) -> tuple[str, ...]:
+    """Liste les tags de linuxtools épinglés dans un pyproject.
+
+    Sert à vérifier une dépendance maison : aucun contrat consommateur
+    n'est exigé.
+
+    Args:
+        text: Contenu d'un ``pyproject.toml``.
+
+    Returns:
+        Tags ``vX.Y.Z`` trouvés (vide si aucun pin).
+
+    Raises:
+        ManifestError: TOML invalide.
+    """
+    project = _load(text).get("project", {})
+    return tuple(
+        m.group("tag")
+        for r in _requirements(project)
+        if (m := _PIN_RE.match(r))
+    )

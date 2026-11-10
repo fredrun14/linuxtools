@@ -1,0 +1,339 @@
+"""Montée du pin linuxtools dans un projet consommateur.
+
+``ConsumerBumper.bump`` ne lève jamais d'exception métier : tout est
+converti en ``BumpOutcome`` (statut + détail).
+"""
+
+# stdlib
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+# local
+from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.devtools.discovery import Consumer
+from linuxtools.devtools.manifest import (
+    ConsumerManifest,
+    ManifestError,
+    SiblingDep,
+    pinned_linuxtools_tags,
+)
+from linuxtools.devtools.report import BumpOutcome, Status
+from linuxtools.logging.base import Logger
+from linuxtools.updates.version_compare import parse_version
+
+FORGEJO_HOST = "git.ricfasohel.fr"
+TAG_RE = re.compile(r"^v\d+\.\d+\.\d+\Z")
+CO_AUTHOR_RE = re.compile(r"^[^<>\n]+ <[^<>\s]+@[^<>\s]+>\Z")
+
+_HOST_RE = re.compile(
+    r"^(?:[A-Za-z][A-Za-z0-9+.-]*://)?(?:[^@/]+@)?(?P<host>[^/:@]+)"
+)
+_DEFAULT_BRANCH_RE = re.compile(
+    r"^ref:\s+refs/heads/(?P<branch>\S+)\s+HEAD\s*$", re.MULTILINE
+)
+_SAFE_BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
+_SIBLING_URL_RE = re.compile(
+    r"^https://git\.ricfasohel\.fr/fred/"
+    r"(?P<repo>[A-Za-z0-9][A-Za-z0-9._-]*)\.git\Z"
+)
+_UNRELEASED = "## [Non publié]"
+
+
+class _AbortError(Exception):
+    """Arrêt de la montée avec un statut (interne à ce module)."""
+
+    def __init__(self, status: Status, detail: str) -> None:
+        super().__init__(detail)
+        self.status = status
+        self.detail = detail
+
+
+@dataclass
+class _State:
+    """État partagé entre les étapes d'une montée."""
+
+    old_pin: str = "?"
+
+
+@dataclass(frozen=True)
+class _Plan:
+    """Ce que la montée d'un consommateur va faire."""
+
+    default_branch: str
+    branch: str
+    manifest: ConsumerManifest
+    lock_tracked: bool
+    changelog: bool
+
+
+def _host(url: str) -> str:
+    """Extrait le nom d'hôte d'une URL git (https, ssh ou scp)."""
+    match = _HOST_RE.match(url.strip())
+    return match.group("host").lower() if match else ""
+
+
+class ConsumerBumper:
+    """Monte le pin linuxtools d'un consommateur sur une branche dédiée.
+
+    Les sondes (lecture seule) s'exécutent aussi en dry-run ; seul le
+    chemin réel écrit, commit et pousse.
+    """
+
+    def __init__(
+        self,
+        executor: CommandExecutor,
+        logger: Logger,
+        *,
+        tag: str,
+        root: Path,
+        dry_run: bool,
+        push: bool,
+        co_author: str,
+        timeout: float = 600.0,
+    ) -> None:
+        """Initialise le bumper.
+
+        Args:
+            executor: Exécuteur de commandes (injecté).
+            logger: Logger (injecté).
+            tag: Tag cible ``vX.Y.Z``.
+            root: Dossier contenant les dépôts frères.
+            dry_run: Simuler sans écrire ni fetch.
+            push: Pousser la branche vers ``origin``.
+            co_author: Trailer ``Nom <adresse>`` du commit.
+            timeout: Délai par commande, en secondes.
+
+        Raises:
+            ValueError: Tag ou co-auteur invalide.
+        """
+        if not TAG_RE.match(tag):
+            raise ValueError(f"tag invalide : {tag!r}")
+        if not CO_AUTHOR_RE.match(co_author):
+            raise ValueError(f"co-auteur invalide : {co_author!r}")
+        self._executor = executor
+        self._logger = logger
+        self._tag = tag
+        self._root = root
+        self._dry_run = dry_run
+        self._push = push
+        self._co_author = co_author
+        self._timeout = int(timeout)
+        self._branch = "chore/pin-linuxtools-" + tag[1:].replace(".", "-")
+
+    def bump(self, consumer: Consumer) -> BumpOutcome:
+        """Monte le pin d'un consommateur.
+
+        Args:
+            consumer: Consommateur à traiter.
+
+        Returns:
+            Résultat de la montée ; jamais d'exception métier.
+        """
+        state = _State()
+        try:
+            return self._bump(consumer, state)
+        except _AbortError as stop:
+            self._logger.log_warning(
+                f"{consumer.name} : {stop.status.value} : {stop.detail}"
+            )
+            return BumpOutcome(
+                consumer.name, state.old_pin, stop.status, detail=stop.detail
+            )
+        except Exception as exc:  # frontière : tout devient un statut
+            self._logger.log_error(f"{consumer.name} : {exc!r}")
+            return BumpOutcome(
+                consumer.name,
+                state.old_pin,
+                Status.ECHEC,
+                detail=f"{type(exc).__name__} : {exc}",
+            )
+
+    # -- orchestration -------------------------------------------------
+
+    def _bump(self, consumer: Consumer, state: _State) -> BumpOutcome:
+        """Déroule sondes puis exécution (ou simulation)."""
+        cwd = str(consumer.path)
+        default = self._probe_origin(cwd)
+        if not self._dry_run:
+            self._fetch(cwd, default)
+        manifest = self._read_manifest(cwd, default)
+        state.old_pin = manifest.tag
+        old, new = parse_version(manifest.tag), parse_version(self._tag)
+        if old == new:
+            return BumpOutcome(consumer.name, manifest.tag, Status.A_JOUR)
+        if old is not None and new is not None and old > new:
+            raise _AbortError(
+                Status.REFUSE,
+                f"rétrogradation refusée : pin {manifest.tag} > {self._tag}",
+            )
+        self._check_branch(cwd)
+        plan = _Plan(
+            default_branch=default,
+            branch=self._branch,
+            manifest=manifest,
+            lock_tracked=self._tracked(cwd, default, "uv.lock"),
+            changelog=self._has_unreleased(cwd, default),
+        )
+        self._check_siblings(manifest)
+        if self._dry_run:
+            return BumpOutcome(
+                consumer.name,
+                manifest.tag,
+                Status.SIMULE,
+                detail=self._describe(plan),
+            )
+        return self._apply(consumer, plan)
+
+    def _apply(self, consumer: Consumer, plan: _Plan) -> BumpOutcome:
+        """Chemin réel (worktree, contrôles, commit, push)."""
+        raise NotImplementedError
+
+    # -- exécution -----------------------------------------------------
+
+    def _git(
+        self, args: list[str], cwd: str | None, *, check: bool = True
+    ) -> CommandResult:
+        """Lance une sonde git (lecture seule, même en dry-run)."""
+        result = self._executor.run(
+            ["git", *args], cwd=cwd, timeout=self._timeout, probe=True
+        )
+        if check and not result.success:
+            raise _AbortError(
+                Status.ECHEC,
+                f"git {' '.join(args[:3])} a échoué "
+                f"(code {result.return_code}) : {result.stderr.strip()}",
+            )
+        return result
+
+    # -- sondes --------------------------------------------------------
+
+    def _probe_origin(self, cwd: str) -> str:
+        """Vérifie les URL d'origin et retourne la branche par défaut."""
+        for args in (
+            ["remote", "get-url", "origin"],
+            ["remote", "get-url", "--push", "origin"],
+        ):
+            url = self._git(args, cwd).stdout.strip()
+            if _host(url) != FORGEJO_HOST:
+                raise _AbortError(
+                    Status.REFUSE,
+                    f"origin ({url}) n'est pas sur {FORGEJO_HOST}",
+                )
+        out = self._git(["ls-remote", "--symref", "origin", "HEAD"], cwd)
+        match = _DEFAULT_BRANCH_RE.search(out.stdout)
+        if match is None or not _SAFE_BRANCH_RE.match(match["branch"]):
+            raise _AbortError(
+                Status.REFUSE, "branche par défaut d'origin illisible"
+            )
+        return match["branch"]
+
+    def _fetch(self, cwd: str, default: str) -> None:
+        """Met à jour ``origin/<défaut>`` (chemin réel seulement)."""
+        result = self._executor.run(
+            ["git", "fetch", "--no-tags", "origin", default],
+            cwd=cwd,
+            timeout=self._timeout,
+        )
+        if not result.success:
+            raise _AbortError(
+                Status.ECHEC, f"git fetch a échoué : {result.stderr.strip()}"
+            )
+
+    def _read_manifest(self, cwd: str, default: str) -> ConsumerManifest:
+        """Lit et analyse le pyproject de ``origin/<défaut>``."""
+        out = self._git(["show", f"origin/{default}:pyproject.toml"], cwd)
+        try:
+            return ConsumerManifest.parse(out.stdout)
+        except ManifestError as exc:
+            raise _AbortError(Status.REFUSE, str(exc)) from exc
+
+    def _check_branch(self, cwd: str) -> None:
+        """Refuse si la branche cible existe déjà (origin ou local)."""
+        ref = f"refs/heads/{self._branch}"
+        remote = self._git(["ls-remote", "--heads", "origin", ref], cwd)
+        if remote.stdout.strip():
+            raise _AbortError(
+                Status.EN_ATTENTE,
+                f"{self._branch} est déjà poussée sur origin",
+            )
+        local = self._git(
+            ["rev-parse", "--verify", "--quiet", ref], cwd, check=False
+        )
+        if local.success:
+            raise _AbortError(
+                Status.REFUSE, f"la branche locale {self._branch} existe"
+            )
+
+    def _tracked(self, cwd: str, default: str, name: str) -> bool:
+        """Indique si ``name`` est suivi sur ``origin/<défaut>``."""
+        out = self._git(
+            ["ls-tree", "--name-only", f"origin/{default}", name], cwd
+        )
+        return bool(out.stdout.strip())
+
+    def _has_unreleased(self, cwd: str, default: str) -> bool:
+        """CHANGELOG suivi avec une section ``[Non publié]``."""
+        if not self._tracked(cwd, default, "CHANGELOG.md"):
+            return False
+        out = self._git(["show", f"origin/{default}:CHANGELOG.md"], cwd)
+        return _UNRELEASED in out.stdout.splitlines()
+
+    def _check_siblings(self, manifest: ConsumerManifest) -> None:
+        """Bloque si une dépendance maison épingle une autre version."""
+        for sibling in manifest.siblings:
+            if self._sibling_conflicts(sibling):
+                raise _AbortError(
+                    Status.BLOQUE,
+                    f"{sibling.name}@{sibling.tag} épingle une autre "
+                    f"version de linuxtools que {self._tag}",
+                )
+
+    def _sibling_conflicts(self, sibling: SiblingDep) -> bool:
+        """Lit le pyproject de la dépendance maison à son tag."""
+        url_match = _SIBLING_URL_RE.match(sibling.url)
+        if url_match is None or not _SAFE_BRANCH_RE.match(sibling.tag):
+            raise _AbortError(
+                Status.REFUSE,
+                f"dépendance maison {sibling.name} : URL ou tag suspect",
+            )
+        repo = url_match.group("repo")
+        out = self._git(
+            [
+                "-C",
+                str(self._root / repo),
+                "show",
+                f"{sibling.tag}:pyproject.toml",
+            ],
+            None,
+            check=False,
+        )
+        if not out.success:
+            return False  # dépôt absent : l'erreur uv remontera
+        try:
+            tags = pinned_linuxtools_tags(out.stdout)
+        except ManifestError:
+            return False
+        return any(tag != self._tag for tag in tags)
+
+    # -- simulation ----------------------------------------------------
+
+    def _describe(self, plan: _Plan) -> str:
+        """Plan d'exécution rendu en dry-run."""
+        manifest = plan.manifest
+        lines = [
+            f"branche {plan.branch} depuis origin/{plan.default_branch}",
+            f"pin linuxtools {manifest.tag} -> {self._tag}",
+        ]
+        if plan.changelog:
+            lines.append("CHANGELOG.md : entrée « Modifié »")
+        if plan.lock_tracked:
+            lines.append("uv.lock : régénéré (uv lock --no-sources)")
+        sync = " ".join(manifest.sync_args)
+        lines.append(f"uv sync --no-sources {sync}".rstrip())
+        lines.append(
+            "contrôles : "
+            + " ; ".join(" ".join(check) for check in manifest.checks)
+        )
+        lines.append("push : " + ("origin" if self._push else "désactivé"))
+        return "\n".join(lines)

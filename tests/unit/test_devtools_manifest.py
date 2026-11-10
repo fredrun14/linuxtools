@@ -10,6 +10,7 @@ from linuxtools.devtools.manifest import (
     ConsumerManifest,
     ManifestError,
     SiblingDep,
+    pinned_linuxtools_tags,
     rewrite_pin,
 )
 
@@ -199,3 +200,15 @@ def test_rewrite_pin_conserve_listes_et_tables_ailleurs() -> None:
     nouveau = rewrite_pin(texte, "v2.11.1")
 
     assert tomllib.loads(nouveau)["tool"]["autre"] == {"x": [1, {"a": "b"}]}
+
+
+def test_pinned_linuxtools_tags_liste_les_pins() -> None:
+    texte = _pyproject(contrat="")
+
+    assert pinned_linuxtools_tags(texte) == ("v2.10.0",)
+    assert pinned_linuxtools_tags(_pyproject(deps=("requests",))) == ()
+
+
+def test_pinned_linuxtools_tags_refuse_toml_invalide() -> None:
+    with pytest.raises(ManifestError):
+        pinned_linuxtools_tags("[project\n")
