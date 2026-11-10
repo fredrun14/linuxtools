@@ -80,6 +80,10 @@ class MountConfig(BaseSystemdConfig):
             raise ValueError(
                 f"'where' doit être un chemin absolu : {self.where!r}"
             )
+        if "\\" in self.where:
+            raise ValueError(
+                f"'where' ne doit pas contenir de backslash : {self.where!r}"
+            )
         self._validate_what()
 
     def _validate_what(self) -> None:
@@ -175,6 +179,10 @@ class AutomountConfig(BaseSystemdConfig):
         if not self.where.startswith("/"):
             raise ValueError(
                 f"'where' doit être un chemin absolu : {self.where!r}"
+            )
+        if "\\" in self.where:
+            raise ValueError(
+                f"'where' ne doit pas contenir de backslash : {self.where!r}"
             )
 
     @property
@@ -459,6 +467,11 @@ class ServiceConfig(BaseSystemdConfig):
             if not _MOUNT_PATH_RE.fullmatch(path):
                 raise ValueError(f"Chemin de montage invalide : {path!r}")
         if self.syslog_identifier:
+            if "\\" in self.syslog_identifier:
+                raise ValueError(
+                    "Identifiant syslog invalide (backslash interdit) : "
+                    f"{self.syslog_identifier!r}"
+                )
             validate_unit_name(self.syslog_identifier)
 
     def _validate_environment(self) -> None:

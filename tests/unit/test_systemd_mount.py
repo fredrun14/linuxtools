@@ -857,3 +857,22 @@ class TestToUnitFileSecurite:
         )
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
+
+
+class TestWhereBackslashRefuse:
+    """``where`` avec backslash refusé (collision d'unité systemd)."""
+
+    def test_mount_config_rejette_backslash_dans_where(self) -> None:
+        """MountConfig refuse un backslash dans ``where``."""
+        with pytest.raises(ValueError, match="backslash"):
+            MountConfig(
+                description="x",
+                what="server:/share",
+                where="/media/a\\x2fb",
+                type="nfs",
+            )
+
+    def test_automount_config_rejette_backslash_dans_where(self) -> None:
+        """AutomountConfig refuse un backslash dans ``where``."""
+        with pytest.raises(ValueError, match="backslash"):
+            AutomountConfig(description="x", where="/media/a\\x2fb")

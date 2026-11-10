@@ -1165,7 +1165,7 @@ class TestServiceConfigDependances:
                 requires_mounts_for=(path,),
             )
 
-    @pytest.mark.parametrize("ident", ["a b", "../x"])
+    @pytest.mark.parametrize("ident", ["a b", "../x", "a\\x2db", "a\\b"])
     def test_service_config_rejette_syslog_identifier_invalide(
         self, ident: str
     ) -> None:

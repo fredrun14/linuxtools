@@ -3,7 +3,11 @@
 import re
 
 # Nom d'unité systemd : lettres, chiffres, points, tirets, underscores, ':'
-_UNIT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9:._-]*$")
+# et séquences d'échappement ``\xNN`` (``systemd-escape``, hex minuscule,
+# ``\x00``-``\x1f`` et ``\x7f`` exclus : caractères de contrôle).
+_UNIT_NAME_RE = re.compile(
+    r"^[a-zA-Z0-9](?:[a-zA-Z0-9:._-]|\\x(?![01][0-9a-f]|7f)[0-9a-f]{2})*$"
+)
 
 # Nom de service : plus restrictif, pas de '.' ni ':'
 _SERVICE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
@@ -142,8 +146,13 @@ def path_to_unit_name(mount_path: str) -> str:
         Nom de l'unité validé (sans extension).
 
     Raises:
-        ValueError: Si le nom produit est invalide.
+        ValueError: Si le chemin contient un backslash ou si le nom
+            produit est invalide.
     """
+    if "\\" in mount_path:
+        raise ValueError(
+            f"Chemin de montage invalide (backslash interdit) : {mount_path!r}"
+        )
     name = mount_path.strip("/").replace("/", "-")
     return validate_unit_name(name)
 
@@ -152,7 +161,11 @@ def validate_unit_name(name: str) -> str:
     """Valide un nom d'unité systemd.
 
     Accepte les caractères : lettres, chiffres, points, tirets,
-    underscores et deux-points. Le premier caractère doit être
+    underscores et deux-points, ainsi que les séquences d'échappement
+    systemd ``\\xNN`` (``\\x`` suivi de deux chiffres hexadécimaux
+    minuscules, ex. ``\\x2d``, produites par ``systemd-escape --path``),
+    sauf ``\\x00``-``\\x1f`` et ``\\x7f`` (caractères de contrôle).
+    Tout autre backslash est refusé. Le premier caractère doit être
     alphanumérique.
 
     Args:

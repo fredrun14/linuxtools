@@ -2,6 +2,26 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(systemd): `validate_unit_name` et `validate_full_unit_name` acceptent
+  les séquences d'échappement `\xNN` (`\x` + 2 chiffres hexadécimaux
+  minuscules) produites par `systemd-escape --path`, donc
+  `SystemdExecutor` et `UnitPorter` ne rejettent plus
+  `media-nas\x2dbackup.mount`. Restent refusés : tout autre backslash, `\x`
+  tronqué, `\xZZ` ou majuscule, `/` littéral et `..`, et les échappements de
+  caractères de contrôle (`\x00` à `\x1f`, `\x7f`, ex. `\x0a`).
+  **Changement de comportement** : un échappement n'est pas admis en premier
+  caractère du radical (`\x2ecache-x.mount`, `\x2dx.mount` refusés, le premier
+  caractère reste alphanumérique). `validate_service_name` est inchangé
+  (T1, T2, T7).
+- fix(systemd): `path_to_unit_name`, `MountConfig` et `AutomountConfig`
+  (`where`) refusent un backslash littéral dans le chemin (`ValueError`) :
+  `/media/a\x2fb` donnait un nom d'unité refusé par systemd et en collision
+  avec un nom légitime (T4, T5).
+- fix(systemd): `ServiceConfig.syslog_identifier` refuse tout backslash,
+  donc `\xNN` n'y est pas admis (T6).
+
 ## [2.11.0] - 2026-11-08
 
 ### Ajouté

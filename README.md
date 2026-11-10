@@ -3387,11 +3387,11 @@ make all
 | `test_config.py` | 24 | Chargement TOML/JSON, profils, fusion, deep_merge, cascade search_paths |
 | `test_config_validation.py` | 14 | Validation Pydantic FileConfigLoader, ConfigurationManager.validate() |
 | `test_integrity.py` | 27 | Checksums, vérification fichiers/répertoires, verify_or_raise |
-| `test_systemd_mount.py` | 36 | Génération .mount/.automount, validation, enable/disable |
+| `test_systemd_mount.py` | 48 | Génération .mount/.automount, validation, enable/disable |
 | `test_systemd_timer.py` | 23 | TimerConfig, to_unit_file(), list_timers JSON/texte |
-| `test_systemd_service.py` | 41 | ServiceConfig, validation type/restart/env, TOCTOU, LSP |
-| `test_systemd_executor.py` | 9 | Validation noms d'unités dans SystemdExecutor |
-| `test_systemd_validators.py` | 25 | validate_unit_name(), validate_service_name() |
+| `test_systemd_service.py` | 126 | ServiceConfig, validation type/restart/env, TOCTOU, LSP |
+| `test_systemd_executor.py` | 69 | Validation noms d'unités dans SystemdExecutor |
+| `test_systemd_validators.py` | 92 | validate_unit_name(), validate_service_name() |
 | `test_systemd_scheduled_task.py` | 12 | SystemdScheduledTaskInstaller |
 | `test_systemd_config_loaders.py` | 30 | Tous les loaders (TOML/JSON) |
 | `test_systemd_unit_porter.py` | 45 | SystemdUnitExporter, SystemdUnitRestorer (parse_ini, to_toml, export, to_ini, restore) |
