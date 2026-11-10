@@ -32,8 +32,15 @@ FORGEJO_HOST = "git.ricfasohel.fr"
 TAG_RE = re.compile(r"^v\d+\.\d+\.\d+\Z")
 CO_AUTHOR_RE = re.compile(r"^[^<>\n]+ <[^<>\s]+@[^<>\s]+>\Z")
 
-_HOST_RE = re.compile(
-    r"^(?:[A-Za-z][A-Za-z0-9+.-]*://)?(?:[^@/]+@)?(?P<host>[^/:@]+)"
+# Liste blanche des formes d'URL d'origin, lues comme git les lit : le
+# userinfo ne contient ni `/`, `?`, `#`, `@` ni `\` (git ignore ce qui
+# suit `#` ou `?`, donc `https://a#@b/` contacte `a`, pas `b`).
+_HOST_RES = (
+    re.compile(
+        r"^(?:https|ssh)://(?:[^/?#@\\\s]*@)?"
+        r"(?P<host>[^/?#@:\\\s]+)(?::\d+)?/\S*\Z"
+    ),
+    re.compile(r"^(?:[^/?#@:\\\s]+@)?(?P<host>[^/?#@:\\\s]+):(?!//)\S+\Z"),
 )
 _DEFAULT_BRANCH_RE = re.compile(
     r"^ref:\s+refs/heads/(?P<branch>\S+)\s+HEAD\s*$", re.MULTILINE
@@ -93,9 +100,15 @@ def _output(result: CommandResult) -> str:
 
 
 def _host(url: str) -> str:
-    """Extrait le nom d'hôte d'une URL git (https, ssh ou scp)."""
-    match = _HOST_RE.match(url.strip())
-    return match.group("host").lower() if match else ""
+    """Extrait le nom d'hôte d'une URL git (https, ssh ou scp).
+
+    Retourne une chaîne vide si la forme n'est pas dans la liste blanche.
+    """
+    for pattern in _HOST_RES:
+        match = pattern.match(url.strip())
+        if match:
+            return match.group("host").lower()
+    return ""
 
 
 class ConsumerBumper:

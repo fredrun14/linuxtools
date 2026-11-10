@@ -136,6 +136,28 @@ def test_origin_forgejo_accepte_les_formes_usuelles(
     assert outcome.status is Status.SIMULE
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        # git contacte github.com : tout ce qui suit `#` ou `?` est ignoré
+        "https://github.com#@git.ricfasohel.fr/fred/app.git",
+        "https://github.com?@git.ricfasohel.fr/fred/app.git",
+        "https://github.com\\@git.ricfasohel.fr/fred/app.git",
+        "http://git.ricfasohel.fr/fred/app.git",
+        "file://git.ricfasohel.fr/fred/app.git",
+        "git.ricfasohel.fr/fred/app.git",
+        "git.ricfasohel.fr:fred/app.git\nautre",
+    ],
+)
+def test_origin_forme_trompeuse_refusee(tmp_path: Path, url: str) -> None:
+    ex = _executor(fetch_url=url, push_url=_FORGEJO)
+
+    outcome = _bump(ex, tmp_path)
+
+    assert outcome.status is Status.REFUSE
+    assert not any(a[:2] == ("git", "show") for a in ex.argvs())
+
+
 def test_pin_deja_a_jour(tmp_path: Path) -> None:
     ex = _executor(_pyproject("v2.11.1"))
 
