@@ -6,17 +6,23 @@ converti en ``BumpOutcome`` (statut + détail).
 
 # stdlib
 import re
+import shutil
+import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 # local
 from linuxtools.commands.base import CommandExecutor, CommandResult
+from linuxtools.devtools.changelog import add_modified_entry
 from linuxtools.devtools.discovery import Consumer
+from linuxtools.devtools.lockfile import unexpected_lock_changes
 from linuxtools.devtools.manifest import (
     ConsumerManifest,
     ManifestError,
     SiblingDep,
     pinned_linuxtools_tags,
+    rewrite_pin,
 )
 from linuxtools.devtools.report import BumpOutcome, Status
 from linuxtools.logging.base import Logger
@@ -43,10 +49,13 @@ _UNRELEASED = "## [Non publié]"
 class _AbortError(Exception):
     """Arrêt de la montée avec un statut (interne à ce module)."""
 
-    def __init__(self, status: Status, detail: str) -> None:
+    def __init__(
+        self, status: Status, detail: str, *, checks: str = ""
+    ) -> None:
         super().__init__(detail)
         self.status = status
         self.detail = detail
+        self.checks = checks
 
 
 @dataclass
@@ -54,6 +63,15 @@ class _State:
     """État partagé entre les étapes d'une montée."""
 
     old_pin: str = "?"
+
+
+@dataclass(frozen=True)
+class _Workspace:
+    """Espace de travail jetable d'une montée réelle."""
+
+    tmp: Path
+    worktree: Path
+    env: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -65,6 +83,13 @@ class _Plan:
     manifest: ConsumerManifest
     lock_tracked: bool
     changelog: bool
+
+
+def _output(result: CommandResult) -> str:
+    """Sortie combinée (stdout puis stderr) d'une commande."""
+    return "\n".join(
+        part.strip() for part in (result.stdout, result.stderr) if part.strip()
+    )
 
 
 def _host(url: str) -> str:
@@ -138,7 +163,11 @@ class ConsumerBumper:
                 f"{consumer.name} : {stop.status.value} : {stop.detail}"
             )
             return BumpOutcome(
-                consumer.name, state.old_pin, stop.status, detail=stop.detail
+                consumer.name,
+                state.old_pin,
+                stop.status,
+                checks=stop.checks,
+                detail=stop.detail,
             )
         except Exception as exc:  # frontière : tout devient un statut
             self._logger.log_error(f"{consumer.name} : {exc!r}")
@@ -186,8 +215,238 @@ class ConsumerBumper:
         return self._apply(consumer, plan)
 
     def _apply(self, consumer: Consumer, plan: _Plan) -> BumpOutcome:
-        """Chemin réel (worktree, contrôles, commit, push)."""
-        raise NotImplementedError
+        """Chemin réel : worktree jetable, contrôles, commit, push.
+
+        Le checkout de l'utilisateur n'est jamais modifié. En cas
+        d'échec avant le commit abouti, la branche locale est supprimée.
+        """
+        tmp = Path(tempfile.mkdtemp(prefix="linuxtools-bump-"))  # 0700
+        venv = tmp / "venv"
+        space = _Workspace(
+            tmp=tmp,
+            worktree=tmp / "wt",
+            env={
+                "UV_PROJECT_ENVIRONMENT": str(venv),
+                "VIRTUAL_ENV": str(venv),
+                "UV_NO_SOURCES": "1",
+            },
+        )
+        cwd = str(consumer.path)
+        created = False
+        keep = False
+        try:
+            self._step(
+                [
+                    "git",
+                    "worktree",
+                    "add",
+                    "--no-track",
+                    "-b",
+                    plan.branch,
+                    str(space.worktree),
+                    f"origin/{plan.default_branch}",
+                ],
+                cwd,
+            )
+            created = True
+            checks = self._prepare_and_check(plan, space)
+            outcome = self._commit_and_push(consumer, plan, space, checks)
+            keep = True
+            return outcome
+        except _AbortError as stop:
+            keep = stop.status is Status.PUSH_ECHOUE
+            raise
+        finally:
+            self._cleanup(cwd, space, plan.branch, created and not keep)
+
+    def _cleanup(
+        self, cwd: str, space: _Workspace, branch: str, drop_branch: bool
+    ) -> None:
+        """Supprime worktree, dossier temporaire et branche si échec."""
+        self._executor.run(
+            ["git", "worktree", "remove", "--force", str(space.worktree)],
+            cwd=cwd,
+            timeout=self._timeout,
+        )
+        shutil.rmtree(space.tmp, ignore_errors=True)
+        if drop_branch:
+            self._executor.run(
+                ["git", "branch", "-D", branch],
+                cwd=cwd,
+                timeout=self._timeout,
+            )
+
+    def _step(
+        self,
+        argv: list[str],
+        cwd: str,
+        *,
+        env: dict[str, str] | None = None,
+        stdin: str | None = None,
+    ) -> CommandResult:
+        """Lance une commande qui écrit ; ``ECHEC`` si elle échoue."""
+        result = self._executor.run(
+            argv, env=env, cwd=cwd, timeout=self._timeout, stdin=stdin
+        )
+        if not result.success:
+            raise _AbortError(
+                Status.ECHEC,
+                f"{' '.join(argv[:3])} a échoué "
+                f"(code {result.return_code}) :\n{_output(result)}",
+            )
+        return result
+
+    def _prepare_and_check(self, plan: _Plan, space: _Workspace) -> str:
+        """Édite, verrouille, synchronise puis lance les contrôles."""
+        wt = space.worktree
+        cwd = str(wt)
+        manifest = plan.manifest
+        pyproject = wt / "pyproject.toml"
+        pyproject.write_bytes(
+            rewrite_pin(
+                pyproject.read_bytes().decode("utf-8"), self._tag
+            ).encode("utf-8")
+        )
+        if plan.changelog:
+            changelog = wt / "CHANGELOG.md"
+            entry = (
+                f"chore(deps): `linuxtools` épinglée en {self._tag} "
+                f"(était {manifest.tag})"
+            )
+            changelog.write_bytes(
+                add_modified_entry(
+                    changelog.read_bytes().decode("utf-8"), entry
+                ).encode("utf-8")
+            )
+        if plan.lock_tracked:
+            self._relock(wt, space.env)
+        sync = ["uv", "sync", "--no-sources"]
+        if plan.lock_tracked:
+            sync.append("--locked")
+        self._step([*sync, *manifest.sync_args], cwd, env=space.env)
+        venv_bin = space.tmp / "venv" / "bin"
+        done: list[str] = []
+        for check in manifest.checks:
+            result = self._executor.run(
+                [str(venv_bin / check[0]), *check[1:]],
+                env=space.env,
+                cwd=cwd,
+                timeout=self._timeout,
+            )
+            if not result.success:
+                done.append(f"{check[0]}:KO")
+                raise _AbortError(
+                    Status.ECHEC,
+                    f"contrôle {' '.join(check)} en échec "
+                    f"(code {result.return_code}) :\n{_output(result)}",
+                    checks=" ".join(done),
+                )
+            done.append(f"{check[0]}:ok")
+        return " ".join(done)
+
+    def _relock(self, wt: Path, env: dict[str, str]) -> None:
+        """Régénère ``uv.lock`` et refuse les changements hors linuxtools."""
+        lock = wt / "uv.lock"
+        old = lock.read_text(encoding="utf-8")
+        self._step(["uv", "lock", "--no-sources"], str(wt), env=env)
+        new = lock.read_text(encoding="utf-8")
+        unexpected = unexpected_lock_changes(old, new)
+        if unexpected:
+            raise _AbortError(
+                Status.ECHEC,
+                "uv.lock modifié hors de linuxtools : "
+                + ", ".join(unexpected),
+            )
+        if tomllib.loads(old).get("revision") != tomllib.loads(new).get(
+            "revision"
+        ):
+            self._logger.log_warning(
+                "en-tête revision d'uv.lock modifié (uv local différent)"
+            )
+
+    def _commit_and_push(
+        self,
+        consumer: Consumer,
+        plan: _Plan,
+        space: _Workspace,
+        checks: str,
+    ) -> BumpOutcome:
+        """Commit (hooks actifs), contrôle du contenu, push vérifié."""
+        cwd = str(space.worktree)
+        files = ["pyproject.toml"]
+        if plan.changelog:
+            files.append("CHANGELOG.md")
+        if plan.lock_tracked:
+            files.append("uv.lock")
+        self._step(["git", "add", "--", *files], cwd)
+        message = (
+            f"chore(deps): épingler linuxtools en {self._tag}\n\n"
+            f"Co-Authored-By: {self._co_author}\n"
+        )
+        self._step(
+            ["git", "commit", "-F", "-"],
+            cwd,
+            env={**space.env, "UV_FROZEN": "1"},
+            stdin=message,
+        )
+        touched = set(
+            self._step(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r"]
+                + ["HEAD"],
+                cwd,
+            ).stdout.split()
+        )
+        extra = touched - set(files)
+        if extra:
+            raise _AbortError(
+                Status.ECHEC,
+                "le commit touche des fichiers inattendus : "
+                + ", ".join(sorted(extra))
+                + " (le hook post-commit a pu pousser la branche)",
+                checks=checks,
+            )
+        if not self._push:
+            return BumpOutcome(
+                consumer.name,
+                plan.manifest.tag,
+                Status.COMMITE,
+                checks=checks,
+            )
+        head = self._step(["git", "rev-parse", "HEAD"], cwd).stdout.strip()
+        return self._push_branch(consumer, plan, cwd, head, checks)
+
+    def _push_branch(
+        self,
+        consumer: Consumer,
+        plan: _Plan,
+        cwd: str,
+        head: str,
+        checks: str,
+    ) -> BumpOutcome:
+        """Pousse la branche et vérifie son SHA sur ``origin``."""
+        ref = f"refs/heads/{plan.branch}"
+        pushed = self._executor.run(
+            ["git", "push", "origin", f"{ref}:{ref}"],
+            cwd=cwd,
+            timeout=self._timeout,
+        )
+        remote = self._executor.run(
+            ["git", "ls-remote", "origin", ref],
+            cwd=cwd,
+            timeout=self._timeout,
+            probe=True,
+        )
+        remote_sha = remote.stdout.split()[:1]
+        if remote.success and remote_sha == [head]:
+            return BumpOutcome(
+                consumer.name, plan.manifest.tag, Status.POUSSE, checks=checks
+            )
+        raise _AbortError(
+            Status.PUSH_ECHOUE,
+            f"push non vérifié sur origin (branche {plan.branch} "
+            f"conservée) :\n{_output(pushed)}",
+            checks=checks,
+        )
 
     # -- exécution -----------------------------------------------------
 
@@ -230,15 +489,7 @@ class ConsumerBumper:
 
     def _fetch(self, cwd: str, default: str) -> None:
         """Met à jour ``origin/<défaut>`` (chemin réel seulement)."""
-        result = self._executor.run(
-            ["git", "fetch", "--no-tags", "origin", default],
-            cwd=cwd,
-            timeout=self._timeout,
-        )
-        if not result.success:
-            raise _AbortError(
-                Status.ECHEC, f"git fetch a échoué : {result.stderr.strip()}"
-            )
+        self._step(["git", "fetch", "--no-tags", "origin", default], cwd)
 
     def _read_manifest(self, cwd: str, default: str) -> ConsumerManifest:
         """Lit et analyse le pyproject de ``origin/<défaut>``."""
