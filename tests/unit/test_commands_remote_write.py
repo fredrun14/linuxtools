@@ -39,7 +39,7 @@ def test_build_remote_write_command_cas_nominal() -> None:
 
 
 @pytest.mark.parametrize(
-    "mode,expected",
+    ("mode", "expected"),
     [
         (0o600, "600"),
         (0o644, "644"),

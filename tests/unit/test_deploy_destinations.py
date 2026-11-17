@@ -45,7 +45,7 @@ class TestLocalDestination:
         # Assert
         assert outcome.success is True
         assert dest_path.read_text(encoding="utf-8") == "clef = 1\n"
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "640"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "640"
         assert destination.label == "local"
 
     def test_local_sur_symlink_leve_oserror(self, tmp_path: Path) -> None:
@@ -59,7 +59,9 @@ class TestLocalDestination:
         destination = LocalDestination()
 
         # Act / Assert
-        with pytest.raises(OSError):
+        with pytest.raises(
+            OSError, match=r"\[Errno 40\] Too many levels of symbolic links"
+        ):
             destination.write(dest_path, "contenu malveillant", 0o644)
         # La cible réelle n'a pas été altérée
         assert real_target.read_text(encoding="utf-8") == "original"
@@ -70,7 +72,7 @@ class TestLocalDestination:
         """F-07 : un fichier présent garde contenu, mode et mtime."""
         dest_path = tmp_path / "secrets.env"
         dest_path.write_text("SECRET=1\n", encoding="utf-8")
-        os.chmod(dest_path, 0o640)
+        Path(dest_path).chmod(0o640)
         os.utime(dest_path, (1_000_000, 1_000_000))
 
         outcome = LocalDestination().write(
@@ -80,7 +82,7 @@ class TestLocalDestination:
         assert outcome.success is True
         assert outcome.kept is True
         assert dest_path.read_text(encoding="utf-8") == "SECRET=1\n"
-        stat = os.stat(dest_path)
+        stat = Path(dest_path).stat()
         assert oct(stat.st_mode)[-3:] == "640"
         assert stat.st_mtime == 1_000_000
 
@@ -92,7 +94,7 @@ class TestLocalDestination:
 
         assert outcome == WriteOutcome(True)
         assert dest_path.read_text(encoding="utf-8") == "A=\n"
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "600"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "600"
 
     def test_write_keep_local_lien_symbolique_casse_est_conserve(
         self, tmp_path: Path
@@ -156,7 +158,7 @@ class TestRemoteDestination:
         assert destination.label == "distant"
 
     @pytest.mark.parametrize(
-        "mode,expected",
+        ("mode", "expected"),
         [
             (0o600, "600"),
             (0o644, "644"),

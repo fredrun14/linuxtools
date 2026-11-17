@@ -4,7 +4,6 @@ Ce module contient les tests unitaires pour valider le comportement
 des classes MountConfig, AutomountConfig et LinuxMountUnitManager.
 """
 
-import os
 import shutil
 import tempfile
 from collections.abc import Iterator
@@ -13,9 +12,9 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from linuxtools.systemd import MountConfig, AutomountConfig, LinuxMountUnitManager
-from linuxtools.systemd.executor import SystemdExecutor
 from linuxtools.logging import Logger
+from linuxtools.systemd import AutomountConfig, LinuxMountUnitManager, MountConfig
+from linuxtools.systemd.executor import SystemdExecutor
 
 
 class MockLogger(Logger):
@@ -119,7 +118,7 @@ class TestPathToUnitName:
     """Tests pour la conversion chemin -> nom d'unité."""
 
     @pytest.mark.parametrize(
-        "mount_path,expected",
+        ("mount_path", "expected"),
         [
             ("/media/nas", "media-nas"),
             ("/media/nas/backup/daily", "media-nas-backup-daily"),
@@ -273,7 +272,7 @@ class TestInstallMountUnit:
         config = MountConfig(
             description="Test",
             what="server:/share",
-            where=os.path.join(temp_dir, "testmount"),
+            where=str(Path(temp_dir, "testmount")),
             type="nfs",
         )
 
@@ -282,10 +281,10 @@ class TestInstallMountUnit:
 
         # Assert
         assert result is True
-        mount_file = os.path.join(
-            temp_dir, f"{manager.path_to_unit_name(config.where)}.mount"
+        mount_file = str(
+            Path(temp_dir, f"{manager.path_to_unit_name(config.where)}.mount")
         )
-        assert os.path.exists(mount_file)
+        assert Path(mount_file).exists()
         assert mock_systemd.reload_called
 
     def test_install_with_automount_creates_both_files(
@@ -298,7 +297,7 @@ class TestInstallMountUnit:
         config = MountConfig(
             description="Test",
             what="server:/share",
-            where=os.path.join(temp_dir, "testmount"),
+            where=str(Path(temp_dir, "testmount")),
             type="nfs",
         )
 
@@ -310,12 +309,12 @@ class TestInstallMountUnit:
         # Assert
         assert result is True
         unit_name = manager.path_to_unit_name(config.where)
-        mount_file = os.path.join(temp_dir, f"{unit_name}.mount")
-        automount_file = os.path.join(temp_dir, f"{unit_name}.automount")
-        assert os.path.exists(mount_file)
-        assert os.path.exists(automount_file)
+        mount_file = str(Path(temp_dir, f"{unit_name}.mount"))
+        automount_file = str(Path(temp_dir, f"{unit_name}.automount"))
+        assert Path(mount_file).exists()
+        assert Path(automount_file).exists()
 
-        with open(automount_file, encoding="utf-8") as f:
+        with Path(automount_file).open(encoding="utf-8") as f:
             content = f.read()
         assert "TimeoutIdleSec=300" in content
 
@@ -326,7 +325,7 @@ class TestInstallMountUnit:
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
         manager.SYSTEMD_UNIT_PATH = temp_dir
-        mount_point = os.path.join(temp_dir, "new", "mount", "point")
+        mount_point = str(Path(temp_dir, "new", "mount", "point"))
         config = MountConfig(
             description="Test", what="server:/share", where=mount_point, type="nfs"
         )
@@ -336,7 +335,7 @@ class TestInstallMountUnit:
 
         # Assert
         assert result is True
-        assert os.path.isdir(mount_point)
+        assert Path(mount_point).is_dir()
 
     def test_install_with_permission_error_logs_error(
         self, mock_logger: MockLogger, mock_systemd: MockSystemdManager
@@ -409,8 +408,8 @@ class TestRemoveMountUnit:
         # Arrange
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
         manager.SYSTEMD_UNIT_PATH = temp_dir
-        mount_file = os.path.join(temp_dir, "media-nas.mount")
-        automount_file = os.path.join(temp_dir, "media-nas.automount")
+        mount_file = str(Path(temp_dir, "media-nas.mount"))
+        automount_file = str(Path(temp_dir, "media-nas.automount"))
         Path(mount_file).write_text("[Unit]\n", encoding="utf-8")
         Path(automount_file).write_text("[Unit]\n", encoding="utf-8")
 
@@ -419,8 +418,8 @@ class TestRemoveMountUnit:
 
         # Assert
         assert result is True
-        assert not os.path.exists(mount_file)
-        assert not os.path.exists(automount_file)
+        assert not Path(mount_file).exists()
+        assert not Path(automount_file).exists()
         assert mock_systemd.reload_called
 
     def test_remove_nonexistent_unit_succeeds_silently(
@@ -698,6 +697,7 @@ class TestRemoveMountLogWarning:
     ) -> tuple[LinuxMountUnitManager, MagicMock, MagicMock]:
         """Crée un manager avec mocks."""
         from unittest.mock import MagicMock
+
         from linuxtools.systemd import LinuxMountUnitManager
 
         logger = MagicMock()
@@ -719,7 +719,7 @@ class TestRemoveMountLogWarning:
         automount_file = tmp_path / "mnt-test.automount"
         automount_file.write_text("[Unit]\n")
 
-        result = manager.remove_mount_unit("/mnt/test")
+        manager.remove_mount_unit("/mnt/test")
 
         logger.log_warning.assert_called_once()
         assert "mnt/test" in logger.log_warning.call_args[0][0]

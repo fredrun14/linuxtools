@@ -50,7 +50,6 @@ class TestConfigDeployerDeployLocal:
 
     def test_deploy_local_utilise_le_mode_par_defaut(self, tmp_path: Path) -> None:
         """Cas limite : mode non renseigné -> 0o644 (défaut du spec)."""
-        import os
 
         dest_path = tmp_path / "config.toml"
         spec = ConfigDeploySpec(data={"a": 1}, dest_path=dest_path)
@@ -59,7 +58,7 @@ class TestConfigDeployerDeployLocal:
         result = deployer.deploy(spec, DeployTarget(), MagicMock(spec=CommandExecutor))
 
         assert result is True
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "644"
 
     def test_deploy_local_dossier_parent_inexistant_leve_oserror(
         self, tmp_path: Path
@@ -70,7 +69,7 @@ class TestConfigDeployerDeployLocal:
         spec = ConfigDeploySpec(data={"a": 1}, dest_path=dest_path)
         deployer = ConfigDeployer()
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match=r"\[Errno 2\] No such file or directory"):
             deployer.deploy(spec, DeployTarget(), MagicMock(spec=CommandExecutor))
 
 

@@ -45,7 +45,7 @@ class MockConfigLoader(ConfigLoader):
         self,
         config_path: str | Path,
         schema: type | None = None,
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         return self._config
 
 
@@ -81,7 +81,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
 
         result = self.installer.install(self.config)
 
-        self.assertTrue(result)
+        assert result
         self.mock_mount_manager.install_mount_unit.assert_called_once()
         self.mock_mount_manager.enable_mount.assert_called_once()
 
@@ -94,11 +94,11 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
         )
 
         install_kwargs = self.mock_mount_manager.install_mount_unit.call_args.kwargs
-        self.assertTrue(install_kwargs["with_automount"])
-        self.assertEqual(install_kwargs["automount_timeout"], 600)
+        assert install_kwargs["with_automount"]
+        assert install_kwargs["automount_timeout"] == 600
 
         enable_kwargs = self.mock_mount_manager.enable_mount.call_args.kwargs
-        self.assertTrue(enable_kwargs["with_automount"])
+        assert enable_kwargs["with_automount"]
 
     def test_install_returns_false_if_install_mount_fails(self) -> None:
         """Vérifie l'arrêt si l'installation du montage échoue."""
@@ -106,7 +106,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
 
         result = self.installer.install(self.config)
 
-        self.assertFalse(result)
+        assert not result
         self.mock_mount_manager.enable_mount.assert_not_called()
         self.mock_logger.log_error.assert_called_once()
 
@@ -117,7 +117,7 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
 
         result = self.installer.install(self.config)
 
-        self.assertFalse(result)
+        assert not result
         self.mock_logger.log_error.assert_called_once()
 
 
@@ -152,11 +152,11 @@ class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
 
         result = self.installer.install_from_toml("/fake/path.toml", loader)
 
-        self.assertTrue(result)
+        assert result
         install_args = self.mock_mount_manager.install_mount_unit.call_args
-        self.assertEqual(install_args.args[0].where, "/media/nas")
-        self.assertTrue(install_args.kwargs["with_automount"])
-        self.assertEqual(install_args.kwargs["automount_timeout"], 600)
+        assert install_args.args[0].where == "/media/nas"
+        assert install_args.kwargs["with_automount"]
+        assert install_args.kwargs["automount_timeout"] == 600
 
     def test_install_from_toml_defaults_automount_false_when_absent(
         self,
@@ -175,8 +175,8 @@ class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
         self.installer.install_from_toml("/fake/path.toml", loader)
 
         install_kwargs = self.mock_mount_manager.install_mount_unit.call_args.kwargs
-        self.assertFalse(install_kwargs["with_automount"])
-        self.assertEqual(install_kwargs["automount_timeout"], 0)
+        assert not install_kwargs["with_automount"]
+        assert install_kwargs["automount_timeout"] == 0
 
 
 if __name__ == "__main__":

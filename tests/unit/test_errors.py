@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Tests unitaires pour le module errors."""
 
 import sys
@@ -26,25 +25,25 @@ from linuxtools.errors.logger_handler import LoggerErrorHandler
 class TestRequireRoot:
     """Tests pour la fonction require_root."""
 
-    @patch("linuxtools.errors.exceptions.os.geteuid", return_value=0)
-    def test_passe_si_euid_zero(self, _mock: MagicMock) -> None:
+    @patch("linuxtools.errors.exceptions.os.geteuid", new=MagicMock(return_value=0))
+    def test_passe_si_euid_zero(self) -> None:
         """require_root() silencieux quand le process est root."""
         require_root()
 
-    @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_leve_si_non_root(self, _mock: MagicMock) -> None:
+    @patch("linuxtools.errors.exceptions.os.geteuid", new=MagicMock(return_value=1000))
+    def test_leve_si_non_root(self) -> None:
         """require_root() lève AppPermissionError si euid != 0."""
         with pytest.raises(AppPermissionError):
             require_root()
 
-    @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_message_par_defaut_mentionne_root(self, _mock: MagicMock) -> None:
+    @patch("linuxtools.errors.exceptions.os.geteuid", new=MagicMock(return_value=1000))
+    def test_message_par_defaut_mentionne_root(self) -> None:
         """Le message par défaut mentionne les droits root."""
         with pytest.raises(AppPermissionError, match="root"):
             require_root()
 
-    @patch("linuxtools.errors.exceptions.os.geteuid", return_value=1000)
-    def test_message_personnalise(self, _mock: MagicMock) -> None:
+    @patch("linuxtools.errors.exceptions.os.geteuid", new=MagicMock(return_value=1000))
+    def test_message_personnalise(self) -> None:
         """require_root() utilise le message personnalisé si fourni."""
         with pytest.raises(AppPermissionError, match="sudo requis"):
             require_root("sudo requis")
@@ -194,10 +193,10 @@ class TestErrorHandlerChain(unittest.TestCase):
         chain.add_handler(handler)
 
         error = RuntimeError("test")
-        with self.assertRaises(SystemExit) as ctx:
+        with pytest.raises(SystemExit) as ctx:
             chain.handle_and_exit(error, exit_code=2)
 
-        self.assertEqual(ctx.exception.code, 2)
+        assert ctx.value.code == 2
         handler.handle.assert_called_once_with(error)
 
 
@@ -233,14 +232,14 @@ class TestErrorContext(unittest.TestCase):
 
         self.context.execute_rollback()
 
-        self.assertEqual(call_order, [2, 1])
+        assert call_order == [2, 1]
 
     def test_execute_rollback_raises_on_failure(self) -> None:
         """Vérifie que RollbackError est levé en cas d'échec."""
         action = MagicMock(side_effect=RuntimeError("rollback failed"))
         self.context.add_rollback_action(action, "failing action")
 
-        with self.assertRaises(RollbackError):
+        with pytest.raises(RollbackError):
             self.context.execute_rollback()
 
     def test_execute_rollback_continues_after_failure(self) -> None:
@@ -250,7 +249,7 @@ class TestErrorContext(unittest.TestCase):
         self.context.add_rollback_action(action1, "failing")
         self.context.add_rollback_action(action2, "succeeding")
 
-        with self.assertRaises(RollbackError):
+        with pytest.raises(RollbackError):
             self.context.execute_rollback()
 
         # Les deux actions doivent avoir été appelées (ordre inversé)
@@ -305,19 +304,19 @@ class TestConsoleErrorHandlerInjectees(unittest.TestCase):
     ) -> None:
         """base_error_type injecté contrôle le routage known/unknown."""
 
-        class MonErreur(Exception):
+        class MonErreurError(Exception):
             pass
 
         handler = ConsoleErrorHandler(
-            base_error_type=MonErreur,
+            base_error_type=MonErreurError,
             solutions={},
         )
-        handler.handle(MonErreur("connue"))
-        self.assertTrue(any("🛑" in str(c) for c in mock_print.call_args_list))
+        handler.handle(MonErreurError("connue"))
+        assert any("🛑" in str(c) for c in mock_print.call_args_list)
 
         mock_print.reset_mock()
         handler.handle(RuntimeError("inconnue"))
-        self.assertTrue(any("💥" in str(c) for c in mock_print.call_args_list))
+        assert any("💥" in str(c) for c in mock_print.call_args_list)
 
     @patch("builtins.print")
     def test_console_handler_utilise_solutions_injectees(
@@ -325,14 +324,14 @@ class TestConsoleErrorHandlerInjectees(unittest.TestCase):
     ) -> None:
         """Le dictionnaire solutions injecté est consulté."""
 
-        class MonErreur(Exception):
+        class MonErreurError(Exception):
             pass
 
         handler = ConsoleErrorHandler(
-            base_error_type=MonErreur,
-            solutions={MonErreur: "\n🔧 Ma solution personnalisée."},
+            base_error_type=MonErreurError,
+            solutions={MonErreurError: "\n🔧 Ma solution personnalisée."},
         )
-        handler.handle(MonErreur("test"))
+        handler.handle(MonErreurError("test"))
         mock_print.assert_any_call("\n🔧 Ma solution personnalisée.", file=sys.stderr)
 
 
@@ -342,14 +341,14 @@ class TestLoggerErrorHandlerInjecte(unittest.TestCase):
     def test_logger_handler_route_selon_base_error_type(self) -> None:
         """base_error_type contrôle le routage dans LoggerErrorHandler."""
 
-        class MonErreur(Exception):
+        class MonErreurError(Exception):
             pass
 
         mock_logger = MagicMock()
-        handler = LoggerErrorHandler(mock_logger, base_error_type=MonErreur)
+        handler = LoggerErrorHandler(mock_logger, base_error_type=MonErreurError)
 
-        handler.handle(MonErreur("connue"))
-        mock_logger.log_error.assert_called_with("MonErreur: connue")
+        handler.handle(MonErreurError("connue"))
+        mock_logger.log_error.assert_called_with("MonErreurError: connue")
 
         mock_logger.reset_mock()
         handler.handle(RuntimeError("inconnue"))

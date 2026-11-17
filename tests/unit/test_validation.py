@@ -1,6 +1,5 @@
 """Tests pour le module validation."""
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -43,7 +42,9 @@ class TestPathChecker:
             "/nonexistent/dir/file.log",
         ]
         checker = PathChecker(paths)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Le répertoire /nonexistent/dir n'existe pas\."
+        ):
             checker.validate()
 
 
@@ -64,12 +65,14 @@ class TestPathCheckerPermission:
     def test_validate_no_write_permission(self, tmp_path: Path) -> None:
         """Vérifie PermissionError si l'écriture est impossible."""
         checker = PathCheckerPermission([str(tmp_path / "file.log")])
-        with patch(
-            "linuxtools.validation.path_checker_permission.os.access",
-            return_value=False,
+        with (
+            patch(
+                "linuxtools.validation.path_checker_permission.os.access",
+                return_value=False,
+            ),
+            pytest.raises(PermissionError, match="Permissions insuffisantes"),
         ):
-            with pytest.raises(PermissionError, match="Permissions insuffisantes"):
-                checker.validate()
+            checker.validate()
 
 
 class TestPathCheckerWorldWritable:
@@ -79,7 +82,7 @@ class TestPathCheckerWorldWritable:
         """validate() ne lève pas d'exception si non world-writable."""
         f = tmp_path / "secure.conf"
         f.write_text("config")
-        os.chmod(str(f), 0o644)
+        Path(f).chmod(0o644)
         checker = PathCheckerWorldWritable(str(f))
         checker.validate()  # Ne doit pas lever d'exception
 
@@ -87,7 +90,7 @@ class TestPathCheckerWorldWritable:
         """validate() lève PermissionError si le fichier est world-writable."""
         f = tmp_path / "dangereux.conf"
         f.write_text("config")
-        os.chmod(str(f), 0o666)  # world-writable
+        Path(f).chmod(0o666)  # world-writable
         checker = PathCheckerWorldWritable(str(f))
         with pytest.raises(PermissionError, match="world-writable"):
             checker.validate()
@@ -106,7 +109,7 @@ class TestPathCheckerWorldWritable:
         """
         target = tmp_path / "target.conf"
         target.write_text("config")
-        os.chmod(str(target), 0o600)  # non world-writable
+        Path(target).chmod(0o600)  # non world-writable
 
         link = tmp_path / "link.conf"
         link.symlink_to(target)

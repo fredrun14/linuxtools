@@ -187,7 +187,7 @@ class TestVenvReleaserClockParDefaut:
         l'heure locale, non monotone au changement d'heure été/hiver)."""
         releaser = VenvReleaser(_make_executor(), installer=MagicMock())
 
-        assert releaser._clock().tzinfo is UTC  # noqa: SLF001
+        assert releaser._clock().tzinfo is UTC
 
 
 class TestSelectVersionsToPrune:
@@ -360,7 +360,7 @@ class TestVenvReleaserCurrentState:
         releaser = VenvReleaser(executor, installer=MagicMock())
 
         with pytest.raises(DeployError, match="indéterminé"):
-            releaser._current_state(Path("/opt/app/venv"))  # noqa: SLF001
+            releaser._current_state(Path("/opt/app/venv"))
 
         assert executor.run.call_count == 1
 
@@ -688,7 +688,7 @@ class TestVenvReleaserDiscard:
         ]
         releaser = VenvReleaser(executor, installer=MagicMock())
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         last_call = executor.run.call_args_list[-1].args[0]
         assert last_call[:2] == ["rm", "-rf"]
@@ -718,7 +718,7 @@ class TestVenvReleaserDiscard:
         logger = MagicMock()
         releaser = VenvReleaser(executor, installer=MagicMock(), logger=logger)
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
         logger.log_error.assert_called_once()
@@ -739,7 +739,7 @@ class TestVenvReleaserDiscard:
         logger = MagicMock()
         releaser = VenvReleaser(executor, installer=MagicMock(), logger=logger)
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         managed = Path("/opt/app/venvs/venv-20260929-000000-000000")
         logger.log_info.assert_called_once()
@@ -757,7 +757,7 @@ class TestVenvReleaserDiscard:
         ]
         releaser = VenvReleaser(executor, installer=MagicMock())
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
 
@@ -1132,7 +1132,7 @@ class TestVenvReleaserDiscardBranchesSupplementaires:
         executor = _make_executor()
         releaser = VenvReleaser(executor, installer=MagicMock())
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         executor.run.assert_not_called()
 
@@ -1152,7 +1152,7 @@ class TestVenvReleaserDiscardBranchesSupplementaires:
         ]
         releaser = VenvReleaser(executor, installer=MagicMock())
 
-        releaser._discard(version, venv_path)  # noqa: SLF001
+        releaser._discard(version, venv_path)
 
         last_call = executor.run.call_args_list[-1].args[0]
         assert last_call[:2] == ["rm", "-rf"]
@@ -1173,9 +1173,7 @@ class TestVenvReleaserPruneBranchesSupplementaires:
         ]
         releaser = VenvReleaser(executor, installer=MagicMock())
 
-        messages = releaser._prune(  # noqa: SLF001
-            venv_path, version, None, keep_versions=2
-        )
+        messages = releaser._prune(venv_path, version, None, keep_versions=2)
 
         assert messages == ()
         assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
@@ -1198,9 +1196,7 @@ class TestVenvReleaserPruneBranchesSupplementaires:
         logger = MagicMock()
         releaser = VenvReleaser(executor, installer=MagicMock(), logger=logger)
 
-        releaser._prune(  # noqa: SLF001
-            venv_path, version, None, keep_versions=1
-        )
+        releaser._prune(venv_path, version, None, keep_versions=1)
 
         logger.log_info.assert_called_once()
         assert purged.name in logger.log_info.call_args.args[0]

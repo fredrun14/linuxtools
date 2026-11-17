@@ -4,6 +4,8 @@ from importlib.metadata import PackageNotFoundError
 from unittest.mock import MagicMock
 
 import pytest
+from webapitools.apps.forgejo import ForgejoClient
+from webapitools.core.exceptions import ApiError
 
 from linuxtools.logging.base import Logger
 from linuxtools.updates.checker import (
@@ -11,8 +13,6 @@ from linuxtools.updates.checker import (
     check_for_update,
     format_update_notice,
 )
-from webapitools.apps.forgejo import ForgejoClient
-from webapitools.core.exceptions import ApiError
 
 
 def _make_client() -> MagicMock:
@@ -29,7 +29,7 @@ class TestCheckForUpdate:
         """Paquet non installé -> checked False, pas d'exception."""
 
         def _leve_package_not_found(_package: str) -> str:
-            raise PackageNotFoundError()
+            raise PackageNotFoundError
 
         monkeypatch.setattr(
             "linuxtools.updates.checker.version",

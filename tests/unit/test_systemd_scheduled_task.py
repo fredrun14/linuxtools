@@ -124,7 +124,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config,
         )
 
-        self.assertTrue(result)
+        assert result
 
     def test_install_logs_success(self) -> None:
         """Vérifie que install log le succès."""
@@ -152,7 +152,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config,
         )
 
-        self.assertFalse(result)
+        assert not result
         self.mock_service_manager.install_service_unit_with_name.assert_not_called()
 
     def test_install_fails_on_service_error(self) -> None:
@@ -168,7 +168,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config,
         )
 
-        self.assertFalse(result)
+        assert not result
         self.mock_timer_manager.install_timer_unit.assert_not_called()
 
     def test_install_fails_on_timer_install_error(self) -> None:
@@ -185,7 +185,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config,
         )
 
-        self.assertFalse(result)
+        assert not result
         self.mock_timer_manager.enable_timer.assert_not_called()
 
     def test_install_fails_on_timer_enable_error(self) -> None:
@@ -203,7 +203,7 @@ class TestSystemdScheduledTaskInstaller(unittest.TestCase):
             self.timer_config,
         )
 
-        self.assertFalse(result)
+        assert not result
 
     def test_install_logs_error_on_script_failure(self) -> None:
         """Vérifie que install log l'erreur si le script échoue."""

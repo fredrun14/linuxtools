@@ -3,7 +3,8 @@
 import unittest
 from pathlib import Path
 from typing import Any, TypeVar, overload
-from unittest.mock import Mock
+
+import pytest
 
 from linuxtools import (
     BashScriptConfig,
@@ -12,7 +13,7 @@ from linuxtools import (
     ServiceConfig,
     TimerConfig,
 )
-from linuxtools.config import ConfigLoader, ConfigFileLoader
+from linuxtools.config import ConfigFileLoader, ConfigLoader
 from linuxtools.systemd.config_loaders import (
     BashScriptConfigLoader,
     MountConfigLoader,
@@ -53,7 +54,7 @@ class MockConfigLoader(ConfigLoader):
         self,
         config_path: str | Path,
         schema: type | None = None,
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         return self._config
 
 
@@ -74,10 +75,10 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsInstance(result, ServiceConfig)
-        self.assertEqual(result.description, "Test Service")
-        self.assertEqual(result.exec_start, "/usr/bin/test")
-        self.assertEqual(result.type, "oneshot")
+        assert isinstance(result, ServiceConfig)
+        assert result.description == "Test Service"
+        assert result.exec_start == "/usr/bin/test"
+        assert result.type == "oneshot"
 
     def test_load_uses_defaults(self) -> None:
         """Vérifie que load utilise les valeurs par défaut."""
@@ -92,9 +93,9 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.type, "simple")
-        self.assertEqual(result.restart, "no")
-        self.assertEqual(result.wanted_by, "multi-user.target")
+        assert result.type == "simple"
+        assert result.restart == "no"
+        assert result.wanted_by == "multi-user.target"
 
     def test_load_custom_section(self) -> None:
         """Vérifie le chargement depuis une section personnalisée."""
@@ -109,7 +110,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load(section="my_service")
 
-        self.assertEqual(result.description, "Custom Service")
+        assert result.description == "Custom Service"
 
     def test_load_raises_key_error_on_missing_section(self) -> None:
         """Vérifie que load lève KeyError si la section manque."""
@@ -117,10 +118,10 @@ class TestServiceConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
 
-        with self.assertRaises(KeyError) as context:
+        with pytest.raises(KeyError) as context:
             loader.load()
 
-        self.assertIn("service", str(context.exception))
+        assert "service" in str(context.value)
 
     def test_load_with_exec_override(self) -> None:
         """Vérifie load_with_exec_override."""
@@ -135,7 +136,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load_with_exec_override("/usr/bin/override")
 
-        self.assertEqual(result.exec_start, "/usr/bin/override")
+        assert result.exec_start == "/usr/bin/override"
 
     def test_load_all_service_fields(self) -> None:
         """Vérifie le chargement de tous les champs ServiceConfig."""
@@ -158,13 +159,13 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.user, "appuser")
-        self.assertEqual(result.group, "appgroup")
-        self.assertEqual(result.working_directory, "/var/lib/app")
-        self.assertEqual(result.environment, {"VAR1": "value1"})
-        self.assertEqual(result.restart, "on-failure")
-        self.assertEqual(result.restart_sec, 5)
-        self.assertEqual(result.wanted_by, "graphical.target")
+        assert result.user == "appuser"
+        assert result.group == "appgroup"
+        assert result.working_directory == "/var/lib/app"
+        assert result.environment == {"VAR1": "value1"}
+        assert result.restart == "on-failure"
+        assert result.restart_sec == 5
+        assert result.wanted_by == "graphical.target"
 
     def test_load_from_json_path(self) -> None:
         """Vérifie que le loader accepte un chemin JSON."""
@@ -179,7 +180,7 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.description, "JSON Service")
+        assert result.description == "JSON Service"
 
     def test_load_reads_hardening_fields_from_toml(self) -> None:
         """Vérifie que load lit les champs de durcissement."""
@@ -200,11 +201,11 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertTrue(result.no_new_privileges)
-        self.assertEqual(result.protect_system, "full")
-        self.assertTrue(result.protect_home)
-        self.assertTrue(result.private_tmp)
-        self.assertEqual(result.read_write_paths, ("/var/lib/app",))
+        assert result.no_new_privileges
+        assert result.protect_system == "full"
+        assert result.protect_home
+        assert result.private_tmp
+        assert result.read_write_paths == ("/var/lib/app",)
 
     def test_load_defaults_hardening_fields_when_absent(self) -> None:
         """Vérifie les valeurs par défaut du durcissement."""
@@ -219,11 +220,11 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertFalse(result.no_new_privileges)
-        self.assertEqual(result.protect_system, "")
-        self.assertFalse(result.protect_home)
-        self.assertFalse(result.private_tmp)
-        self.assertEqual(result.read_write_paths, ())
+        assert not result.no_new_privileges
+        assert result.protect_system == ""
+        assert not result.protect_home
+        assert not result.private_tmp
+        assert result.read_write_paths == ()
 
     def test_load_with_exec_override_also_reads_hardening_fields(self) -> None:
         """Vérifie que l'override exec_start lit aussi le durcissement."""
@@ -241,9 +242,9 @@ class TestServiceConfigLoader(unittest.TestCase):
 
         result = loader.load_with_exec_override("/usr/local/bin/app run")
 
-        self.assertEqual(result.exec_start, "/usr/local/bin/app run")
-        self.assertTrue(result.no_new_privileges)
-        self.assertEqual(result.read_write_paths, ("/var/lib/app",))
+        assert result.exec_start == "/usr/local/bin/app run"
+        assert result.no_new_privileges
+        assert result.read_write_paths == ("/var/lib/app",)
 
 
 class TestTimerConfigLoader(unittest.TestCase):
@@ -264,11 +265,11 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsInstance(result, TimerConfig)
-        self.assertEqual(result.description, "Test Timer")
-        self.assertEqual(result.unit, "test.service")
-        self.assertEqual(result.on_calendar, "daily")
-        self.assertTrue(result.persistent)
+        assert isinstance(result, TimerConfig)
+        assert result.description == "Test Timer"
+        assert result.unit == "test.service"
+        assert result.on_calendar == "daily"
+        assert result.persistent
 
     def test_load_uses_defaults(self) -> None:
         """Vérifie que load utilise les valeurs par défaut."""
@@ -283,8 +284,8 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.on_calendar, "")
-        self.assertFalse(result.persistent)
+        assert result.on_calendar == ""
+        assert not result.persistent
 
     def test_load_for_service(self) -> None:
         """Vérifie load_for_service."""
@@ -300,7 +301,7 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         result = loader.load_for_service("my-service")
 
-        self.assertEqual(result.unit, "my-service.service")
+        assert result.unit == "my-service.service"
 
     def test_load_for_service_with_extension(self) -> None:
         """Vérifie load_for_service avec extension déjà présente."""
@@ -315,7 +316,7 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         result = loader.load_for_service("my-service.service")
 
-        self.assertEqual(result.unit, "my-service.service")
+        assert result.unit == "my-service.service"
 
     def test_load_all_timer_fields(self) -> None:
         """Vérifie le chargement de tous les champs TimerConfig."""
@@ -335,9 +336,9 @@ class TestTimerConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.on_boot_sec, "5min")
-        self.assertEqual(result.on_unit_active_sec, "1h")
-        self.assertEqual(result.randomized_delay_sec, "30min")
+        assert result.on_boot_sec == "5min"
+        assert result.on_unit_active_sec == "1h"
+        assert result.randomized_delay_sec == "30min"
 
 
 class TestMountConfigLoader(unittest.TestCase):
@@ -358,11 +359,11 @@ class TestMountConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsInstance(result, MountConfig)
-        self.assertEqual(result.description, "NAS Share")
-        self.assertEqual(result.what, "192.168.1.10:/share")
-        self.assertEqual(result.where, "/media/nas")
-        self.assertEqual(result.type, "nfs")
+        assert isinstance(result, MountConfig)
+        assert result.description == "NAS Share"
+        assert result.what == "192.168.1.10:/share"
+        assert result.where == "/media/nas"
+        assert result.type == "nfs"
 
     def test_load_with_options(self) -> None:
         """Vérifie le chargement avec options."""
@@ -380,7 +381,7 @@ class TestMountConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.options, "username=user,password=pass")
+        assert result.options == "username=user,password=pass"
 
     def test_load_multiple(self) -> None:
         """Vérifie load_multiple avec une liste de montages."""
@@ -406,10 +407,10 @@ class TestMountConfigLoader(unittest.TestCase):
 
         results = loader.load_multiple()
 
-        self.assertEqual(len(results), 2)
-        self.assertEqual(results[0].where, "/media/nas1")
-        self.assertEqual(results[1].where, "/media/nas2")
-        self.assertEqual(results[1].options, "ro")
+        assert len(results) == 2
+        assert results[0].where == "/media/nas1"
+        assert results[1].where == "/media/nas2"
+        assert results[1].options == "ro"
 
     def test_load_multiple_raises_type_error_if_not_list(self) -> None:
         """Vérifie que load_multiple lève TypeError si pas une liste."""
@@ -424,11 +425,11 @@ class TestMountConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = MountConfigLoader("/fake/path.toml", mock_loader)
 
-        with self.assertRaises(TypeError) as context:
+        with pytest.raises(TypeError) as context:
             loader.load_multiple()
 
-        self.assertIn("doit être une liste", str(context.exception))
-        self.assertIn("mounts", str(context.exception))
+        assert "doit être une liste" in str(context.value)
+        assert "mounts" in str(context.value)
 
     def test_load_multiple_message_contient_nom_section(self) -> None:
         """Vérifie que le nom de section est interpolé dans le message."""
@@ -436,10 +437,10 @@ class TestMountConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = MountConfigLoader("/fake/path.toml", mock_loader)
 
-        with self.assertRaises(TypeError) as context:
+        with pytest.raises(TypeError) as context:
             loader.load_multiple(section="custom_mounts")
 
-        self.assertIn("custom_mounts", str(context.exception))
+        assert "custom_mounts" in str(context.value)
 
     def test_load_with_automount_returns_settings_from_toml(self) -> None:
         """Vérifie que load_with_automount lit config et réglages."""
@@ -459,10 +460,10 @@ class TestMountConfigLoader(unittest.TestCase):
 
         settings = loader.load_with_automount()
 
-        self.assertIsInstance(settings.config, MountConfig)
-        self.assertEqual(settings.config.where, "/media/nas")
-        self.assertTrue(settings.with_automount)
-        self.assertEqual(settings.timeout_sec, 600)
+        assert isinstance(settings.config, MountConfig)
+        assert settings.config.where == "/media/nas"
+        assert settings.with_automount
+        assert settings.timeout_sec == 600
 
     def test_load_with_automount_defaults_false_and_zero_when_absent(self) -> None:
         """Vérifie les défauts automount quand les clés sont absentes."""
@@ -479,8 +480,8 @@ class TestMountConfigLoader(unittest.TestCase):
 
         settings = loader.load_with_automount()
 
-        self.assertFalse(settings.with_automount)
-        self.assertEqual(settings.timeout_sec, 0)
+        assert not settings.with_automount
+        assert settings.timeout_sec == 0
 
 
 class TestBashScriptConfigLoader(unittest.TestCase):
@@ -498,8 +499,8 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsInstance(result, BashScriptConfig)
-        self.assertEqual(result.exec_command, "/usr/bin/flatpak update -y")
+        assert isinstance(result, BashScriptConfig)
+        assert result.exec_command == "/usr/bin/flatpak update -y"
 
     def test_load_with_exec_start_fallback(self) -> None:
         """Vérifie que load utilise exec_start si exec_command absent."""
@@ -513,7 +514,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertEqual(result.exec_command, "/usr/bin/app")
+        assert result.exec_command == "/usr/bin/app"
 
     def test_load_without_notification(self) -> None:
         """Vérifie le chargement sans notification."""
@@ -527,7 +528,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsNone(result.notification)
+        assert result.notification is None
 
     def test_load_with_notification_disabled(self) -> None:
         """Vérifie que notification disabled = pas de notification."""
@@ -540,7 +541,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load()
 
-        self.assertIsNone(result.notification)
+        assert result.notification is None
 
     def test_load_with_notification_enabled(self) -> None:
         """Vérifie le chargement avec notification activée."""
@@ -561,9 +562,9 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         result = loader.load()
 
         assert isinstance(result.notification, NotificationConfig)
-        self.assertEqual(result.notification.title, "Test Notification")
-        self.assertEqual(result.notification.message_success, "Success!")
-        self.assertEqual(result.notification.icon_success, "test-ok")
+        assert result.notification.title == "Test Notification"
+        assert result.notification.message_success == "Success!"
+        assert result.notification.icon_success == "test-ok"
 
     def test_load_with_notification_defaults(self) -> None:
         """Vérifie les valeurs par défaut des notifications."""
@@ -577,10 +578,8 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         result = loader.load()
 
         assert isinstance(result.notification, NotificationConfig)
-        self.assertEqual(result.notification.title, "Task Update")
-        self.assertEqual(
-            result.notification.message_success, "Task completed successfully."
-        )
+        assert result.notification.title == "Task Update"
+        assert result.notification.message_success == "Task completed successfully."
 
     def test_load_without_notification_method(self) -> None:
         """Vérifie load_without_notification."""
@@ -593,7 +592,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
 
         result = loader.load_without_notification()
 
-        self.assertIsNone(result.notification)
+        assert result.notification is None
 
     def test_has_notification_returns_true(self) -> None:
         """Vérifie has_notification retourne True si activé."""
@@ -604,7 +603,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = BashScriptConfigLoader("/fake/path.toml", mock_loader)
 
-        self.assertTrue(loader.has_notification())
+        assert loader.has_notification()
 
     def test_has_notification_returns_false(self) -> None:
         """Vérifie has_notification retourne False si désactivé."""
@@ -615,7 +614,7 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = BashScriptConfigLoader("/fake/path.toml", mock_loader)
 
-        self.assertFalse(loader.has_notification())
+        assert not loader.has_notification()
 
     def test_load_raises_key_error_if_no_command(self) -> None:
         """Vérifie que load lève KeyError si pas de commande."""
@@ -625,10 +624,10 @@ class TestBashScriptConfigLoader(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = BashScriptConfigLoader("/fake/path.toml", mock_loader)
 
-        with self.assertRaises(KeyError) as context:
+        with pytest.raises(KeyError) as context:
             loader.load()
 
-        self.assertIn("exec_command", str(context.exception))
+        assert "exec_command" in str(context.value)
 
 
 class TestConfigFileLoaderBase(unittest.TestCase):
@@ -640,7 +639,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
 
-        self.assertEqual(loader.config, config)
+        assert loader.config == config
 
     def test_get_nested_value(self) -> None:
         """Vérifie _get_nested_value."""
@@ -658,7 +657,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
 
         result = loader._get_nested_value("paths", "log_file")
 
-        self.assertEqual(result, "/var/log/app.log")
+        assert result == "/var/log/app.log"
 
     def test_get_nested_value_with_default(self) -> None:
         """Vérifie _get_nested_value avec valeur par défaut."""
@@ -673,7 +672,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
 
         result = loader._get_nested_value("paths", "missing", default="/default/path")
 
-        self.assertEqual(result, "/default/path")
+        assert result == "/default/path"
 
     def test_inherits_from_config_file_loader(self) -> None:
         """Vérifie que les loaders héritent de ConfigFileLoader."""
@@ -686,7 +685,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
 
-        self.assertIsInstance(loader, ConfigFileLoader)
+        assert isinstance(loader, ConfigFileLoader)
 
 
 if __name__ == "__main__":

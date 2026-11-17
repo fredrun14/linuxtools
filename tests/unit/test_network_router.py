@@ -83,7 +83,7 @@ def scanner(
 
 
 # ---------------------------------------------------------------------------
-# Tests : _parse_custom_clientlist
+# Tests de _parse_custom_clientlist
 # ---------------------------------------------------------------------------
 
 
@@ -146,7 +146,7 @@ class TestParseCustomClientlist:
 
 
 # ---------------------------------------------------------------------------
-# Tests : _parse_nvram_reservations
+# Tests de _parse_nvram_reservations
 # ---------------------------------------------------------------------------
 
 
@@ -185,7 +185,7 @@ class TestParseNvramReservations:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterScanner._merge_offline_clients
+# Tests de AsusRouterScanner._merge_offline_clients
 # ---------------------------------------------------------------------------
 
 
@@ -270,7 +270,7 @@ class TestMergeOfflineClients:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterScanner._parse_clients
+# Tests de AsusRouterScanner._parse_clients
 # ---------------------------------------------------------------------------
 
 
@@ -320,7 +320,7 @@ class TestAsusRouterScannerParseClients:
         raw = [
             {
                 "mac": "dc:46:28:2f:ae:f4",
-                "ip": "0.0.0.0",
+                "ip": "0.0.0.0",  # noqa: S104 - IP 0.0.0.0 testée volontairement
                 "isOnline": "0",
                 "nickName": "Asustuf5G",
                 "vendor": "ASUSTeK",
@@ -340,7 +340,7 @@ class TestAsusRouterScannerParseClients:
         raw = [
             {
                 "mac": "7c:4d:8f:4c:a4:66",
-                "ip": "0.0.0.0",
+                "ip": "0.0.0.0",  # noqa: S104 - IP 0.0.0.0 testée volontairement
                 "isOnline": "0",
                 "nickName": "print",
                 "vendor": "HP",
@@ -362,7 +362,7 @@ class TestAsusRouterScannerParseClients:
         raw = [
             {
                 "mac": "aa:bb:cc:dd:ee:ff",
-                "ip": "0.0.0.0",
+                "ip": "0.0.0.0",  # noqa: S104 - IP 0.0.0.0 testée volontairement
                 "isOnline": "0",
                 "nickName": "Inconnu",
                 "vendor": "",
@@ -427,7 +427,7 @@ class TestAsusRouterScannerParseClients:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterScanner.scan (integration)
+# Tests de AsusRouterScanner.scan (integration)
 # ---------------------------------------------------------------------------
 
 
@@ -564,7 +564,7 @@ class TestAsusRouterScannerScan:
 
 
 # ---------------------------------------------------------------------------
-# Tests : RouterConfig validation
+# Tests de RouterConfig validation
 # ---------------------------------------------------------------------------
 
 
@@ -595,7 +595,7 @@ class TestRouterConfigValidation:
 
 
 # ---------------------------------------------------------------------------
-# Tests : helpers ip
+# Tests de helpers ip
 # ---------------------------------------------------------------------------
 
 
@@ -638,7 +638,7 @@ class TestIpHelpers:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterScanner avec logger
+# Tests de AsusRouterScanner avec logger
 # ---------------------------------------------------------------------------
 
 
@@ -677,7 +677,7 @@ class TestAsusRouterScannerAvecLogger:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterDhcpManager
+# Tests de AsusRouterDhcpManager
 # ---------------------------------------------------------------------------
 
 
@@ -882,7 +882,7 @@ class TestAsusRouterDhcpManagerEdgeCases:
                 ip="192.168.50.2", mac="aa:bb:cc:dd:ee:02", fixed_ip="192.168.50.2"
             ),
         ]
-        static_list, hostnames = mgr._build_nvram_strings(devices)
+        static_list, _hostnames = mgr._build_nvram_strings(devices)
         assert "AA:BB:CC:DD:EE:01" not in static_list
         assert "AA:BB:CC:DD:EE:02" in static_list
 
@@ -922,24 +922,39 @@ class TestSecuriteRouter:
 
     def test_ip_to_int_chaine_vide_leve_valueerror(self) -> None:
         """_ip_to_int() leve ValueError pour une chaine vide."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : ''"):
             _ip_to_int("")
 
     def test_ip_to_int_format_invalide_leve_valueerror(self) -> None:
         """_ip_to_int() leve ValueError pour un format non-IP."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : 'not\.an\.ip\.addr'"
+        ):
             _ip_to_int("not.an.ip.addr")
 
     # --- RouterConfig URL ---
 
     def test_router_config_url_loopback_refusee(self) -> None:
         """RouterConfig rejette les adresses loopback."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Adresse non autorisee : '127\.0\.0\.1'\. Seules les adresses "
+                r"LAN privees \(10/8, 172\.16/12, 192\.168/16\) sont acceptees\."
+            ),
+        ):
             RouterConfig(url="http://127.0.0.1")
 
     def test_router_config_url_link_local_refusee(self) -> None:
         """RouterConfig rejette les adresses link-local (SSRF)."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Adresse non autorisee : '169\.254\.169\.254'\. Seules les "
+                r"adresses LAN privees \(10/8, 172\.16/12, 192\.168/16\) sont "
+                r"acceptees\."
+            ),
+        ):
             RouterConfig(url="http://169.254.169.254")
 
     def test_router_config_url_lan_acceptee(self) -> None:
@@ -974,12 +989,14 @@ class TestSecuriteRouter:
         self,
     ) -> None:
         """Hostname résolu en IP publique → ValueError (SSRF)."""
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[(None, None, None, None, ("1.2.3.4", 0))],
+        with (
+            patch(
+                "socket.getaddrinfo",
+                return_value=[(None, None, None, None, ("1.2.3.4", 0))],
+            ),
+            pytest.raises(ValueError, match="non-LAN"),
         ):
-            with pytest.raises(ValueError, match="non-LAN"):
-                RouterConfig(url="http://evil.example.com")
+            RouterConfig(url="http://evil.example.com")
 
     def test_router_config_url_hostname_non_resolvable_accepte(
         self,
@@ -994,7 +1011,7 @@ class TestSecuriteRouter:
 
 
 # ---------------------------------------------------------------------------
-# Tests : AsusRouterMacFilterManager
+# Tests de AsusRouterMacFilterManager
 # ---------------------------------------------------------------------------
 
 
@@ -1075,7 +1092,7 @@ class TestAsusRouterMacFilterManager:
 
 
 # ---------------------------------------------------------------------------
-# Tests : traduction AuthError (webapitools) -> RouterAuthError
+# Tests de traduction AuthError (webapitools) -> RouterAuthError
 #
 # Point trouve en verification independante du temps 1 (webapitools) :
 # webapitools.AsusRouterClient.login() leve AuthError, pas
@@ -1129,7 +1146,7 @@ class TestTraductionRouterAuthError:
 
 
 # ---------------------------------------------------------------------------
-# Tests : non-regression Q-03 (re-export AsusRouterClient)
+# Tests de non-regression Q-03 (re-export AsusRouterClient)
 # ---------------------------------------------------------------------------
 
 
@@ -1175,7 +1192,7 @@ class TestReexportAsusRouterClient:
 
 
 # ---------------------------------------------------------------------------
-# Tests : dépréciation d'AsusRouterDhcpManager
+# Tests de dépréciation d'AsusRouterDhcpManager
 # ---------------------------------------------------------------------------
 
 
@@ -1186,7 +1203,10 @@ class TestAsusRouterDhcpManagerDeprecation:
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
         """Une instanciation émet un seul DeprecationWarning explicite."""
-        with pytest.warns(DeprecationWarning) as record:
+        with pytest.warns(
+            DeprecationWarning,
+            match=r"AsusRouterDhcpManager est déprécié depuis 2\.8\.0",
+        ) as record:
             AsusRouterDhcpManager(
                 network_config,
                 router_config,

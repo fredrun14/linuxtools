@@ -55,7 +55,7 @@ def mock_getgrnam() -> Iterator[MagicMock]:
 class TestPathCheckerGroupAccess:
     """Tests pour PathCheckerGroupAccess."""
 
-    def test_validate_répertoire_valide(self, mock_getgrnam: MagicMock) -> None:
+    def test_validate_repertoire_valide(self, mock_getgrnam: MagicMock) -> None:
         """validate() silencieux si groupe, rwx et setgid corrects."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
@@ -64,15 +64,17 @@ class TestPathCheckerGroupAccess:
         ):
             checker.validate()
 
-    def test_validate_répertoire_inexistant(self, mock_getgrnam: MagicMock) -> None:
+    def test_validate_repertoire_inexistant(self, mock_getgrnam: MagicMock) -> None:
         """FileNotFoundError si le répertoire n'existe pas."""
         checker = PathCheckerGroupAccess("/inexistant", "ff_home")
-        with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
-            side_effect=FileNotFoundError,
+        with (
+            patch(
+                "linuxtools.validation.path_checker_group_access.os.stat",
+                side_effect=FileNotFoundError,
+            ),
+            pytest.raises(FileNotFoundError, match="introuvable"),
         ):
-            with pytest.raises(FileNotFoundError, match="introuvable"):
-                checker.validate()
+            checker.validate()
 
     def test_validate_groupe_inconnu_leve_key_error(self) -> None:
         """KeyError si le groupe n'existe pas sur le système."""
@@ -87,42 +89,48 @@ class TestPathCheckerGroupAccess:
     def test_validate_mauvais_groupe(self, mock_getgrnam: MagicMock) -> None:
         """PermissionError si le répertoire n'appartient pas au groupe."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
-        with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
-            return_value=_make_stat(9999, MODE_SETGID_RWX),
+        with (
+            patch(
+                "linuxtools.validation.path_checker_group_access.os.stat",
+                return_value=_make_stat(9999, MODE_SETGID_RWX),
+            ),
+            pytest.raises(PermissionError, match="ff_home"),
         ):
-            with pytest.raises(PermissionError, match="ff_home"):
-                checker.validate()
+            checker.validate()
 
     def test_validate_message_mauvais_groupe_contient_gids(
         self, mock_getgrnam: MagicMock
     ) -> None:
         """Le message indique le groupe réel et le groupe attendu."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
-        with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
-            return_value=_make_stat(9999, MODE_SETGID_RWX),
-        ):
-            with patch(
+        with (
+            patch(
+                "linuxtools.validation.path_checker_group_access.os.stat",
+                return_value=_make_stat(9999, MODE_SETGID_RWX),
+            ),
+            patch(
                 "linuxtools.validation.path_checker_group_access.grp.getgrgid",
                 return_value=_grp_entry(9999),
-            ):
-                with pytest.raises(PermissionError) as exc_info:
-                    checker.validate()
-                msg = str(exc_info.value)
-                assert "9999" in msg
-                assert str(GID_FF_HOME) in msg
+            ),
+        ):
+            with pytest.raises(PermissionError) as exc_info:
+                checker.validate()
+            msg = str(exc_info.value)
+            assert "9999" in msg
+            assert str(GID_FF_HOME) in msg
 
     def test_validate_permissions_w_manquant(self, mock_getgrnam: MagicMock) -> None:
         """PermissionError si le bit w est absent pour le groupe."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
-        with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
-            return_value=_make_stat(GID_FF_HOME, mode),
+        with (
+            patch(
+                "linuxtools.validation.path_checker_group_access.os.stat",
+                return_value=_make_stat(GID_FF_HOME, mode),
+            ),
+            pytest.raises(PermissionError, match="w"),
         ):
-            with pytest.raises(PermissionError, match="w"):
-                checker.validate()
+            checker.validate()
 
     def test_validate_permissions_message_contient_chmod(
         self, mock_getgrnam: MagicMock
@@ -146,14 +154,16 @@ class TestPathCheckerGroupAccess:
             "/media/nas/keepass", "ff_home", require_setgid=True
         )
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP  # sans setgid
-        with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
-            return_value=_make_stat(GID_FF_HOME, mode),
+        with (
+            patch(
+                "linuxtools.validation.path_checker_group_access.os.stat",
+                return_value=_make_stat(GID_FF_HOME, mode),
+            ),
+            pytest.raises(PermissionError, match="setgid"),
         ):
-            with pytest.raises(PermissionError, match="setgid"):
-                checker.validate()
+            checker.validate()
 
-    def test_validate_setgid_absent_ignoré_si_non_requis(
+    def test_validate_setgid_absent_ignore_si_non_requis(
         self, mock_getgrnam: MagicMock
     ) -> None:
         """validate() silencieux si setgid absent et require_setgid=False."""
@@ -185,7 +195,7 @@ class TestPathCheckerGroupAccess:
 class TestMissingGroupBits:
     """Tests unitaires pour PathCheckerGroupAccess._missing_group_bits."""
 
-    def test_tous_présents(self) -> None:
+    def test_tous_presents(self) -> None:
         """Retourne chaîne vide si tous les bits rwx sont positionnés."""
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
         assert PathCheckerGroupAccess._missing_group_bits(mode) == ""

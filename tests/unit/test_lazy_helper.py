@@ -43,5 +43,7 @@ def test_make_lazy_getattr_nom_inconnu_leve_attribute_error() -> None:
     getattr_paresseux = make_lazy_getattr("mon_paquet", {"a": "json"})
 
     # Act / Assert
-    with pytest.raises(AttributeError, match="mon_paquet.*inconnu"):
+    with pytest.raises(
+        AttributeError, match=r"module 'mon_paquet' has no attribute 'inconnu'"
+    ):
         getattr_paresseux("inconnu")

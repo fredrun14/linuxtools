@@ -346,7 +346,9 @@ def _branche_distante(
 ) -> None:
     """Déclare une branche de bump déjà poussée sur origin.
 
-    ``fichiers`` est la sortie de ``git diff --no-renames --name-only -z origin/main...sha`` (``\n`` du test devient NUL) :
+    ``fichiers`` est la sortie de
+    ``git diff --no-renames --name-only -z origin/main...sha``
+    (``\n`` du test devient NUL) :
     toute la branche, pas seulement son sommet.
     """
     ex.on(

@@ -14,7 +14,7 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 echo "→ ruff check"
-uv run ruff check src/
+uv run ruff check src/ tests/
 
 echo "→ gate de format (make format-check)"
 make format-check

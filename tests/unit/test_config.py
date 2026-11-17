@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from linuxtools.config import FileConfigLoader, ConfigurationManager
+from linuxtools.config import ConfigurationManager, FileConfigLoader
 from linuxtools.config.base import ConfigManager
 
 
@@ -262,7 +262,7 @@ class TestConfigurationManagerLogger:
         logger = MagicMock()
         chemin_inexistant = tmp_path / "inexistant.json"
 
-        manager = ConfigurationManager(config_path=chemin_inexistant, logger=logger)
+        ConfigurationManager(config_path=chemin_inexistant, logger=logger)
 
         logger.log_warning.assert_called_once()
         assert "inexistant.json" in logger.log_warning.call_args[0][0]
@@ -277,7 +277,7 @@ class TestConfigurationManagerLogger:
         mock_loader = MagicMock()
         mock_loader.load.side_effect = ValueError("JSON invalide")
 
-        manager = ConfigurationManager(
+        ConfigurationManager(
             config_path=config_file, config_loader=mock_loader, logger=logger
         )
 

@@ -11,7 +11,6 @@ et utilisateur : sans ces tests, un aiguillage `if self._remote_write:`
 inversé retomberait silencieusement sur le chemin local.
 """
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -309,7 +308,7 @@ class TestRemoteWriteRouting:
         assert result is True
         executor.run_raw.assert_called_once()
         command = executor.run_raw.call_args.args[0]
-        attendu = os.path.join(manager.unit_path, "mon-outil.service")
+        attendu = str(Path(manager.unit_path, "mon-outil.service"))
         assert command == [
             "install",
             "-m",
@@ -357,7 +356,7 @@ class TestRemoteWriteRouting:
         # Assert
         assert result is True
         executor.run_raw.assert_called_once()
-        attendu = os.path.join(manager.unit_path, "mon-outil.service")
+        attendu = str(Path(manager.unit_path, "mon-outil.service"))
         assert executor.run_raw.call_args.args[0] == [
             "rm",
             "-f",

@@ -63,8 +63,8 @@ def test_ignore_ce_qui_n_est_pas_un_consommateur(tmp_path: Path) -> None:
     _projet(tmp_path, "sans-git", git=False)
     _projet(tmp_path, "sans-pyproject", pyproject=False)
     (tmp_path / "fichier.txt").write_text("x")
-    cassé = _projet(tmp_path, "toml-casse", pyproject=False)
-    (cassé / "pyproject.toml").write_text(f"[project\n# {_PIN}\n")
+    casse = _projet(tmp_path, "toml-casse", pyproject=False)
+    (casse / "pyproject.toml").write_text(f"[project\n# {_PIN}\n")
     _projet(tmp_path, "ok")
 
     noms = [c.name for c in discover_consumers(tmp_path)]

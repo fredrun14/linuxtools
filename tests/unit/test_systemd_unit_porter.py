@@ -2,7 +2,7 @@
 
 # stdlib
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 # third-party
 import pytest
@@ -13,7 +13,6 @@ from linuxtools.systemd.unit_porter import (
     SystemdUnitRestorer,
     _toml_escape,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures partagées
@@ -155,7 +154,7 @@ class TestParseIni:
 
     def test_leve_oserror_si_fichier_absent(self, tmp_path: Path) -> None:
         """Lève OSError si le fichier n'existe pas."""
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match=r"\[Errno 2\] No such file or directory"):
             SystemdUnitExporter.parse_ini(tmp_path / "absent.service")
 
 

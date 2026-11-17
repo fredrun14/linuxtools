@@ -4,7 +4,7 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import patch, PropertyMock
+from unittest.mock import PropertyMock, patch
 
 # third-party
 import pytest

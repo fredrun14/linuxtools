@@ -38,7 +38,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Ruff check
-        run: uv run ruff check src/
+        run: uv run ruff check src/ tests/
 
       # Même gate que `make lint` et le hook pre-commit (liste de fichiers
       # définie une seule fois dans le Makefile).

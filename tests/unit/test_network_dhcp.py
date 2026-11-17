@@ -109,7 +109,7 @@ class TestLinuxDhcpReservationManager:
         mgr = LinuxDhcpReservationManager(_config())
         devices = [_device(fixed_ip="192.168.1.100")]
         output = mgr.export_reservations(devices)
-        line = [l for l in output.split("\n") if "dhcp-host" in l][0]
+        line = next(ligne for ligne in output.split("\n") if "dhcp-host" in ligne)
         assert line.count(",") == 1
 
     def test_export_liste_vide(self) -> None:

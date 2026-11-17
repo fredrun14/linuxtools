@@ -53,7 +53,10 @@ class TestOpenDeployJournal:
         self, tmp_path: Path, label: str
     ) -> None:
         """SEC : label invalide -> ValueError avant tout accès disque."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"Le nom de service ne peut pas être vide|Nom de service invalide",
+        ):
             open_deploy_journal("bpm", label, dry_run=False, log_dir=tmp_path / "logs")
 
         assert not (tmp_path / "logs").exists()
@@ -62,7 +65,10 @@ class TestOpenDeployJournal:
         self, tmp_path: Path
     ) -> None:
         """SEC : app_name invalide -> ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"Nom de service invalide \(traversée interdite\) : '\.\./bpm'",
+        ):
             open_deploy_journal("../bpm", "nas", dry_run=False, log_dir=tmp_path)
 
     def test_open_deploy_journal_cree_fichier_0600_dans_dossier_0700(
@@ -88,7 +94,7 @@ class TestOpenDeployJournal:
         """SEC : un dossier deploy/ permissif est resserré."""
         base = tmp_path / "logs" / "deploy"
         base.mkdir(parents=True)
-        os.chmod(base, 0o755)
+        Path(base).chmod(0o755)
 
         open_deploy_journal("bpm", "nas", dry_run=False, log_dir=tmp_path / "logs")
 
@@ -268,7 +274,9 @@ class TestOpenDeployJournal:
         self, tmp_path: Path
     ) -> None:
         """retention_days=0 -> ValueError, aucun dossier créé."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"retention_days doit être supérieur ou égal à 1"
+        ):
             open_deploy_journal(
                 "bpm",
                 "nas",

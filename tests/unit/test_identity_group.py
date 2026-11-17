@@ -122,12 +122,14 @@ class TestLinuxGroupManagerEnsureGroup:
         executor.run.return_value = _result_fail(4)
 
         # Act / Assert
-        with patch(
-            "linuxtools.identity.group.grp.getgrnam",
-            return_value=mock_grp,
+        with (
+            patch(
+                "linuxtools.identity.group.grp.getgrnam",
+                return_value=mock_grp,
+            ),
+            pytest.raises(CommandExecutionError, match="groupmod"),
         ):
-            with pytest.raises(CommandExecutionError, match="groupmod"):
-                manager.ensure_group("partage-lan", 1042)
+            manager.ensure_group("partage-lan", 1042)
 
     def test_ensure_group_groupadd_echec_leve_exception(
         self,
@@ -139,12 +141,14 @@ class TestLinuxGroupManagerEnsureGroup:
         executor.run.return_value = _result_fail(9)
 
         # Act / Assert
-        with patch(
-            "linuxtools.identity.group.grp.getgrnam",
-            side_effect=KeyError("partage-lan"),
+        with (
+            patch(
+                "linuxtools.identity.group.grp.getgrnam",
+                side_effect=KeyError("partage-lan"),
+            ),
+            pytest.raises(CommandExecutionError, match="groupadd"),
         ):
-            with pytest.raises(CommandExecutionError, match="groupadd"):
-                manager.ensure_group("partage-lan", 1042)
+            manager.ensure_group("partage-lan", 1042)
 
 
 class TestLinuxGroupManagerValidation:

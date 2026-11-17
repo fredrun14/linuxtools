@@ -27,17 +27,20 @@ class TestDhcpRange:
 
     def test_plage_inversee(self) -> None:
         """start > end leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"Plage DHCP inversee : 192\.168\.1\.254 > 192\.168\.1\.100",
+        ):
             DhcpRange(start="192.168.1.254", end="192.168.1.100")
 
     def test_start_invalide(self) -> None:
         """Start invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : '999\.1\.1\.1'"):
             DhcpRange(start="999.1.1.1", end="192.168.1.254")
 
     def test_end_invalide(self) -> None:
         """End invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : '999\.1\.1\.1'"):
             DhcpRange(start="192.168.1.100", end="999.1.1.1")
 
 
@@ -92,7 +95,7 @@ class TestNetworkConfig:
 
     def test_cidr_invalide(self) -> None:
         """CIDR invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Notation CIDR invalide : 'invalid'"):
             NetworkConfig(cidr="invalid")
 
     def test_defauts(self) -> None:

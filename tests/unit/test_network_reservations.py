@@ -121,7 +121,9 @@ def test_from_clients_mac_en_double_actif_et_desactive_leve() -> None:
         enabled=False,
     )
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError, match=r"MAC en double dans l'intention : shield et ancien"
+    ) as exc:
         DhcpIntent.from_clients([actif, off], _SUBNET)
 
     assert str(exc.value) == ("MAC en double dans l'intention : shield et ancien")
@@ -210,7 +212,9 @@ def test_target_ip_actif_prise_par_conservee_leve_valueerror() -> None:
     intent = DhcpIntent.from_clients([shield], _SUBNET)
     actual = [_dev("AA:BB:CC:DD:EE:01", "192.168.50.3", "invite")]
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError, match=r"IP 192\.168\.50\.3 en double : shield et invite"
+    ) as exc:
         intent.target(actual)
 
     assert str(exc.value) == "IP 192.168.50.3 en double : shield et invite"
@@ -227,7 +231,13 @@ def test_target_mac_en_double_sur_le_routeur_leve_valueerror() -> None:
         _dev("aa:bb:cc:dd:ee:01", "192.168.50.98"),
     ]
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"MAC en double sur le routeur : 192\.168\.50\.99 \(invite\) et "
+            r"192\.168\.50\.98 \(sans nom\)"
+        ),
+    ) as exc:
         intent.target(actual)
 
     assert str(exc.value) == (
@@ -249,7 +259,9 @@ def test_from_clients_mac_en_double_casse_comprise_leve_valueerror() -> None:
         enabled=False,
     )
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError, match=r"MAC en double dans l'intention : a et b"
+    ) as exc:
         DhcpIntent.from_clients([a, b], _SUBNET)
 
     assert str(exc.value) == "MAC en double dans l'intention : a et b"
@@ -497,7 +509,9 @@ def test_from_clients_deux_actifs_meme_ip_leve_valueerror() -> None:
     a = _client("00:00:5E:00:53:03", "192.168.50.3", "shield")
     b = _client("00:00:5E:00:53:04", "192.168.50.3", "nas")
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError, match=r"IP 192\.168\.50\.3 en double : shield et nas"
+    ) as exc:
         DhcpIntent.from_clients([a, b], _SUBNET)
 
     assert str(exc.value) == "IP 192.168.50.3 en double : shield et nas"
@@ -510,9 +524,14 @@ def test_from_clients_doublon_sans_nom_dit_sans_nom_et_pas_de_mac() -> None:
     c = LanClient(mac="00:00:5E:00:53:05")
     d = LanClient(mac="00:00:5E:00:53:05")
 
-    with pytest.raises(ValueError) as ip_exc:
+    with pytest.raises(
+        ValueError, match=r"IP 192\.168\.50\.3 en double : \(sans nom\) et \(sans nom\)"
+    ) as ip_exc:
         DhcpIntent.from_clients([a, b], _SUBNET)
-    with pytest.raises(ValueError) as mac_exc:
+    with pytest.raises(
+        ValueError,
+        match=r"MAC en double dans l'intention : \(sans nom\) et \(sans nom\)",
+    ) as mac_exc:
         DhcpIntent.from_clients([c, d], _SUBNET)
 
     assert str(ip_exc.value) == ("IP 192.168.50.3 en double : (sans nom) et (sans nom)")
@@ -537,7 +556,7 @@ def test_compare_mac_en_double_sur_le_routeur_leve_valueerror(
     if inverse:
         actual.reverse()
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match=r"MAC en double sur le routeur") as exc:
         compare_reservations(intent, actual)
 
     message = str(exc.value)
@@ -590,7 +609,13 @@ def test_target_mac_en_double_sans_ip_dit_sans_ip() -> None:
         _dev("AA:BB:CC:DD:EE:01", "192.168.50.98", "autre"),
     ]
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"MAC en double sur le routeur : \(sans IP\) \(invite\) et "
+            r"192\.168\.50\.98 \(autre\)"
+        ),
+    ) as exc:
         intent.target(actual)
 
     assert str(exc.value) == (

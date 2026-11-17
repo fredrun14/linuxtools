@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal, Self
 
 import pytest
 
@@ -93,8 +93,10 @@ class TestDesktopNotifier:
         notifier.send(notif)
         command = executor.calls[0]
         assert command[0] == "notify-send"
-        assert "-u" in command and "normal" in command
-        assert "-a" in command and "backup" in command
+        assert "-u" in command
+        assert "normal" in command
+        assert "-a" in command
+        assert "backup" in command
         assert command[-2:] == ["Test", "Corps"]
 
     def test_icone_ajoutee_si_presente(self) -> None:
@@ -103,7 +105,8 @@ class TestDesktopNotifier:
         notifier = DesktopNotifier(app_name="backup", executor=executor)
         notifier.send(Notification(title="T", message="M", icon="dialog-error"))
         command = executor.calls[0]
-        assert "-i" in command and "dialog-error" in command
+        assert "-i" in command
+        assert "dialog-error" in command
 
     def test_raises_si_notify_send_echoue(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur code non nul."""
@@ -155,7 +158,7 @@ class FakeHttpResponse:
         """Initialise avec le statut à retourner."""
         self.status = status
 
-    def __enter__(self) -> "FakeHttpResponse":
+    def __enter__(self) -> Self:
         """Retourne la réponse pour usage en context manager."""
         return self
 
@@ -269,7 +272,7 @@ class TestGotifyNotifier:
 class FakeSmtp:
     """Client SMTP factice enregistrant les appels."""
 
-    instances: list["FakeSmtp"] = []
+    instances: ClassVar[list["FakeSmtp"]] = []
 
     def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
         """Initialise et s'enregistre dans instances."""
@@ -281,7 +284,7 @@ class FakeSmtp:
         self.fail_send = False
         FakeSmtp.instances.append(self)
 
-    def __enter__(self) -> "FakeSmtp":
+    def __enter__(self) -> Self:
         """Retourne le client pour usage en context manager."""
         return self
 
@@ -373,7 +376,9 @@ class TestSmtpEmailNotifier:
             # compatible avec smtplib.SMTP mais pas un sous-type nominal.
             smtp_factory=factory,  # type: ignore[arg-type]
         )
-        with pytest.raises(NotificationSendError, match="smtp.lan"):
+        with pytest.raises(
+            NotificationSendError, match=r"Envoi email échoué via smtp\.lan : refusé"
+        ):
             notifier.send(notif)
 
 

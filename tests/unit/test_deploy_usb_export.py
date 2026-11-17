@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 _MODULE = "linuxtools.deploy.usb_export"
 # Vraie méthode, capturée avant que la fixture autouse ne la remplace
-_REAL_FIND_UV = UsbExporter._find_uv  # noqa: SLF001
+_REAL_FIND_UV = UsbExporter._find_uv
 # Artefacts d'outillage local qui ne doivent jamais être copiés
 _ARTEFACTS_DEV = (
     ".integration-runs",
@@ -282,7 +282,7 @@ class TestFindUv:
         exporter = UsbExporter(executor)
         res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res is None
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert "modifiable par le groupe ou les autres" in rejet
 
     def test_find_uv_binaire_modifiable_par_les_autres_est_ignore(
@@ -329,7 +329,7 @@ class TestFindUv:
                 executor, tmp_path, sudo_user="alice", exporter=exporter
             )
         assert res is None
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert rejet.endswith(" : illisible")
 
     def test_find_uv_candidat_rejete_logge_un_warning(
@@ -363,7 +363,7 @@ class TestFindUv:
         exporter = UsbExporter(executor)
         res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res is None
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert "modifiable par le groupe ou les autres" in rejet
         # F11 : la raison nomme la cible résolue fautive
         assert f"(cible : {cible.resolve()})" in rejet
@@ -375,7 +375,7 @@ class TestFindUv:
         _faux_uv(tmp_path, ".local/bin/uv", mode=0o757)
         exporter = UsbExporter(executor)
         _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert "modifiable par le groupe ou les autres" in rejet
         assert "(cible :" not in rejet
 
@@ -390,7 +390,7 @@ class TestFindUv:
         exporter = UsbExporter(executor)
         res, _ = _find_uv_reel(executor, home, sudo_user="alice", exporter=exporter)
         assert res is None
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert "modifiable par le groupe ou les autres" in rejet
         assert "(cible :" not in rejet
 
@@ -407,7 +407,7 @@ class TestFindUv:
         home.symlink_to(reel)
         exporter = UsbExporter(executor)
         _find_uv_reel(executor, home, sudo_user="alice", exporter=exporter)
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert f"(cible : {cible.resolve()})" in rejet
 
     def test_find_uv_boucle_de_liens_est_refusee_avec_raison(
@@ -423,7 +423,7 @@ class TestFindUv:
         exporter = UsbExporter(executor)
         res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res == str(cargo)
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert str(a) in rejet
         assert "illisible (boucle de liens ou erreur d'accès)" in rejet
 
@@ -474,7 +474,7 @@ class TestFindUv:
                 executor, tmp_path, sudo_user="alice", exporter=exporter
             )
         assert res is None
-        (rejet,) = exporter._uv_rejections  # noqa: SLF001
+        (rejet,) = exporter._uv_rejections
         assert f"propriétaire inattendu (uid {tiers})" in rejet
 
     def test_find_uv_proprietaire_root_est_accepte(
@@ -523,7 +523,7 @@ class TestUvRejections:
             ),
             pytest.raises(InstallationError) as exc,
         ):
-            exporter._require_uv()  # noqa: SLF001
+            exporter._require_uv()
         message = str(exc.value)
         assert str(binaire) in message
         assert "modifiable par le groupe ou les autres" in message
@@ -537,7 +537,7 @@ class TestUvRejections:
             patch.object(UsbExporter, "_find_uv", return_value=None),
             pytest.raises(InstallationError, match="Installez uv"),
         ):
-            UsbExporter(executor)._require_uv()  # noqa: SLF001
+            UsbExporter(executor)._require_uv()
 
     def test_dry_run_venv_avertissement_contient_la_raison_du_refus(
         self, tmp_path: Path, project_src: Path, executor: MagicMock
@@ -641,7 +641,7 @@ class TestUvRejections:
         exporter = UsbExporter(executor)
         _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
-        assert len(exporter._uv_rejections) == 1  # noqa: SLF001
+        assert len(exporter._uv_rejections) == 1
 
 
 class TestExportValidation:
@@ -1036,16 +1036,18 @@ class TestExportModeVenv:
     ) -> None:
         """uv introuvable -> erreur claire, rien écrit sur la clé."""
         target_dir = tmp_path / "usb"
-        with patch.object(UsbExporter, "_find_uv", return_value=None):
-            with pytest.raises(InstallationError, match="uv introuvable"):
-                UsbExporter(executor).export(
-                    UsbExportConfig(
-                        target_dir=target_dir,
-                        mode="venv",
-                        project_src=project_src,
-                        cli_entry_point="demo.cli:main",
-                    )
+        with (
+            patch.object(UsbExporter, "_find_uv", return_value=None),
+            pytest.raises(InstallationError, match="uv introuvable"),
+        ):
+            UsbExporter(executor).export(
+                UsbExportConfig(
+                    target_dir=target_dir,
+                    mode="venv",
+                    project_src=project_src,
+                    cli_entry_point="demo.cli:main",
                 )
+            )
 
         executor.run.assert_not_called()
         assert not target_dir.exists()

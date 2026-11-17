@@ -104,7 +104,7 @@ class TestJsonDeviceRepository:
             _device("192.168.1.1", "aa:bb:cc:dd:ee:01"),
             _device("192.168.1.2", "aa:bb:cc:dd:ee:02"),
         ]
-        merged, new, disappeared = repo.merge_scan_results(existing, scanned)
+        _merged, new, _disappeared = repo.merge_scan_results(existing, scanned)
         assert len(new) == 1
         assert new[0].mac == "aa:bb:cc:dd:ee:02"
 

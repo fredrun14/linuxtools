@@ -1,8 +1,9 @@
 """Tests pour le module scripts."""
 
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,13 +13,13 @@ from linuxtools.notification import NotificationConfig
 from linuxtools.scripts import (
     BashScriptConfig,
     BashScriptInstaller,
-    PythonCliConfig,
-    ScriptPaths,
-    LinuxScriptChecker,
     InstalledDependency,
     InstallReport,
-    MissingDependency,
     LinuxCliInstaller,
+    LinuxScriptChecker,
+    MissingDependency,
+    PythonCliConfig,
+    ScriptPaths,
 )
 
 
@@ -799,7 +800,7 @@ class TestLinuxScriptCheckerDeps:
         """Vérifie que le paquet manquant apparaît dans missing."""
         pyproject = self._make_pyproject(tmp_path, ["click>=8.0"])
         self.executor.probe.return_value = _result(success=False)
-        missing, _installed, total, _ = self.checker.check_dependencies(
+        missing, _installed, _total, _ = self.checker.check_dependencies(
             pyproject, tmp_path / "venv", []
         )
         assert len(missing) == 1

@@ -36,17 +36,21 @@ class TestPathCheckerMountPoint:
         """Aucun montage trouvé → ValueError."""
         target = tmp_path / "local" / "data"
         target.mkdir(parents=True)
-        with patch(f"{_MODULE}.os.path.ismount", return_value=False):
-            with pytest.raises(ValueError):
-                PathCheckerMountPoint(target).validate()
+        with (
+            patch(f"{_MODULE}.os.path.ismount", return_value=False),
+            pytest.raises(ValueError, match=r"Aucun point de montage actif pour"),
+        ):
+            PathCheckerMountPoint(target).validate()
 
     def test_message_contient_chemin(self, tmp_path: Path) -> None:
         """Le message d'erreur contient le chemin d'origine."""
         target = tmp_path / "nas" / "backup"
         target.mkdir(parents=True)
-        with patch(f"{_MODULE}.os.path.ismount", return_value=False):
-            with pytest.raises(ValueError, match=str(target)):
-                PathCheckerMountPoint(target).validate()
+        with (
+            patch(f"{_MODULE}.os.path.ismount", return_value=False),
+            pytest.raises(ValueError, match=str(target)),
+        ):
+            PathCheckerMountPoint(target).validate()
 
     def test_nearest_mount_remonte_au_parent(self, tmp_path: Path) -> None:
         """_nearest_mount_point retourne le bon ancêtre."""

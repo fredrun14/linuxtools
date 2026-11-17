@@ -8,7 +8,7 @@ import traceback
 import urllib.error
 import urllib.request
 from email.message import Message
-from typing import Any, Literal, cast
+from typing import Any, Literal, Self, cast
 
 import pytest
 
@@ -31,7 +31,7 @@ class FakeResponse:
         """Initialise avec le statut à retourner."""
         self.status = status
 
-    def __enter__(self) -> "FakeResponse":
+    def __enter__(self) -> Self:
         """Retourne la réponse pour usage en context manager."""
         return self
 
@@ -76,20 +76,22 @@ class TestTelegramNotifierConstruction:
     )
     def test_token_invalide_leve_value_error_sans_la_valeur(self, token: str) -> None:
         """Un token mal formé est refusé sans être cité."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(ValueError, match=r"token invalide") as info:
             TelegramNotifier(token=token, recipients={"alice": 1})
         assert str(info.value) == "token invalide"
 
     def test_destinataires_vides_leve_value_error(self) -> None:
         """Un mapping vide est refusé."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(
+            ValueError, match=r"au moins un destinataire est requis"
+        ) as info:
             TelegramNotifier(token=TOKEN, recipients={})
         assert str(info.value) == "au moins un destinataire est requis"
 
     @pytest.mark.parametrize("label", ["a\nb", "a b", "", "x" * 33, "ok\n", "é"])
     def test_libelle_invalide_leve_value_error_sans_la_valeur(self, label: str) -> None:
         """Un libellé hors [A-Za-z0-9_-]{1,32} est refusé."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(ValueError, match=r"libellé invalide") as info:
             TelegramNotifier(token=TOKEN, recipients={label: 1})
         assert str(info.value) == "libellé invalide"
 
@@ -103,13 +105,13 @@ class TestTelegramNotifierConstruction:
     ) -> None:
         """Un chat_id non entier, booléen ou nul est refusé."""
         recipients: dict[str, Any] = {"alice": chat_id}
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(ValueError, match=r"chat_id invalide pour alice") as info:
             TelegramNotifier(token=TOKEN, recipients=recipients)
         assert str(info.value) == "chat_id invalide pour alice"
 
     def test_chat_id_en_double_leve_value_error(self) -> None:
         """Deux libellés ne peuvent pas partager un chat_id."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(ValueError, match=r"chat_id en double") as info:
             TelegramNotifier(token=TOKEN, recipients={"alice": 4242, "bob": 4242})
         assert str(info.value) == "chat_id en double"
 
@@ -137,7 +139,9 @@ class TestTelegramNotifierConstruction:
         self, timeout: object
     ) -> None:
         """Un timeout hors ]0, 3600] ou non numérique est refusé."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(
+            ValueError, match=r"timeout doit être dans \]0, 3600\] secondes"
+        ) as info:
             TelegramNotifier(
                 token=TOKEN,
                 recipients={"alice": 1},
@@ -164,7 +168,9 @@ class TestTelegramNotifierConstruction:
     ) -> None:
         """Seul un vrai bool est accepté (échec fermé de Q-02)."""
         opener = RecordingOpener()
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(
+            ValueError, match=r"include_message doit être un booléen"
+        ) as info:
             TelegramNotifier(
                 token=TOKEN,
                 recipients={"alice": 1},
@@ -622,7 +628,13 @@ class TestAntiFuite:
         self, token: str, recipients: dict[str, Any]
     ) -> None:
         """Les ValueError du constructeur ne citent pas la valeur."""
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"chat_id en double|chat_id invalide pour alice|libellé "
+                r"invalide|token invalide"
+            ),
+        ) as info:
             TelegramNotifier(token=token, recipients=recipients)
         assert "SECRET-TOKEN" not in str(info.value)
 

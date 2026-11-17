@@ -1,8 +1,8 @@
 """Tests pour `linuxtools.__version__` (lecture dynamique des métadonnées)."""
 
 import importlib
-import importlib.metadata as metadata
 import tomllib
+from importlib import metadata
 from pathlib import Path
 
 import pytest

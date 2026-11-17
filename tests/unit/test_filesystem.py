@@ -1,6 +1,5 @@
 """Tests pour les modules filesystem.linux et filesystem.backup."""
 
-import os
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -28,8 +27,8 @@ class TestLinuxFileManager:
         file_path = str(tmp_path / "test.txt")
         result = manager.create_file(file_path, "contenu test")
         assert result is True
-        assert os.path.exists(file_path)
-        with open(file_path, encoding="utf-8") as f:
+        assert Path(file_path).exists()
+        with Path(file_path).open(encoding="utf-8") as f:
             assert f.read() == "contenu test"
         logger.log_info.assert_called_once()
 
@@ -66,7 +65,13 @@ class TestLinuxFileManager:
     def test_read_file_echec_fichier_inexistant(self) -> None:
         """Lève une exception si le fichier n'existe pas."""
         manager, logger = self._make_manager()
-        with pytest.raises(OSError):
+        with pytest.raises(
+            OSError,
+            match=(
+                r"\[Errno 2\] No such file or directory: "
+                r"'/repertoire_inexistant_xyz/fichier\.txt'"
+            ),
+        ):
             manager.read_file("/repertoire_inexistant_xyz/fichier.txt")
         logger.log_error.assert_called_once()
 
@@ -77,7 +82,7 @@ class TestLinuxFileManager:
         manager, logger = self._make_manager()
         result = manager.delete_file(str(f))
         assert result is True
-        assert not os.path.exists(str(f))
+        assert not Path(f).exists()
         logger.log_info.assert_called_once()
 
     def test_delete_file_echec_inexistant(self) -> None:
@@ -104,7 +109,7 @@ class TestLinuxFileManager:
         file_path = str(tmp_path / "secure.txt")
         manager, _ = self._make_manager()
         manager.create_file(file_path, "contenu")
-        assert os.stat(file_path).st_mode & 0o777 == 0o644
+        assert Path(file_path).stat().st_mode & 0o777 == 0o644
 
 
 class TestLinuxFileBackup:
@@ -122,7 +127,7 @@ class TestLinuxFileBackup:
         backup_path = str(tmp_path / "backup.txt")
         backup, logger = self._make_backup()
         backup.backup(str(source), backup_path)
-        assert os.path.exists(backup_path)
+        assert Path(backup_path).exists()
         logger.log_info.assert_called_once()
 
     def test_backup_source_absente_retourne_false(self, tmp_path: Path) -> None:
@@ -132,7 +137,7 @@ class TestLinuxFileBackup:
         result = backup.backup(str(tmp_path / "inexistant_source.txt"), backup_path)
         assert result is False
         logger.log_warning.assert_called_once()
-        assert not os.path.exists(backup_path)
+        assert not Path(backup_path).exists()
 
     def test_backup_retourne_true_si_succes(self, tmp_path: Path) -> None:
         """Retourne True quand la sauvegarde réussit."""
@@ -150,8 +155,10 @@ class TestLinuxFileBackup:
         real_dest.write_text("ne pas écraser")
         link_dest = tmp_path / "link_dest.txt"
         link_dest.symlink_to(real_dest)
-        backup, logger = self._make_backup()
-        with pytest.raises(OSError):
+        backup, _logger = self._make_backup()
+        with pytest.raises(
+            OSError, match=r"\[Errno 40\] Too many levels of symbolic links"
+        ):
             backup.backup(str(source), str(link_dest))
         assert real_dest.read_text() == "ne pas écraser"
 
@@ -160,7 +167,13 @@ class TestLinuxFileBackup:
         source = tmp_path / "source.txt"
         source.write_text("x")
         backup, logger = self._make_backup()
-        with pytest.raises(OSError):
+        with pytest.raises(
+            OSError,
+            match=(
+                r"\[Errno 2\] No such file or directory: "
+                r"'/repertoire_inexistant_xyz/backup\.txt'"
+            ),
+        ):
             backup.backup(str(source), "/repertoire_inexistant_xyz/backup.txt")
         logger.log_error.assert_called_once()
 
@@ -171,7 +184,7 @@ class TestLinuxFileBackup:
         restore_path = str(tmp_path / "restaure.txt")
         backup, logger = self._make_backup()
         backup.restore(restore_path, str(backup_file))
-        assert os.path.exists(restore_path)
+        assert Path(restore_path).exists()
         logger.log_info.assert_called_once()
 
     def test_restore_backup_inexistant(self, tmp_path: Path) -> None:
@@ -190,12 +203,14 @@ class TestLinuxFileBackup:
         file_path = str(tmp_path / "restored.txt")
         logger = MagicMock()
         backup = LinuxFileBackup(logger)
-        with patch(
-            "linuxtools.filesystem.backup._copy_secure",
-            side_effect=OSError("disk error"),
+        with (
+            patch(
+                "linuxtools.filesystem.backup._copy_secure",
+                side_effect=OSError("disk error"),
+            ),
+            pytest.raises(OSError, match=r"disk error"),
         ):
-            with pytest.raises(OSError):
-                backup.restore(file_path, backup_path)
+            backup.restore(file_path, backup_path)
         logger.log_error.assert_called()
 
     def test_restore_refuse_symlink_destination(self, tmp_path: Path) -> None:
@@ -206,8 +221,10 @@ class TestLinuxFileBackup:
         real_dest.write_text("ne pas écraser")
         link_dest = tmp_path / "link.txt"
         link_dest.symlink_to(real_dest)
-        backup, logger = self._make_backup()
-        with pytest.raises(OSError):
+        backup, _logger = self._make_backup()
+        with pytest.raises(
+            OSError, match=r"\[Errno 40\] Too many levels of symbolic links"
+        ):
             backup.restore(str(link_dest), str(backup_file))
         assert real_dest.read_text() == "ne pas écraser"
 
@@ -218,8 +235,10 @@ class TestLinuxFileBackup:
         link_src = tmp_path / "link_src.txt"
         link_src.symlink_to(real)
         backup_path = tmp_path / "bak.txt"
-        backup, logger = self._make_backup()
-        with pytest.raises(OSError):
+        backup, _logger = self._make_backup()
+        with pytest.raises(
+            OSError, match=r"\[Errno 40\] Too many levels of symbolic links"
+        ):
             backup.backup(str(link_src), str(backup_path))
         assert not backup_path.exists()
 
@@ -269,16 +288,16 @@ class TestCopytreeSecure:
         src = self._make_tree(tmp_path / "src")
         dst = tmp_path / "dst"
         copytree_secure(src, dst)
-        assert os.stat(dst / "a.txt").st_mode & 0o777 == 0o644
-        assert os.stat(dst / "sub" / "b.txt").st_mode & 0o777 == 0o644
+        assert Path(dst / "a.txt").stat().st_mode & 0o777 == 0o644
+        assert Path(dst / "sub" / "b.txt").stat().st_mode & 0o777 == 0o644
 
     def test_repertoires_ont_permissions_0755(self, tmp_path: Path) -> None:
         """Répertoires créés avec permissions 0o755."""
         src = self._make_tree(tmp_path / "src")
         dst = tmp_path / "dst"
         copytree_secure(src, dst)
-        assert os.stat(dst).st_mode & 0o777 == 0o755
-        assert os.stat(dst / "sub").st_mode & 0o777 == 0o755
+        assert Path(dst).stat().st_mode & 0o777 == 0o755
+        assert Path(dst / "sub").stat().st_mode & 0o777 == 0o755
 
     def test_dirs_exist_ok_false_leve_FileExistsError(self, tmp_path: Path) -> None:
         """Lève FileExistsError si dst existe et dirs_exist_ok=False."""
@@ -354,7 +373,7 @@ class TestCopytreeSecure:
         real.mkdir()
         link = tmp_path / "link"
         link.symlink_to(real)
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match=r"Source est un symlink"):
             copytree_secure(link, tmp_path / "dst")
 
     def test_repertoire_vide(self, tmp_path: Path) -> None:
@@ -467,7 +486,7 @@ class TestWriteTextSecureExclusive:
 
         with (
             patch("linuxtools.filesystem.linux.os.fchmod", side_effect=OSError),
-            pytest.raises(OSError),
+            pytest.raises(OSError, match=r"^$"),
         ):
             write_text_secure(cible, "x=1\n", 0o600, exclusive=True)
 

@@ -376,7 +376,7 @@ class TestSHA256IntegrityCheckerOrRaise:
         checker = SHA256IntegrityChecker(logger)
 
         # Act / Assert
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match=r"\[Errno 2\] No such file or directory"):
             checker.verify_file_or_raise(
                 tmp_path / "inexistant.txt",
                 tmp_path / "dest.txt",

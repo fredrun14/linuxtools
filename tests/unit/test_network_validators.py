@@ -29,31 +29,39 @@ class TestValidateIpv4:
 
     def test_ip_zero(self) -> None:
         """Adresse 0.0.0.0 valide."""
-        assert validate_ipv4("0.0.0.0") == "0.0.0.0"
+        assert validate_ipv4("0.0.0.0") == "0.0.0.0"  # noqa: S104 - 0.0.0.0 testée volontairement
 
     def test_ip_octet_hors_plage(self) -> None:
         """Octet superieur a 255 leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : '192\.168\.1\.256'"
+        ):
             validate_ipv4("192.168.1.256")
 
     def test_ip_trop_octets(self) -> None:
         """Trop d'octets leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : '192\.168\.1\.1\.1'"
+        ):
             validate_ipv4("192.168.1.1.1")
 
     def test_ip_lettres(self) -> None:
         """Lettres dans l'adresse leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : 'abc\.def\.ghi\.jkl'"
+        ):
             validate_ipv4("abc.def.ghi.jkl")
 
     def test_ip_vide(self) -> None:
         """Chaine vide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : ''"):
             validate_ipv4("")
 
     def test_ip_negative(self) -> None:
         """Octet negatif leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : '192\.168\.1\.-1'"
+        ):
             validate_ipv4("192.168.1.-1")
 
 
@@ -74,27 +82,33 @@ class TestValidateMac:
 
     def test_mac_invalide_tirets(self) -> None:
         """MAC avec tirets leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse MAC invalide : 'aa-bb-cc-dd-ee-ff'"
+        ):
             validate_mac("aa-bb-cc-dd-ee-ff")
 
     def test_mac_trop_courte(self) -> None:
         """MAC trop courte leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse MAC invalide : 'aa:bb:cc'"):
             validate_mac("aa:bb:cc")
 
     def test_mac_vide(self) -> None:
         """Chaine vide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse MAC invalide : ''"):
             validate_mac("")
 
     def test_mac_caractere_invalide(self) -> None:
         """Caracteres non hexadecimaux leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse MAC invalide : 'gg:hh:ii:jj:kk:ll'"
+        ):
             validate_mac("gg:hh:ii:jj:kk:ll")
 
     def test_validate_mac_rejette_saut_de_ligne_final(self) -> None:
         """Un saut de ligne final leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse MAC invalide : 'aa:bb:cc:dd:ee:ff\\n'"
+        ):
             validate_mac("aa:bb:cc:dd:ee:ff\n")
 
     def test_validate_mac_case_upper_retourne_majuscules(self) -> None:
@@ -139,22 +153,28 @@ class TestValidateCidr:
 
     def test_cidr_masque_33(self) -> None:
         """Masque 33 leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Masque CIDR hors plage \(0-32\) : 33"):
             validate_cidr("192.168.1.0/33")
 
     def test_cidr_sans_masque(self) -> None:
         """Adresse sans masque leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Notation CIDR invalide : '192\.168\.1\.0'"
+        ):
             validate_cidr("192.168.1.0")
 
     def test_cidr_ip_invalide(self) -> None:
         """IP invalide dans CIDR leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Adresse IPv4 invalide : '999\.168\.1\.0'"
+        ):
             validate_cidr("999.168.1.0/24")
 
     def test_validate_cidr_rejette_saut_de_ligne_final(self) -> None:
         """Un saut de ligne final leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Notation CIDR invalide : '192\.168\.1\.0/24\\n'"
+        ):
             validate_cidr("192.168.1.0/24\n")
 
 
@@ -175,30 +195,33 @@ class TestValidateHostname:
 
     def test_hostname_commence_par_tiret(self) -> None:
         """Nom commencant par tiret leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Nom d'hote invalide : '-invalid'"):
             validate_hostname("-invalid")
 
     def test_hostname_termine_par_tiret(self) -> None:
         """Nom terminant par tiret leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Nom d'hote invalide : 'invalid-'"):
             validate_hostname("invalid-")
 
     def test_hostname_trop_long(self) -> None:
         """Nom de 64 caracteres leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=rf"Nom d'hote trop long \(64 > 63\) : '{'a' * 64}'",
+        ):
             validate_hostname("a" * 64)
 
     def test_hostname_vide(self) -> None:
         """Chaine vide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Le nom d'hote ne peut pas etre vide"):
             validate_hostname("")
 
     def test_hostname_caractere_special(self) -> None:
         """Caractere special leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Nom d'hote invalide : 'nas@home'"):
             validate_hostname("nas@home")
 
     def test_validate_hostname_rejette_saut_de_ligne_final(self) -> None:
         """Un saut de ligne final leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Nom d'hote invalide : 'host\\n'"):
             validate_hostname("host\n")

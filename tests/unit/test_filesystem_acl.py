@@ -63,7 +63,7 @@ class TestEnsureSharedGroupDirectory:
                 executor=executor,
             )
 
-        result = os.stat(directory)
+        result = Path(directory).stat()
         assert result.st_gid == current_gid
         assert stat.S_IMODE(result.st_mode) == 0o2770
         assert stat.S_ISGID & result.st_mode
@@ -84,7 +84,7 @@ class TestEnsureSharedGroupDirectory:
         """GID réel du répertoire différent du GID attendu → fchown appelé."""
         directory = tmp_path / "partage"
         directory.mkdir()
-        real_stat = os.stat(directory)
+        real_stat = Path(directory).stat()
         fake_stat = MagicMock()
         fake_stat.st_gid = real_stat.st_gid + 1
         fake_stat.st_mode = real_stat.st_mode
@@ -178,16 +178,18 @@ class TestEnsureSharedGroupDirectory:
         link = tmp_path / "lien"
         link.symlink_to(real_dir)
 
-        with patch(
-            "linuxtools.filesystem.acl.grp.getgrnam",
-            return_value=_mock_grp(os.getgid()),
+        with (
+            patch(
+                "linuxtools.filesystem.acl.grp.getgrnam",
+                return_value=_mock_grp(os.getgid()),
+            ),
+            pytest.raises(OSError, match=r"\[Errno 20\] Not a directory"),
         ):
-            with pytest.raises(OSError):
-                ensure_shared_group_directory(
-                    link,
-                    "partage-lan",
-                    executor=executor,
-                )
+            ensure_shared_group_directory(
+                link,
+                "partage-lan",
+                executor=executor,
+            )
         executor.run.assert_not_called()
 
     def test_leve_value_error_si_nom_groupe_invalide(
@@ -216,16 +218,18 @@ class TestEnsureSharedGroupDirectory:
         directory = tmp_path / "partage"
         directory.mkdir()
 
-        with patch(
-            "linuxtools.filesystem.acl.grp.getgrnam",
-            side_effect=KeyError("partage-lan"),
+        with (
+            patch(
+                "linuxtools.filesystem.acl.grp.getgrnam",
+                side_effect=KeyError("partage-lan"),
+            ),
+            pytest.raises(KeyError),
         ):
-            with pytest.raises(KeyError):
-                ensure_shared_group_directory(
-                    directory,
-                    "partage-lan",
-                    executor=executor,
-                )
+            ensure_shared_group_directory(
+                directory,
+                "partage-lan",
+                executor=executor,
+            )
         executor.run.assert_not_called()
 
     def test_ne_leve_plus_command_execution_error_si_setfacl_echoue(

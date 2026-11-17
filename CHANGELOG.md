@@ -35,6 +35,10 @@
 
 ### Modifié
 
+- refactor(lint): ruff `ALL` (base commune 3/6) : règles de la base commune
+  activées, `tests/` entièrement corrigé (445 alertes) et désormais contrôlé
+  par `ruff check src/ tests/` (Makefile, hook, CI) ; les règles encore en
+  alerte sur `src/` sont ignorées dans un bloc temporaire, retiré à l'étape 4/6.
 - chore(git): `.git-blame-ignore-revs` (commit de reformatage à 88, base commune
   2/6), activé par `make hooks` (`blame.ignoreRevsFile`) ; fichier parasite
   `=2.0` retiré de la racine.

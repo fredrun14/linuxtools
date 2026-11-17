@@ -17,7 +17,7 @@ def _executer_sans_webapitools(
     code: str,
 ) -> subprocess.CompletedProcess[str]:
     """Exécute `code` dans un sous-processus où `webapitools` est bloqué."""
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 - args fixes, sans entrée externe
         [sys.executable, "-c", _BLOCAGE + code],
         capture_output=True,
         text=True,
