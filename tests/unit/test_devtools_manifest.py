@@ -72,9 +72,7 @@ def test_parse_refuse_toml_invalide() -> None:
 
 def test_parse_refuse_sans_nom_de_projet() -> None:
     with pytest.raises(ManifestError):
-        ConsumerManifest.parse(
-            f'[project]\ndependencies = ["{_PIN}"]\n{_CONTRAT}'
-        )
+        ConsumerManifest.parse(f'[project]\ndependencies = ["{_PIN}"]\n{_CONTRAT}')
 
 
 def test_parse_refuse_sans_pin() -> None:
@@ -123,9 +121,7 @@ def test_parse_refuse_contrat_absent_ou_invalide(contrat: str) -> None:
 def test_parse_refuse_sync_args_hors_liste_blanche(args: list[str]) -> None:
     liste = ", ".join(f'"{a}"' for a in args)
     contrat = (
-        "[tool.linuxtools.consumer]\n"
-        f"sync-args = [{liste}]\n"
-        'checks = [["pytest"]]\n'
+        f'[tool.linuxtools.consumer]\nsync-args = [{liste}]\nchecks = [["pytest"]]\n'
     )
 
     with pytest.raises(ManifestError, match="sync-args"):
@@ -145,9 +141,7 @@ def test_parse_accepte_les_sync_args_de_la_liste_blanche() -> None:
     ]
     liste = ", ".join(f'"{a}"' for a in args)
     contrat = (
-        "[tool.linuxtools.consumer]\n"
-        f"sync-args = [{liste}]\n"
-        'checks = [["pytest"]]\n'
+        f'[tool.linuxtools.consumer]\nsync-args = [{liste}]\nchecks = [["pytest"]]\n'
     )
 
     manifest = ConsumerManifest.parse(_pyproject(contrat=contrat))
@@ -172,10 +166,7 @@ def test_parse_refuse_argv0_avec_separateur(argv0: str) -> None:
 
 
 def test_parse_detecte_dependance_maison() -> None:
-    maison = (
-        "webapitools @ git+https://git.ricfasohel.fr/fred/"
-        "webapitools.git@v0.13.0"
-    )
+    maison = "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0"
 
     manifest = ConsumerManifest.parse(_pyproject(deps=(_PIN, maison)))
 
@@ -262,8 +253,7 @@ def test_rewrite_pin_refuse_pin_seulement_en_commentaire() -> None:
 @pytest.mark.parametrize(
     "copie",
     [
-        "# linuxtools @ git+https://git.ricfasohel.fr/fred/"
-        "linuxtools.git@v2.10.0\n",
+        "# linuxtools @ git+https://git.ricfasohel.fr/fred/linuxtools.git@v2.10.0\n",
         '[tool.autre]\nnote = "linuxtools @ git+https://git.ricfasohel.fr/'
         'fred/linuxtools.git@v2.10.0"\n',
     ],

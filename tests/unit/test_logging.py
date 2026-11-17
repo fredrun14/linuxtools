@@ -41,9 +41,7 @@ class _ConfigANotationPointee:
         """Stocke les valeurs simulées, indexées par clé pointée."""
         self._valeurs = valeurs
 
-    def get(
-        self, key_path: str, default: Any = None
-    ) -> Any:  # noqa: ANN401
+    def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
         """Retourne la valeur associée à ``key_path``, ou ``default``."""
         return self._valeurs.get(key_path, default)
 
@@ -57,7 +55,8 @@ class TestBaseFileLogger:
         assert isinstance(logger, _BaseFileLogger)
 
     def test_rotating_file_logger_est_base_file_logger(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """RotatingFileLogger est une instance de _BaseFileLogger."""
         logger = RotatingFileLogger(tmp_path / "test.log")
@@ -126,10 +125,7 @@ class TestFileLogger:
         """Test de la configuration depuis un dictionnaire."""
         log_file = tmp_path / "test.log"
         config = {
-            "logging": {
-                "level": "DEBUG",
-                "format": "%(levelname)s - %(message)s"
-            }
+            "logging": {"level": "DEBUG", "format": "%(levelname)s - %(message)s"}
         }
 
         logger = FileLogger(str(log_file), config=config)
@@ -145,7 +141,7 @@ class TestFileLogger:
 
         logger.log_info("Message avec accents: éàü")
 
-        content = log_file.read_text(encoding='utf-8')
+        content = log_file.read_text(encoding="utf-8")
         assert "éàü" in content
 
     def test_log_to_file_direct(self, tmp_path: Path) -> None:
@@ -182,9 +178,8 @@ class TestFileLogger:
         # ConfigurationManager-style : get() accepte la notation pointée
         class ConfigDotNotation:
             """Config avec notation pointée (simule ConfigurationManager)."""
-            def get(
-                self, key: str, default: Any = None
-            ) -> Any:  # noqa: ANN401
+
+            def get(self, key: str, default: Any = None) -> Any:  # noqa: ANN401
                 return {"logging.level": "VERBOSE"}.get(key, default)
 
         with pytest.raises(ValueError, match="VERBOSE"):
@@ -207,7 +202,8 @@ class TestFileLogger:
         assert "SUCCESS: opération réussie" in content
 
     def test_file_logger_accepte_un_objet_a_notation_pointee(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """FileLogger accepte un objet get(key_path, default)."""
         log_file = tmp_path / "test.log"
@@ -273,9 +269,8 @@ class TestFileLoggerConsole:
 
         class ConfigTypeError:
             """Config dont get() lève TypeError pour les clés pointées."""
-            def get(
-                self, key: str, default: Any = None
-            ) -> Any:  # noqa: ANN401
+
+            def get(self, key: str, default: Any = None) -> Any:  # noqa: ANN401
                 # Simule un objet qui ne gère pas les clés en notation pointée
                 if "." in key:
                     raise TypeError("Clé pointée non supportée")
@@ -295,13 +290,15 @@ class TestFileLoggerConsole:
 
         class ConfigSansGet:
             """Config sans methode get()."""
+
             pass
 
         # Passage volontaire d'un objet ne respectant ni dict ni
         # _SupportsGet : vérifie le repli défensif (hasattr) de
         # _resolve_config face à un appelant non typé.
         logger = FileLogger(
-            log_file, config=ConfigSansGet()  # type: ignore[arg-type]
+            log_file,
+            config=ConfigSansGet(),  # type: ignore[arg-type]
         )
         logger.log_info("Test sans get")
         content = (tmp_path / "test.log").read_text(encoding="utf-8")
@@ -520,9 +517,7 @@ class TestFileLoggerColored:
     ) -> None:
         """FileLogger(colored_console=True) colore la sortie console."""
         log_file = str(tmp_path / "colored.log")
-        logger = FileLogger(
-            log_file, console_output=True, colored_console=True
-        )
+        logger = FileLogger(log_file, console_output=True, colored_console=True)
         logger.log_info("message coloré")
         captured = capsys.readouterr()
         assert AnsiColors.BLUE in captured.err
@@ -530,9 +525,7 @@ class TestFileLoggerColored:
     def test_fichier_log_sans_codes_ansi(self, tmp_path: Path) -> None:
         """Le fichier log ne contient jamais de codes ANSI."""
         log_file = str(tmp_path / "plain.log")
-        logger = FileLogger(
-            log_file, console_output=True, colored_console=True
-        )
+        logger = FileLogger(log_file, console_output=True, colored_console=True)
         logger.log_info("contenu fichier")
         content = (tmp_path / "plain.log").read_text(encoding="utf-8")
         assert AnsiColors.BLUE not in content
@@ -652,9 +645,7 @@ class TestRotatingFileLogger:
 
     def test_accepte_str_et_path(self, tmp_path: Path) -> None:
         """RotatingFileLogger accepte str et Path pour log_file."""
-        args: list[str | Path] = [
-            str(tmp_path / "a.log"), tmp_path / "b.log"
-        ]
+        args: list[str | Path] = [str(tmp_path / "a.log"), tmp_path / "b.log"]
         for arg in args:
             logger = RotatingFileLogger(arg)
             logger.log_info("ok")
@@ -692,7 +683,9 @@ class TestRotatingFileLogger:
         log_file = tmp_path / "run.log"
         logger = RotatingFileLogger(log_file, max_bytes=100, backup_count=2)
         for i in range(20):
-            logger.log_info(f"ligne suffisamment longue pour déclencher la rotation {i}")
+            logger.log_info(
+                f"ligne suffisamment longue pour déclencher la rotation {i}"
+            )
         assert (tmp_path / "run.log.1").exists()
 
     def test_rotation_limite_backup_count(self, tmp_path: Path) -> None:
@@ -700,7 +693,9 @@ class TestRotatingFileLogger:
         log_file = tmp_path / "run.log"
         logger = RotatingFileLogger(log_file, max_bytes=100, backup_count=2)
         for i in range(50):
-            logger.log_info(f"ligne suffisamment longue pour déclencher la rotation {i}")
+            logger.log_info(
+                f"ligne suffisamment longue pour déclencher la rotation {i}"
+            )
         assert not (tmp_path / "run.log.3").exists()
 
     def test_permissions_fichier_securisees(self, tmp_path: Path) -> None:
@@ -721,9 +716,7 @@ class TestRotatingFileLogger:
     def test_config_dict_niveau_warning(self, tmp_path: Path) -> None:
         """La config dict est respectée pour le niveau de log."""
         log_file = tmp_path / "run.log"
-        logger = RotatingFileLogger(
-            log_file, config={"logging": {"level": "WARNING"}}
-        )
+        logger = RotatingFileLogger(log_file, config={"logging": {"level": "WARNING"}})
         logger.log_info("ne doit pas apparaître")
         logger.log_warning("doit apparaître")
         content = log_file.read_text(encoding="utf-8")
@@ -731,7 +724,8 @@ class TestRotatingFileLogger:
         assert "doit apparaître" in content
 
     def test_rotating_file_logger_accepte_un_objet_a_notation_pointee(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """RotatingFileLogger accepte un objet get(key_path, default)."""
         log_file = tmp_path / "run.log"
@@ -761,20 +755,22 @@ class TestBuildLogger:
 
     def test_type_file_retourne_file_logger(self, tmp_path: Path) -> None:
         """type='file' retourne un FileLogger."""
-        logger = build_logger({
-            "type": "file",
-            "file": str(tmp_path / "app.log"),
-        })
+        logger = build_logger(
+            {
+                "type": "file",
+                "file": str(tmp_path / "app.log"),
+            }
+        )
         assert isinstance(logger, FileLogger)
 
-    def test_type_rotating_retourne_rotating_file_logger(
-        self, tmp_path: Path
-    ) -> None:
+    def test_type_rotating_retourne_rotating_file_logger(self, tmp_path: Path) -> None:
         """type='rotating' retourne un RotatingFileLogger."""
-        logger = build_logger({
-            "type": "rotating",
-            "file": str(tmp_path / "app.log"),
-        })
+        logger = build_logger(
+            {
+                "type": "rotating",
+                "file": str(tmp_path / "app.log"),
+            }
+        )
         assert isinstance(logger, RotatingFileLogger)
 
     def test_type_inconnu_leve_valueerror(self) -> None:
@@ -795,35 +791,35 @@ class TestBuildLogger:
     def test_level_transmis_au_file_logger(self, tmp_path: Path) -> None:
         """Le niveau de log est transmis au FileLogger."""
         log_file = tmp_path / "app.log"
-        logger = build_logger({
-            "type": "file",
-            "file": str(log_file),
-            "level": "WARNING",
-        })
+        logger = build_logger(
+            {
+                "type": "file",
+                "file": str(log_file),
+                "level": "WARNING",
+            }
+        )
         logger.log_info("filtré")
         logger.log_warning("visible")
         content = log_file.read_text(encoding="utf-8")
         assert "filtré" not in content
         assert "visible" in content
 
-    def test_max_bytes_transmis_au_rotating_logger(
-        self, tmp_path: Path
-    ) -> None:
+    def test_max_bytes_transmis_au_rotating_logger(self, tmp_path: Path) -> None:
         """max_bytes et backup_count sont transmis au RotatingFileLogger."""
         log_file = tmp_path / "app.log"
-        logger = build_logger({
-            "type": "rotating",
-            "file": str(log_file),
-            "max_bytes": 100,
-            "backup_count": 2,
-        })
+        logger = build_logger(
+            {
+                "type": "rotating",
+                "file": str(log_file),
+                "max_bytes": 100,
+                "backup_count": 2,
+            }
+        )
         for i in range(20):
             logger.log_info(f"ligne suffisamment longue pour tourner {i}")
         assert (tmp_path / "app.log.1").exists()
 
-    def test_logger_retourne_est_instance_de_logger(
-        self, tmp_path: Path
-    ) -> None:
+    def test_logger_retourne_est_instance_de_logger(self, tmp_path: Path) -> None:
         """Tous les types retournés implémentent l'interface Logger."""
         configs = [
             {"type": "console"},

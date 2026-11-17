@@ -32,8 +32,7 @@ def _assert_no_secret_leaked(logger: MagicMock, *secret_values: str) -> None:
         rendered = str(mock_call)
         for value in secret_values:
             assert value not in rendered, (
-                f"Valeur secrète {value!r} trouvée dans un appel "
-                f"logger : {rendered}"
+                f"Valeur secrète {value!r} trouvée dans un appel logger : {rendered}"
             )
 
 
@@ -121,9 +120,7 @@ class TestContentSink:
         qui construit WriteOutcome.detail."""
         sentinelle = "SECRET_SENTINELLE"
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.return_value = _result(
-            False, stderr="permission denied"
-        )
+        executor.run.return_value = _result(False, stderr="permission denied")
         destination = RemoteDestination(executor)
         logger = MagicMock()
         sink = ContentSink(destination, logger=logger)
@@ -156,9 +153,7 @@ class TestContentSink:
 class TestTomlSink:
     """Tests de TomlSink.write (rendu TOML puis délégation)."""
 
-    def test_toml_sink_delegue_le_rendu_puis_le_depot(
-        self, tmp_path: Path
-    ) -> None:
+    def test_toml_sink_delegue_le_rendu_puis_le_depot(self, tmp_path: Path) -> None:
         """Le mapping est rendu en TOML puis déposé via ContentSink,
         local comme distant."""
         dest_path = tmp_path / "deployed.toml"

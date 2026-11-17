@@ -109,9 +109,7 @@ class LinuxMountUnitManager(MountUnitManager):
         self.logger.log_info(f"Unité de montage installée pour {config.where}")
         return True
 
-    def enable_mount(
-        self, mount_path: str, with_automount: bool = False
-    ) -> bool:
+    def enable_mount(self, mount_path: str, with_automount: bool = False) -> bool:
         """
         Active une unité .mount (ou .automount si spécifié).
 
@@ -181,9 +179,7 @@ class LinuxMountUnitManager(MountUnitManager):
         # Recharger systemd
         if success:
             self.reload_systemd()
-            self.logger.log_info(
-                f"Unités de montage supprimées pour {mount_path}"
-            )
+            self.logger.log_info(f"Unités de montage supprimées pour {mount_path}")
 
         return success
 

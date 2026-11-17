@@ -67,9 +67,7 @@ class TestExport:
     ) -> None:
         # Arrange
         source = tmp_path / ".zshrc"
-        source.write_text(
-            "export A=1\n\n\nexport B=2\n", encoding="utf-8"
-        )
+        source.write_text("export A=1\n\n\nexport B=2\n", encoding="utf-8")
         dest = tmp_path / "out.toml"
         # Act
         exporter.export(source, dest)
@@ -82,9 +80,7 @@ class TestExport:
     ) -> None:
         # Arrange — commentaire en fin de fichier sans contenu suivant
         source = tmp_path / ".zshrc"
-        source.write_text(
-            "export A=1\n# commentaire orphelin\n", encoding="utf-8"
-        )
+        source.write_text("export A=1\n# commentaire orphelin\n", encoding="utf-8")
         dest = tmp_path / "out.toml"
         # Act
         exporter.export(source, dest)
@@ -127,8 +123,9 @@ class TestExport:
     ) -> None:
         # Arrange — contenu avec backslash et guillemet double
         source = tmp_path / ".vimrc"
-        source.write_text('set backspace=indent,eol,start\nlet g:x="val"\n',
-                           encoding="utf-8")
+        source.write_text(
+            'set backspace=indent,eol,start\nlet g:x="val"\n', encoding="utf-8"
+        )
         dest = tmp_path / "out.toml"
         # Act
         exporter.export(source, dest)
@@ -196,19 +193,13 @@ class TestExport:
 class TestIsIni:
     """Tests pour ConfTomlExporter._is_ini."""
 
-    def test_returns_true_for_ini_content(
-        self, exporter: ConfTomlExporter
-    ) -> None:
+    def test_returns_true_for_ini_content(self, exporter: ConfTomlExporter) -> None:
         assert exporter._is_ini(["[main]", "key=value"]) is True
 
-    def test_returns_false_for_flat_content(
-        self, exporter: ConfTomlExporter
-    ) -> None:
+    def test_returns_false_for_flat_content(self, exporter: ConfTomlExporter) -> None:
         assert exporter._is_ini(["export PATH=/usr/bin", "alias ll=ls"]) is False
 
-    def test_returns_false_for_empty_lines(
-        self, exporter: ConfTomlExporter
-    ) -> None:
+    def test_returns_false_for_empty_lines(self, exporter: ConfTomlExporter) -> None:
         assert exporter._is_ini(["", "  "]) is False
 
 

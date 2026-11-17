@@ -13,7 +13,7 @@ help:
 	@echo "  make test-integration  Lancer uniquement les tests d'intégration"
 	@echo "  make test-verbose   Lancer les tests en mode verbose"
 	@echo "  make test-cov       Lancer les tests avec couverture"
-	@echo "  make format-check   Gate de format (ruff format --check, src + tests devtools)"
+	@echo "  make format-check   Gate de format (ruff format --check, src + tests)"
 	@echo "  make lint           Vérifier le style PEP8, ruff et le typage (mypy)"
 	@echo "  make clean          Nettoyer les fichiers générés"
 	@echo "  make build          Construire wheel + sdist (uv build)"
@@ -60,14 +60,10 @@ test-cov:
 	uv run pytest tests/ --cov-report=term-missing
 
 # Linting
-# Le gate de format couvre src/ et les tests de linuxtools.devtools (le
-# reste de tests/ n'est pas encore formaté : 57 fichiers hérités).
-DEVTOOLS_TESTS := tests/unit/scripted_executor.py $(wildcard tests/unit/test_devtools_*.py) tests/integration/test_devtools_bumper.py
-
 # Source unique du gate de format : `lint`, le hook pre-commit et la CI
 # l'appellent tous (aucune copie de la liste de fichiers ailleurs).
 format-check:
-	uv run ruff format --check src/ $(DEVTOOLS_TESTS)
+	uv run ruff format --check src/ tests/
 
 lint: format-check
 	uv run ruff check src/

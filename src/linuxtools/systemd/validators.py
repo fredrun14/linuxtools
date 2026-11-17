@@ -13,9 +13,7 @@ _UNIT_NAME_RE = re.compile(
 _SERVICE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 # Extensions d'unités systemd autorisées
-_EXTENSIONS_VALIDES = frozenset(
-    {"service", "timer", "mount", "automount", "socket"}
-)
+_EXTENSIONS_VALIDES = frozenset({"service", "timer", "mount", "automount", "socket"})
 
 # Extensions admises dans ``After=`` : les précédentes + ``target``
 _EXTENSIONS_DEPENDANCE = _EXTENSIONS_VALIDES | {"target"}
@@ -42,9 +40,7 @@ def _validate_name(
     if not name:
         raise ValueError(f"Le nom {entity} ne peut pas être vide")
     if ".." in name or "/" in name:
-        raise ValueError(
-            f"Nom {entity} invalide (traversée interdite) : {name!r}"
-        )
+        raise ValueError(f"Nom {entity} invalide (traversée interdite) : {name!r}")
     if not pattern.fullmatch(name):
         raise ValueError(f"Nom {entity} invalide : {name!r}")
     return name
@@ -68,15 +64,11 @@ def reject_control_chars(value: str, champ: str) -> str:
         ValueError: Si value contient un caractère de contrôle.
     """
     if any(ord(c) < 32 for c in value):
-        raise ValueError(
-            f"Caractère de contrôle interdit dans le champ '{champ}'."
-        )
+        raise ValueError(f"Caractère de contrôle interdit dans le champ '{champ}'.")
     return value
 
 
-def _validate_unit_with_extensions(
-    unit_name: str, extensions: frozenset[str]
-) -> str:
+def _validate_unit_with_extensions(unit_name: str, extensions: frozenset[str]) -> str:
     """Valide un nom complet d'unité contre une liste d'extensions.
 
     Args:

@@ -81,9 +81,7 @@ class TestNetworkConfig:
         config = NetworkConfig(
             cidr="192.168.1.0/24",
             interface="eth0",
-            dhcp_range=DhcpRange(
-                start="192.168.1.100", end="192.168.1.254"
-            ),
+            dhcp_range=DhcpRange(start="192.168.1.100", end="192.168.1.254"),
             dns=DnsConfig(domain="home.local"),
             inventory_path="inv.json",
             scan_timeout=60,
@@ -108,21 +106,15 @@ class TestNetworkConfig:
 
     def test_avec_dhcp_range(self) -> None:
         """DhcpRange integre."""
-        dhcp = DhcpRange(
-            start="192.168.1.100", end="192.168.1.200"
-        )
-        config = NetworkConfig(
-            cidr="192.168.1.0/24", dhcp_range=dhcp
-        )
+        dhcp = DhcpRange(start="192.168.1.100", end="192.168.1.200")
+        config = NetworkConfig(cidr="192.168.1.0/24", dhcp_range=dhcp)
         assert config.dhcp_range is not None
         assert config.dhcp_range.start == "192.168.1.100"
 
     def test_avec_dns_config(self) -> None:
         """DnsConfig integre."""
         dns = DnsConfig(domain="test.local")
-        config = NetworkConfig(
-            cidr="192.168.1.0/24", dns=dns
-        )
+        config = NetworkConfig(cidr="192.168.1.0/24", dns=dns)
         assert config.dns.domain == "test.local"
 
     def test_frozen(self) -> None:

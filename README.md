@@ -3559,7 +3559,7 @@ Les contributions sont les bienvenues !
 
 ### Guidelines
 
-- Suivre PEP 8 (max 79 caractères par ligne)
+- Suivre PEP 8 (max 88 caractères par ligne)
 - Docstrings en français (PEP 257)
 - Type hints requis (PEP 484)
 - Respecter l'architecture SOLID existante

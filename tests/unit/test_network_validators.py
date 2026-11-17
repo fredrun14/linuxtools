@@ -99,10 +99,7 @@ class TestValidateMac:
 
     def test_validate_mac_case_upper_retourne_majuscules(self) -> None:
         """case="upper" retourne la MAC en majuscules."""
-        assert (
-            validate_mac("aa:bb:cc:dd:ee:ff", case="upper")
-            == "AA:BB:CC:DD:EE:FF"
-        )
+        assert validate_mac("aa:bb:cc:dd:ee:ff", case="upper") == "AA:BB:CC:DD:EE:FF"
 
     def test_validate_mac_case_defaut_retourne_minuscules(self) -> None:
         """Sans case, la MAC reste retournee en minuscules."""

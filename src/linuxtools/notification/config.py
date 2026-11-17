@@ -50,9 +50,7 @@ class NotificationConfig:
             if not valeur:
                 raise ValueError(f"{champ} est requis")
             if any(ord(c) < 32 for c in valeur):
-                raise ValueError(
-                    f"Caractère de contrôle interdit dans '{champ}'."
-                )
+                raise ValueError(f"Caractère de contrôle interdit dans '{champ}'.")
 
     def to_bash_function(self) -> str:
         """Génère la fonction bash send_notification().

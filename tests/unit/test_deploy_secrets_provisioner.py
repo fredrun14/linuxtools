@@ -51,17 +51,14 @@ def _assert_no_secret_leaked(logger: MagicMock, *secret_values: str) -> None:
         rendered = str(mock_call)
         for value in secret_values:
             assert value not in rendered, (
-                f"Valeur secrète {value!r} trouvée dans un appel "
-                f"logger : {rendered}"
+                f"Valeur secrète {value!r} trouvée dans un appel logger : {rendered}"
             )
 
 
 class TestSecretsProvisionerProvisionLocal:
     """Tests du provisioning local (écriture directe TOCTOU-safe)."""
 
-    def test_provision_local_nominal_ecrit_env_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_provision_local_nominal_ecrit_env_file(self, tmp_path: Path) -> None:
         """Cas nominal : toutes les clés résolues, fichier KEY=value
         déposé avec le mode attendu, aucun secret loggué."""
         # Arrange
@@ -167,9 +164,7 @@ class TestSecretsProvisionerProvisionLocal:
         assert "svc/PAYLOAD" in error_message
         _assert_no_secret_leaked(logger, malicious_value)
 
-    def test_provision_local_sans_logger_ne_leve_pas(
-        self, tmp_path: Path
-    ) -> None:
+    def test_provision_local_sans_logger_ne_leve_pas(self, tmp_path: Path) -> None:
         """Cas limite : logger=None, échec silencieux sans exception."""
         dest_path = tmp_path / "secrets.env"
         credentials = MagicMock(spec=CredentialManager)
@@ -197,13 +192,13 @@ class TestSecretsProvisionerMultiServices:
         # Arrange
         dest_path = tmp_path / "secrets.env"
         pihole_manager = MagicMock(spec=CredentialManager)
-        pihole_manager.require.side_effect = lambda key: {
-            "APP_PASSWORD": "pw-pihole"
-        }[key]
+        pihole_manager.require.side_effect = lambda key: {"APP_PASSWORD": "pw-pihole"}[
+            key
+        ]
         gotify_manager = MagicMock(spec=CredentialManager)
-        gotify_manager.require.side_effect = lambda key: {
-            "GOTIFY_TOKEN": "tok-gotify"
-        }[key]
+        gotify_manager.require.side_effect = lambda key: {"GOTIFY_TOKEN": "tok-gotify"}[
+            key
+        ]
         managers = {"pihole": pihole_manager, "gotify": gotify_manager}
         spec = SecretsSpec(
             keys=(
@@ -235,9 +230,7 @@ class TestSecretsProvisionerMultiServices:
         # Arrange
         dest_path = tmp_path / "secrets.env"
         credentials = MagicMock(spec=CredentialManager)
-        credentials.require.side_effect = lambda key: {"A": "va", "B": "vb"}[
-            key
-        ]
+        credentials.require.side_effect = lambda key: {"A": "va", "B": "vb"}[key]
         factory = MagicMock(side_effect=lambda service: credentials)
         spec = SecretsSpec(
             keys=(("pihole", "A"), ("pihole", "B")),
@@ -281,9 +274,7 @@ class TestSecretsProvisionerMultiServices:
             dest_path=dest_path,
         )
         logger = MagicMock()
-        provisioner = SecretsProvisioner(
-            lambda service: managers[service], logger
-        )
+        provisioner = SecretsProvisioner(lambda service: managers[service], logger)
 
         # Act
         result = provisioner.provision(
@@ -318,9 +309,7 @@ class TestSecretsProvisionerProvisionRemote:
         provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
         # Act
-        result = provisioner.provision(
-            spec, DeployTarget(host="srv01"), executor
-        )
+        result = provisioner.provision(spec, DeployTarget(host="srv01"), executor)
 
         # Assert
         assert result.success is True
@@ -350,9 +339,7 @@ class TestSecretsProvisionerProvisionRemote:
         logger = MagicMock()
         provisioner = SecretsProvisioner(lambda service: credentials, logger)
 
-        result = provisioner.provision(
-            spec, DeployTarget(host="srv01"), executor
-        )
+        result = provisioner.provision(spec, DeployTarget(host="srv01"), executor)
 
         assert result.success is False
         logger.log_error.assert_called_once()
@@ -451,9 +438,7 @@ class TestSecretsProvisionerModeTarget:
         dest.write_text("TOKEN=reel\n", encoding="utf-8")
         os.chmod(dest, 0o640)
         os.utime(dest, (1_000_000, 1_000_000))
-        spec = SecretsSpec(
-            keys=(("a", "TOKEN"),), dest_path=dest, values_from="target"
-        )
+        spec = SecretsSpec(keys=(("a", "TOKEN"),), dest_path=dest, values_from="target")
 
         outcome = SecretsProvisioner().provision(
             spec, DeployTarget(), MagicMock(spec=CommandExecutor)
@@ -507,9 +492,7 @@ class TestSecretsProvisionerModeTarget:
 class TestSecretsProvisionerSansFactory:
     """Mode « source » sans factory : échec fermé."""
 
-    def test_provision_source_sans_factory_echoue_ferme(
-        self, tmp_path: Path
-    ) -> None:
+    def test_provision_source_sans_factory_echoue_ferme(self, tmp_path: Path) -> None:
         """Pas de factory -> échec, rien n'est écrit, erreur loguée."""
         dest = tmp_path / "secrets.env"
         spec = SecretsSpec(keys=(("a", "TOKEN"),), dest_path=dest)

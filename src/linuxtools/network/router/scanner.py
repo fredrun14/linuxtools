@@ -74,9 +74,7 @@ def _resolve_device_type(client: dict[str, Any], vendor: str) -> str:
     Returns:
         Type de peripherique.
     """
-    return client.get("dpiDevice", "").strip() or _infer_type_from_vendor(
-        vendor
-    )
+    return client.get("dpiDevice", "").strip() or _infer_type_from_vendor(vendor)
 
 
 class AsusRouterScanner(NetworkScanner):

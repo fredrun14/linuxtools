@@ -79,15 +79,18 @@ class TestSshCommandExecutorRun:
 
         called_cmd = local.run.call_args.args[0]
         assert called_cmd == [
-            "ssh", "-p", "2222", "srv01", "--", "ls",
+            "ssh",
+            "-p",
+            "2222",
+            "srv01",
+            "--",
+            "ls",
         ]
 
     def test_cwd_injecte_dans_la_commande_distante(self) -> None:
         """cwd devient un préfixe `cd <cwd> &&` côté distant."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run(["ls"], cwd="/opt/app")
 
         called_cmd = local.run.call_args.args[0]
@@ -96,9 +99,7 @@ class TestSshCommandExecutorRun:
     def test_cwd_avec_espace_est_shell_quote(self) -> None:
         """Un cwd contenant un espace est protégé par shlex.quote."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run(["ls"], cwd="/opt/mon app")
 
         called_cmd = local.run.call_args.args[0]
@@ -109,9 +110,7 @@ class TestSshCommandExecutorRun:
         `&&` (correctif #4 : jamais `;`, pour ne pas exécuter la
         commande si l'export échoue)."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run(["ls"], env={"MY_VAR": "42"})
 
         called_cmd = local.run.call_args.args[0]
@@ -122,23 +121,17 @@ class TestSshCommandExecutorRun:
         chaînés par `&&`, jamais `;` — si le cd échoue, la commande
         ne doit pas s'exécuter (correctif #4, BLOQUANT sécurité)."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run(["ls"], cwd="/opt/app", env={"MY_VAR": "42"})
 
         called_cmd = local.run.call_args.args[0]
-        assert called_cmd[-1] == (
-            "cd /opt/app && export MY_VAR=42 && ls"
-        )
+        assert called_cmd[-1] == ("cd /opt/app && export MY_VAR=42 && ls")
         assert ";" not in called_cmd[-1]
 
     def test_env_avec_injection_shell_est_neutralisee(self) -> None:
         """Une valeur env malicieuse est neutralisée par shlex.quote."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run(["ls"], env={"VAR": "$(rm -rf /)"})
 
         called_cmd = local.run.call_args.args[0]
@@ -153,12 +146,8 @@ class TestSshCommandExecutorRun:
         ssh lui-même en local.
         """
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
-        executor.run(
-            ["ls"], cwd="/opt/app", env={"MY_VAR": "42"}, timeout=30
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
+        executor.run(["ls"], cwd="/opt/app", env={"MY_VAR": "42"}, timeout=30)
 
         call_kwargs = local.run.call_args.kwargs
         assert "cwd" not in call_kwargs
@@ -168,9 +157,7 @@ class TestSshCommandExecutorRun:
     def test_retourne_le_resultat_du_local_executor(self) -> None:
         """run() retourne tel quel le CommandResult du local executor."""
         local = _make_local_mock(return_code=1, stderr="échec ssh")
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         result = executor.run(["ls"])
 
         assert result.success is False
@@ -182,17 +169,13 @@ class TestSshCommandExecutorProbe:
 
     def test_probe_est_herite_sans_redefinition(self) -> None:
         """probe() n'est pas redéfinie : héritée de CommandExecutor."""
-        assert (
-            "probe" not in SshCommandExecutor.__dict__
-        )
+        assert "probe" not in SshCommandExecutor.__dict__
 
     def test_probe_delegue_a_run_avec_probe_true(self) -> None:
         """probe() appelle self.run(..., probe=True), donc _wrap()
         puis le local executor avec probe=True."""
         local = _make_local_mock(stdout="paquet installé")
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
 
         result = executor.probe(["rpm", "-q", "vim"])
 
@@ -206,9 +189,7 @@ class TestSshCommandExecutorProbe:
     def test_probe_propage_le_resultat_du_local_executor(self) -> None:
         """probe() retourne tel quel le CommandResult du local."""
         local = _make_local_mock(return_code=1, stderr="absent")
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
 
         result = executor.probe(["rpm", "-q", "inconnu"])
 
@@ -222,9 +203,7 @@ class TestSshCommandExecutorRunStreaming:
     def test_delegue_a_run_streaming_local(self) -> None:
         """run_streaming() délègue au run_streaming du local executor."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run_streaming(["ls"], merge_stderr=True)
 
         local.run_streaming.assert_called_once()
@@ -236,9 +215,7 @@ class TestSshCommandExecutorRunStreaming:
     def test_enveloppe_la_commande_avec_ssh(self) -> None:
         """La commande streaming est aussi enveloppée par ssh."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         executor.run_streaming(["tail", "-f", "/var/log/app.log"])
 
         called_cmd = local.run_streaming.call_args.args[0]
@@ -256,9 +233,7 @@ class TestSshCommandExecutorVenvReleaseParity:
         contenant un point-virgule/$() n'est jamais interprété par le
         shell distant, il reste un unique argument shell-quoté."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         releaser = VenvReleaser(executor, installer=MagicMock())
         venv_path = Path("/opt/app;rm -rf $(x)")
         version_id = "app;rm -rf $(x)-20260929-000000-000000"
@@ -283,9 +258,7 @@ class TestSshCommandExecutorVenvReleaseParity:
         """Le script -c (contient guillemets/retours-ligne) reste un
         argument unique après shlex.join, jamais exécuté par bash -c."""
         local = _make_local_mock()
-        executor = SshCommandExecutor(
-            DeployTarget(host="srv01"), local_executor=local
-        )
+        executor = SshCommandExecutor(DeployTarget(host="srv01"), local_executor=local)
         releaser = VenvReleaser(executor, installer=MagicMock())
         venv_path = Path("/opt/app/venv")
         version_path = Path("/opt/app/venvs/venv-20260929-000000-000000")

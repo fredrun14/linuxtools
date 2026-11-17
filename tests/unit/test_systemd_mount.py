@@ -13,11 +13,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from linuxtools.systemd import (
-    MountConfig,
-    AutomountConfig,
-    LinuxMountUnitManager
-)
+from linuxtools.systemd import MountConfig, AutomountConfig, LinuxMountUnitManager
 from linuxtools.systemd.executor import SystemdExecutor
 from linuxtools.logging import Logger
 
@@ -122,13 +118,16 @@ def temp_dir() -> Iterator[str]:
 class TestPathToUnitName:
     """Tests pour la conversion chemin -> nom d'unité."""
 
-    @pytest.mark.parametrize("mount_path,expected", [
-        ("/media/nas", "media-nas"),
-        ("/media/nas/backup/daily", "media-nas-backup-daily"),
-        ("/media/nas/", "media-nas"),
-        ("/mnt", "mnt"),
-        ("media/nas", "media-nas"),
-    ])
+    @pytest.mark.parametrize(
+        "mount_path,expected",
+        [
+            ("/media/nas", "media-nas"),
+            ("/media/nas/backup/daily", "media-nas-backup-daily"),
+            ("/media/nas/", "media-nas"),
+            ("/mnt", "mnt"),
+            ("media/nas", "media-nas"),
+        ],
+    )
     def test_path_conversion(
         self, mount_manager: LinuxMountUnitManager, mount_path: str, expected: str
     ) -> None:
@@ -147,7 +146,7 @@ class TestGenerateMountUnit:
             description="Sauvegarde NAS",
             what="192.168.1.10:/share",
             where="/media/nas/backup",
-            type="nfs"
+            type="nfs",
         )
 
         # Act
@@ -171,7 +170,7 @@ class TestGenerateMountUnit:
             what="192.168.1.10:/share",
             where="/media/nas",
             type="nfs",
-            options="defaults,_netdev,noatime"
+            options="defaults,_netdev,noatime",
         )
 
         # Act
@@ -188,7 +187,7 @@ class TestGenerateMountUnit:
             what="//192.168.1.50/Documents",
             where="/mnt/windows",
             type="cifs",
-            options="credentials=/etc/samba/credentials,uid=1000"
+            options="credentials=/etc/samba/credentials,uid=1000",
         )
 
         # Act
@@ -203,10 +202,7 @@ class TestGenerateMountUnit:
         """Vérifie l'absence de ligne Options= quand aucune option n'est définie."""
         # Arrange
         config = MountConfig(
-            description="Test",
-            what="server:/share",
-            where="/mnt/test",
-            type="nfs"
+            description="Test", what="server:/share", where="/mnt/test", type="nfs"
         )
 
         # Act
@@ -223,8 +219,7 @@ class TestGenerateAutomountUnit:
         """Vérifie que le fichier .automount contient toutes les sections."""
         # Arrange
         config = AutomountConfig(
-            description="Sauvegarde NAS",
-            where="/media/nas/backup"
+            description="Sauvegarde NAS", where="/media/nas/backup"
         )
 
         # Act
@@ -242,9 +237,7 @@ class TestGenerateAutomountUnit:
         """Vérifie que le timeout est inclus quand spécifié."""
         # Arrange
         config = AutomountConfig(
-            description="Test",
-            where="/media/test",
-            timeout_idle_sec=300
+            description="Test", where="/media/test", timeout_idle_sec=300
         )
 
         # Act
@@ -257,9 +250,7 @@ class TestGenerateAutomountUnit:
         """Vérifie l'absence de TimeoutIdleSec= quand timeout est 0."""
         # Arrange
         config = AutomountConfig(
-            description="Test",
-            where="/media/test",
-            timeout_idle_sec=0
+            description="Test", where="/media/test", timeout_idle_sec=0
         )
 
         # Act
@@ -273,10 +264,7 @@ class TestInstallMountUnit:
     """Tests pour l'installation des unités mount."""
 
     def test_install_mount_only_creates_mount_file(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager,
-        temp_dir: str
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager, temp_dir: str
     ) -> None:
         """Vérifie que l'installation crée le fichier .mount."""
         # Arrange
@@ -286,7 +274,7 @@ class TestInstallMountUnit:
             description="Test",
             what="server:/share",
             where=os.path.join(temp_dir, "testmount"),
-            type="nfs"
+            type="nfs",
         )
 
         # Act
@@ -295,17 +283,13 @@ class TestInstallMountUnit:
         # Assert
         assert result is True
         mount_file = os.path.join(
-            temp_dir,
-            f"{manager.path_to_unit_name(config.where)}.mount"
+            temp_dir, f"{manager.path_to_unit_name(config.where)}.mount"
         )
         assert os.path.exists(mount_file)
         assert mock_systemd.reload_called
 
     def test_install_with_automount_creates_both_files(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager,
-        temp_dir: str
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager, temp_dir: str
     ) -> None:
         """Vérifie que l'installation avec automount crée les deux fichiers."""
         # Arrange
@@ -315,14 +299,12 @@ class TestInstallMountUnit:
             description="Test",
             what="server:/share",
             where=os.path.join(temp_dir, "testmount"),
-            type="nfs"
+            type="nfs",
         )
 
         # Act
         result = manager.install_mount_unit(
-            config,
-            with_automount=True,
-            automount_timeout=300
+            config, with_automount=True, automount_timeout=300
         )
 
         # Assert
@@ -338,10 +320,7 @@ class TestInstallMountUnit:
         assert "TimeoutIdleSec=300" in content
 
     def test_install_creates_mount_point_directory(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager,
-        temp_dir: str
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager, temp_dir: str
     ) -> None:
         """Vérifie que le point de montage est créé automatiquement."""
         # Arrange
@@ -349,10 +328,7 @@ class TestInstallMountUnit:
         manager.SYSTEMD_UNIT_PATH = temp_dir
         mount_point = os.path.join(temp_dir, "new", "mount", "point")
         config = MountConfig(
-            description="Test",
-            what="server:/share",
-            where=mount_point,
-            type="nfs"
+            description="Test", what="server:/share", where=mount_point, type="nfs"
         )
 
         # Act
@@ -363,9 +339,7 @@ class TestInstallMountUnit:
         assert os.path.isdir(mount_point)
 
     def test_install_with_permission_error_logs_error(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que les erreurs de permission sont loggées."""
         # Arrange
@@ -375,16 +349,14 @@ class TestInstallMountUnit:
             description="Test",
             what="server:/share",
             where="/root/restricted_mount",
-            type="nfs"
+            type="nfs",
         )
 
         # Act
         result = manager.install_mount_unit(config)
 
         # Assert - Le résultat dépend des permissions
-        error_messages = [
-            m for level, m in mock_logger.messages if level == "ERROR"
-        ]
+        error_messages = [m for level, m in mock_logger.messages if level == "ERROR"]
         if result is False:
             assert len(error_messages) > 0
 
@@ -393,9 +365,7 @@ class TestEnableDisableMount:
     """Tests pour l'activation et désactivation des montages."""
 
     def test_enable_mount_activates_mount_unit(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que enable_mount active l'unité .mount."""
         # Act
@@ -406,25 +376,18 @@ class TestEnableDisableMount:
         assert "media-nas-backup.mount" in mock_systemd.enabled_units
 
     def test_enable_mount_with_automount_activates_automount_unit(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que enable_mount avec with_automount active l'unité .automount."""
         # Act
-        result = mount_manager.enable_mount(
-            "/media/nas/backup",
-            with_automount=True
-        )
+        result = mount_manager.enable_mount("/media/nas/backup", with_automount=True)
 
         # Assert
         assert result is True
         assert "media-nas-backup.automount" in mock_systemd.enabled_units
 
     def test_disable_mount_deactivates_both_units(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que disable_mount désactive les unités .mount et .automount."""
         # Act
@@ -440,10 +403,7 @@ class TestRemoveMountUnit:
     """Tests pour la suppression des unités mount."""
 
     def test_remove_mount_unit_deletes_both_files(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager,
-        temp_dir: str
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager, temp_dir: str
     ) -> None:
         """Vérifie que remove_mount_unit supprime les deux fichiers."""
         # Arrange
@@ -464,10 +424,7 @@ class TestRemoveMountUnit:
         assert mock_systemd.reload_called
 
     def test_remove_nonexistent_unit_succeeds_silently(
-        self,
-        mock_logger: MockLogger,
-        mock_systemd: MockSystemdManager,
-        temp_dir: str
+        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager, temp_dir: str
     ) -> None:
         """Vérifie que la suppression d'unités inexistantes ne génère pas d'erreur."""
         # Arrange
@@ -485,9 +442,7 @@ class TestMountStatus:
     """Tests pour la vérification du statut de montage."""
 
     def test_get_mount_status_returns_unit_status(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que get_mount_status retourne le statut de l'unité."""
         # Arrange
@@ -505,9 +460,7 @@ class TestMountStatus:
         mock_systemd.get_status.assert_called_with("media-nas.mount")
 
     def test_is_mounted_returns_true_when_active(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que is_mounted retourne True quand l'unité est active."""
         # Arrange
@@ -521,9 +474,7 @@ class TestMountStatus:
         assert mount_manager.is_mounted("/media/nas") is True
 
     def test_is_mounted_returns_false_when_inactive(
-        self,
-        mount_manager: LinuxMountUnitManager,
-        mock_systemd: MockSystemdManager
+        self, mount_manager: LinuxMountUnitManager, mock_systemd: MockSystemdManager
     ) -> None:
         """Vérifie que is_mounted retourne False quand l'unité est inactive."""
         # Arrange
@@ -547,7 +498,7 @@ class TestMountConfigDataclass:
             description="Test mount",
             what="server:/share",
             where="/mnt/test",
-            type="nfs"
+            type="nfs",
         )
 
         # Assert
@@ -565,7 +516,7 @@ class TestMountConfigDataclass:
             what="server:/share",
             where="/mnt/test",
             type="nfs",
-            options="ro,noexec"
+            options="ro,noexec",
         )
 
         # Assert
@@ -579,59 +530,41 @@ class TestMountConfigValidation:
         """Vérifie le rejet d'un chemin relatif pour where."""
         with pytest.raises(ValueError, match="chemin absolu"):
             MountConfig(
-                description="Test",
-                what="server:/share",
-                where="mnt/test",
-                type="nfs"
+                description="Test", what="server:/share", where="mnt/test", type="nfs"
             )
 
     def test_rejet_nfs_format_invalide(self) -> None:
         """Vérifie le rejet d'un format NFS invalide."""
         with pytest.raises(ValueError, match="NFS invalide"):
             MountConfig(
-                description="Test",
-                what="/just/a/path",
-                where="/mnt/test",
-                type="nfs"
+                description="Test", what="/just/a/path", where="/mnt/test", type="nfs"
             )
 
     def test_rejet_nfs_commence_par_deux_points(self) -> None:
         """Vérifie le rejet NFS commençant par ':'."""
         with pytest.raises(ValueError, match="NFS invalide"):
             MountConfig(
-                description="Test",
-                what=":/share",
-                where="/mnt/test",
-                type="nfs4"
+                description="Test", what=":/share", where="/mnt/test", type="nfs4"
             )
 
     def test_rejet_cifs_format_invalide(self) -> None:
         """Vérifie le rejet d'un format CIFS invalide."""
         with pytest.raises(ValueError, match="CIFS invalide"):
             MountConfig(
-                description="Test",
-                what="server/share",
-                where="/mnt/test",
-                type="cifs"
+                description="Test", what="server/share", where="/mnt/test", type="cifs"
             )
 
     def test_rejet_device_format_invalide(self) -> None:
         """Vérifie le rejet d'un device invalide pour ext4."""
         with pytest.raises(ValueError, match="device"):
             MountConfig(
-                description="Test",
-                what="not-a-device",
-                where="/mnt/test",
-                type="ext4"
+                description="Test", what="not-a-device", where="/mnt/test", type="ext4"
             )
 
     def test_acceptation_device_valide(self) -> None:
         """Vérifie l'acceptation d'un device valide."""
         config = MountConfig(
-            description="Test",
-            what="/dev/sda1",
-            where="/mnt/test",
-            type="ext4"
+            description="Test", what="/dev/sda1", where="/mnt/test", type="ext4"
         )
         assert config.what == "/dev/sda1"
 
@@ -641,7 +574,7 @@ class TestMountConfigValidation:
             description="Test",
             what="custom-source",
             where="/mnt/test",
-            type="fuse.sshfs"
+            type="fuse.sshfs",
         )
         assert config.what == "custom-source"
 
@@ -652,10 +585,7 @@ class TestAutomountConfigValidation:
     def test_rejet_where_relatif(self) -> None:
         """Vérifie le rejet d'un chemin relatif pour where."""
         with pytest.raises(ValueError, match="chemin absolu"):
-            AutomountConfig(
-                description="Test",
-                where="mnt/test"
-            )
+            AutomountConfig(description="Test", where="mnt/test")
 
 
 class TestAutomountConfigDataclass:
@@ -664,10 +594,7 @@ class TestAutomountConfigDataclass:
     def test_automount_config_creation_with_required_fields(self) -> None:
         """Vérifie la création avec les champs requis."""
         # Arrange & Act
-        config = AutomountConfig(
-            description="Test automount",
-            where="/mnt/test"
-        )
+        config = AutomountConfig(description="Test automount", where="/mnt/test")
 
         # Assert
         assert config.description == "Test automount"
@@ -678,14 +605,11 @@ class TestAutomountConfigDataclass:
         """Vérifie la création avec un timeout personnalisé."""
         # Arrange & Act
         config = AutomountConfig(
-            description="Test",
-            where="/mnt/test",
-            timeout_idle_sec=600
+            description="Test", where="/mnt/test", timeout_idle_sec=600
         )
 
         # Assert
         assert config.timeout_idle_sec == 600
-
 
 
 class TestMountUnitManagerErrorPaths:
@@ -696,6 +620,7 @@ class TestMountUnitManagerErrorPaths:
     ) -> tuple[LinuxMountUnitManager, MagicMock, MagicMock]:
         """Cree un manager avec mocks."""
         from unittest.mock import MagicMock
+
         logger = MagicMock()
         executor = MagicMock()
         executor.reload_systemd.return_value = True
@@ -703,6 +628,7 @@ class TestMountUnitManagerErrorPaths:
         executor.disable_unit.return_value = True
         executor.get_status.return_value = "inactive"
         from linuxtools.systemd import LinuxMountUnitManager
+
         manager = LinuxMountUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         return manager, logger, executor
@@ -710,10 +636,10 @@ class TestMountUnitManagerErrorPaths:
     def test_ensure_mount_point_oserror(self, tmp_path: Path) -> None:
         """_ensure_mount_point() retourne False en cas d'OSError."""
         from unittest.mock import patch
+
         manager, logger, _ = self._make_manager(tmp_path)
         with patch(
-            "linuxtools.systemd.mount.Path.mkdir",
-            side_effect=OSError("device busy")
+            "linuxtools.systemd.mount.Path.mkdir", side_effect=OSError("device busy")
         ):
             result = manager._ensure_mount_point("/mnt/test")
         assert result is False
@@ -722,16 +648,16 @@ class TestMountUnitManagerErrorPaths:
     def test_install_mount_write_echoue(self, tmp_path: Path) -> None:
         """install_mount_unit() retourne False si _write_unit_file echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_manager(tmp_path)
         config = MountConfig(
             description="Test",
             what="server:/share",
             where=str(tmp_path / "mnt" / "test"),
-            type="nfs"
+            type="nfs",
         )
         with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("no write")
+            "linuxtools.systemd.base.os.open", side_effect=PermissionError("no write")
         ):
             result = manager.install_mount_unit(config)
         assert result is False
@@ -744,7 +670,7 @@ class TestMountUnitManagerErrorPaths:
             description="Test",
             what="server:/share",
             where=str(tmp_path / "mnt" / "test"),
-            type="nfs"
+            type="nfs",
         )
         result = manager.install_mount_unit(config)
         assert result is False
@@ -752,12 +678,13 @@ class TestMountUnitManagerErrorPaths:
     def test_remove_mount_echec_suppression(self, tmp_path: Path) -> None:
         """remove_mount_unit() retourne False si _remove_unit_file echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_manager(tmp_path)
         mount_file = tmp_path / "mnt-test.mount"
         mount_file.write_text("[Unit]\n")
         with patch(
             "linuxtools.systemd.base.os.remove",
-            side_effect=PermissionError("no remove")
+            side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_mount_unit("/mnt/test")
         assert result is False
@@ -772,6 +699,7 @@ class TestRemoveMountLogWarning:
         """Crée un manager avec mocks."""
         from unittest.mock import MagicMock
         from linuxtools.systemd import LinuxMountUnitManager
+
         logger = MagicMock()
         executor = MagicMock()
         executor.reload_systemd.return_value = True

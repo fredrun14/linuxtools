@@ -92,9 +92,7 @@ def _write_unit_content(
         )
     except OSError as e:
         if e.errno == _errno.ELOOP:  # lien symbolique
-            logger.log_error(
-                f"Refus d'écrire {unit_path} : lien symbolique détecté"
-            )
+            logger.log_error(f"Refus d'écrire {unit_path} : lien symbolique détecté")
         elif isinstance(e, PermissionError):
             logger.log_error(
                 f"Permission refusée pour écrire {unit_path}. "
@@ -175,8 +173,7 @@ def _write_unit_content_remote(
     )
     if not write_result.success:
         logger.log_error(
-            f"Échec de l'écriture distante de {unit_path}: "
-            f"{write_result.stderr}"
+            f"Échec de l'écriture distante de {unit_path}: {write_result.stderr}"
         )
         return False
     logger.log_info(f"Fichier unit (distant) créé: {unit_path}")
@@ -255,9 +252,7 @@ class _ServiceOperationsMixin:
 
         def enable(self, unit_name: str) -> bool: ...
 
-        def disable(
-            self, unit_name: str, ignore_errors: bool = False
-        ) -> bool: ...
+        def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
 
         def get_status(self, unit_name: str) -> "str": ...
 
@@ -277,9 +272,7 @@ class _ServiceOperationsMixin:
         Returns:
             Nom du service dérivé du binaire exec_start.
         """
-        return os.path.basename(shlex.split(config.exec_start)[0]).replace(
-            ".", "-"
-        )
+        return os.path.basename(shlex.split(config.exec_start)[0]).replace(".", "-")
 
     def _validated_service_file(self, service_name: str) -> "str | None":
         """Valide le nom de service et retourne le nom de fichier unit.
@@ -418,9 +411,7 @@ class _ServiceOperationsMixin:
         if not self._remove_unit_file(f"{service_name}.service"):
             return False
         self.reload_systemd()
-        self.logger.log_info(
-            f"{self._service_label} {service_name}.service supprimé"
-        )
+        self.logger.log_info(f"{self._service_label} {service_name}.service supprimé")
         return True
 
     def get_service_status(self, service_name: str) -> "str":
@@ -500,9 +491,7 @@ class _TimerOperationsMixin:
 
         def enable(self, unit_name: str) -> bool: ...
 
-        def disable(
-            self, unit_name: str, ignore_errors: bool = False
-        ) -> bool: ...
+        def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
 
         def get_status(self, unit_name: str) -> "str": ...
 
@@ -574,9 +563,7 @@ class _TimerOperationsMixin:
         if not self._remove_unit_file(f"{timer_name}.timer"):
             return False
         self.reload_systemd()
-        self.logger.log_info(
-            f"{self._timer_label} {timer_name}.timer supprimé"
-        )
+        self.logger.log_info(f"{self._timer_label} {timer_name}.timer supprimé")
         return True
 
     def get_timer_status(self, timer_name: str) -> "str":
@@ -614,9 +601,7 @@ class _TimerOperationsMixin:
                 or "invalid option" in result.stderr.lower()
             ):
                 return self._list_timers_text_fallback()
-            raise RuntimeError(
-                f"Erreur systemctl list-timers : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-timers : {result.stderr}")
 
         try:
             data = json.loads(result.stdout)
@@ -646,14 +631,10 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        result = self.executor._run_systemctl(
-            ["list-timers", "--no-pager", "--plain"]
-        )
+        result = self.executor._run_systemctl(["list-timers", "--no-pager", "--plain"])
 
         if result.return_code != 0:
-            raise RuntimeError(
-                f"Erreur systemctl list-timers : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-timers : {result.stderr}")
 
         timers = []
         lines = result.stdout.strip().split("\n")
@@ -751,9 +732,7 @@ class _BaseUnitManagerMixin:
         Returns:
             True si succès, False sinon
         """
-        return self.executor.disable_unit(
-            unit_name, ignore_errors=ignore_errors
-        )
+        return self.executor.disable_unit(unit_name, ignore_errors=ignore_errors)
 
     def get_status(self, unit_name: str) -> str:
         """
@@ -833,9 +812,7 @@ class UnitManager(_BaseUnitManagerMixin):
         """
         unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
         if self._remote_write:
-            return _remove_unit_content_remote(
-                unit_path, self.executor, self.logger
-            )
+            return _remove_unit_content_remote(unit_path, self.executor, self.logger)
         return _remove_unit_content(unit_path, self.logger)
 
 
@@ -877,9 +854,7 @@ class MountUnitManager(ABC, UnitManager):
         ...
 
     @abstractmethod
-    def enable_mount(
-        self, mount_path: str, with_automount: bool = False
-    ) -> bool:
+    def enable_mount(self, mount_path: str, with_automount: bool = False) -> bool:
         """
         Active une unité .mount (ou .automount si spécifié).
 
@@ -1256,8 +1231,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
             return True
         except OSError as e:
             self.logger.log_error(
-                f"Erreur lors de la création du répertoire "
-                f"{self._unit_path}: {e}"
+                f"Erreur lors de la création du répertoire {self._unit_path}: {e}"
             )
             return False
 
@@ -1299,12 +1273,8 @@ class UserUnitManager(_BaseUnitManagerMixin):
         """
         unit_path = os.path.join(self._unit_path, unit_name)
         if self._remote_write:
-            return _remove_unit_content_remote(
-                unit_path, self.executor, self.logger
-            )
-        return _remove_unit_content(
-            unit_path, self.logger, log_label=" utilisateur"
-        )
+            return _remove_unit_content_remote(unit_path, self.executor, self.logger)
+        return _remove_unit_content(unit_path, self.logger, log_label=" utilisateur")
 
 
 class UserTimerUnitManager(_TimerUnitContract, UserUnitManager):

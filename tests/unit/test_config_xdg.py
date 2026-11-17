@@ -17,9 +17,7 @@ _TEMPLATE = "[log]\nlevel = 'INFO'\n"
 
 
 @pytest.fixture
-def xdg(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[XdgAppConfig]:
+def xdg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[XdgAppConfig]:
     """XdgAppConfig hermétique : config_dir et XDG_CONFIG_DIRS isolés."""
     monkeypatch.setenv("XDG_CONFIG_DIRS", str(tmp_path / "shared"))
     with patch(
@@ -36,17 +34,13 @@ class TestXdgAppConfig:
         """config_dir se termine par le nom de l'app."""
         assert xdg.config_dir == tmp_path / _APP
 
-    def test_init_config_file_cree_fichier(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_init_config_file_cree_fichier(self, xdg: XdgAppConfig) -> None:
         """init_config_file crée le fichier avec le template."""
         result = xdg.init_config_file(_TEMPLATE)
 
         assert result.exists()
 
-    def test_init_config_file_cree_repertoire_parent(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_init_config_file_cree_repertoire_parent(self, xdg: XdgAppConfig) -> None:
         """init_config_file crée ~/.config/<app>/ si absent."""
         assert not xdg.config_dir.exists()
 
@@ -54,18 +48,14 @@ class TestXdgAppConfig:
 
         assert xdg.config_dir.is_dir()
 
-    def test_init_config_file_leve_file_exists_error(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_init_config_file_leve_file_exists_error(self, xdg: XdgAppConfig) -> None:
         """Lève FileExistsError si fichier existe et force=False."""
         xdg.init_config_file(_TEMPLATE)
 
         with pytest.raises(FileExistsError):
             xdg.init_config_file(_TEMPLATE)
 
-    def test_init_config_file_force_ecrase(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_init_config_file_force_ecrase(self, xdg: XdgAppConfig) -> None:
         """force=True écrase le fichier sans erreur."""
         xdg.init_config_file("[log]\nlevel = 'DEBUG'\n")
 
@@ -73,36 +63,28 @@ class TestXdgAppConfig:
 
         assert result.read_text(encoding="utf-8") == _TEMPLATE
 
-    def test_init_config_file_nom_personnalise(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_init_config_file_nom_personnalise(self, xdg: XdgAppConfig) -> None:
         """filename personnalisé crée le bon fichier."""
         result = xdg.init_config_file(_TEMPLATE, filename="custom.toml")
 
         assert result.name == "custom.toml"
         assert result.exists()
 
-    def test_ensure_subdir_cree_repertoire(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_ensure_subdir_cree_repertoire(self, xdg: XdgAppConfig) -> None:
         """ensure_subdir crée le sous-répertoire et retourne son chemin."""
         result = xdg.ensure_subdir("configs")
 
         assert result.is_dir()
         assert result == xdg.config_dir / "configs"
 
-    def test_ensure_subdir_idempotent(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_ensure_subdir_idempotent(self, xdg: XdgAppConfig) -> None:
         """Appels répétés sur le même nom n'échouent pas."""
         xdg.ensure_subdir("configs")
         xdg.ensure_subdir("configs")
 
         assert (xdg.config_dir / "configs").is_dir()
 
-    def test_contenu_fichier_egal_template(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_contenu_fichier_egal_template(self, xdg: XdgAppConfig) -> None:
         """Le contenu écrit correspond exactement au template."""
         result = xdg.init_config_file(_TEMPLATE)
 
@@ -134,8 +116,10 @@ class TestXdgAppConfig:
         system_file.write_text(_TEMPLATE, encoding="utf-8")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=system_dir
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=system_dir,
         ):
             result = xdg.find_config_file()
 
@@ -148,8 +132,10 @@ class TestXdgAppConfig:
         absent = tmp_path / "nowhere"
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=absent
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=absent,
         ):
             result = xdg.find_config_file()
 
@@ -165,16 +151,16 @@ class TestXdgAppConfig:
         (system_dir / "global.toml").write_text("other", encoding="utf-8")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=system_dir
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=system_dir,
         ):
             result = xdg.find_config_file()
 
         assert result == xdg.config_dir / "global.toml"
 
-    def test_find_config_file_filename_personnalise(
-        self, xdg: XdgAppConfig
-    ) -> None:
+    def test_find_config_file_filename_personnalise(self, xdg: XdgAppConfig) -> None:
         """find_config_file cherche le bon filename personnalisé."""
         xdg.init_config_file(_TEMPLATE, filename="custom.toml")
 
@@ -213,8 +199,10 @@ class TestXdgAppConfig:
         shared_file.write_text(_TEMPLATE, encoding="utf-8")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=tmp_path / "nowhere"
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=tmp_path / "nowhere",
         ):
             result = xdg.find_config_file()
 
@@ -233,8 +221,10 @@ class TestXdgAppConfig:
         system_file.write_text("sys", encoding="utf-8")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=system_dir
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=system_dir,
         ):
             result = xdg.find_config_file()
 
@@ -250,16 +240,14 @@ class TestXdgAppConfig:
         first, second = tmp_path / "b", tmp_path / "a"
         for base in (first, second):
             (base / _APP).mkdir(parents=True)
-            (base / _APP / "global.toml").write_text(
-                base.name, encoding="utf-8"
-            )
-        monkeypatch.setenv(
-            "XDG_CONFIG_DIRS", f"{first}{os.pathsep}{second}"
-        )
+            (base / _APP / "global.toml").write_text(base.name, encoding="utf-8")
+        monkeypatch.setenv("XDG_CONFIG_DIRS", f"{first}{os.pathsep}{second}")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=tmp_path / "nowhere"
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=tmp_path / "nowhere",
         ):
             result = xdg.find_config_file()
 
@@ -271,9 +259,7 @@ class TestXdgAppConfig:
         """Une entrée relative (ancienne platformdirs) est écartée."""
         with patch(
             "linuxtools.config.xdg.site_config_dir",
-            return_value=os.pathsep.join(
-                ["app", "rel/app", "/opt/c/app"]
-            ),
+            return_value=os.pathsep.join(["app", "rel/app", "/opt/c/app"]),
         ):
             assert xdg.xdg_config_dirs == [Path("/opt/c/app")]
 
@@ -302,9 +288,7 @@ class TestXdgAppConfig:
         self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Une variable entièrement relative retombe sur /etc/xdg."""
-        monkeypatch.setenv(
-            "XDG_CONFIG_DIRS", f"rel/a{os.pathsep}rel/b"
-        )
+        monkeypatch.setenv("XDG_CONFIG_DIRS", f"rel/a{os.pathsep}rel/b")
 
         assert xdg.xdg_config_dirs == [Path("/etc/xdg") / _APP]
 
@@ -318,16 +302,14 @@ class TestXdgAppConfig:
         first, second = tmp_path / "a", tmp_path / "b"
         (first / _APP).mkdir(parents=True)
         (second / _APP).mkdir(parents=True)
-        (second / _APP / "global.toml").write_text(
-            "second", encoding="utf-8"
-        )
-        monkeypatch.setenv(
-            "XDG_CONFIG_DIRS", f"{first}{os.pathsep}{second}"
-        )
+        (second / _APP / "global.toml").write_text("second", encoding="utf-8")
+        monkeypatch.setenv("XDG_CONFIG_DIRS", f"{first}{os.pathsep}{second}")
 
         with patch.object(
-            type(xdg), "system_config_dir", new_callable=PropertyMock,
-            return_value=tmp_path / "nowhere"
+            type(xdg),
+            "system_config_dir",
+            new_callable=PropertyMock,
+            return_value=tmp_path / "nowhere",
         ):
             result = xdg.find_config_file()
 
@@ -337,8 +319,6 @@ class TestXdgAppConfig:
         self, xdg: XdgAppConfig, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Un dossier répété dans la variable n'apparaît qu'une fois."""
-        monkeypatch.setenv(
-            "XDG_CONFIG_DIRS", os.pathsep.join(["/b", "/a", "/b"])
-        )
+        monkeypatch.setenv("XDG_CONFIG_DIRS", os.pathsep.join(["/b", "/a", "/b"]))
 
         assert xdg.xdg_config_dirs == [Path("/b") / _APP, Path("/a") / _APP]

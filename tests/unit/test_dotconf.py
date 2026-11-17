@@ -125,12 +125,14 @@ class TestValidatedSection:
 
     def setup_method(self) -> None:
         """Configure les validators avant chaque test."""
-        CommandsSectionFixture.set_validators({
-            "upgrade_type": ["default", "security"],
-            "download_updates": ["yes", "no"],
-            "apply_updates": ["yes", "no"],
-            "random_sleep": lambda x: x.isdigit() and 0 <= int(x) <= 86400,
-        })
+        CommandsSectionFixture.set_validators(
+            {
+                "upgrade_type": ["default", "security"],
+                "download_updates": ["yes", "no"],
+                "apply_updates": ["yes", "no"],
+                "random_sleep": lambda x: x.isdigit() and 0 <= int(x) <= 86400,
+            }
+        )
 
     def teardown_method(self) -> None:
         """Nettoie les validators après chaque test."""
@@ -227,16 +229,20 @@ class TestLinuxIniConfigManager:
 
     def setup_method(self) -> None:
         """Configure les validators."""
-        CommandsSectionFixture.set_validators({
-            "upgrade_type": ["default", "security"],
-            "download_updates": ["yes", "no"],
-            "apply_updates": ["yes", "no"],
-            "random_sleep": lambda x: x.isdigit() and 0 <= int(x) <= 86400,
-        })
-        MainSectionFixture.set_validators({
-            "fastestmirror": ["true", "false"],
-            "max_parallel_downloads": lambda x: x.isdigit() and 1 <= int(x) <= 20,
-        })
+        CommandsSectionFixture.set_validators(
+            {
+                "upgrade_type": ["default", "security"],
+                "download_updates": ["yes", "no"],
+                "apply_updates": ["yes", "no"],
+                "random_sleep": lambda x: x.isdigit() and 0 <= int(x) <= 86400,
+            }
+        )
+        MainSectionFixture.set_validators(
+            {
+                "fastestmirror": ["true", "false"],
+                "max_parallel_downloads": lambda x: x.isdigit() and 1 <= int(x) <= 20,
+            }
+        )
 
     def teardown_method(self) -> None:
         """Nettoie les validators."""
@@ -338,6 +344,7 @@ class TestLinuxIniConfigManager:
 
     def test_config_to_ini(self, manager: LinuxIniConfigManager) -> None:
         """Teste config_to_ini() avec plusieurs sections."""
+
         class SimpleConfig(IniConfig):
             def sections(self) -> list[IniSection]:
                 return [
@@ -383,9 +390,7 @@ class TestUpdateSectionLogSansValeur:
 
         mgr.update_section(Path(temp_ini_file), section)
 
-        log_calls = [
-            call[0][0] for call in mock_logger.log_info.call_args_list
-        ]
+        log_calls = [call[0][0] for call in mock_logger.log_info.call_args_list]
         assert any("upgrade_type" in msg for msg in log_calls)
         assert not any("security" in msg for msg in log_calls)
 
@@ -407,12 +412,8 @@ class TestUpdateSectionLogSansValeur:
         section = CredSection()
         mgr.update_section(Path(temp_ini_file), section)
 
-        log_calls = [
-            call[0][0] for call in mock_logger.log_info.call_args_list
-        ]
-        assert not any(
-            "MonMotDePasseSecret123" in msg for msg in log_calls
-        )
+        log_calls = [call[0][0] for call in mock_logger.log_info.call_args_list]
+        assert not any("MonMotDePasseSecret123" in msg for msg in log_calls)
 
 
 class TestLinuxIniConfigManagerChmod:
@@ -422,18 +423,14 @@ class TestLinuxIniConfigManagerChmod:
         """write_section() positionne les permissions à 0o644."""
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
-        mgr.write_section(
-            path, CommandsSectionFixture(upgrade_type="default")
-        )
+        mgr.write_section(path, CommandsSectionFixture(upgrade_type="default"))
         assert oct(os.stat(path).st_mode & 0o777) == oct(0o644)
 
     def test_update_section_cree_fichier_en_0644(self, tmp_path: Path) -> None:
         """update_section() positionne les permissions à 0o644."""
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
-        mgr.update_section(
-            path, CommandsSectionFixture(upgrade_type="default")
-        )
+        mgr.update_section(path, CommandsSectionFixture(upgrade_type="default"))
         assert oct(os.stat(path).st_mode & 0o777) == oct(0o644)
 
 
@@ -447,6 +444,7 @@ class TestValidatedSectionEdgeCases:
 
     def test_private_field_skipped_in_validation(self) -> None:
         """Les champs prives (commencant par _) sont ignores."""
+
         @dataclass(frozen=True)
         class SectionWithPrivate(ValidatedSection):
             public: str = "val"
@@ -456,9 +454,11 @@ class TestValidatedSectionEdgeCases:
             def section_name() -> str:
                 return "test"
 
-        SectionWithPrivate.set_validators({
-            "public": ["val", "other"],
-        })
+        SectionWithPrivate.set_validators(
+            {
+                "public": ["val", "other"],
+            }
+        )
         try:
             section = SectionWithPrivate()
             assert section.public == "val"

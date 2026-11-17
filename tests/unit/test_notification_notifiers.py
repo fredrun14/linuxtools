@@ -66,9 +66,7 @@ class FakeExecutor(CommandExecutor):
         return self._next(command)
 
 
-def _result(
-    return_code: int = 0, stdout: str = "", stderr: str = ""
-) -> CommandResult:
+def _result(return_code: int = 0, stdout: str = "", stderr: str = "") -> CommandResult:
     """Fabrique un CommandResult de test."""
     return CommandResult(
         command=("fake",),
@@ -88,14 +86,10 @@ class TestDesktopNotifier:
         with pytest.raises(ValueError, match="app_name est requis"):
             DesktopNotifier(app_name="")
 
-    def test_session_courante_construit_notify_send(
-        self, notif: Notification
-    ) -> None:
+    def test_session_courante_construit_notify_send(self, notif: Notification) -> None:
         """Vérifie la commande notify-send en session courante."""
         executor = FakeExecutor([_result()])
-        notifier = DesktopNotifier(
-            app_name="backup", executor=executor
-        )
+        notifier = DesktopNotifier(app_name="backup", executor=executor)
         notifier.send(notif)
         command = executor.calls[0]
         assert command[0] == "notify-send"
@@ -106,25 +100,15 @@ class TestDesktopNotifier:
     def test_icone_ajoutee_si_presente(self) -> None:
         """Vérifie l'option -i quand une icône est fournie."""
         executor = FakeExecutor([_result()])
-        notifier = DesktopNotifier(
-            app_name="backup", executor=executor
-        )
-        notifier.send(
-            Notification(
-                title="T", message="M", icon="dialog-error"
-            )
-        )
+        notifier = DesktopNotifier(app_name="backup", executor=executor)
+        notifier.send(Notification(title="T", message="M", icon="dialog-error"))
         command = executor.calls[0]
         assert "-i" in command and "dialog-error" in command
 
-    def test_raises_si_notify_send_echoue(
-        self, notif: Notification
-    ) -> None:
+    def test_raises_si_notify_send_echoue(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur code non nul."""
         executor = FakeExecutor([_result(return_code=1, stderr="ko")])
-        notifier = DesktopNotifier(
-            app_name="backup", executor=executor
-        )
+        notifier = DesktopNotifier(app_name="backup", executor=executor)
         with pytest.raises(NotificationSendError, match="notify-send"):
             notifier.send(notif)
 
@@ -139,9 +123,7 @@ class TestDesktopNotifier:
                 _result(),
             ]
         )
-        notifier = DesktopNotifier(
-            app_name="backup", all_users=True, executor=executor
-        )
+        notifier = DesktopNotifier(app_name="backup", all_users=True, executor=executor)
         monkeypatch.setattr(
             "linuxtools.notification.desktop.Path.is_socket",
             lambda self: True,
@@ -156,19 +138,13 @@ class TestDesktopNotifier:
         self, notif: Notification, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Vérifie l'erreur si aucun bus D-Bus n'est disponible."""
-        executor = FakeExecutor(
-            [_result(stdout="1000 fred\n")]
-        )
-        notifier = DesktopNotifier(
-            app_name="backup", all_users=True, executor=executor
-        )
+        executor = FakeExecutor([_result(stdout="1000 fred\n")])
+        notifier = DesktopNotifier(app_name="backup", all_users=True, executor=executor)
         monkeypatch.setattr(
             "linuxtools.notification.desktop.Path.is_socket",
             lambda self: False,
         )
-        with pytest.raises(
-            NotificationSendError, match="Aucun utilisateur"
-        ):
+        with pytest.raises(NotificationSendError, match="Aucun utilisateur"):
             notifier.send(notif)
 
 
@@ -244,11 +220,7 @@ class TestGotifyNotifier:
             token="secret",
             opener=opener,
         )
-        notifier.send(
-            Notification(
-                title="T", message="M", urgency=Urgency.CRITICAL
-            )
-        )
+        notifier.send(Notification(title="T", message="M", urgency=Urgency.CRITICAL))
         # Cf. commentaire dans test_envoie_requete_message ci-dessus.
         assert isinstance(requests[0].data, bytes)
         assert b'"priority": 8' in requests[0].data
@@ -276,9 +248,7 @@ class TestGotifyNotifier:
         with pytest.raises(NotificationSendError, match="401"):
             notifier.send(notif)
 
-    def test_raises_sur_serveur_injoignable(
-        self, notif: Notification
-    ) -> None:
+    def test_raises_sur_serveur_injoignable(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur URLError."""
 
         def opener(
@@ -292,9 +262,7 @@ class TestGotifyNotifier:
             token="secret",
             opener=opener,
         )
-        with pytest.raises(
-            NotificationSendError, match="injoignable"
-        ):
+        with pytest.raises(NotificationSendError, match="injoignable"):
             notifier.send(notif)
 
 
@@ -303,9 +271,7 @@ class FakeSmtp:
 
     instances: list["FakeSmtp"] = []
 
-    def __init__(
-        self, host: str, port: int, timeout: float | None = None
-    ) -> None:
+    def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
         """Initialise et s'enregistre dans instances."""
         self.host = host
         self.port = port
@@ -348,9 +314,7 @@ class TestSmtpEmailNotifier:
     def test_raises_on_empty_recipients(self) -> None:
         """Vérifie l'erreur sans destinataire."""
         with pytest.raises(ValueError, match="destinataire"):
-            SmtpEmailNotifier(
-                host="smtp.lan", sender="a@b", recipients=[]
-            )
+            SmtpEmailNotifier(host="smtp.lan", sender="a@b", recipients=[])
 
     def test_envoi_avec_tls_et_login(self, notif: Notification) -> None:
         """Vérifie STARTTLS, login et contenu du message."""
@@ -395,9 +359,7 @@ class TestSmtpEmailNotifier:
     def test_raises_sur_echec_smtp(self, notif: Notification) -> None:
         """Vérifie NotificationSendError sur SMTPException."""
 
-        def factory(
-            host: str, port: int, timeout: float | None = None
-        ) -> FakeSmtp:
+        def factory(host: str, port: int, timeout: float | None = None) -> FakeSmtp:
             smtp = FakeSmtp(host, port, timeout=timeout)
             smtp.fail_send = True
             return smtp
@@ -431,11 +393,7 @@ class TestJournaldNotifier:
     def test_encode_field_multiligne(self) -> None:
         """Vérifie la sérialisation binaire d'un champ multiligne."""
         data = JournaldNotifier._encode_field("MESSAGE", "a\nb")
-        expected = (
-            b"MESSAGE\n"
-            + (3).to_bytes(8, "little")
-            + b"a\nb\n"
-        )
+        expected = b"MESSAGE\n" + (3).to_bytes(8, "little") + b"a\nb\n"
         assert data == expected
 
     def test_envoi_sur_socket(self, tmp_path: Path) -> None:
@@ -444,9 +402,7 @@ class TestJournaldNotifier:
         server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         server.bind(socket_path)
         try:
-            notifier = JournaldNotifier(
-                app_name="backup", socket_path=socket_path
-            )
+            notifier = JournaldNotifier(app_name="backup", socket_path=socket_path)
             notifier.send(
                 Notification(
                     title="Titre",

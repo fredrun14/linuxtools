@@ -54,9 +54,7 @@ class ContentSink:
         outcome = self._destination.write(path, content, mode)
 
         if outcome.success:
-            self._log_info(
-                f"Contenu déposé ({self._destination.label}) : {path}"
-            )
+            self._log_info(f"Contenu déposé ({self._destination.label}) : {path}")
         else:
             self._log_error(outcome.detail)
 

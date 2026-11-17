@@ -253,9 +253,7 @@ def test_worktree_cree_depuis_origin_dans_un_tmp_prive(
     run.outcome()
 
     assert run.tmp_mode == 0o700
-    add = next(
-        c for c in run.ex.calls if c.argv[:3] == ("git", "worktree", "add")
-    )
+    add = next(c for c in run.ex.calls if c.argv[:3] == ("git", "worktree", "add"))
     assert add.argv[-1] == "origin/main"
     assert add.cwd == str(run.consumer.path)
     assert not add.probe
@@ -271,8 +269,7 @@ def test_message_de_commit_par_stdin_sans_no_verify(
     commit = next(c for c in run.ex.calls if c.argv[:2] == ("git", "commit"))
     assert commit.argv == ("git", "commit", "-F", "-")
     assert run.commit_stdin == (
-        "chore(deps): épingler linuxtools en v2.11.1\n\n"
-        f"Co-Authored-By: {_CO_AUTHOR}\n"
+        f"chore(deps): épingler linuxtools en v2.11.1\n\nCo-Authored-By: {_CO_AUTHOR}\n"
     )
     assert run.commit_env is not None
     assert run.commit_env["UV_FROZEN"] == "1"
@@ -401,9 +398,7 @@ def test_changement_d_en_tete_du_lock_journalise_un_warning(
 def test_commit_ne_touche_que_les_fichiers_attendus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    run = _scenario(
-        tmp_path, monkeypatch, diff_tree="pyproject.toml\nsecret.txt\n"
-    )
+    run = _scenario(tmp_path, monkeypatch, diff_tree="pyproject.toml\nsecret.txt\n")
 
     outcome = run.outcome()
 
@@ -412,8 +407,7 @@ def test_commit_ne_touche_que_les_fichiers_attendus(
     assert not run.has("git", "push")
     assert ("git", "branch", "-D", _BRANCHE) in run.argvs()
     assert not any(
-        a[:3] in {("git", "add", "-A"), ("git", "add", ".")}
-        for a in run.argvs()
+        a[:3] in {("git", "add", "-A"), ("git", "add", ".")} for a in run.argvs()
     )
 
 
@@ -450,9 +444,7 @@ def test_push_non_verifie_donne_push_echoue_et_garde_la_branche(
     push_rc: int,
     remote_sha: str,
 ) -> None:
-    run = _scenario(
-        tmp_path, monkeypatch, push_rc=push_rc, remote_sha=remote_sha
-    )
+    run = _scenario(tmp_path, monkeypatch, push_rc=push_rc, remote_sha=remote_sha)
 
     outcome = run.outcome()
 
@@ -462,9 +454,7 @@ def test_push_non_verifie_donne_push_echoue_et_garde_la_branche(
     assert run.tmp is not None and not run.tmp.exists()
 
 
-def test_no_push_donne_commite(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_no_push_donne_commite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     run = _scenario(tmp_path, monkeypatch, push=False)
 
     outcome = run.outcome()

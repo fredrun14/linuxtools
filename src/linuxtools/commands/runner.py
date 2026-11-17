@@ -183,9 +183,7 @@ class LinuxCommandExecutor(CommandExecutor):
         self._log(plain)
         if self._console_formatter:
             self._print(
-                getattr(self._console_formatter, method)(
-                    command, self._is_root
-                )
+                getattr(self._console_formatter, method)(command, self._is_root)
             )
 
     def _log_timeout(self, command: list[str], timeout: int | None) -> None:
@@ -314,9 +312,7 @@ class LinuxCommandExecutor(CommandExecutor):
                     _stdout, _stderr = _proc.communicate()
                     duration = time.monotonic() - start
                     self._log_timeout(command, effective_timeout)
-                    return self._result(
-                        command, -1, _stdout, _stderr, duration
-                    )
+                    return self._result(command, -1, _stdout, _stderr, duration)
                 except KeyboardInterrupt:
                     _proc.terminate()
                     try:
@@ -327,9 +323,7 @@ class LinuxCommandExecutor(CommandExecutor):
             duration = time.monotonic() - start
             if _proc.returncode != 0:
                 self._log_returncode(command, _proc.returncode)
-            return self._result(
-                command, _proc.returncode, _stdout, _stderr, duration
-            )
+            return self._result(command, _proc.returncode, _stdout, _stderr, duration)
         except OSError as e:
             duration = time.monotonic() - start
             self._log_oserror(e)
@@ -454,9 +448,7 @@ class LinuxCommandExecutor(CommandExecutor):
                     for line in proc.stdout:
                         stripped = line.rstrip("\n")
                         stdout_lines.append(stripped)
-                        self._log(
-                            self._plain.format_line(stripped, self._is_root)
-                        )
+                        self._log(self._plain.format_line(stripped, self._is_root))
                         if self._console_formatter:
                             self._print(
                                 self._console_formatter.format_line(

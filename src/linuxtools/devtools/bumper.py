@@ -82,9 +82,7 @@ def _split_nul(output: str) -> set[str]:
 class _AbortError(Exception):
     """Arrêt de la montée avec un statut (interne à ce module)."""
 
-    def __init__(
-        self, status: Status, detail: str, *, checks: str = ""
-    ) -> None:
+    def __init__(self, status: Status, detail: str, *, checks: str = "") -> None:
         super().__init__(detail)
         self.status = status
         self.detail = detail
@@ -369,11 +367,7 @@ class ConsumerBumper:
         for block in result.stdout.split("\n\n"):
             lines = block.splitlines()
             listed = next(
-                (
-                    ln[len("worktree ") :]
-                    for ln in lines
-                    if ln.startswith("worktree ")
-                ),
+                (ln[len("worktree ") :] for ln in lines if ln.startswith("worktree ")),
                 None,
             )
             if listed is not None and Path(listed).resolve() == target:
@@ -416,9 +410,9 @@ class ConsumerBumper:
         manifest = plan.manifest
         pyproject = wt / "pyproject.toml"
         pyproject.write_bytes(
-            rewrite_pin(
-                pyproject.read_bytes().decode("utf-8"), self._tag
-            ).encode("utf-8")
+            rewrite_pin(pyproject.read_bytes().decode("utf-8"), self._tag).encode(
+                "utf-8"
+            )
         )
         if plan.changelog:
             changelog = wt / "CHANGELOG.md"
@@ -467,12 +461,9 @@ class ConsumerBumper:
         if unexpected:
             raise _AbortError(
                 Status.ECHEC,
-                "uv.lock modifié hors de linuxtools : "
-                + ", ".join(unexpected),
+                "uv.lock modifié hors de linuxtools : " + ", ".join(unexpected),
             )
-        if tomllib.loads(old).get("revision") != tomllib.loads(new).get(
-            "revision"
-        ):
+        if tomllib.loads(old).get("revision") != tomllib.loads(new).get("revision"):
             self._logger.log_warning(
                 "en-tête revision d'uv.lock modifié (uv local différent)"
             )
@@ -598,9 +589,7 @@ class ConsumerBumper:
         out = self._git(["ls-remote", "--symref", "origin", "HEAD"], cwd)
         match = _DEFAULT_BRANCH_RE.search(out.stdout)
         if match is None or not _SAFE_BRANCH_RE.match(match["branch"]):
-            raise _AbortError(
-                Status.REFUSE, "branche par défaut d'origin illisible"
-            )
+            raise _AbortError(Status.REFUSE, "branche par défaut d'origin illisible")
         return match["branch"]
 
     def _fetch(self, cwd: str, default: str) -> None:
@@ -626,20 +615,12 @@ class ConsumerBumper:
         ref = f"refs/heads/{self._branch}"
         remote = self._git(["ls-remote", "--heads", "origin", ref], cwd)
         if remote.stdout.strip():
-            self._verify_remote_bump(
-                cwd, ref, remote.stdout.split()[0], default
-            )
-        local = self._git(
-            ["rev-parse", "--verify", "--quiet", ref], cwd, check=False
-        )
+            self._verify_remote_bump(cwd, ref, remote.stdout.split()[0], default)
+        local = self._git(["rev-parse", "--verify", "--quiet", ref], cwd, check=False)
         if local.success:
-            raise _AbortError(
-                Status.REFUSE, f"la branche locale {self._branch} existe"
-            )
+            raise _AbortError(Status.REFUSE, f"la branche locale {self._branch} existe")
 
-    def _verify_remote_bump(
-        self, cwd: str, ref: str, sha: str, default: str
-    ) -> None:
+    def _verify_remote_bump(self, cwd: str, ref: str, sha: str, default: str) -> None:
         """Statue sur une branche de bump déjà poussée sur origin.
 
         Lève ``EN_ATTENTE`` si son sommet pin le tag cible, n'est pas
@@ -668,14 +649,11 @@ class ConsumerBumper:
                 )
             raise _AbortError(
                 Status.REFUSE,
-                f"{name} existe sur origin mais son commit {sha[:12]} "
-                "est introuvable",
+                f"{name} existe sur origin mais son commit {sha[:12]} est introuvable",
             )
         shown = self._git(["show", f"{sha}:pyproject.toml"], cwd, check=False)
         try:
-            tags = (
-                pinned_linuxtools_tags(shown.stdout) if shown.success else ()
-            )
+            tags = pinned_linuxtools_tags(shown.stdout) if shown.success else ()
         except ManifestError:
             tags = ()
         if tags != (self._tag,):
@@ -707,15 +685,11 @@ class ConsumerBumper:
                 "fichiers inattendus ou aucun fichier : "
                 + (", ".join(sorted(extra)) or "(vide)"),
             )
-        raise _AbortError(
-            Status.EN_ATTENTE, f"{name} est déjà poussée sur origin"
-        )
+        raise _AbortError(Status.EN_ATTENTE, f"{name} est déjà poussée sur origin")
 
     def _tracked(self, cwd: str, default: str, name: str) -> bool:
         """Indique si ``name`` est suivi sur ``origin/<défaut>``."""
-        out = self._git(
-            ["ls-tree", "--name-only", f"origin/{default}", name], cwd
-        )
+        out = self._git(["ls-tree", "--name-only", f"origin/{default}", name], cwd)
         return bool(out.stdout.strip())
 
     def _has_unreleased(self, cwd: str, default: str) -> bool:
@@ -782,8 +756,7 @@ class ConsumerBumper:
         sync = " ".join(manifest.sync_args)
         lines.append(f"uv sync --no-sources {sync}".rstrip())
         lines.append(
-            "contrôles : "
-            + " ; ".join(" ".join(check) for check in manifest.checks)
+            "contrôles : " + " ; ".join(" ".join(check) for check in manifest.checks)
         )
         lines.append("push : " + ("origin" if self._push else "désactivé"))
         return "\n".join(lines)

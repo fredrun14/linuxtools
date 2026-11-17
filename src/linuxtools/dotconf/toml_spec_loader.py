@@ -97,9 +97,7 @@ class TomlSpecLoader:
         for i, item in enumerate(raw_blocks):
             content = item.get("content")
             if not content:
-                raise ValueError(
-                    f"Bloc #{i + 1} sans clé 'content' dans la spec TOML"
-                )
+                raise ValueError(f"Bloc #{i + 1} sans clé 'content' dans la spec TOML")
             blocks.append(
                 ConfigBlock(
                     content=str(content),

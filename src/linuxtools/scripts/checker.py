@@ -182,9 +182,7 @@ class LinuxScriptChecker(ScriptChecker):
             required = tuple(int(p) for p in required_version.split(".")[:2])
         except (IndexError, ValueError):
             if self._logger:
-                self._logger.log_info(
-                    "Version Python illisible, vérification ignorée"
-                )
+                self._logger.log_info("Version Python illisible, vérification ignorée")
             return True
 
         if current < required:
@@ -221,8 +219,7 @@ class LinuxScriptChecker(ScriptChecker):
         if not result.success:
             if self._logger:
                 self._logger.log_error(
-                    f"Erreur de syntaxe dans {script_path} :"
-                    f" {result.stderr.strip()}"
+                    f"Erreur de syntaxe dans {script_path} : {result.stderr.strip()}"
                 )
             return False
 
@@ -249,9 +246,7 @@ class LinuxScriptChecker(ScriptChecker):
         python_exists = self._executor.probe(["test", "-f", str(python_bin)])
         if not python_exists.success:
             if self._logger:
-                self._logger.log_error(
-                    f"Interpréteur venv absent : {python_bin}"
-                )
+                self._logger.log_error(f"Interpréteur venv absent : {python_bin}")
             return False
 
         result = self._executor.probe([str(python_bin), "--version"])
@@ -287,17 +282,13 @@ class LinuxScriptChecker(ScriptChecker):
             ValueError: Si la section [project] est absente.
         """
         if not pyproject_path.is_file():
-            raise FileNotFoundError(
-                f"pyproject.toml introuvable : {pyproject_path}"
-            )
+            raise FileNotFoundError(f"pyproject.toml introuvable : {pyproject_path}")
 
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
 
         if "project" not in data:
-            raise ValueError(
-                f"Section [project] manquante dans {pyproject_path}"
-            )
+            raise ValueError(f"Section [project] manquante dans {pyproject_path}")
 
         project = data["project"]
         return {
@@ -359,13 +350,9 @@ class LinuxScriptChecker(ScriptChecker):
             constraint = self._extract_version_constraint(dep)
             location = self._is_installed(pkg, pip_cmd)
             if location is None:
-                missing.append(
-                    MissingDependency(package=pkg, required=constraint)
-                )
+                missing.append(MissingDependency(package=pkg, required=constraint))
             else:
-                installed.append(
-                    InstalledDependency(package=pkg, location=location)
-                )
+                installed.append(InstalledDependency(package=pkg, location=location))
 
         install_cmd = f"{pip_cmd} install -e '{pyproject_path.parent}'"
         return missing, installed, len(deps), install_cmd

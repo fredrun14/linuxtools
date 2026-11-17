@@ -85,8 +85,7 @@ class LinuxUserManager(UserManagerBase):
         except KeyError:
             if self._logger:
                 self._logger.log_info(
-                    f"{self._prefix} Création de l'utilisateur"
-                    f" '{name}' (UID {uid})"
+                    f"{self._prefix} Création de l'utilisateur '{name}' (UID {uid})"
                 )
             builder = CommandBuilder("useradd").with_options(
                 ["--uid", str(uid), "--shell", shell, "--comment", comment]
@@ -146,8 +145,7 @@ class LinuxUserManager(UserManagerBase):
         groups_str = ",".join(missing)
         if self._logger:
             self._logger.log_info(
-                f"{self._prefix} Ajout de '{username}'"
-                f" aux groupes : {groups_str}"
+                f"{self._prefix} Ajout de '{username}' aux groupes : {groups_str}"
             )
         cmd = (
             CommandBuilder("usermod")

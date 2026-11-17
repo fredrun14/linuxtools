@@ -52,9 +52,7 @@ class TestLinuxFileManager:
     def test_file_exists_retourne_false(self, tmp_path: Path) -> None:
         """Retourne False si le fichier n'existe pas."""
         manager, _ = self._make_manager()
-        assert manager.file_exists(
-            str(tmp_path / "inexistant.txt")
-        ) is False
+        assert manager.file_exists(str(tmp_path / "inexistant.txt")) is False
 
     def test_read_file_succes(self, tmp_path: Path) -> None:
         """Lit le contenu d'un fichier avec succès."""
@@ -85,9 +83,7 @@ class TestLinuxFileManager:
     def test_delete_file_echec_inexistant(self) -> None:
         """Retourne False si le fichier n'existe pas."""
         manager, logger = self._make_manager()
-        result = manager.delete_file(
-            "/repertoire_inexistant_xyz/fichier.txt"
-        )
+        result = manager.delete_file("/repertoire_inexistant_xyz/fichier.txt")
         assert result is False
         logger.log_error.assert_called_once()
 
@@ -133,9 +129,7 @@ class TestLinuxFileBackup:
         """Retourne False et logge un warning si la source est absente."""
         backup_path = str(tmp_path / "backup.txt")
         backup, logger = self._make_backup()
-        result = backup.backup(
-            str(tmp_path / "inexistant_source.txt"), backup_path
-        )
+        result = backup.backup(str(tmp_path / "inexistant_source.txt"), backup_path)
         assert result is False
         logger.log_warning.assert_called_once()
         assert not os.path.exists(backup_path)
@@ -167,10 +161,7 @@ class TestLinuxFileBackup:
         source.write_text("x")
         backup, logger = self._make_backup()
         with pytest.raises(OSError):
-            backup.backup(
-                str(source),
-                "/repertoire_inexistant_xyz/backup.txt"
-            )
+            backup.backup(str(source), "/repertoire_inexistant_xyz/backup.txt")
         logger.log_error.assert_called_once()
 
     def test_restore_succes(self, tmp_path: Path) -> None:
@@ -188,8 +179,7 @@ class TestLinuxFileBackup:
         backup, logger = self._make_backup()
         with pytest.raises(FileNotFoundError):
             backup.restore(
-                str(tmp_path / "dest.txt"),
-                str(tmp_path / "inexistant_backup.txt")
+                str(tmp_path / "dest.txt"), str(tmp_path / "inexistant_backup.txt")
             )
         logger.log_error.assert_called_once()
 
@@ -314,7 +304,8 @@ class TestCopytreeSecure:
         (src / "cache.pyc").write_text("bytecode")
         dst = tmp_path / "dst"
         copytree_secure(
-            src, dst,
+            src,
+            dst,
             ignore=shutil.ignore_patterns("*.pyc"),
         )
         assert not (dst / "cache.pyc").exists()
@@ -328,7 +319,8 @@ class TestCopytreeSecure:
         (pycache / "mod.pyc").write_text("bytecode")
         dst = tmp_path / "dst"
         copytree_secure(
-            src, dst,
+            src,
+            dst,
             ignore=shutil.ignore_patterns("__pycache__"),
         )
         assert not (dst / "__pycache__").exists()
@@ -345,9 +337,7 @@ class TestCopytreeSecure:
     def test_source_absente_leve_FileNotFoundError(self, tmp_path: Path) -> None:
         """Lève FileNotFoundError si src n'existe pas."""
         with pytest.raises(FileNotFoundError):
-            copytree_secure(
-                tmp_path / "inexistant", tmp_path / "dst"
-            )
+            copytree_secure(tmp_path / "inexistant", tmp_path / "dst")
 
     def test_source_pas_repertoire_leve_NotADirectoryError(
         self, tmp_path: Path
@@ -490,9 +480,7 @@ class TestWriteTextSecureExclusive:
         cible = tmp_path / "s.env"
 
         with pytest.raises(UnicodeEncodeError):
-            write_text_secure(
-                cible, "é", 0o600, encoding="ascii", exclusive=True
-            )
+            write_text_secure(cible, "é", 0o600, encoding="ascii", exclusive=True)
 
         assert not cible.exists()
 

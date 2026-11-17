@@ -83,9 +83,7 @@ class TestDeployerDeploySucces:
         transport.transfer.return_value = _result(success=True)
         installer.backup_venv.return_value = Path("/opt/app/venv.bak-1")
         installer.install.return_value = _result(success=True)
-        verifier.verify.return_value = [
-            CheckResult(label="import app", ok=True)
-        ]
+        verifier.verify.return_value = [CheckResult(label="import app", ok=True)]
         deployer = Deployer(transport, installer, verifier)
 
         report = deployer.deploy(_make_config())
@@ -93,9 +91,7 @@ class TestDeployerDeploySucces:
         assert report.success is True
         assert report.phase_reached is DeployPhase.DONE
         assert report.rolled_back is False
-        installer.prune_backup.assert_called_once_with(
-            Path("/opt/app/venv.bak-1")
-        )
+        installer.prune_backup.assert_called_once_with(Path("/opt/app/venv.bak-1"))
 
     def test_deploy_succes_venv_neuf_pas_de_prune(self) -> None:
         """Sans backup (venv neuf), prune_backup n'est pas appelé."""
@@ -137,9 +133,7 @@ class TestDeployerDeployEchecBackup:
         """DeployError de backup_venv arrête avant l'installation."""
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
-        installer.backup_venv.side_effect = DeployError(
-            "cp: permission denied"
-        )
+        installer.backup_venv.side_effect = DeployError("cp: permission denied")
         deployer = Deployer(transport, installer, verifier)
 
         report = deployer.deploy(_make_config())
@@ -157,9 +151,7 @@ class TestDeployerDeployEchecInstall:
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
         installer.backup_venv.return_value = Path("/opt/app/venv.bak-1")
-        installer.install.return_value = _result(
-            success=False, stderr="pip error"
-        )
+        installer.install.return_value = _result(success=False, stderr="pip error")
         installer.restore_venv.return_value = True
         deployer = Deployer(transport, installer, verifier)
 
@@ -178,9 +170,7 @@ class TestDeployerDeployEchecInstall:
         transport, installer, verifier = _make_collaborators()
         transport.transfer.return_value = _result(success=True)
         installer.backup_venv.return_value = None
-        installer.install.return_value = _result(
-            success=False, stderr="pip error"
-        )
+        installer.install.return_value = _result(success=False, stderr="pip error")
         deployer = Deployer(transport, installer, verifier)
 
         report = deployer.deploy(_make_config())
@@ -199,9 +189,7 @@ class TestDeployerDeployEchecInstall:
         transport.transfer.return_value = _result(success=True)
         backup_path = Path("/opt/app/venv.bak-1")
         installer.backup_venv.return_value = backup_path
-        installer.install.return_value = _result(
-            success=False, stderr="pip error"
-        )
+        installer.install.return_value = _result(success=False, stderr="pip error")
         installer.restore_venv.return_value = False
         deployer = Deployer(transport, installer, verifier)
 
@@ -211,8 +199,7 @@ class TestDeployerDeployEchecInstall:
         assert report.rolled_back is False
         assert report.phase_reached is DeployPhase.INSTALL
         assert any(
-            "Rollback ÉCHOUÉ" in m and str(backup_path) in m
-            for m in report.messages
+            "Rollback ÉCHOUÉ" in m and str(backup_path) in m for m in report.messages
         )
 
 
@@ -276,8 +263,7 @@ class TestDeployerDeployEchecVerify:
         assert report.success is False
         assert report.rolled_back is False
         assert any(
-            "Rollback ÉCHOUÉ" in m and str(backup_path) in m
-            for m in report.messages
+            "Rollback ÉCHOUÉ" in m and str(backup_path) in m for m in report.messages
         )
 
 
@@ -429,9 +415,7 @@ class TestDeployerResolveSourceDir:
         assert any("auto-détecté" in m for m in report.messages)
         transport.transfer.assert_called_once()
         assert transport.transfer.call_args.args[0] == detected
-        logger.log_info.assert_called_once_with(
-            f"Source auto-détecté : {detected}"
-        )
+        logger.log_info.assert_called_once_with(f"Source auto-détecté : {detected}")
 
     def test_source_dir_auto_detecte_inexistant(self) -> None:
         """source_dir auto-détecté mais inexistant sur disque : échec
@@ -555,9 +539,7 @@ def _make_config_with_phases(**overrides: object) -> DeployConfig:
     return replace(_make_config(), **overrides)  # type: ignore[arg-type]
 
 
-def _make_successful_base_collaborators() -> tuple[
-    MagicMock, MagicMock, MagicMock
-]:
+def _make_successful_base_collaborators() -> tuple[MagicMock, MagicMock, MagicMock]:
     """Transport/installer/verifier scriptés en succès jusqu'à VERIFY,
     prêts pour enchaîner sur les phases CONFIG/SECRETS/TIMER."""
     transport, installer, verifier = _make_collaborators()
@@ -568,9 +550,7 @@ def _make_successful_base_collaborators() -> tuple[
     return transport, installer, verifier
 
 
-_CONFIG_SPEC = ConfigDeploySpec(
-    data={"a": 1}, dest_path=Path("/etc/app/config.toml")
-)
+_CONFIG_SPEC = ConfigDeploySpec(data={"a": 1}, dest_path=Path("/etc/app/config.toml"))
 _SECRETS_SPEC = SecretsSpec(
     keys=(("svc", "TOKEN"),),
     dest_path=Path("/etc/app/secrets.env"),
@@ -687,9 +667,7 @@ class TestDeployerNouvellesPhases:
 
         assert report.success is False
         assert report.phase_reached is DeployPhase.CONFIG
-        assert any(
-            "ConfigDeployer non configuré" in m for m in report.messages
-        )
+        assert any("ConfigDeployer non configuré" in m for m in report.messages)
 
     def test_secrets_configure_sans_target_executor_echoue(self) -> None:
         """Cas limite (no-op target_executor absent) : config.secrets
@@ -708,9 +686,7 @@ class TestDeployerNouvellesPhases:
 
         assert report.success is False
         assert report.phase_reached is DeployPhase.SECRETS
-        assert any(
-            "target_executor non configuré" in m for m in report.messages
-        )
+        assert any("target_executor non configuré" in m for m in report.messages)
 
     def test_timer_deploy_configure_sans_timer_deployer_echoue(
         self,
@@ -799,9 +775,7 @@ class TestDeployerNouvellesPhases:
         assert report.success is False
         assert report.phase_reached is DeployPhase.SECRETS
         assert "Config déployée." in report.messages
-        assert any(
-            "Provisioning des secrets échoué." in m for m in report.messages
-        )
+        assert any("Provisioning des secrets échoué." in m for m in report.messages)
         timer_deployer.deploy.assert_not_called()
 
     def test_phase_timer_echoue_apres_config_et_secrets_reussis(
@@ -839,8 +813,7 @@ class TestDeployerNouvellesPhases:
         assert "Config déployée." in report.messages
         assert "Secrets provisionnés." in report.messages
         assert any(
-            "Installation du service+timer échouée." in m
-            for m in report.messages
+            "Installation du service+timer échouée." in m for m in report.messages
         )
 
 
@@ -923,10 +896,7 @@ class TestDeployerDryRunPhases:
 
         self._dry_run(config, MagicMock(spec=CommandExecutor))
 
-        assert (
-            "provisioning secrets -> /etc/app/secrets.env"
-            in capsys.readouterr().out
-        )
+        assert "provisioning secrets -> /etc/app/secrets.env" in capsys.readouterr().out
 
 
 class TestDeployerPhaseSecretsMessages:
@@ -995,9 +965,7 @@ class TestDeployerPhaseTimerMessages:
             target_executor=MagicMock(spec=CommandExecutor),
         )
 
-        report = deployer.deploy(
-            _make_config_with_phases(timer_deploy=_TIMER_SPEC)
-        )
+        report = deployer.deploy(_make_config_with_phases(timer_deploy=_TIMER_SPEC))
 
         assert report.success is True
         assert "Linger inactif pour fred." in report.messages
@@ -1092,9 +1060,7 @@ class TestDeployerDeployAtomicSwap:
         """La fonction verify passée à release() redirige les
         vérifications sur la version (rebase_verification)."""
         transport, installer, verifier = _make_successful_base_collaborators()
-        verifier.verify.return_value = [
-            CheckResult(label="import app", ok=True)
-        ]
+        verifier.verify.return_value = [CheckResult(label="import app", ok=True)]
         releaser = MagicMock()
         version = Path("/opt/app/venvs/venv-20260929-000000-000000")
 
@@ -1120,9 +1086,7 @@ class TestDeployerDeployAtomicSwap:
         # cli_bin absolu égal à venv_path (cas backup-py-manager,
         # conception §7) : sans rebase_verification, viserait encore
         # le venv actif au lieu de la version en cours de vérif.
-        config = replace(
-            _make_config(), atomic_swap=True, cli_bin="/opt/app/venv"
-        )
+        config = replace(_make_config(), atomic_swap=True, cli_bin="/opt/app/venv")
 
         deployer.deploy(config)
 
@@ -1151,9 +1115,7 @@ class TestDeployerDeployAtomicSwap:
             messages=(),
         )
         deployer = Deployer(transport, installer, verifier, releaser=releaser)
-        config = replace(
-            _make_config(), atomic_swap=True, config_deploy=_CONFIG_SPEC
-        )
+        config = replace(_make_config(), atomic_swap=True, config_deploy=_CONFIG_SPEC)
 
         report = deployer.deploy(config)
 

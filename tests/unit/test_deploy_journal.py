@@ -54,9 +54,7 @@ class TestOpenDeployJournal:
     ) -> None:
         """SEC : label invalide -> ValueError avant tout accès disque."""
         with pytest.raises(ValueError):
-            open_deploy_journal(
-                "bpm", label, dry_run=False, log_dir=tmp_path / "logs"
-            )
+            open_deploy_journal("bpm", label, dry_run=False, log_dir=tmp_path / "logs")
 
         assert not (tmp_path / "logs").exists()
 
@@ -65,9 +63,7 @@ class TestOpenDeployJournal:
     ) -> None:
         """SEC : app_name invalide -> ValueError."""
         with pytest.raises(ValueError):
-            open_deploy_journal(
-                "../bpm", "nas", dry_run=False, log_dir=tmp_path
-            )
+            open_deploy_journal("../bpm", "nas", dry_run=False, log_dir=tmp_path)
 
     def test_open_deploy_journal_cree_fichier_0600_dans_dossier_0700(
         self, tmp_path: Path
@@ -94,9 +90,7 @@ class TestOpenDeployJournal:
         base.mkdir(parents=True)
         os.chmod(base, 0o755)
 
-        open_deploy_journal(
-            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
-        )
+        open_deploy_journal("bpm", "nas", dry_run=False, log_dir=tmp_path / "logs")
 
         assert stat.S_IMODE(base.stat().st_mode) == 0o700
 
@@ -143,17 +137,11 @@ class TestOpenDeployJournal:
     ) -> None:
         """A-04 : journal de 91 j supprimé, autre fichier et récent gardés."""
         base = tmp_path / "logs" / "deploy"
-        vieux = self._vieux_fichier(
-            base / "deploy_nas_20200101_000000Z.log", 91
-        )
+        vieux = self._vieux_fichier(base / "deploy_nas_20200101_000000Z.log", 91)
         autre = self._vieux_fichier(base / "notes.txt", 400)
-        recent = self._vieux_fichier(
-            base / "deploy_nas_20260101_000000Z.log", 5
-        )
+        recent = self._vieux_fichier(base / "deploy_nas_20260101_000000Z.log", 5)
 
-        open_deploy_journal(
-            "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
-        )
+        open_deploy_journal("bpm", "nas", dry_run=False, log_dir=tmp_path / "logs")
 
         assert not vieux.exists()
         assert autre.exists()
@@ -207,18 +195,14 @@ class TestOpenDeployJournal:
         )
 
         assert journal.path is not None
-        assert appels == [
-            (tmp_path / "logs" / "deploy", "deploy_*.log", journal.path)
-        ]
+        assert appels == [(tmp_path / "logs" / "deploy", "deploy_*.log", journal.path)]
 
     def test_open_deploy_journal_retention_none_ne_purge_pas(
         self, tmp_path: Path
     ) -> None:
         """A-06 : retention_days=None désactive la purge."""
         base = tmp_path / "logs" / "deploy"
-        vieux = self._vieux_fichier(
-            base / "deploy_nas_20200101_000000Z.log", 400
-        )
+        vieux = self._vieux_fichier(base / "deploy_nas_20200101_000000Z.log", 400)
 
         open_deploy_journal(
             "bpm",
@@ -230,18 +214,12 @@ class TestOpenDeployJournal:
 
         assert vieux.exists()
 
-    def test_open_deploy_journal_dry_run_ne_purge_pas(
-        self, tmp_path: Path
-    ) -> None:
+    def test_open_deploy_journal_dry_run_ne_purge_pas(self, tmp_path: Path) -> None:
         """A-07 : en dry-run, un vieux journal présent reste en place."""
         base = tmp_path / "logs" / "deploy"
-        vieux = self._vieux_fichier(
-            base / "deploy_nas_20200101_000000Z.log", 400
-        )
+        vieux = self._vieux_fichier(base / "deploy_nas_20200101_000000Z.log", 400)
 
-        open_deploy_journal(
-            "bpm", "nas", dry_run=True, log_dir=tmp_path / "logs"
-        )
+        open_deploy_journal("bpm", "nas", dry_run=True, log_dir=tmp_path / "logs")
 
         assert vieux.exists()
 
@@ -250,9 +228,7 @@ class TestOpenDeployJournal:
     ) -> None:
         """A-05 : une suppression refusée n'empêche pas d'ouvrir le journal."""
         base = tmp_path / "logs" / "deploy"
-        vieux = self._vieux_fichier(
-            base / "deploy_nas_20200101_000000Z.log", 400
-        )
+        vieux = self._vieux_fichier(base / "deploy_nas_20200101_000000Z.log", 400)
 
         appels: list[object] = []
 
@@ -277,9 +253,7 @@ class TestOpenDeployJournal:
     ) -> None:
         """F-07 : le journal note le nombre purgé, sans nom de fichier."""
         base = tmp_path / "logs" / "deploy"
-        self._vieux_fichier(
-            base / "deploy_secret-nom_20200101_000000Z.log", 400
-        )
+        self._vieux_fichier(base / "deploy_secret-nom_20200101_000000Z.log", 400)
 
         journal = open_deploy_journal(
             "bpm", "nas", dry_run=False, log_dir=tmp_path / "logs"
@@ -317,18 +291,12 @@ class TestOpenDeployJournal:
         assert journal.path is None
         assert not (tmp_path / "logs").exists()
 
-    def test_open_deploy_journal_nom_horodate_et_label(
-        self, tmp_path: Path
-    ) -> None:
+    def test_open_deploy_journal_nom_horodate_et_label(self, tmp_path: Path) -> None:
         """Nommage : deploy_<label>_<AAAAMMJJ_HHMMSS>Z.log (Z = UTC)."""
-        journal = open_deploy_journal(
-            "bpm", "nas-01", dry_run=False, log_dir=tmp_path
-        )
+        journal = open_deploy_journal("bpm", "nas-01", dry_run=False, log_dir=tmp_path)
 
         assert journal.path is not None
-        assert re.fullmatch(
-            r"deploy_nas-01_\d{8}_\d{6}Z\.log", journal.path.name
-        )
+        assert re.fullmatch(r"deploy_nas-01_\d{8}_\d{6}Z\.log", journal.path.name)
 
     def test_open_deploy_journal_log_dir_par_defaut(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -415,6 +383,4 @@ class TestOpenDeployJournal:
         assert "ERROR" in contenu
         assert "Sonde d'existence ambiguë" in contenu
         assert _SENTINELLE not in contenu
-        assert _SENTINELLE not in (tmp_path / "secrets.env").read_text(
-            encoding="utf-8"
-        )
+        assert _SENTINELLE not in (tmp_path / "secrets.env").read_text(encoding="utf-8")

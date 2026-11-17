@@ -51,9 +51,7 @@ class TestLinuxDhcpReservationManager:
     def test_garder_ip_existante(self) -> None:
         """Device avec fixed_ip garde son IP."""
         mgr = LinuxDhcpReservationManager(_config())
-        devices = [
-            _device(fixed_ip="192.168.1.50")
-        ]
+        devices = [_device(fixed_ip="192.168.1.50")]
         result = mgr.generate_reservations(devices)
         assert result[0].fixed_ip == "192.168.1.50"
 
@@ -109,14 +107,9 @@ class TestLinuxDhcpReservationManager:
     def test_export_sans_hostname(self) -> None:
         """Export sans hostname n'a pas de 3e champ."""
         mgr = LinuxDhcpReservationManager(_config())
-        devices = [
-            _device(fixed_ip="192.168.1.100")
-        ]
+        devices = [_device(fixed_ip="192.168.1.100")]
         output = mgr.export_reservations(devices)
-        line = [
-            l for l in output.split("\n")
-            if "dhcp-host" in l
-        ][0]
+        line = [l for l in output.split("\n") if "dhcp-host" in l][0]
         assert line.count(",") == 1
 
     def test_export_liste_vide(self) -> None:
@@ -163,6 +156,7 @@ class TestLinuxDhcpReservationManagerAvecLogger:
     def test_generate_reservations_avec_logger(self) -> None:
         """generate_reservations() appelle logger.log_info si logger present."""
         from unittest.mock import MagicMock
+
         logger = MagicMock()
         mgr = LinuxDhcpReservationManager(_config(), logger=logger)
         devices = [_device()]
@@ -173,7 +167,7 @@ class TestLinuxDhcpReservationManagerAvecLogger:
         """export_reservations() ignore les devices sans fixed_ip."""
         mgr = LinuxDhcpReservationManager(_config())
         devices = [
-            _device(),                           # sans fixed_ip
+            _device(),  # sans fixed_ip
             _device("192.168.1.2", "bb:cc:dd:ee:ff:00", fixed_ip="192.168.1.2"),
         ]
         output = mgr.export_reservations(devices)
@@ -191,5 +185,6 @@ class TestIpToIntValidation:
     def test_ip_to_int_invalide_leve_valueerror(self) -> None:
         """_ip_to_int() leve ValueError pour une IP invalide."""
         import pytest
+
         with pytest.raises(ValueError, match="IPv4"):
             _ip_to_int("256.0.0.1")

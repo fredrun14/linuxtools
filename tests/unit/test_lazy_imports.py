@@ -65,9 +65,7 @@ def test_acces_nom_routeur_sans_webapitools_leve_import_error(
 
     # Assert
     assert resultat.returncode != 0
-    assert (
-        "ModuleNotFoundError" in resultat.stderr
-    )  # sous-classe d'ImportError
+    assert "ModuleNotFoundError" in resultat.stderr  # sous-classe d'ImportError
     assert "webapitools" in resultat.stderr
 
 
@@ -80,15 +78,11 @@ def test_acces_nom_updates_sans_webapitools_leve_import_error() -> None:
 
     # Assert
     assert resultat.returncode != 0
-    assert (
-        "ModuleNotFoundError" in resultat.stderr
-    )  # sous-classe d'ImportError
+    assert "ModuleNotFoundError" in resultat.stderr  # sous-classe d'ImportError
     assert "webapitools" in resultat.stderr
 
 
-@pytest.mark.parametrize(
-    "module", ["linuxtools.network.router", "linuxtools.updates"]
-)
+@pytest.mark.parametrize("module", ["linuxtools.network.router", "linuxtools.updates"])
 def test_import_direct_router_et_updates_sans_webapitools_leve_import_error(
     module: str,
 ) -> None:
@@ -98,9 +92,7 @@ def test_import_direct_router_et_updates_sans_webapitools_leve_import_error(
 
     # Assert
     assert resultat.returncode != 0
-    assert (
-        "ModuleNotFoundError" in resultat.stderr
-    )  # sous-classe d'ImportError
+    assert "ModuleNotFoundError" in resultat.stderr  # sous-classe d'ImportError
     assert "webapitools" in resultat.stderr
 
 

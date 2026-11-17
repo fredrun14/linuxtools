@@ -13,9 +13,7 @@ from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.logging.base import Logger
 
 
-def _result(
-    success: bool = True, stdout: str = "", stderr: str = ""
-) -> CommandResult:
+def _result(success: bool = True, stdout: str = "", stderr: str = "") -> CommandResult:
     """Construit un CommandResult scripté pour les tests."""
     return CommandResult(
         command=(),
@@ -343,9 +341,7 @@ class TestVenvInstallerRestoreVenv:
             _result(success=True),  # test -d
             _result(success=True),  # mv venv -> garde-fou
             _result(success=False, stderr="cp error"),  # cp -a
-            _result(
-                success=False, stderr="mv error"
-            ),  # remise garde-fou échoue aussi
+            _result(success=False, stderr="mv error"),  # remise garde-fou échoue aussi
         ]
         logger = MagicMock(spec=Logger)
         installer = VenvInstaller(executor, logger=logger)

@@ -94,9 +94,7 @@ class MountConfigLoader(ConfigFileLoader[MountConfig]):
             options=data.get("options", ""),
         )
 
-    def load_with_automount(
-        self, section: str | None = None
-    ) -> AutomountSettings:
+    def load_with_automount(self, section: str | None = None) -> AutomountSettings:
         """Charge un MountConfig et les réglages automount associés.
 
         Lit les champs optionnels 'with_automount' (bool) et

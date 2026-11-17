@@ -79,8 +79,7 @@ class DeployTarget:
         """
         if not self.is_remote:
             raise ValueError(
-                "ssh_destination requiert une cible distante"
-                " (host non renseigné)"
+                "ssh_destination requiert une cible distante (host non renseigné)"
             )
         if self.user:
             return f"{self.user}@{self.host}"
@@ -321,18 +320,14 @@ class DeployReport:
 
         if self.checks:
             ok_count = sum(1 for c in self.checks if c.ok)
-            lines.append(
-                f"  Vérifications : {ok_count}/{len(self.checks)} passées"
-            )
+            lines.append(f"  Vérifications : {ok_count}/{len(self.checks)} passées")
             for check in self.checks:
                 symbol = "✓" if check.ok else "✗"
                 detail = f" ({check.detail})" if check.detail else ""
                 lines.append(f"    {symbol} {check.label}{detail}")
 
         if self.rolled_back:
-            lines.append(
-                f"  ⚠ Rollback effectué (backup : {self.backup_path})"
-            )
+            lines.append(f"  ⚠ Rollback effectué (backup : {self.backup_path})")
 
         if self.active_version is not None:
             lines.append(f"  Version active : {self.active_version}")

@@ -53,9 +53,7 @@ def _executor(
 ) -> ScriptedExecutor:
     """Scénario nominal : tout est sain, pin à monter de v2.10.0."""
     ex = ScriptedExecutor()
-    ex.on(
-        "git", "remote", "get-url", "--all", "origin", stdout=fetch_url + "\n"
-    )
+    ex.on("git", "remote", "get-url", "--all", "origin", stdout=fetch_url + "\n")
     ex.on(
         "git",
         "remote",
@@ -130,9 +128,7 @@ def _bump(ex: ScriptedExecutor, tmp_path: Path) -> BumpOutcome:
         ("https://git.ricfasohel.fr.evil.example/app.git", _FORGEJO),
     ],
 )
-def test_origin_github_refuse(
-    tmp_path: Path, fetch_url: str, push_url: str
-) -> None:
+def test_origin_github_refuse(tmp_path: Path, fetch_url: str, push_url: str) -> None:
     ex = _executor(fetch_url=fetch_url, push_url=push_url)
 
     outcome = _bump(ex, tmp_path)
@@ -153,9 +149,7 @@ def test_origin_github_refuse(
         "https://user:pw@GIT.ricfasohel.fr/fred/app.git",
     ],
 )
-def test_origin_forgejo_accepte_les_formes_usuelles(
-    tmp_path: Path, url: str
-) -> None:
+def test_origin_forgejo_accepte_les_formes_usuelles(tmp_path: Path, url: str) -> None:
     outcome = _bump(_executor(fetch_url=url, push_url=url), tmp_path)
 
     assert outcome.status is Status.SIMULE
@@ -191,9 +185,7 @@ def test_origin_forme_trompeuse_refusee(tmp_path: Path, url: str) -> None:
 
 
 @pytest.mark.parametrize("push", [False, True])
-def test_deuxieme_url_github_d_origin_refusee(
-    tmp_path: Path, push: bool
-) -> None:
+def test_deuxieme_url_github_d_origin_refusee(tmp_path: Path, push: bool) -> None:
     """Une 2e `url`/`pushurl` miroir échappe à `get-url` sans `--all`."""
     miroir = "git@github.com:fred/app.git"
     doublon = f"{_FORGEJO}\n{miroir}"
@@ -269,10 +261,7 @@ def test_contrat_absent_refuse(tmp_path: Path) -> None:
 
 
 def test_dependance_maison_en_conflit_bloque(tmp_path: Path) -> None:
-    maison = (
-        "webapitools @ git+https://git.ricfasohel.fr/fred/"
-        "webapitools.git@v0.13.0"
-    )
+    maison = "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0"
     ex = _executor(_pyproject(extra_deps=(maison,)))
     ex.on(
         "git",
@@ -290,10 +279,7 @@ def test_dependance_maison_en_conflit_bloque(tmp_path: Path) -> None:
 
 
 def test_dependance_maison_alignee_ne_bloque_pas(tmp_path: Path) -> None:
-    maison = (
-        "webapitools @ git+https://git.ricfasohel.fr/fred/"
-        "webapitools.git@v0.14.0"
-    )
+    maison = "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.14.0"
     ex = _executor(_pyproject(extra_deps=(maison,)))
     ex.on(
         "git",
@@ -317,10 +303,7 @@ def test_dependance_maison_alignee_ne_bloque_pas(tmp_path: Path) -> None:
 def test_dependance_maison_illisible_ou_absente_refusee(
     tmp_path: Path, sortie: str, rc: int, motif: str
 ) -> None:
-    maison = (
-        "webapitools @ git+https://git.ricfasohel.fr/fred/"
-        "webapitools.git@v0.13.0"
-    )
+    maison = "webapitools @ git+https://git.ricfasohel.fr/fred/webapitools.git@v0.13.0"
     ex = _executor(_pyproject(extra_deps=(maison,)))
     ex.on("git", "-C", stdout=sortie, rc=rc, stderr="fatal: pas de tag")
 
@@ -339,9 +322,7 @@ def test_dependance_maison_illisible_ou_absente_refusee(
         "x @ git+https://git.ricfasohel.fr/fred/x.git@--output=/etc/p",
     ],
 )
-def test_dependance_maison_suspecte_refusee(
-    tmp_path: Path, maison: str
-) -> None:
+def test_dependance_maison_suspecte_refusee(tmp_path: Path, maison: str) -> None:
     ex = _executor(_pyproject(extra_deps=(maison,)))
 
     outcome = _bump(ex, tmp_path)
@@ -537,9 +518,7 @@ def test_branche_poussee_fusion_refusee(tmp_path: Path, parents: int) -> None:
         "a" * 41,
     ],
 )
-def test_branche_poussee_sha_non_hexadecimal_refuse(
-    tmp_path: Path, sha: str
-) -> None:
+def test_branche_poussee_sha_non_hexadecimal_refuse(tmp_path: Path, sha: str) -> None:
     ex = _executor()
     _branche_distante(ex, sha=sha)
 
@@ -601,9 +580,7 @@ def test_dry_run_n_ecrit_rien_et_ne_fetch_pas(tmp_path: Path) -> None:
         "CHANGELOG.md",
         stdout="CHANGELOG.md\n",
     )
-    ex.on(
-        "git", "show", "origin/main:CHANGELOG.md", stdout="## [Non publié]\n"
-    )
+    ex.on("git", "show", "origin/main:CHANGELOG.md", stdout="## [Non publié]\n")
 
     outcome = _bump(ex, tmp_path)
 
@@ -683,9 +660,7 @@ def test_echec_lecture_pyproject_origin(tmp_path: Path) -> None:
         "ref: refs/heads/a b\tHEAD\n",
     ],
 )
-def test_branche_par_defaut_illisible_refusee(
-    tmp_path: Path, sortie: str
-) -> None:
+def test_branche_par_defaut_illisible_refusee(tmp_path: Path, sortie: str) -> None:
     ex = _executor()
     ex.on("git", "ls-remote", "--symref", stdout=sortie)
 
@@ -746,12 +721,8 @@ def test_jeton_masque_sur_le_chemin_d_exception_generique(
     assert "https://***@github.com" in journal
 
 
-@pytest.mark.parametrize(
-    "tag", ["v2.11", "2.11.1", "v2.11.1; rm", "v2.11.1\n"]
-)
-def test_tag_invalide_refuse_a_la_construction(
-    tmp_path: Path, tag: str
-) -> None:
+@pytest.mark.parametrize("tag", ["v2.11", "2.11.1", "v2.11.1; rm", "v2.11.1\n"])
+def test_tag_invalide_refuse_a_la_construction(tmp_path: Path, tag: str) -> None:
     with pytest.raises(ValueError, match="tag"):
         _bumper(ScriptedExecutor(), tmp_path, tag=tag)
 

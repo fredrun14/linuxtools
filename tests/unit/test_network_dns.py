@@ -47,13 +47,9 @@ class TestLinuxHostsFileManager:
     ) -> None:
         """dns_name existant preserve."""
         mgr = LinuxHostsFileManager(_config())
-        devices = [
-            _device(dns_name="custom.maison.local")
-        ]
+        devices = [_device(dns_name="custom.maison.local")]
         result = mgr.generate_dns_names(devices)
-        assert (
-            result[0].dns_name == "custom.maison.local"
-        )
+        assert result[0].dns_name == "custom.maison.local"
 
     def test_generer_dns_name_sans_hostname(
         self,
@@ -81,14 +77,9 @@ class TestLinuxHostsFileManager:
     def test_hosts_entries_format(self) -> None:
         """Format 'IP    fqdn alias'."""
         mgr = LinuxHostsFileManager(_config())
-        devices = [
-            _device(dns_name="nas.maison.local")
-        ]
+        devices = [_device(dns_name="nas.maison.local")]
         output = mgr.generate_hosts_entries(devices)
-        assert (
-            "192.168.1.100    nas.maison.local nas"
-            in output
-        )
+        assert "192.168.1.100    nas.maison.local nas" in output
 
     def test_hosts_entries_utilise_fixed_ip(
         self,
@@ -118,10 +109,7 @@ class TestLinuxHostsFileManager:
         mgr = LinuxHostsFileManager(_config())
         output = mgr.generate_hosts_entries([])
         assert "Reseau local" in output
-        lines = [
-            l for l in output.strip().split("\n")
-            if not l.startswith("#")
-        ]
+        lines = [l for l in output.strip().split("\n") if not l.startswith("#")]
         assert lines == []
 
 
@@ -131,14 +119,9 @@ class TestLinuxDnsmasqConfigGenerator:
     def test_generate_format_address(self) -> None:
         """Format 'address=/name/ip'."""
         mgr = LinuxDnsmasqConfigGenerator(_config())
-        devices = [
-            _device(dns_name="nas.maison.local")
-        ]
+        devices = [_device(dns_name="nas.maison.local")]
         output = mgr.generate_hosts_entries(devices)
-        assert (
-            "address=/nas.maison.local/192.168.1.100"
-            in output
-        )
+        assert "address=/nas.maison.local/192.168.1.100" in output
 
     def test_generate_entete(self) -> None:
         """Commentaire de section present."""
@@ -152,7 +135,6 @@ class TestLinuxDnsmasqConfigGenerator:
         mgr = LinuxDnsmasqConfigGenerator(_config())
         output = mgr.generate_hosts_entries([])
         assert "address=" not in output
-
 
 
 class TestLinuxHostsFileManagerEdgeCases:

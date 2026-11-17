@@ -24,10 +24,7 @@ class TestServiceConfig:
 
     def test_default_values(self) -> None:
         """Vérifie les valeurs par défaut."""
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test")
 
         assert config.type == "simple"
         assert config.user == ""
@@ -46,8 +43,7 @@ class TestServiceConfigToUnitFile:
     def test_basic_service_contains_required_sections(self) -> None:
         """Vérifie que le fichier .service contient toutes les sections."""
         config = ServiceConfig(
-            description="Mon service",
-            exec_start="/usr/bin/my-daemon"
+            description="Mon service", exec_start="/usr/bin/my-daemon"
         )
 
         result = config.to_unit_file()
@@ -66,7 +62,7 @@ class TestServiceConfigToUnitFile:
             description="Service avec utilisateur",
             exec_start="/usr/bin/daemon",
             user="www-data",
-            group="www-data"
+            group="www-data",
         )
 
         result = config.to_unit_file()
@@ -79,7 +75,7 @@ class TestServiceConfigToUnitFile:
         config = ServiceConfig(
             description="Service avec répertoire",
             exec_start="/usr/bin/daemon",
-            working_directory="/var/lib/myapp"
+            working_directory="/var/lib/myapp",
         )
 
         result = config.to_unit_file()
@@ -91,7 +87,7 @@ class TestServiceConfigToUnitFile:
         config = ServiceConfig(
             description="Service avec env",
             exec_start="/usr/bin/daemon",
-            environment={"HOME": "/var/lib/myapp", "PATH": "/usr/bin"}
+            environment={"HOME": "/var/lib/myapp", "PATH": "/usr/bin"},
         )
 
         result = config.to_unit_file()
@@ -104,7 +100,7 @@ class TestServiceConfigToUnitFile:
         config = ServiceConfig(
             description="Service avec redémarrage",
             exec_start="/usr/bin/daemon",
-            restart="on-failure"
+            restart="on-failure",
         )
 
         result = config.to_unit_file()
@@ -117,7 +113,7 @@ class TestServiceConfigToUnitFile:
             description="Service avec délai",
             exec_start="/usr/bin/daemon",
             restart="always",
-            restart_sec=10
+            restart_sec=10,
         )
 
         result = config.to_unit_file()
@@ -146,7 +142,7 @@ class TestServiceConfigToUnitFile:
             description="Service sans redémarrage",
             exec_start="/usr/bin/daemon",
             restart="no",
-            restart_sec=10
+            restart_sec=10,
         )
 
         result = config.to_unit_file()
@@ -159,7 +155,7 @@ class TestServiceConfigToUnitFile:
         config = ServiceConfig(
             description="Service graphique",
             exec_start="/usr/bin/gui-app",
-            wanted_by="graphical.target"
+            wanted_by="graphical.target",
         )
 
         result = config.to_unit_file()
@@ -171,7 +167,7 @@ class TestServiceConfigToUnitFile:
         config = ServiceConfig(
             description="Script ponctuel",
             exec_start="/usr/local/bin/backup.sh",
-            type="oneshot"
+            type="oneshot",
         )
 
         result = config.to_unit_file()
@@ -181,8 +177,7 @@ class TestServiceConfigToUnitFile:
     def test_service_without_optional_fields_omits_them(self) -> None:
         """Vérifie l'absence des champs optionnels non définis."""
         config = ServiceConfig(
-            description="Service minimal",
-            exec_start="/usr/bin/minimal"
+            description="Service minimal", exec_start="/usr/bin/minimal"
         )
 
         result = config.to_unit_file()
@@ -215,8 +210,7 @@ class TestServiceConfigToUnitFile:
 
         assert "Description=Service complet" in result
         assert "Type=forking" in result
-        assert "ExecStart=/usr/bin/complete-daemon --config /etc/app.conf" \
-            in result
+        assert "ExecStart=/usr/bin/complete-daemon --config /etc/app.conf" in result
         assert "User=appuser" in result
         assert "Group=appgroup" in result
         assert "WorkingDirectory=/var/lib/app" in result
@@ -234,10 +228,7 @@ class TestServiceNameValidation:
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/cmd;evil"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/cmd;evil")
         result = manager.install_service_unit(config)
         assert result is False
         logger.log_error.assert_called_once()
@@ -247,13 +238,8 @@ class TestServiceNameValidation:
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test"
-        )
-        result = manager.install_service_unit_with_name(
-            "../etc/passwd", config
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test")
+        result = manager.install_service_unit_with_name("../etc/passwd", config)
         assert result is False
         logger.log_error.assert_called_once()
 
@@ -263,10 +249,7 @@ class TestServiceNameValidation:
         executor = MagicMock()
         executor.reload_systemd.return_value = True
         manager = LinuxUserServiceUnitManager(logger, executor)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/bad;name"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/bad;name")
         result = manager.install_service_unit(config)
         assert result is False
         logger.log_error.assert_called_once()
@@ -303,21 +286,25 @@ class TestServiceConfigValidation:
         """Vérifie le rejet d'un type de service inconnu."""
         with pytest.raises(ValueError, match="Type de service invalide"):
             ServiceConfig(
-                description="Test",
-                exec_start="/usr/bin/test",
-                type="badtype"
+                description="Test", exec_start="/usr/bin/test", type="badtype"
             )
 
-    @pytest.mark.parametrize("svc_type", [
-        "simple", "exec", "forking", "oneshot",
-        "dbus", "notify", "idle",
-    ])
+    @pytest.mark.parametrize(
+        "svc_type",
+        [
+            "simple",
+            "exec",
+            "forking",
+            "oneshot",
+            "dbus",
+            "notify",
+            "idle",
+        ],
+    )
     def test_types_valides_acceptes(self, svc_type: str) -> None:
         """Vérifie l'acceptation de tous les types systemd valides."""
         config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test",
-            type=svc_type
+            description="Test", exec_start="/usr/bin/test", type=svc_type
         )
         assert config.type == svc_type
 
@@ -325,21 +312,25 @@ class TestServiceConfigValidation:
         """Vérifie le rejet d'une politique de redémarrage inconnue."""
         with pytest.raises(ValueError, match="redémarrage invalide"):
             ServiceConfig(
-                description="Test",
-                exec_start="/usr/bin/test",
-                restart="bad-policy"
+                description="Test", exec_start="/usr/bin/test", restart="bad-policy"
             )
 
-    @pytest.mark.parametrize("restart", [
-        "no", "always", "on-success", "on-failure",
-        "on-abnormal", "on-abort", "on-watchdog",
-    ])
+    @pytest.mark.parametrize(
+        "restart",
+        [
+            "no",
+            "always",
+            "on-success",
+            "on-failure",
+            "on-abnormal",
+            "on-abort",
+            "on-watchdog",
+        ],
+    )
     def test_restart_valides_acceptes(self, restart: str) -> None:
         """Vérifie l'acceptation de toutes les politiques de redémarrage."""
         config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test",
-            restart=restart
+            description="Test", exec_start="/usr/bin/test", restart=restart
         )
         assert config.restart == restart
 
@@ -349,7 +340,7 @@ class TestServiceConfigValidation:
             ServiceConfig(
                 description="Test",
                 exec_start="/usr/bin/test",
-                environment={"BAD\nKEY": "value"}
+                environment={"BAD\nKEY": "value"},
             )
 
     def test_rejet_env_cle_avec_egal(self) -> None:
@@ -358,7 +349,7 @@ class TestServiceConfigValidation:
             ServiceConfig(
                 description="Test",
                 exec_start="/usr/bin/test",
-                environment={"BAD=KEY": "value"}
+                environment={"BAD=KEY": "value"},
             )
 
     def test_rejet_env_valeur_avec_newline(self) -> None:
@@ -367,7 +358,7 @@ class TestServiceConfigValidation:
             ServiceConfig(
                 description="Test",
                 exec_start="/usr/bin/test",
-                environment={"KEY": "val\nue"}
+                environment={"KEY": "val\nue"},
             )
 
 
@@ -390,9 +381,7 @@ class TestWriteUnitFileAntiSymlink:
             link = os.path.join(temp_dir, "test.service")
             os.symlink(target, link)
 
-            result = manager._write_unit_file(
-                "test.service", "[Unit]\n"
-            )
+            result = manager._write_unit_file("test.service", "[Unit]\n")
 
             assert result is False
             logger.log_error.assert_called_once()
@@ -462,8 +451,7 @@ class TestLinuxServiceUnitManagerSuccessPaths:
         """install_service_unit() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
         config = ServiceConfig(
-            description="Service de test",
-            exec_start="/usr/bin/test-daemon"
+            description="Service de test", exec_start="/usr/bin/test-daemon"
         )
         result = manager.install_service_unit(config)
         assert result is True
@@ -474,20 +462,14 @@ class TestLinuxServiceUnitManagerSuccessPaths:
         """install_service_unit() retourne False si reload_systemd échoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-daemon"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-daemon")
         result = manager.install_service_unit(config)
         assert result is False
 
     def test_install_service_unit_with_name_succes(self, tmp_path: Path) -> None:
         """install_service_unit_with_name() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-daemon"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-daemon")
         result = manager.install_service_unit_with_name("my-service", config)
         assert result is True
         assert (tmp_path / "my-service.service").exists()
@@ -497,10 +479,7 @@ class TestLinuxServiceUnitManagerSuccessPaths:
         """install_service_unit_with_name() retourne False si reload échoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-daemon"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-daemon")
         result = manager.install_service_unit_with_name("my-service", config)
         assert result is False
 
@@ -609,8 +588,7 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
         """install_service_unit() lève ValueError si description contient \\n."""
         manager, _, _ = self._make_manager(tmp_path)
         config = ServiceConfig(
-            description="Service\nExecStart=/bin/evil",
-            exec_start="/usr/bin/my-app"
+            description="Service\nExecStart=/bin/evil", exec_start="/usr/bin/my-app"
         )
         with pytest.raises(ValueError, match="contrôle"):
             manager.install_service_unit(config)
@@ -621,8 +599,7 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
         """install_service_unit_with_name() lève ValueError sur \\n dans exec_start."""
         manager, _, _ = self._make_manager(tmp_path)
         config = ServiceConfig(
-            description="Service test",
-            exec_start="/usr/bin/app\nExecStart=/bin/evil"
+            description="Service test", exec_start="/usr/bin/app\nExecStart=/bin/evil"
         )
         with pytest.raises(ValueError, match="contrôle"):
             manager.install_service_unit_with_name("mon-service", config)
@@ -631,8 +608,7 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
         """install_service_unit() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
         config = ServiceConfig(
-            description="Service test",
-            exec_start="/usr/bin/test-app"
+            description="Service test", exec_start="/usr/bin/test-app"
         )
         result = manager.install_service_unit(config)
         assert result is True
@@ -642,13 +618,8 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
     def test_install_service_unit_with_name_succes(self, tmp_path: Path) -> None:
         """install_service_unit_with_name() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-app"
-        )
-        result = manager.install_service_unit_with_name(
-            "user-service", config
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-app")
+        result = manager.install_service_unit_with_name("user-service", config)
         assert result is True
         assert (tmp_path / "user-service.service").exists()
         logger.log_info.assert_called()
@@ -656,13 +627,8 @@ class TestLinuxUserServiceUnitManagerSuccessPaths:
     def test_install_service_unit_with_name_nom_invalide(self, tmp_path: Path) -> None:
         """install_service_unit_with_name() retourne False si nom invalide."""
         manager, logger, _ = self._make_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-app"
-        )
-        result = manager.install_service_unit_with_name(
-            "../etc/passwd", config
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-app")
+        result = manager.install_service_unit_with_name("../etc/passwd", config)
         assert result is False
         logger.log_error.assert_called_once()
 
@@ -744,33 +710,34 @@ class TestUnitManagerErrorPaths:
     def test_write_unit_permission_error(self, tmp_path: Path) -> None:
         """_write_unit_file retourne False sur PermissionError."""
         from unittest.mock import patch
+
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
             "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("Permission refusée")
+            side_effect=PermissionError("Permission refusée"),
         ):
             result = manager._write_unit_file("test.service", "[Unit]\n")
         assert result is False
         logger.log_error.assert_called_once()
-        assert "root" in logger.log_error.call_args[0][0].lower() or \
-               "permission" in logger.log_error.call_args[0][0].lower()
+        assert (
+            "root" in logger.log_error.call_args[0][0].lower()
+            or "permission" in logger.log_error.call_args[0][0].lower()
+        )
 
     def test_write_unit_generic_os_error(self, tmp_path: Path) -> None:
         """_write_unit_file retourne False sur OSError générique."""
         from unittest.mock import patch
         import errno
+
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
-        with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=err
-        ):
+        with patch("linuxtools.systemd.base.os.open", side_effect=err):
             result = manager._write_unit_file("test.service", "[Unit]\n")
         assert result is False
         logger.log_error.assert_called_once()
@@ -778,13 +745,14 @@ class TestUnitManagerErrorPaths:
     def test_remove_unit_permission_error(self, tmp_path: Path) -> None:
         """_remove_unit_file retourne False sur PermissionError."""
         from unittest.mock import patch
+
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
             "linuxtools.systemd.base.os.remove",
-            side_effect=PermissionError("Permission refusée")
+            side_effect=PermissionError("Permission refusée"),
         ):
             result = manager._remove_unit_file("test.service")
         assert result is False
@@ -794,19 +762,16 @@ class TestUnitManagerErrorPaths:
         """_remove_unit_file retourne False sur OSError générique."""
         from unittest.mock import patch
         import errno
+
         logger = MagicMock()
         executor = MagicMock()
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
-        with patch(
-            "linuxtools.systemd.base.os.remove",
-            side_effect=err
-        ):
+        with patch("linuxtools.systemd.base.os.remove", side_effect=err):
             result = manager._remove_unit_file("test.service")
         assert result is False
         logger.log_error.assert_called_once()
-
 
 
 class TestUnitFileWriteErrorPaths:
@@ -838,14 +803,11 @@ class TestUnitFileWriteErrorPaths:
     def test_install_service_write_echoue(self, tmp_path: Path) -> None:
         """install_service_unit() retourne False si ecriture echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-daemon"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-daemon")
         with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("no write")
+            "linuxtools.systemd.base.os.open", side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit(config)
         assert result is False
@@ -853,14 +815,11 @@ class TestUnitFileWriteErrorPaths:
     def test_install_service_with_name_write_echoue(self, tmp_path: Path) -> None:
         """install_service_unit_with_name() retourne False si ecriture echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-daemon"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-daemon")
         with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("no write")
+            "linuxtools.systemd.base.os.open", side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit_with_name("my-service", config)
         assert result is False
@@ -868,6 +827,7 @@ class TestUnitFileWriteErrorPaths:
     def test_remove_service_echec_suppression(self, tmp_path: Path) -> None:
         """remove_service_unit() retourne False si suppression echoue."""
         from unittest.mock import patch
+
         manager, _, executor = self._make_manager(tmp_path)
         executor.disable_unit.return_value = True
         executor.stop_unit.return_value = True
@@ -875,7 +835,7 @@ class TestUnitFileWriteErrorPaths:
         service_file.write_text("[Unit]\n")
         with patch(
             "linuxtools.systemd.base.os.remove",
-            side_effect=PermissionError("no remove")
+            side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("my-service")
         assert result is False
@@ -883,14 +843,11 @@ class TestUnitFileWriteErrorPaths:
     def test_user_install_service_write_echoue(self, tmp_path: Path) -> None:
         """LinuxUserServiceUnitManager: install retourne False si ecriture echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_user_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-app"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-app")
         with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("no write")
+            "linuxtools.systemd.base.os.open", side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit(config)
         assert result is False
@@ -899,26 +856,18 @@ class TestUnitFileWriteErrorPaths:
         """LinuxUserServiceUnitManager: install retourne False si reload echoue."""
         manager, _, executor = self._make_user_manager(tmp_path)
         executor.reload_systemd.return_value = False
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-app"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-app")
         result = manager.install_service_unit(config)
         assert result is False
 
-    def test_user_install_with_name_write_echoue(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_install_with_name_write_echoue(self, tmp_path: Path) -> None:
         """LinuxUserServiceUnitManager: install_with_name retourne False si ecriture echoue."""
         from unittest.mock import patch
+
         manager, _, _ = self._make_user_manager(tmp_path)
-        config = ServiceConfig(
-            description="Test",
-            exec_start="/usr/bin/test-app"
-        )
+        config = ServiceConfig(description="Test", exec_start="/usr/bin/test-app")
         with patch(
-            "linuxtools.systemd.base.os.open",
-            side_effect=PermissionError("no write")
+            "linuxtools.systemd.base.os.open", side_effect=PermissionError("no write")
         ):
             result = manager.install_service_unit_with_name("user-svc", config)
         assert result is False
@@ -926,6 +875,7 @@ class TestUnitFileWriteErrorPaths:
     def test_user_remove_service_echec_suppression(self, tmp_path: Path) -> None:
         """LinuxUserServiceUnitManager: remove retourne False si suppression echoue."""
         from unittest.mock import patch
+
         manager, _, executor = self._make_user_manager(tmp_path)
         executor.disable_unit.return_value = True
         executor.stop_unit.return_value = True
@@ -933,7 +883,7 @@ class TestUnitFileWriteErrorPaths:
         service_file.write_text("[Unit]\n")
         with patch(
             "linuxtools.systemd.base.os.remove",
-            side_effect=PermissionError("no remove")
+            side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("user-svc")
         assert result is False
@@ -1028,6 +978,7 @@ class TestServiceToUnitFileSecurite:
     def test_rejette_newline_dans_description(self) -> None:
         """to_unit_file lève ValueError si description contient \\n."""
         from linuxtools.systemd.base import ServiceConfig
+
         config = ServiceConfig(
             description="desc\nExecStart=/bin/evil",
             exec_start="/usr/bin/foo",
@@ -1038,6 +989,7 @@ class TestServiceToUnitFileSecurite:
     def test_rejette_newline_dans_exec_start(self) -> None:
         """to_unit_file lève ValueError si exec_start contient \\n."""
         from linuxtools.systemd.base import ServiceConfig
+
         config = ServiceConfig(
             description="service légitime",
             exec_start="/usr/bin/foo\nExecStart=/bin/evil",
@@ -1048,6 +1000,7 @@ class TestServiceToUnitFileSecurite:
     def test_rejette_newline_dans_user(self) -> None:
         """to_unit_file lève ValueError si user contient \\n."""
         from linuxtools.systemd.base import ServiceConfig
+
         config = ServiceConfig(
             description="svc",
             exec_start="/usr/bin/foo",
@@ -1154,9 +1107,7 @@ class TestServiceConfigDependances:
     @pytest.mark.parametrize(
         "path", ["rel/path", "/a b", "/a%h", "/a$x", "/a\\b", "/a\nb", "/a\n"]
     )
-    def test_service_config_rejette_chemin_montage_invalide(
-        self, path: str
-    ) -> None:
+    def test_service_config_rejette_chemin_montage_invalide(self, path: str) -> None:
         """Refuse un chemin de montage relatif ou dangereux."""
         with pytest.raises(ValueError, match="montage"):
             ServiceConfig(
@@ -1171,9 +1122,7 @@ class TestServiceConfigDependances:
     ) -> None:
         """Refuse un identifiant syslog invalide."""
         with pytest.raises(ValueError):
-            ServiceConfig(
-                description="T", exec_start="/bin/x", syslog_identifier=ident
-            )
+            ServiceConfig(description="T", exec_start="/bin/x", syslog_identifier=ident)
 
     def test_service_config_rend_requires_mounts_for(self) -> None:
         """RequiresMountsFor= est rendu dans [Unit]."""
@@ -1231,12 +1180,8 @@ class TestServiceConfigDependances:
 class TestServiceConfigNomsDeChampDansLesMessages:
     """F13 : les messages d'erreur citent le vrai nom de champ."""
 
-    @pytest.mark.parametrize(
-        "champ", ["io_scheduling_class", "syslog_identifier"]
-    )
-    def test_to_unit_file_cite_le_nom_exact_du_champ(
-        self, champ: str
-    ) -> None:
+    @pytest.mark.parametrize("champ", ["io_scheduling_class", "syslog_identifier"])
+    def test_to_unit_file_cite_le_nom_exact_du_champ(self, champ: str) -> None:
         """Un champ falsifié après construction nomme son attribut."""
         config = ServiceConfig(description="T", exec_start="/bin/x")
         object.__setattr__(config, champ, "idle\nExecStart=/bin/evil")

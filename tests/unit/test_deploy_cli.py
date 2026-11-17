@@ -178,9 +178,7 @@ class TestDeployCommandExecute:
         assert exc_info.value.code == 0
 
     @patch("linuxtools.deploy.cli.Deployer")
-    def test_execute_echec_sort_avec_code_1(
-        self, mock_deployer_cls: MagicMock
-    ) -> None:
+    def test_execute_echec_sort_avec_code_1(self, mock_deployer_cls: MagicMock) -> None:
         """Un déploiement en échec termine avec sys.exit(1)."""
         mock_deployer = MagicMock()
         mock_deployer.deploy.return_value = DeployReport(
@@ -436,9 +434,7 @@ class TestCheckVersionCommandExecute:
         assert exc_info.value.code == 0
 
     @patch("linuxtools.deploy.cli.check_target_version")
-    def test_execute_exit_1_si_obsolete_ou_absent(
-        self, mock_check: MagicMock
-    ) -> None:
+    def test_execute_exit_1_si_obsolete_ou_absent(self, mock_check: MagicMock) -> None:
         """Cible obsolète ou paquet absent -> sys.exit(1)."""
         mock_check.return_value = VersionCheckResult(
             package="mon-outil",
@@ -466,9 +462,7 @@ class TestCheckVersionCommandExecute:
         assert exc_info.value.code == 2
 
     @patch("linuxtools.deploy.cli.check_target_version")
-    def test_execute_exit_2_si_deployerror(
-        self, mock_check: MagicMock
-    ) -> None:
+    def test_execute_exit_2_si_deployerror(self, mock_check: MagicMock) -> None:
         """check_target_version lève DeployError -> sys.exit(2), pas
         de traceback brut."""
         mock_check.side_effect = DeployError(

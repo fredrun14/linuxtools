@@ -207,18 +207,14 @@ class FileConfigLoader(ConfigLoader):
         path = Path(config_path)
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"Fichier de configuration non trouvé: {path}"
-            )
+            raise FileNotFoundError(f"Fichier de configuration non trouvé: {path}")
 
         suffix = path.suffix.lower()
         loader_fn = _LOADERS.get(suffix)
 
         if loader_fn is None:
             supported = ", ".join(_LOADERS)
-            raise ValueError(
-                f"Extension non supportée: {suffix}. Utilisez {supported}"
-            )
+            raise ValueError(f"Extension non supportée: {suffix}. Utilisez {supported}")
 
         raw_config = loader_fn(path)
 

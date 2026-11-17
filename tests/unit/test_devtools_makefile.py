@@ -24,8 +24,7 @@ def _lancer(
     journal = tmp_path / "argv.txt"
     faux_uv = bin_dir / "uv"
     faux_uv.write_text(
-        '#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a" >> '
-        f'"{journal}"; done\n'
+        f'#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a" >> "{journal}"; done\n'
     )
     faux_uv.chmod(0o755)
     env = {
@@ -115,19 +114,17 @@ def _make_n(cible: str) -> str:
     return result.stdout
 
 
-def test_gate_de_format_unique_couvre_src_et_tests_devtools() -> None:
+def test_gate_de_format_unique_couvre_src_et_tests() -> None:
     commandes = _make_n("format-check")
 
-    assert "ruff format --check" in commandes
-    assert "src/" in commandes
-    assert "tests/unit/test_devtools_bumper_real.py" in commandes
-    assert "tests/unit/scripted_executor.py" in commandes
-    assert "tests/integration/test_devtools_bumper.py" in commandes
+    assert "ruff format --check src/ tests/" in commandes
 
 
 def test_make_lint_passe_par_le_gate_de_format() -> None:
-    assert _make_n("lint").count("ruff format --check") == 1
-    assert "tests/unit/test_devtools_report.py" in _make_n("lint")
+    commandes = _make_n("lint")
+
+    assert commandes.count("ruff format --check") == 1
+    assert "ruff format --check src/ tests/" in commandes
 
 
 @pytest.mark.parametrize(
@@ -138,9 +135,5 @@ def test_ci_et_hook_appellent_le_gate_du_makefile(fichier: str) -> None:
 
     assert "make format-check" in texte
     # pas de copie du gate qui dériverait du Makefile (commentaires exclus)
-    code = [
-        ligne
-        for ligne in texte.splitlines()
-        if not ligne.lstrip().startswith("#")
-    ]
+    code = [ligne for ligne in texte.splitlines() if not ligne.lstrip().startswith("#")]
     assert "ruff format" not in "\n".join(code).lower()

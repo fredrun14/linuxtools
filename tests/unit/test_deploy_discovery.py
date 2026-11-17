@@ -24,9 +24,7 @@ class TestFindProjectSource:
         result = find_project_source(tmp_path)
         assert result == tmp_path.resolve()
 
-    def test_remonte_jusqu_a_trouver_pyproject(
-        self, tmp_path: Path
-    ) -> None:
+    def test_remonte_jusqu_a_trouver_pyproject(self, tmp_path: Path) -> None:
         """Remonte plusieurs niveaux jusqu'à pyproject.toml."""
         (tmp_path / "pyproject.toml").write_text("[project]\n")
         nested = tmp_path / "src" / "pkg" / "sub"
@@ -34,9 +32,7 @@ class TestFindProjectSource:
         result = find_project_source(nested)
         assert result == tmp_path.resolve()
 
-    def test_retourne_none_si_aucun_pyproject(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_none_si_aucun_pyproject(self, tmp_path: Path) -> None:
         """Retourne None si aucun ancêtre ne contient pyproject.toml.
 
         S'appuie sur le fait qu'aucun ancêtre de tmp_path (sous /tmp)

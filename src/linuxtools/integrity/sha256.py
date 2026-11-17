@@ -127,9 +127,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
                 return False, count
             if not self.verify_file(source_file, dest_file):
                 if self._logger:
-                    self._logger.log_error(
-                        f"Checksum différent pour: {rel_path}"
-                    )
+                    self._logger.log_error(f"Checksum différent pour: {rel_path}")
                 return False, count
             count += 1
         return True, count
@@ -157,9 +155,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
         try:
             source_path = Path(source)
             destination_path = Path(destination)
-            dest = self._resolve_dest(
-                source_path, destination_path, dest_subdir
-            )
+            dest = self._resolve_dest(source_path, destination_path, dest_subdir)
             if self._logger:
                 self._logger.log_info(f"Vérification: {source_path} -> {dest}")
             ok, count = self._verify_tree(source_path, dest)
@@ -167,9 +163,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
                 return False
             if count == 0:
                 if self._logger:
-                    self._logger.log_warning(
-                        "Aucun fichier vérifié (source vide ?)."
-                    )
+                    self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
             if self._logger:
                 self._logger.log_info(
                     f"Vérification terminée : {count} fichier(s) vérifié(s)."

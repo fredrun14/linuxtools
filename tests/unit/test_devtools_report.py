@@ -27,9 +27,7 @@ _ECHECS = [
 ]
 
 
-def _outcome(
-    status: Status, project: str = "p", detail: str = ""
-) -> BumpOutcome:
+def _outcome(status: Status, project: str = "p", detail: str = "") -> BumpOutcome:
     return BumpOutcome(project, "v1.0.0", status, detail=detail)
 
 
@@ -53,9 +51,7 @@ def test_exit_code_un_si_un_echec(echec: Status) -> None:
 def test_format_report_aligne_les_colonnes() -> None:
     outcomes = [
         BumpOutcome("court", "v1.0.0", Status.POUSSE, checks="ok"),
-        BumpOutcome(
-            "un-projet-long", "v10.20.30", Status.REFUSE, detail="motif"
-        ),
+        BumpOutcome("un-projet-long", "v10.20.30", Status.REFUSE, detail="motif"),
     ]
 
     lignes = format_report(outcomes).splitlines()
@@ -125,9 +121,7 @@ def test_format_report_masque_le_userinfo_des_url() -> None:
         ("https://h/x sans userinfo", "https://h/x sans userinfo"),
     ],
 )
-def test_mask_userinfo_masque_toute_forme_de_schema(
-    texte: str, attendu: str
-) -> None:
+def test_mask_userinfo_masque_toute_forme_de_schema(texte: str, attendu: str) -> None:
     assert mask_userinfo(texte) == attendu
 
 

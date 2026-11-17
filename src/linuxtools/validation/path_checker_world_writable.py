@@ -49,9 +49,7 @@ class PathCheckerWorldWritable(Validator):
         try:
             st = os.lstat(self._path)
         except FileNotFoundError as exc:
-            raise FileNotFoundError(
-                f"Fichier introuvable : {self._path}"
-            ) from exc
+            raise FileNotFoundError(f"Fichier introuvable : {self._path}") from exc
         if st.st_mode & stat.S_IWOTH:
             raise PermissionError(
                 f"Le fichier {self._path} est modifiable par tous "

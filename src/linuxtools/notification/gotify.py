@@ -112,14 +112,8 @@ class GotifyNotifier(Notifier):
                 f"Gotify a refusé la notification (HTTP {exc.code})"
             ) from exc
         except (urllib.error.URLError, OSError) as exc:
-            raise NotificationSendError(
-                f"Serveur Gotify injoignable : {exc}"
-            ) from exc
+            raise NotificationSendError(f"Serveur Gotify injoignable : {exc}") from exc
         if status != 200:
-            raise NotificationSendError(
-                f"Réponse Gotify inattendue (HTTP {status})"
-            )
+            raise NotificationSendError(f"Réponse Gotify inattendue (HTTP {status})")
         if self._logger:
-            self._logger.log_info(
-                f"Notification Gotify envoyée : {notification.title}"
-            )
+            self._logger.log_info(f"Notification Gotify envoyée : {notification.title}")

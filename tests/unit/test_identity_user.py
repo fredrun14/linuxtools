@@ -100,9 +100,7 @@ class TestLinuxUserManagerEnsureUser:
             "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
-            manager.ensure_user(
-                "frederic", 1000, "/bin/zsh", "Frédéric", False
-            )
+            manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", False)
 
         # Assert
         executor.run.assert_called_once()
@@ -230,9 +228,7 @@ class TestLinuxUserManagerValidation:
     ) -> None:
         """ensure_user lève ValueError si le nom commence par '-'."""
         with pytest.raises(ValueError, match="Nom Unix invalide"):
-            manager.ensure_user(
-                "-malicieux", 1000, "/bin/bash", "X", False
-            )
+            manager.ensure_user("-malicieux", 1000, "/bin/bash", "X", False)
 
     def test_ensure_user_nom_majuscule_leve_valueerror(
         self,
@@ -240,9 +236,7 @@ class TestLinuxUserManagerValidation:
     ) -> None:
         """ensure_user lève ValueError si le nom contient des majuscules."""
         with pytest.raises(ValueError, match="Nom Unix invalide"):
-            manager.ensure_user(
-                "Majuscule", 1000, "/bin/bash", "X", False
-            )
+            manager.ensure_user("Majuscule", 1000, "/bin/bash", "X", False)
 
     def test_ensure_user_groups_username_invalide_leve_valueerror(
         self,

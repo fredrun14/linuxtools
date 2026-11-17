@@ -55,9 +55,7 @@ class _BaseDnsManager(DnsManager, ABC):
         self._config = config
         self._logger = logger
 
-    def generate_dns_names(
-        self, devices: list[NetworkDevice]
-    ) -> list[NetworkDevice]:
+    def generate_dns_names(self, devices: list[NetworkDevice]) -> list[NetworkDevice]:
         """Genere les noms DNS pour les peripheriques.
 
         Args:

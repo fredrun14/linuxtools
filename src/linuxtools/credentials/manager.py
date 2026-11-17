@@ -112,8 +112,7 @@ class CredentialManager:
                     f"service={self._service!r}, key={key!r}"
                 )
             raise CredentialNotFoundError(
-                f"Credential introuvable : "
-                f"service={self._service!r}, key={key!r}"
+                f"Credential introuvable : service={self._service!r}, key={key!r}"
             )
         return value
 

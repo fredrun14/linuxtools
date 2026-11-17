@@ -23,9 +23,7 @@ def make_lazy_getattr(
 
     def _getattr_paresseux(name: str) -> Any:  # noqa: ANN401
         if name not in targets:
-            raise AttributeError(
-                f"module {package!r} has no attribute {name!r}"
-            )
+            raise AttributeError(f"module {package!r} has no attribute {name!r}")
         # Une ImportError (extra absent) remonte telle quelle (Q-02).
         valeur = getattr(import_module(targets[name]), name)
         # Cache dans le module hôte : les accès suivants court-circuitent

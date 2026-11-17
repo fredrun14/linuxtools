@@ -114,9 +114,7 @@ class KeyringCredentialProvider(CredentialStore):
         except Exception as exc:
             if self._logger:
                 self._logger.log_warning(
-                    f"Erreur keyring get() : "
-                    f"service={service!r}, "
-                    f"key={key!r} : {exc}"
+                    f"Erreur keyring get() : service={service!r}, key={key!r} : {exc}"
                 )
             return None
 
@@ -146,9 +144,7 @@ class KeyringCredentialProvider(CredentialStore):
                     f"service={service!r}, key={key!r}"
                 )
         except CredentialProviderUnavailableError as exc:
-            raise CredentialStoreError(
-                f"Keyring indisponible : {exc}"
-            ) from exc
+            raise CredentialStoreError(f"Keyring indisponible : {exc}") from exc
         except Exception as exc:
             raise CredentialStoreError(
                 f"Erreur lors du stockage keyring : {exc}"
@@ -174,14 +170,11 @@ class KeyringCredentialProvider(CredentialStore):
             kr.delete_password(service, key)
             if self._logger:
                 self._logger.log_info(
-                    f"Credential supprime du keyring : "
-                    f"service={service!r}, key={key!r}"
+                    f"Credential supprime du keyring : service={service!r}, key={key!r}"
                 )
         except Exception as exc:  # nosec B110 - dégradation volontaire
             if self._logger:
-                self._logger.log_warning(
-                    f"Échec suppression {service}/{key} : {exc}"
-                )
+                self._logger.log_warning(f"Échec suppression {service}/{key} : {exc}")
 
     def is_available(self) -> bool:
         """Indique si le keyring est opérationnel.

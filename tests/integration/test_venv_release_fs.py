@@ -215,18 +215,14 @@ class TestVenvReleaserReleaseFilesystemReelF01:
 
         verify = MagicMock(return_value=())
 
-        outcome1 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome1 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         assert outcome1.success is True
         assert outcome1.fallback_version is not None
         assert outcome1.fallback_version.exists(), (
             "legacy purgé à tort dès la 1re release (F01)"
         )
 
-        outcome2 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome2 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         assert outcome2.success is True
         assert outcome2.fallback_version is not None
         assert outcome2.fallback_version.exists(), (
@@ -234,9 +230,7 @@ class TestVenvReleaserReleaseFilesystemReelF01:
         )
         assert outcome2.fallback_version == outcome1.active_version
 
-        outcome3 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome3 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         assert outcome3.success is True
         assert outcome3.fallback_version is not None
         assert outcome3.fallback_version.exists(), (
@@ -261,15 +255,11 @@ class TestVenvReleaserReleaseFilesystemReelF01:
 
         verify = MagicMock(return_value=())
 
-        outcome1 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome1 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         version1 = outcome1.active_version
         assert version1 is not None
 
-        outcome2 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome2 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         version2 = outcome2.active_version
         assert version2 is not None
         assert version1.exists()
@@ -280,17 +270,13 @@ class TestVenvReleaserReleaseFilesystemReelF01:
         bare_releaser.activate(venv_path, version1)
         assert venv_path.resolve() == version1
 
-        outcome3 = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome3 = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
         assert outcome3.success is True
         # previous_id de ce 3e release() est version1 (cible du
         # rollback) : protégé bien qu'antérieur chronologiquement à
         # version2, qui lui n'est plus protégée et peut être purgée.
         assert outcome3.fallback_version == version1
-        assert version1.exists(), (
-            "version1 (cible du rollback) purgée à tort (F01/F02)"
-        )
+        assert version1.exists(), "version1 (cible du rollback) purgée à tort (F01/F02)"
 
 
 class TestVenvReleaserRollbackFilesystemReel:
@@ -318,9 +304,7 @@ class TestVenvReleaserRollbackFilesystemReel:
 
         verify = MagicMock(return_value=())
 
-        outcome = bare_releaser.release(
-            venv_path, source_dir, verify, keep_versions=2
-        )
+        outcome = bare_releaser.release(venv_path, source_dir, verify, keep_versions=2)
 
         assert outcome.success is True
         assert outcome.fallback_version is not None
@@ -343,9 +327,7 @@ class TestMigrateScriptCompensation:
     (mutation contrôlée : sans compensation, `venv_path` resterait
     absent après un second rename raté)."""
 
-    def test_second_rename_echoue_restaure_venv_path(
-        self, tmp_path: Path
-    ) -> None:
+    def test_second_rename_echoue_restaure_venv_path(self, tmp_path: Path) -> None:
         """Si `os.rename(tmp, venv)` échoue, le script remet `legacy`
         à la place de `venv` avant de sortir en erreur : `venv_path`
         n'est jamais laissé absent."""

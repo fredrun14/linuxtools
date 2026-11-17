@@ -143,22 +143,17 @@ class SystemdAutomountInstaller(AutomountInstaller):
             with_automount=with_automount,
             automount_timeout=automount_timeout_sec,
         ):
-            self._logger.log_error(
-                f"Échec de l'installation du montage {config.where}"
-            )
+            self._logger.log_error(f"Échec de l'installation du montage {config.where}")
             return False
 
         if not self._mount_manager.enable_mount(
             config.where, with_automount=with_automount
         ):
-            self._logger.log_error(
-                f"Échec de l'activation du montage {config.where}"
-            )
+            self._logger.log_error(f"Échec de l'activation du montage {config.where}")
             return False
 
         self._logger.log_info(
-            f"Montage {config.where} installé avec succès "
-            f"(automount={with_automount})."
+            f"Montage {config.where} installé avec succès (automount={with_automount})."
         )
         return True
 
@@ -181,9 +176,7 @@ class SystemdAutomountInstaller(AutomountInstaller):
             FileNotFoundError: Si le fichier TOML n'existe pas.
             KeyError: Si la section [mount] est absente.
         """
-        settings = MountConfigLoader(
-            toml_path, config_loader
-        ).load_with_automount()
+        settings = MountConfigLoader(toml_path, config_loader).load_with_automount()
 
         return self.install(
             settings.config,

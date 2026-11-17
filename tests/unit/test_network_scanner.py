@@ -87,9 +87,7 @@ class TestLinuxArpScanner:
     def test_build_command_avec_interface(self) -> None:
         """Commande avec option --interface."""
         scanner, _ = self._make_scanner()
-        config = NetworkConfig(
-            cidr="192.168.1.0/24", interface="eth0"
-        )
+        config = NetworkConfig(cidr="192.168.1.0/24", interface="eth0")
         cmd = scanner._build_command(config)
         assert "sudo" in cmd
         assert "arp-scan" in cmd
@@ -121,11 +119,7 @@ class TestLinuxArpScanner:
     def test_parse_output_vide(self) -> None:
         """Sortie sans peripheriques retourne liste vide."""
         scanner, _ = self._make_scanner()
-        output = (
-            "Interface: eth0\n\n"
-            "0 packets received\n"
-            "Ending arp-scan\n"
-        )
+        output = "Interface: eth0\n\n0 packets received\nEnding arp-scan\n"
         devices = scanner._parse_output(output)
         assert devices == []
 
@@ -142,9 +136,7 @@ class TestLinuxArpScanner:
     def test_scan_appelle_executor(self) -> None:
         """Verifie que executor.run est appele."""
         scanner, executor = self._make_scanner()
-        executor.run.return_value = _make_result(
-            stdout=ARP_OUTPUT
-        )
+        executor.run.return_value = _make_result(stdout=ARP_OUTPUT)
         config = NetworkConfig(cidr="192.168.1.0/24")
         scanner.scan(config)
         executor.run.assert_called_once()
@@ -208,21 +200,16 @@ class TestLinuxNmapScanner:
         """Host sans hostname a un hostname vide."""
         scanner, _ = self._make_scanner()
         devices = scanner._parse_xml_output(NMAP_XML)
-        apple = [
-            d for d in devices if d.ip == "192.168.1.100"
-        ][0]
+        apple = [d for d in devices if d.ip == "192.168.1.100"][0]
         assert apple.hostname == ""
 
     def test_scan_echec_commande(self) -> None:
         """Echec de commande leve RuntimeError."""
         scanner, executor = self._make_scanner()
-        executor.run.return_value = _make_result(
-            success=False, stderr="error"
-        )
+        executor.run.return_value = _make_result(success=False, stderr="error")
         config = NetworkConfig(cidr="192.168.1.0/24")
         with pytest.raises(RuntimeError):
             scanner.scan(config)
-
 
 
 class TestDetectInterface:
@@ -288,8 +275,7 @@ class TestLinuxArpScannerAvecLogger:
         scanner = LinuxArpScanner()
         output = "bad-ip\t00:11:22:33:44:55\tVendor\n"
         with patch(
-            "linuxtools.network.scanner.NetworkDevice",
-            side_effect=ValueError("bad ip")
+            "linuxtools.network.scanner.NetworkDevice", side_effect=ValueError("bad ip")
         ):
             devices = scanner._parse_output(output)
         assert devices == []
@@ -313,8 +299,7 @@ class TestLinuxNmapScannerAvecLogger:
         """_parse_xml_output() ignore les hotes qui levent ValueError."""
         scanner = LinuxNmapScanner()
         with patch(
-            "linuxtools.network.scanner.NetworkDevice",
-            side_effect=ValueError("bad")
+            "linuxtools.network.scanner.NetworkDevice", side_effect=ValueError("bad")
         ):
             devices = scanner._parse_xml_output(NMAP_XML)
         assert devices == []

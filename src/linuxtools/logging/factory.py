@@ -79,9 +79,7 @@ def build_logger(config: dict[str, Any] | None = None) -> Logger:
 
     log_file: str | Path | None = cfg.get("file")
     if not log_file:
-        raise ValueError(
-            f"La clé 'file' est obligatoire pour le type {logger_type!r}."
-        )
+        raise ValueError(f"La clé 'file' est obligatoire pour le type {logger_type!r}.")
 
     # Reconstruit un dict compatible avec _resolve_config
     inner: dict[str, Any] = {"level": cfg.get("level", "INFO")}

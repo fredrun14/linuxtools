@@ -29,9 +29,7 @@ class TestConsoleTableReporter:
     def test_rapport_formate(self) -> None:
         """Contient en-tete et lignes de donnees."""
         reporter = ConsoleTableReporter()
-        devices = [
-            _device(hostname="nas", vendor="Synology")
-        ]
+        devices = [_device(hostname="nas", vendor="Synology")]
         output = reporter.report(devices)
         assert "IP" in output
         assert "MAC" in output
@@ -48,10 +46,7 @@ class TestConsoleTableReporter:
         ]
         output = reporter.report(devices)
         lines = output.split("\n")
-        data_lines = [
-            l for l in lines
-            if "192.168.1." in l and "---" not in l
-        ]
+        data_lines = [l for l in lines if "192.168.1." in l and "---" not in l]
         ips = [l.split()[0] for l in data_lines]
         assert ips == [
             "192.168.1.1",
@@ -86,9 +81,7 @@ class TestConsoleTableReporter:
     ) -> None:
         """Un appareil avec ip='' affiche '(hors ligne)'."""
         reporter = ConsoleTableReporter()
-        devices = [
-            _device("", "aa:bb:cc:dd:ee:ff", hostname="Thermo")
-        ]
+        devices = [_device("", "aa:bb:cc:dd:ee:ff", hostname="Thermo")]
         output = reporter.report(devices)
         assert "(hors ligne)" in output
 
@@ -102,8 +95,7 @@ class TestConsoleTableReporter:
         ]
         output = reporter.report(devices)
         lines = [
-            l for l in output.split("\n")
-            if "192.168.1." in l or "(hors ligne)" in l
+            l for l in output.split("\n") if "192.168.1." in l or "(hors ligne)" in l
         ]
         # Les deux appareils avec IP doivent preceder l'offline
         assert "(hors ligne)" in lines[-1]
@@ -124,9 +116,7 @@ class TestCsvReporter:
     def test_contenu_csv(self) -> None:
         """Donnees correctes dans le CSV."""
         reporter = CsvReporter()
-        output = reporter.report([
-            _device(hostname="nas")
-        ])
+        output = reporter.report([_device(hostname="nas")])
         assert "192.168.1.1" in output
         assert "aa:bb:cc:dd:ee:ff" in output
         assert "nas" in output
@@ -160,9 +150,7 @@ class TestJsonReporter:
     def test_json_contenu(self) -> None:
         """Donnees correctes dans le JSON."""
         reporter = JsonReporter()
-        output = reporter.report([
-            _device(hostname="nas")
-        ])
+        output = reporter.report([_device(hostname="nas")])
         data = json.loads(output)
         assert data[0]["ip"] == "192.168.1.1"
         assert data[0]["hostname"] == "nas"

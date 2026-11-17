@@ -155,9 +155,7 @@ class TestSystemdExecutorMocked:
     def test_reload_systemd_echec(self) -> None:
         """reload_systemd() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.reload_systemd()
         assert result is False
         logger.log_error.assert_called_once()
@@ -193,9 +191,7 @@ class TestSystemdExecutorMocked:
     def test_enable_unit_echec(self) -> None:
         """enable_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.enable_unit("backup.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -211,9 +207,7 @@ class TestSystemdExecutorMocked:
     def test_disable_unit_echec(self) -> None:
         """disable_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.disable_unit("backup.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -221,12 +215,8 @@ class TestSystemdExecutorMocked:
     def test_disable_unit_ignore_errors(self) -> None:
         """disable_unit() avec ignore_errors retourne True."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
-        result = executor.disable_unit(
-            "backup.service", ignore_errors=True
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
+        result = executor.disable_unit("backup.service", ignore_errors=True)
         assert result is True
         logger.log_warning.assert_called_once()
 
@@ -241,9 +231,7 @@ class TestSystemdExecutorMocked:
     def test_start_unit_echec(self) -> None:
         """start_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.start_unit("backup.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -259,9 +247,7 @@ class TestSystemdExecutorMocked:
     def test_stop_unit_echec(self) -> None:
         """stop_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.stop_unit("backup.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -277,9 +263,7 @@ class TestSystemdExecutorMocked:
     def test_restart_unit_echec(self) -> None:
         """restart_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.restart_unit("backup.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -370,9 +354,7 @@ class TestSystemdExecutorMocked:
     def test_mask_unit_echec(self) -> None:
         """mask_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.mask_unit("packagekit.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -388,9 +370,7 @@ class TestSystemdExecutorMocked:
     def test_unmask_unit_echec(self) -> None:
         """unmask_unit() retourne False en cas d erreur."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.unmask_unit("packagekit.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -501,22 +481,24 @@ class TestSystemdExecutorListUnits:
     def test_list_units_json_valide(self) -> None:
         """list_units() parse une réponse JSON à plusieurs unités."""
         executor, command_executor = self._make_executor()
-        json_stdout = json.dumps([
-            {
-                "unit": "backup.service",
-                "load": "loaded",
-                "active": "active",
-                "sub": "running",
-                "description": "Backup service",
-            },
-            {
-                "unit": "sshd.service",
-                "load": "loaded",
-                "active": "inactive",
-                "sub": "dead",
-                "description": "OpenSSH server",
-            },
-        ])
+        json_stdout = json.dumps(
+            [
+                {
+                    "unit": "backup.service",
+                    "load": "loaded",
+                    "active": "active",
+                    "sub": "running",
+                    "description": "Backup service",
+                },
+                {
+                    "unit": "sshd.service",
+                    "load": "loaded",
+                    "active": "inactive",
+                    "sub": "dead",
+                    "description": "OpenSSH server",
+                },
+            ]
+        )
         command_executor.run.return_value = _result(stdout=json_stdout)
         units = executor.list_units()
         assert units == [
@@ -561,13 +543,15 @@ class TestSystemdExecutorListUnits:
             ),
         ]
         units = executor.list_units()
-        assert units == [{
-            "unit": "backup.service",
-            "load": "loaded",
-            "active": "active",
-            "sub": "running",
-            "description": "Service de sauvegarde quotidienne",
-        }]
+        assert units == [
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "Service de sauvegarde quotidienne",
+            }
+        ]
         second_call_args = command_executor.run.call_args_list[1][0][0]
         assert "--no-legend" in second_call_args
         assert "--plain" in second_call_args
@@ -582,18 +566,18 @@ class TestSystemdExecutorListUnits:
         executor, command_executor = self._make_executor()
         command_executor.run.side_effect = [
             _result(return_code=0, stdout="pas du json"),
-            _result(
-                stdout="backup.service loaded active running Backup\n"
-            ),
+            _result(stdout="backup.service loaded active running Backup\n"),
         ]
         units = executor.list_units()
-        assert units == [{
-            "unit": "backup.service",
-            "load": "loaded",
-            "active": "active",
-            "sub": "running",
-            "description": "Backup",
-        }]
+        assert units == [
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "Backup",
+            }
+        ]
 
     def test_list_units_erreur_subprocess(self) -> None:
         """list_units() lève RuntimeError si systemctl échoue (JSON)."""
@@ -622,13 +606,15 @@ class TestSystemdExecutorListUnits:
             _result(stdout="backup.service loaded active running\n"),
         ]
         units = executor.list_units()
-        assert units == [{
-            "unit": "backup.service",
-            "load": "loaded",
-            "active": "active",
-            "sub": "running",
-            "description": "",
-        }]
+        assert units == [
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "",
+            }
+        ]
 
     def test_list_units_fallback_ligne_malformee(self) -> None:
         """Les lignes vides ou à moins de 4 tokens sont ignorées.
@@ -653,13 +639,15 @@ class TestSystemdExecutorListUnits:
             ),
         ]
         units = executor.list_units()
-        assert units == [{
-            "unit": "backup.service",
-            "load": "loaded",
-            "active": "active",
-            "sub": "running",
-            "description": "Backup",
-        }]
+        assert units == [
+            {
+                "unit": "backup.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+                "description": "Backup",
+            }
+        ]
 
     def test_list_units_user_executor_ajoute_flag_user(self) -> None:
         """UserSystemdExecutor hérite list_units() avec --user."""
@@ -698,18 +686,20 @@ class TestSystemdExecutorListUnitFiles:
     def test_list_unit_files_json_valide(self) -> None:
         """list_unit_files() parse une réponse JSON à plusieurs entrées."""
         executor, command_executor = self._make_executor()
-        json_stdout = json.dumps([
-            {
-                "unit_file": "backup.service",
-                "state": "enabled",
-                "preset": "disabled",
-            },
-            {
-                "unit_file": "sshd.service",
-                "state": "enabled",
-                "preset": "enabled",
-            },
-        ])
+        json_stdout = json.dumps(
+            [
+                {
+                    "unit_file": "backup.service",
+                    "state": "enabled",
+                    "preset": "disabled",
+                },
+                {
+                    "unit_file": "sshd.service",
+                    "state": "enabled",
+                    "preset": "enabled",
+                },
+            ]
+        )
         command_executor.run.return_value = _result(stdout=json_stdout)
         files = executor.list_unit_files()
         assert files == [
@@ -759,18 +749,16 @@ class TestSystemdExecutorListUnitFiles:
         executor, command_executor = self._make_executor()
         command_executor.run.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
-            _result(
-                stdout="abrt-journal-core.service enabled enabled\n"
-            ),
+            _result(stdout="abrt-journal-core.service enabled enabled\n"),
         ]
-        files = executor.list_unit_files(
-            unit_type="service", state="enabled"
-        )
-        assert files == [{
-            "unit_file": "abrt-journal-core.service",
-            "state": "enabled",
-            "preset": "enabled",
-        }]
+        files = executor.list_unit_files(unit_type="service", state="enabled")
+        assert files == [
+            {
+                "unit_file": "abrt-journal-core.service",
+                "state": "enabled",
+                "preset": "enabled",
+            }
+        ]
         second_call_args = command_executor.run.call_args_list[1][0][0]
         assert "--no-legend" in second_call_args
         assert "--type=service" in second_call_args
@@ -785,11 +773,13 @@ class TestSystemdExecutorListUnitFiles:
             _result(stdout="foo.service enabled\n"),
         ]
         files = executor.list_unit_files()
-        assert files == [{
-            "unit_file": "foo.service",
-            "state": "enabled",
-            "preset": "",
-        }]
+        assert files == [
+            {
+                "unit_file": "foo.service",
+                "state": "enabled",
+                "preset": "",
+            }
+        ]
 
     def test_list_unit_files_fallback_texte_json_invalide(self) -> None:
         """list_unit_files() bascule sur le fallback si le JSON est invalide.
@@ -803,11 +793,13 @@ class TestSystemdExecutorListUnitFiles:
             _result(stdout="foo.service enabled enabled\n"),
         ]
         files = executor.list_unit_files()
-        assert files == [{
-            "unit_file": "foo.service",
-            "state": "enabled",
-            "preset": "enabled",
-        }]
+        assert files == [
+            {
+                "unit_file": "foo.service",
+                "state": "enabled",
+                "preset": "enabled",
+            }
+        ]
 
     def test_list_unit_files_erreur_subprocess(self) -> None:
         """list_unit_files() lève RuntimeError si systemctl échoue (JSON)."""
@@ -881,9 +873,7 @@ class TestUserSystemdExecutorMocked:
     def test_reload_systemd_user_echec(self) -> None:
         """reload_systemd() pour user retourne False."""
         executor, logger, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
-            return_code=1, stderr="erreur"
-        )
+        command_executor.run.return_value = _result(return_code=1, stderr="erreur")
         result = executor.reload_systemd()
         assert result is False
         logger.log_error.assert_called_once()

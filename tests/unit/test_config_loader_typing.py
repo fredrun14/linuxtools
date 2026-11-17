@@ -30,9 +30,7 @@ def _write_json(data: dict[str, object]) -> Path:
     Returns:
         Chemin du fichier temporaire créé.
     """
-    f = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    )
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
     json.dump(data, f)
     f.close()
     return Path(f.name)

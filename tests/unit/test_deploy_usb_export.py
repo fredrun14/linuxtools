@@ -70,9 +70,7 @@ def _venv_run_side_effect(
             non-régression exFAT/FAT/NTFS.
     """
 
-    def _run(
-        command: list[str], *args: object, **kwargs: object
-    ) -> CommandResult:
+    def _run(command: list[str], *args: object, **kwargs: object) -> CommandResult:
         if command[1:3] == ["venv", "--python"]:
             venv_path = Path(command[-1])
             bin_dir = venv_path / "bin"
@@ -84,9 +82,7 @@ def _venv_run_side_effect(
             if add_stale_symlink:
                 real_lib = venv_path / "lib"
                 (real_lib / "site-packages").mkdir(parents=True)
-                (venv_path / "lib64").symlink_to(
-                    real_lib, target_is_directory=True
-                )
+                (venv_path / "lib64").symlink_to(real_lib, target_is_directory=True)
             return _cmd_result(success=True, command=tuple(command))
         if "install" in command:
             return _cmd_result(success=True, command=tuple(command))
@@ -218,9 +214,7 @@ class TestFindUv:
         res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice")
         assert res is None
 
-    def test_find_uv_sudo_user_inconnu_retourne_none(
-        self, executor: MagicMock
-    ) -> None:
+    def test_find_uv_sudo_user_inconnu_retourne_none(self, executor: MagicMock) -> None:
         """SUDO_USER absent de passwd (KeyError) -> None."""
         res, _ = _find_uv_reel(
             executor, None, sudo_user="ghost", getpwnam_effect=KeyError("x")
@@ -286,9 +280,7 @@ class TestFindUv:
         """[SEC] Binaire sain, parent en 0o775 (écriture groupe) -> refusé."""
         _faux_uv(tmp_path, ".local/bin/uv", parent_mode=0o775)
         exporter = UsbExporter(executor)
-        res, _ = _find_uv_reel(
-            executor, tmp_path, sudo_user="alice", exporter=exporter
-        )
+        res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res is None
         (rejet,) = exporter._uv_rejections  # noqa: SLF001
         assert "modifiable par le groupe ou les autres" in rejet
@@ -369,9 +361,7 @@ class TestFindUv:
         lien.parent.mkdir(parents=True)
         lien.symlink_to(cible)
         exporter = UsbExporter(executor)
-        res, _ = _find_uv_reel(
-            executor, tmp_path, sudo_user="alice", exporter=exporter
-        )
+        res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res is None
         (rejet,) = exporter._uv_rejections  # noqa: SLF001
         assert "modifiable par le groupe ou les autres" in rejet
@@ -398,9 +388,7 @@ class TestFindUv:
         home = tmp_path / "home"
         home.symlink_to(reel)
         exporter = UsbExporter(executor)
-        res, _ = _find_uv_reel(
-            executor, home, sudo_user="alice", exporter=exporter
-        )
+        res, _ = _find_uv_reel(executor, home, sudo_user="alice", exporter=exporter)
         assert res is None
         (rejet,) = exporter._uv_rejections  # noqa: SLF001
         assert "modifiable par le groupe ou les autres" in rejet
@@ -433,9 +421,7 @@ class TestFindUv:
         b.symlink_to(a)
         cargo = _faux_uv(tmp_path, ".cargo/bin/uv")
         exporter = UsbExporter(executor)
-        res, _ = _find_uv_reel(
-            executor, tmp_path, sudo_user="alice", exporter=exporter
-        )
+        res, _ = _find_uv_reel(executor, tmp_path, sudo_user="alice", exporter=exporter)
         assert res == str(cargo)
         (rejet,) = exporter._uv_rejections  # noqa: SLF001
         assert str(a) in rejet
@@ -510,9 +496,7 @@ class TestFindUv:
         pw.return_value.pw_uid = os.getuid() + 4242
         with (
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
             patch.object(Path, "stat", autospec=True, side_effect=stat_pivot),
         ):
@@ -566,9 +550,7 @@ class TestUvRejections:
         with (
             patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
         ):
             report = UsbExporter(executor).export(
@@ -580,9 +562,7 @@ class TestUvRejections:
                     dry_run=True,
                 )
             )
-        avertissement = next(
-            w for w in report.warnings if "uv introuvable" in w
-        )
+        avertissement = next(w for w in report.warnings if "uv introuvable" in w)
         assert "échouera" in avertissement
         assert str(binaire) in avertissement
         assert "modifiable par le groupe ou les autres" in avertissement
@@ -598,9 +578,7 @@ class TestUvRejections:
         with (
             patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
         ):
             report = UsbExporter(executor).export(
@@ -610,9 +588,7 @@ class TestUvRejections:
                     project_src=project_src,
                 )
             )
-        avertissement = next(
-            w for w in report.warnings if "uv introuvable" in w
-        )
+        avertissement = next(w for w in report.warnings if "uv introuvable" in w)
         assert "à copier manuellement" in avertissement
         assert str(binaire) in avertissement
         assert "modifiable par le groupe ou les autres" in avertissement
@@ -628,9 +604,7 @@ class TestUvRejections:
         with (
             patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
         ):
             report = UsbExporter(executor).export(
@@ -641,9 +615,7 @@ class TestUvRejections:
                     dry_run=True,
                 )
             )
-        avertissement = next(
-            w for w in report.warnings if "uv introuvable" in w
-        )
+        avertissement = next(w for w in report.warnings if "uv introuvable" in w)
         assert "à copier manuellement" in avertissement
         assert str(binaire) in avertissement
 
@@ -659,10 +631,7 @@ class TestUvRejections:
                     project_src=project_src,
                 )
             )
-        assert (
-            "uv introuvable — à copier manuellement sur la cible."
-            in report.warnings
-        )
+        assert "uv introuvable — à copier manuellement sur la cible." in report.warnings
 
     def test_find_uv_remet_les_refus_a_zero_a_chaque_appel(
         self, tmp_path: Path, executor: MagicMock
@@ -865,9 +834,7 @@ class TestExportModeSources:
         with (
             patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
         ):
             UsbExporter(executor).export(
@@ -973,8 +940,7 @@ class TestExportModeSources:
         content = (target_dir / "install.sh").read_text(encoding="utf-8")
         assert "uv pip install --system" not in content
         assert (
-            'uv tool install --with "$USB/linuxtools" '
-            f'"$USB/{project_src.name}"'
+            f'uv tool install --with "$USB/linuxtools" "$USB/{project_src.name}"'
         ) in content
 
     def test_export_sources_reexport_sur_cible_existante_ne_leve_pas(
@@ -1049,9 +1015,7 @@ class TestExportModeVenv:
         with (
             patch.object(UsbExporter, "_find_uv", _REAL_FIND_UV),
             patch(f"{_MODULE}.shutil.which", return_value=None),
-            patch.dict(
-                f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True
-            ),
+            patch.dict(f"{_MODULE}.os.environ", {"SUDO_USER": "alice"}, clear=True),
             patch(f"{_MODULE}.pwd.getpwnam", pw),
         ):
             UsbExporter(executor).export(
@@ -1109,9 +1073,7 @@ class TestExportModeVenv:
     ) -> None:
         """`uv venv` réussit, `uv pip install` échoue -> InstallationError."""
 
-        def _run(
-            command: list[str], *a: object, **kw: object
-        ) -> CommandResult:
+        def _run(command: list[str], *a: object, **kw: object) -> CommandResult:
             if command[1:3] == ["venv", "--python"]:
                 venv_path = Path(command[-1])
                 (venv_path / "bin").mkdir(parents=True)
@@ -1135,9 +1097,7 @@ class TestExportModeVenv:
     ) -> None:
         """Régression exFAT/FAT/NTFS : aucun symlink dans venv/ final."""
         target_dir = tmp_path / "usb"
-        executor.run.side_effect = _venv_run_side_effect(
-            add_stale_symlink=True
-        )
+        executor.run.side_effect = _venv_run_side_effect(add_stale_symlink=True)
 
         exporter = UsbExporter(executor)
         exporter.export(
@@ -1235,18 +1195,14 @@ class TestExportModeVenv:
         """
         base = _venv_run_side_effect()
 
-        def _run(
-            command: list[str], *a: object, **kw: object
-        ) -> CommandResult:
+        def _run(command: list[str], *a: object, **kw: object) -> CommandResult:
             if "install" not in command:
                 return base(command, *a, **kw)
             capture["commande"] = list(command)
             if "--override" in command:
                 chemin = Path(command[command.index("--override") + 1])
                 capture["override_path"] = chemin
-                capture["override_contenu"] = chemin.read_text(
-                    encoding="utf-8"
-                )
+                capture["override_contenu"] = chemin.read_text(encoding="utf-8")
             if not succes:
                 return _cmd_result(success=False, stderr="pip a échoué")
             return _cmd_result(success=True, command=tuple(command))
@@ -1372,9 +1328,7 @@ class TestExportModeVenv:
 
         vraie_ecriture = Path.write_text
 
-        def _write_text(
-            self_: Path, data: str, encoding: str | None = None
-        ) -> int:
+        def _write_text(self_: Path, data: str, encoding: str | None = None) -> int:
             if self_.name == "override.txt":
                 raise OSError("disque plein simulé")
             return vraie_ecriture(self_, data, encoding=encoding)
@@ -1413,9 +1367,7 @@ class TestExportModeVenv:
         lpu_src = tmp_path / "lpu"
         lpu_src.mkdir()
         capture: dict[str, object] = {}
-        executor.run.side_effect = self._run_capturant_pip(
-            capture, succes=False
-        )
+        executor.run.side_effect = self._run_capturant_pip(capture, succes=False)
 
         with pytest.raises(InstallationError):
             self._exporter_avec_lpu(tmp_path, project_src, executor, lpu_src)
@@ -1486,10 +1438,7 @@ class TestExportDryRun:
                 )
             )
 
-        assert (
-            "uv introuvable — l'export réel (mode venv) échouera."
-            in report.warnings
-        )
+        assert "uv introuvable — l'export réel (mode venv) échouera." in report.warnings
 
     def test_export_dry_run_venv_avec_uv_affiche_chemin_sans_avertir(
         self, tmp_path: Path, project_src: Path, executor: MagicMock
@@ -1524,10 +1473,7 @@ class TestExportDryRun:
             )
 
         assert "[dry-run] uv      : (introuvable)" in report.created_paths
-        assert (
-            "uv introuvable — à copier manuellement sur la cible."
-            in report.warnings
-        )
+        assert "uv introuvable — à copier manuellement sur la cible." in report.warnings
 
     def test_export_dry_run_sources_avec_uv_pas_d_avertissement(
         self, tmp_path: Path, project_src: Path, executor: MagicMock

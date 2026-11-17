@@ -100,15 +100,11 @@ class SystemdUnitExporter:
         try:
             data = self.parse_ini(unit_path)
         except OSError as exc:
-            self._logger.log_error(
-                f"Impossible de lire {unit_path.name} : {exc}"
-            )
+            self._logger.log_error(f"Impossible de lire {unit_path.name} : {exc}")
             return None
         suffix = unit_path.suffix
         if suffix not in {f".{t}" for t in _SUPPORTED_UNIT_TYPES}:
-            self._logger.log_error(
-                f"{unit_path.name} — type non supporté : {suffix!r}"
-            )
+            self._logger.log_error(f"{unit_path.name} — type non supporté : {suffix!r}")
             return None
         unit_type = suffix[1:]
         return self.to_toml(data, unit_type, enabled, requires_exec)
@@ -135,11 +131,7 @@ class SystemdUnitExporter:
         current_section = ""
         for line in path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
-            if (
-                not stripped
-                or stripped.startswith("#")
-                or stripped.startswith(";")
-            ):
+            if not stripped or stripped.startswith("#") or stripped.startswith(";"):
                 continue
             if stripped.startswith("[") and stripped.endswith("]"):
                 current_section = stripped[1:-1]
@@ -188,9 +180,7 @@ class SystemdUnitExporter:
                 if len(values) == 1:
                     lines.append(f'{key} = "{_toml_escape(values[0])}"')
                 else:
-                    items_str = ", ".join(
-                        f'"{_toml_escape(v)}"' for v in values
-                    )
+                    items_str = ", ".join(f'"{_toml_escape(v)}"' for v in values)
                     lines.append(f"{key} = [{items_str}]")
             lines.append("")
         return "\n".join(lines)
@@ -323,9 +313,7 @@ class SystemdUnitRestorer:
         requires_exec = str(meta.get("requires_exec", ""))
         return data, unit_type, enabled, requires_exec
 
-    def _resolve_unit_name(
-        self, toml_path: Path, unit_type: str
-    ) -> str | None:
+    def _resolve_unit_name(self, toml_path: Path, unit_type: str) -> str | None:
         """Déduit et valide le nom d'unité depuis le stem du fichier TOML.
 
         Convention : ``{nom}-{type}.toml`` → ``{nom}.{type}``.
@@ -348,9 +336,7 @@ class SystemdUnitRestorer:
         try:
             validate_full_unit_name(unit_name)
         except ValueError as exc:
-            self._logger.log_error(
-                f"{toml_path.name} — nom d'unité invalide : {exc}"
-            )
+            self._logger.log_error(f"{toml_path.name} — nom d'unité invalide : {exc}")
             return None
         return unit_name
 
@@ -385,13 +371,9 @@ class SystemdUnitRestorer:
             for key, value in section_data.items():
                 if isinstance(value, list):
                     for v in value:
-                        lines.append(
-                            f"{key}={reject_control_chars(str(v), key)}"
-                        )
+                        lines.append(f"{key}={reject_control_chars(str(v), key)}")
                 else:
-                    lines.append(
-                        f"{key}={reject_control_chars(str(value), key)}"
-                    )
+                    lines.append(f"{key}={reject_control_chars(str(value), key)}")
             lines.append("")
         return "\n".join(lines)
 

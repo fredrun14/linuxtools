@@ -16,9 +16,7 @@ class TestNetworkDevice:
 
     def test_creation_minimale(self) -> None:
         """Creation avec ip et mac uniquement."""
-        device = NetworkDevice(
-            ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff"
-        )
+        device = NetworkDevice(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
         assert device.ip == "192.168.1.1"
         assert device.mac == "aa:bb:cc:dd:ee:ff"
 
@@ -48,9 +46,7 @@ class TestNetworkDevice:
 
     def test_frozen(self) -> None:
         """Modification leve FrozenInstanceError."""
-        device = NetworkDevice(
-            ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff"
-        )
+        device = NetworkDevice(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
         with pytest.raises(dataclasses.FrozenInstanceError):
             device.ip = "192.168.1.2"  # type: ignore[misc]
 
@@ -66,9 +62,7 @@ class TestNetworkDevice:
 
     def test_mac_normalisee(self) -> None:
         """MAC majuscules normalisee en minuscules."""
-        device = NetworkDevice(
-            ip="192.168.1.1", mac="AA:BB:CC:DD:EE:FF"
-        )
+        device = NetworkDevice(ip="192.168.1.1", mac="AA:BB:CC:DD:EE:FF")
         assert device.mac == "aa:bb:cc:dd:ee:ff"
 
     def test_fixed_ip_invalide(self) -> None:
@@ -147,9 +141,7 @@ class TestNetworkDevice:
 
     def test_defauts(self) -> None:
         """Valeurs par defaut correctes."""
-        device = NetworkDevice(
-            ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff"
-        )
+        device = NetworkDevice(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
         assert device.hostname == ""
         assert device.vendor == ""
         assert device.device_type == "unknown"
@@ -160,17 +152,13 @@ class TestNetworkDevice:
 
     def test_ip_vide_acceptee(self) -> None:
         """IP vide acceptee pour les appareils hors ligne."""
-        device = NetworkDevice(
-            ip="", mac="aa:bb:cc:dd:ee:ff"
-        )
+        device = NetworkDevice(ip="", mac="aa:bb:cc:dd:ee:ff")
         assert device.ip == ""
 
     def test_ip_invalide_leve_erreur(self) -> None:
         """IP non vide et invalide leve ValueError."""
         with pytest.raises(ValueError):
-            NetworkDevice(
-                ip="999.1.1.1", mac="aa:bb:cc:dd:ee:ff"
-            )
+            NetworkDevice(ip="999.1.1.1", mac="aa:bb:cc:dd:ee:ff")
 
     def test_roundtrip_ip_vide(self) -> None:
         """to_dict / from_dict conserve ip vide."""

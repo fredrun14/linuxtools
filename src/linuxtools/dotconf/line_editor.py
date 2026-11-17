@@ -51,9 +51,7 @@ class SectionAwareEditor:
         search_lines = self._get_search_scope(lines, section)
         if search_lines is None:
             return False
-        return all(
-            any(predicate(fl, bl) for fl in search_lines) for bl in block_lines
-        )
+        return all(any(predicate(fl, bl) for fl in search_lines) for bl in block_lines)
 
     def is_block_present(
         self,
@@ -205,9 +203,7 @@ class SectionAwareEditor:
                     self._write_lines(lines)
                     return True
 
-        if self._block_matches(
-            content, section, self._is_commented_line, lines
-        ):
+        if self._block_matches(content, section, self._is_commented_line, lines):
             lines = self._uncomment_block_lines(lines, block_lines, section)
             self._write_lines(lines)
             return True
@@ -385,9 +381,7 @@ class SectionAwareEditor:
             commentaire.
         """
         stripped = line.strip()
-        return any(
-            stripped.startswith(prefix) for prefix in self._COMMENT_PREFIXES
-        )
+        return any(stripped.startswith(prefix) for prefix in self._COMMENT_PREFIXES)
 
     def _find_key_line_index(
         self,

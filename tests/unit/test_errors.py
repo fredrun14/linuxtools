@@ -57,9 +57,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
         self.handler = ConsoleErrorHandler()
 
     @patch("builtins.print")
-    def test_handle_missing_dependency(
-        self, mock_print: MagicMock
-    ) -> None:
+    def test_handle_missing_dependency(self, mock_print: MagicMock) -> None:
         """Vérifie le message pour MissingDependencyError."""
         error = MissingDependencyError("flatpak manquant")
         self.handler.handle(error)
@@ -68,8 +66,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
             file=sys.stderr,
         )
         mock_print.assert_any_call(
-            "\n🔧 Solution : Installez les dépendances"
-            " manquantes comme indiqué.",
+            "\n🔧 Solution : Installez les dépendances manquantes comme indiqué.",
             file=sys.stderr,
         )
 
@@ -84,9 +81,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
         )
 
     @patch("builtins.print")
-    def test_handle_configuration_error(
-        self, mock_print: MagicMock
-    ) -> None:
+    def test_handle_configuration_error(self, mock_print: MagicMock) -> None:
         """Vérifie le message pour ConfigurationError."""
         error = ConfigurationError("config invalide")
         self.handler.handle(error)
@@ -96,9 +91,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
         )
 
     @patch("builtins.print")
-    def test_handle_installation_error(
-        self, mock_print: MagicMock
-    ) -> None:
+    def test_handle_installation_error(self, mock_print: MagicMock) -> None:
         """Vérifie le message pour InstallationError."""
         error = InstallationError("install échouée")
         self.handler.handle(error)
@@ -108,9 +101,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
         )
 
     @patch("builtins.print")
-    def test_handle_generic_flatpak_error(
-        self, mock_print: MagicMock
-    ) -> None:
+    def test_handle_generic_flatpak_error(self, mock_print: MagicMock) -> None:
         """Vérifie le message par défaut pour ValidationError."""
         error = ValidationError("validation échouée")
         self.handler.handle(error)
@@ -120,9 +111,7 @@ class TestConsoleErrorHandler(unittest.TestCase):
         )
 
     @patch("builtins.print")
-    def test_handle_subclass_matches_parent(
-        self, mock_print: MagicMock
-    ) -> None:
+    def test_handle_subclass_matches_parent(self, mock_print: MagicMock) -> None:
         """FileConfigurationError doit matcher ConfigurationError."""
         error = FileConfigurationError("fichier invalide")
         self.handler.handle(error)
@@ -234,19 +223,13 @@ class TestErrorContext(unittest.TestCase):
         self.context.execute_rollback()
 
         action.assert_called_once()
-        self.mock_logger.log_info.assert_any_call(
-            "Rollback réussi: action test"
-        )
+        self.mock_logger.log_info.assert_any_call("Rollback réussi: action test")
 
     def test_execute_rollback_reversed_order(self) -> None:
         """Vérifie que les actions sont exécutées en ordre inverse."""
         call_order: list[int] = []
-        self.context.add_rollback_action(
-            lambda: call_order.append(1), "action 1"
-        )
-        self.context.add_rollback_action(
-            lambda: call_order.append(2), "action 2"
-        )
+        self.context.add_rollback_action(lambda: call_order.append(1), "action 1")
+        self.context.add_rollback_action(lambda: call_order.append(2), "action 2")
 
         self.context.execute_rollback()
 
@@ -321,6 +304,7 @@ class TestConsoleErrorHandlerInjectees(unittest.TestCase):
         self, mock_print: MagicMock
     ) -> None:
         """base_error_type injecté contrôle le routage known/unknown."""
+
         class MonErreur(Exception):
             pass
 
@@ -329,21 +313,18 @@ class TestConsoleErrorHandlerInjectees(unittest.TestCase):
             solutions={},
         )
         handler.handle(MonErreur("connue"))
-        self.assertTrue(
-            any("🛑" in str(c) for c in mock_print.call_args_list)
-        )
+        self.assertTrue(any("🛑" in str(c) for c in mock_print.call_args_list))
 
         mock_print.reset_mock()
         handler.handle(RuntimeError("inconnue"))
-        self.assertTrue(
-            any("💥" in str(c) for c in mock_print.call_args_list)
-        )
+        self.assertTrue(any("💥" in str(c) for c in mock_print.call_args_list))
 
     @patch("builtins.print")
     def test_console_handler_utilise_solutions_injectees(
         self, mock_print: MagicMock
     ) -> None:
         """Le dictionnaire solutions injecté est consulté."""
+
         class MonErreur(Exception):
             pass
 
@@ -352,9 +333,7 @@ class TestConsoleErrorHandlerInjectees(unittest.TestCase):
             solutions={MonErreur: "\n🔧 Ma solution personnalisée."},
         )
         handler.handle(MonErreur("test"))
-        mock_print.assert_any_call(
-            "\n🔧 Ma solution personnalisée.", file=sys.stderr
-        )
+        mock_print.assert_any_call("\n🔧 Ma solution personnalisée.", file=sys.stderr)
 
 
 class TestLoggerErrorHandlerInjecte(unittest.TestCase):
@@ -362,6 +341,7 @@ class TestLoggerErrorHandlerInjecte(unittest.TestCase):
 
     def test_logger_handler_route_selon_base_error_type(self) -> None:
         """base_error_type contrôle le routage dans LoggerErrorHandler."""
+
         class MonErreur(Exception):
             pass
 
@@ -378,5 +358,5 @@ class TestLoggerErrorHandlerInjecte(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

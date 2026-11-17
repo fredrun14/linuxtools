@@ -81,8 +81,7 @@ class AsusRouterMacFilterManager(MacFilterManager):
             self._client.logout()
         if self._logger:
             self._logger.log_info(
-                f"Filtre MAC applique : {len(devices)} "
-                f"appareil(s), mode={mode}"
+                f"Filtre MAC applique : {len(devices)} appareil(s), mode={mode}"
             )
 
     def read_mac_filter(self, bands: list[int]) -> list[MacFilterStatus]:

@@ -22,9 +22,7 @@ def test_load_lan_clients_table_valide_normalise_mac() -> None:
 def test_load_lan_clients_non_liste_leve_valueerror() -> None:
     """Une entrée qui n'est pas une liste est rejetée."""
     # Act / Assert
-    with pytest.raises(
-        ValueError, match="client doit être une liste de tables"
-    ):
+    with pytest.raises(ValueError, match="client doit être une liste de tables"):
         load_lan_clients("aa:bb:cc:dd:ee:ff")
 
 
@@ -308,9 +306,7 @@ def test_lan_client_et_loader_exposes_a_la_racine() -> None:
 def test_load_lan_clients_require_non_empty_accepte_liste_non_vide() -> None:
     """require_non_empty=True n'empêche pas une liste non vide."""
     # Act
-    result = load_lan_clients(
-        [{"mac": "aa:bb:cc:dd:ee:ff"}], require_non_empty=True
-    )
+    result = load_lan_clients([{"mac": "aa:bb:cc:dd:ee:ff"}], require_non_empty=True)
 
     # Assert
     assert len(result) == 1
@@ -353,9 +349,7 @@ def test_lan_client_construction_directe_mac_invalide() -> None:
         LanClient(mac="invalide")
 
 
-@pytest.mark.parametrize(
-    "mac", [True, " aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:ff "]
-)
+@pytest.mark.parametrize("mac", [True, " aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:ff "])
 def test_load_lan_clients_mac_bool_ou_espaces_rejetee(mac: object) -> None:
     """Une MAC booléenne ou entourée d'espaces est rejetée."""
     # Act / Assert

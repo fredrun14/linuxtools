@@ -72,9 +72,7 @@ class TimerDeployer:
             if not self._deploy_user(spec, target, executor, logger):
                 return PhaseOutcome(False)
             return PhaseOutcome(True, (self._probe_linger(executor),))
-        return PhaseOutcome(
-            self._deploy_system(spec, target, executor, logger)
-        )
+        return PhaseOutcome(self._deploy_system(spec, target, executor, logger))
 
     def _probe_linger(self, executor: CommandExecutor) -> str:
         """Lit l'état du linger de l'utilisateur de la cible (lecture seule).
@@ -134,12 +132,8 @@ class TimerDeployer:
         timer_manager = LinuxTimerUnitManager(
             logger, systemd_executor, remote_write=target.is_remote
         )
-        installer = SystemdServiceTimerInstaller(
-            logger, service_manager, timer_manager
-        )
-        return installer.install(
-            spec.unit_name, spec.service_config, spec.timer_config
-        )
+        installer = SystemdServiceTimerInstaller(logger, service_manager, timer_manager)
+        return installer.install(spec.unit_name, spec.service_config, spec.timer_config)
 
     def _deploy_user(
         self,
@@ -185,15 +179,13 @@ class TimerDeployer:
 
         if not timer_manager.install_timer_unit(spec.timer_config):
             logger.log_error(
-                f"Échec de l'installation du timer utilisateur "
-                f"{spec.unit_name}.timer"
+                f"Échec de l'installation du timer utilisateur {spec.unit_name}.timer"
             )
             return False
 
         if not timer_manager.enable_timer(spec.unit_name):
             logger.log_error(
-                f"Échec de l'activation du timer utilisateur "
-                f"{spec.unit_name}.timer"
+                f"Échec de l'activation du timer utilisateur {spec.unit_name}.timer"
             )
             return False
 

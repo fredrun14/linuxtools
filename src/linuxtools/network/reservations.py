@@ -348,9 +348,7 @@ def _check_no_duplicate_mac(clients: Sequence[LanClient]) -> None:
         mac = client.mac.lower()
         name = client.name or "(sans nom)"
         if mac in seen:
-            raise ValueError(
-                f"MAC en double dans l'intention : {seen[mac]} et {name}"
-            )
+            raise ValueError(f"MAC en double dans l'intention : {seen[mac]} et {name}")
         seen[mac] = name
 
 
@@ -400,9 +398,7 @@ class DhcpIntent:
             if not client.enabled:
                 disabled.append(client)
                 continue
-            if client.pinned_ip is None or not _in_subnet(
-                client.pinned_ip, subnet
-            ):
+            if client.pinned_ip is None or not _in_subnet(client.pinned_ip, subnet):
                 ignored.append(client)
                 continue
             pinned = client.pinned_ip.strip()
@@ -421,9 +417,7 @@ class DhcpIntent:
             ignored=tuple(ignored),
         )
 
-    def target(
-        self, actual: Sequence[NetworkDevice]
-    ) -> tuple[NetworkDevice, ...]:
+    def target(self, actual: Sequence[NetworkDevice]) -> tuple[NetworkDevice, ...]:
         """Calcule la liste complète à écrire en bloc sur le routeur.
 
         Args:

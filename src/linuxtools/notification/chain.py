@@ -70,14 +70,10 @@ class NotifierChain:
                 notifier.send(notification)
                 delivered = True
                 if self._logger:
-                    self._logger.log_info(
-                        f"Notification envoyée via {channel}"
-                    )
+                    self._logger.log_info(f"Notification envoyée via {channel}")
             except Exception as exc:
                 if self._logger:
-                    self._logger.log_error(
-                        f"Échec de l'envoi via {channel} : {exc}"
-                    )
+                    self._logger.log_error(f"Échec de l'envoi via {channel} : {exc}")
         return delivered
 
     def send_report(

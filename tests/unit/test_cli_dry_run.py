@@ -46,9 +46,7 @@ class TestDryRunContext:
         # Assert
         assert "[DRY-RUN]" in capsys.readouterr().out
 
-    def test_would_create_prints_path(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_would_create_prints_path(self, capsys: pytest.CaptureFixture[str]) -> None:
         # Arrange
         ctx = DryRunContext(dry_run=True)
         # Act
@@ -70,7 +68,6 @@ class TestDryRunContext:
         assert "[DRY-RUN]" in captured.out
         assert "/etc/dnf/dnf.conf" in captured.out
         assert "max_parallel_downloads=5" in captured.out
-
 
     def test_would_write_silencieux_si_dry_run_false(
         self, capsys: pytest.CaptureFixture[str]
@@ -102,9 +99,7 @@ class TestDryRunContext:
         # Assert
         assert capsys.readouterr().out == ""
 
-    def test_would_delete_prints_path(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_would_delete_prints_path(self, capsys: pytest.CaptureFixture[str]) -> None:
         # Arrange
         ctx = DryRunContext(dry_run=True)
         # Act
@@ -155,9 +150,7 @@ class TestAddDryRunArgument:
         """Fixture fournissant un ArgumentParser vierge."""
         return argparse.ArgumentParser()
 
-    def test_dry_run_default_is_false(
-        self, parser: argparse.ArgumentParser
-    ) -> None:
+    def test_dry_run_default_is_false(self, parser: argparse.ArgumentParser) -> None:
         # Arrange
         add_dry_run_argument(parser)
         # Act
@@ -165,9 +158,7 @@ class TestAddDryRunArgument:
         # Assert
         assert args.dry_run is False
 
-    def test_long_flag_sets_dry_run_true(
-        self, parser: argparse.ArgumentParser
-    ) -> None:
+    def test_long_flag_sets_dry_run_true(self, parser: argparse.ArgumentParser) -> None:
         # Arrange
         add_dry_run_argument(parser)
         # Act

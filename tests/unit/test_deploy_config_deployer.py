@@ -26,9 +26,7 @@ def _result(success: bool = True, stderr: str = "") -> CommandResult:
 class TestConfigDeployerDeployLocal:
     """Tests du dépôt de config en local."""
 
-    def test_deploy_local_nominal_ecrit_le_toml_effectif(
-        self, tmp_path: Path
-    ) -> None:
+    def test_deploy_local_nominal_ecrit_le_toml_effectif(self, tmp_path: Path) -> None:
         """Cas nominal : le TOML de spec.data est déposé sur disque."""
         # Arrange
         dest_path = tmp_path / "config.toml"
@@ -50,9 +48,7 @@ class TestConfigDeployerDeployLocal:
         assert written == {"service": {"port": 8080, "enabled": True}}
         executor.run.assert_not_called()
 
-    def test_deploy_local_utilise_le_mode_par_defaut(
-        self, tmp_path: Path
-    ) -> None:
+    def test_deploy_local_utilise_le_mode_par_defaut(self, tmp_path: Path) -> None:
         """Cas limite : mode non renseigné -> 0o644 (défaut du spec)."""
         import os
 
@@ -60,9 +56,7 @@ class TestConfigDeployerDeployLocal:
         spec = ConfigDeploySpec(data={"a": 1}, dest_path=dest_path)
         deployer = ConfigDeployer()
 
-        result = deployer.deploy(
-            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
-        )
+        result = deployer.deploy(spec, DeployTarget(), MagicMock(spec=CommandExecutor))
 
         assert result is True
         assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
@@ -77,9 +71,7 @@ class TestConfigDeployerDeployLocal:
         deployer = ConfigDeployer()
 
         with pytest.raises(OSError):
-            deployer.deploy(
-                spec, DeployTarget(), MagicMock(spec=CommandExecutor)
-            )
+            deployer.deploy(spec, DeployTarget(), MagicMock(spec=CommandExecutor))
 
 
 class TestConfigDeployerDeployRemote:
@@ -90,9 +82,7 @@ class TestConfigDeployerDeployRemote:
         /dev/stdin <dest>`, contenu TOML par stdin."""
         # Arrange
         dest_path = Path("/etc/app/config.toml")
-        spec = ConfigDeploySpec(
-            data={"a": 1}, dest_path=dest_path, mode=0o600
-        )
+        spec = ConfigDeploySpec(data={"a": 1}, dest_path=dest_path, mode=0o600)
         target = DeployTarget(host="srv01")
         executor = MagicMock(spec=CommandExecutor)
         executor.run.side_effect = [_result(True), _result(True)]
@@ -116,9 +106,7 @@ class TestConfigDeployerDeployRemote:
 
     def test_deploy_remote_echec_install_retourne_false(self) -> None:
         """Cas d'erreur distant : échec d'`install` -> False."""
-        spec = ConfigDeploySpec(
-            data={"a": 1}, dest_path=Path("/etc/app/config.toml")
-        )
+        spec = ConfigDeploySpec(data={"a": 1}, dest_path=Path("/etc/app/config.toml"))
         target = DeployTarget(host="srv01")
         executor = MagicMock(spec=CommandExecutor)
         executor.run.return_value = _result(False, stderr="no space left")
@@ -140,8 +128,6 @@ class TestConfigDeployerAvecLogger:
         logger = MagicMock()
         deployer = ConfigDeployer(logger=logger)
 
-        result = deployer.deploy(
-            spec, DeployTarget(), MagicMock(spec=CommandExecutor)
-        )
+        result = deployer.deploy(spec, DeployTarget(), MagicMock(spec=CommandExecutor))
 
         assert result is True

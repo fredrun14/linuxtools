@@ -77,9 +77,7 @@ class MountConfig(BaseSystemdConfig):
         if not self.what or not self.where:
             raise ValueError("'what' et 'where' sont requis")
         if not self.where.startswith("/"):
-            raise ValueError(
-                f"'where' doit être un chemin absolu : {self.where!r}"
-            )
+            raise ValueError(f"'where' doit être un chemin absolu : {self.where!r}")
         if "\\" in self.where:
             raise ValueError(
                 f"'where' ne doit pas contenir de backslash : {self.where!r}"
@@ -177,9 +175,7 @@ class AutomountConfig(BaseSystemdConfig):
         if not self.where:
             raise ValueError("'where' est requis")
         if not self.where.startswith("/"):
-            raise ValueError(
-                f"'where' doit être un chemin absolu : {self.where!r}"
-            )
+            raise ValueError(f"'where' doit être un chemin absolu : {self.where!r}")
         if "\\" in self.where:
             raise ValueError(
                 f"'where' ne doit pas contenir de backslash : {self.where!r}"
@@ -272,8 +268,7 @@ class TimerConfig(BaseSystemdConfig):
         """
         lines = [
             "[Unit]",
-            f"Description="
-            f"{reject_control_chars(self.description, 'description')}",
+            f"Description={reject_control_chars(self.description, 'description')}",
             "",
             "[Timer]",
             f"Unit={reject_control_chars(self.unit, 'unit')}",
@@ -283,12 +278,8 @@ class TimerConfig(BaseSystemdConfig):
             filter(
                 None,
                 [
-                    _optional_line(
-                        "OnCalendar", self.on_calendar, "on_calendar"
-                    ),
-                    _optional_line(
-                        "OnBootSec", self.on_boot_sec, "on_boot_sec"
-                    ),
+                    _optional_line("OnCalendar", self.on_calendar, "on_calendar"),
+                    _optional_line("OnBootSec", self.on_boot_sec, "on_boot_sec"),
                     _optional_line(
                         "OnUnitActiveSec",
                         self.on_unit_active_sec,
@@ -448,13 +439,9 @@ class ServiceConfig(BaseSystemdConfig):
         # Vu comme ``object`` : le typage ne protège pas à l'exécution.
         nice: object = self.nice
         if nice is not None and (
-            not isinstance(nice, int)
-            or isinstance(nice, bool)
-            or not -20 <= nice <= 19
+            not isinstance(nice, int) or isinstance(nice, bool) or not -20 <= nice <= 19
         ):
-            raise ValueError(
-                f"nice invalide : {self.nice!r} (entier de -20 à 19)"
-            )
+            raise ValueError(f"nice invalide : {self.nice!r} (entier de -20 à 19)")
         if self.io_scheduling_class not in self._VALID_IO_CLASSES:
             raise ValueError(
                 f"io_scheduling_class invalide : "
@@ -496,8 +483,7 @@ class ServiceConfig(BaseSystemdConfig):
         """
         lines = [
             "[Unit]",
-            f"Description="
-            f"{reject_control_chars(self.description, 'description')}",
+            f"Description={reject_control_chars(self.description, 'description')}",
         ]
         if self.after:
             joined_after = " ".join(
@@ -510,9 +496,7 @@ class ServiceConfig(BaseSystemdConfig):
                 for path in self.requires_mounts_for
             )
             lines.append(f"RequiresMountsFor={joined_mounts}")
-        on_failure_line = _optional_line(
-            "OnFailure", self.on_failure, "on_failure"
-        )
+        on_failure_line = _optional_line("OnFailure", self.on_failure, "on_failure")
         if on_failure_line:
             lines.append(on_failure_line)
         lines.extend(
@@ -520,8 +504,7 @@ class ServiceConfig(BaseSystemdConfig):
                 "",
                 "[Service]",
                 f"Type={self.type}",
-                f"ExecStart="
-                f"{reject_control_chars(self.exec_start, 'exec_start')}",
+                f"ExecStart={reject_control_chars(self.exec_start, 'exec_start')}",
             ]
         )
 
@@ -586,8 +569,7 @@ class ServiceConfig(BaseSystemdConfig):
             [
                 "",
                 "[Install]",
-                f"WantedBy="
-                f"{reject_control_chars(self.wanted_by, 'wanted_by')}",
+                f"WantedBy={reject_control_chars(self.wanted_by, 'wanted_by')}",
             ]
         )
 

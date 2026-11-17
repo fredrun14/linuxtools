@@ -102,9 +102,7 @@ class RotatingFileLogger(_BaseFileLogger):
             self.logger.addHandler(self.handler)
 
             if console_output:
-                console: logging.StreamHandler[TextIO] = (
-                    logging.StreamHandler()
-                )
+                console: logging.StreamHandler[TextIO] = logging.StreamHandler()
                 console.setLevel(log_level)
                 console.setFormatter(
                     _ColoredFormatter(log_format)

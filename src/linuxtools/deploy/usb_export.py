@@ -206,9 +206,7 @@ class UsbExporter:
 
         entry_point: tuple[str, str] | None = None
         if config.mode == "venv":
-            entry_point = self._validate_cli_entry_point(
-                config.cli_entry_point
-            )
+            entry_point = self._validate_cli_entry_point(config.cli_entry_point)
 
         proj = config.project_src or find_project_source()
         if proj is None or not proj.exists():
@@ -266,12 +264,8 @@ class UsbExporter:
             # (échec rapide, pas de répertoire cible vide laissé).
             venv_uv = self._require_uv()
             config.target_dir.mkdir(parents=True, exist_ok=True)
-            copied.append(
-                str(self._build_venv(config.target_dir, proj, lpu, venv_uv))
-            )
-            copied.append(
-                self._write_run_script(config.target_dir, entry_point)
-            )
+            copied.append(str(self._build_venv(config.target_dir, proj, lpu, venv_uv)))
+            copied.append(self._write_run_script(config.target_dir, entry_point))
 
         configs_copied = self._copy_configs(config, proj)
         if configs_copied:
@@ -415,8 +409,7 @@ class UsbExporter:
         uv_bin = self._find_uv()
         if uv_bin is None:
             conseil = (
-                "Corrigez les permissions ci-dessus, ou lancez la "
-                "commande sans sudo."
+                "Corrigez les permissions ci-dessus, ou lancez la commande sans sudo."
                 if self._uv_rejections
                 else "Installez uv, ou lancez la commande sans sudo."
             )
@@ -465,8 +458,7 @@ class UsbExporter:
         """
         if not cli_entry_point or cli_entry_point.count(":") != 1:
             raise ValidationError(
-                "cli_entry_point requis au format 'module:fonction' "
-                "en mode venv."
+                "cli_entry_point requis au format 'module:fonction' en mode venv."
             )
         module, function = cli_entry_point.split(":", 1)
         if not _MODULE_RE.match(module) or not _FUNCTION_RE.match(function):
@@ -628,9 +620,7 @@ fi
                 .build()
             )
             if result.return_code != 0:
-                raise InstallationError(
-                    f"Échec création venv : {result.stderr[:500]}"
-                )
+                raise InstallationError(f"Échec création venv : {result.stderr[:500]}")
 
             python_bin = str(tmp_venv / "bin" / "python3")
             packages: list[str] = []
@@ -661,13 +651,9 @@ fi
                 )
                 args += ["--override", str(override)]
             args += packages
-            result = self._executor.run(
-                CommandBuilder(uv_bin).with_args(args).build()
-            )
+            result = self._executor.run(CommandBuilder(uv_bin).with_args(args).build())
             if result.return_code != 0:
-                raise InstallationError(
-                    f"Échec pip install : {result.stderr[:500]}"
-                )
+                raise InstallationError(f"Échec pip install : {result.stderr[:500]}")
 
             if self._logger:
                 self._logger.log_info(f"Copie du venv → {venv_dir}")
@@ -675,9 +661,7 @@ fi
             # fraîchement construit (pas de .git/.venv à exclure).
             # follow_symlinks=True : déréférence bin/python3, lib64,
             # etc., irreprésentables sur exFAT/FAT/NTFS.
-            self._copy_dir(
-                tmp_venv, venv_dir, ignore=None, follow_symlinks=True
-            )
+            self._copy_dir(tmp_venv, venv_dir, ignore=None, follow_symlinks=True)
             self._restore_venv_exec_bits(venv_dir)
         finally:
             shutil.rmtree(tmp_root, ignore_errors=True)
@@ -716,9 +700,7 @@ fi
         if self._logger:
             self._logger.log_info(f"Bits d'exécution restaurés → {bin_dir}")
 
-    def _write_run_script(
-        self, target_dir: Path, entry_point: tuple[str, str]
-    ) -> str:
+    def _write_run_script(self, target_dir: Path, entry_point: tuple[str, str]) -> str:
         """Génère run.sh pour le mode venv.
 
         Args:
@@ -778,9 +760,7 @@ exec "$USB/venv/bin/python3" \\
         """
         if dst.exists():
             shutil.rmtree(dst)
-        copytree_secure(
-            src, dst, ignore=ignore, follow_symlinks=follow_symlinks
-        )
+        copytree_secure(src, dst, ignore=ignore, follow_symlinks=follow_symlinks)
         if self._logger:
             self._logger.log_info(f"{src} → {dst}")
         return str(dst)
@@ -801,9 +781,7 @@ exec "$USB/venv/bin/python3" \\
             source de configuration n'a été trouvée.
         """
         if config.user_config_dir and config.user_config_dir.exists():
-            return self._copy_dir(
-                config.user_config_dir, config.target_dir / "configs"
-            )
+            return self._copy_dir(config.user_config_dir, config.target_dir / "configs")
         configs_src = proj / "configs"
         if configs_src.exists():
             return self._copy_dir(configs_src, config.target_dir / "configs")
@@ -828,9 +806,7 @@ exec "$USB/venv/bin/python3" \\
             Liste des lignes de rapport.
         """
         configs_src = (
-            str(config.user_config_dir)
-            if config.user_config_dir
-            else f"{proj}/configs"
+            str(config.user_config_dir) if config.user_config_dir else f"{proj}/configs"
         )
         lines: list[str] = [
             f"[dry-run] Cible   : {config.target_dir}",

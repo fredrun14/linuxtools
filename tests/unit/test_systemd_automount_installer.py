@@ -93,15 +93,11 @@ class TestSystemdAutomountInstallerInstall(unittest.TestCase):
             self.config, with_automount=True, automount_timeout_sec=600
         )
 
-        install_kwargs = (
-            self.mock_mount_manager.install_mount_unit.call_args.kwargs
-        )
+        install_kwargs = self.mock_mount_manager.install_mount_unit.call_args.kwargs
         self.assertTrue(install_kwargs["with_automount"])
         self.assertEqual(install_kwargs["automount_timeout"], 600)
 
-        enable_kwargs = (
-            self.mock_mount_manager.enable_mount.call_args.kwargs
-        )
+        enable_kwargs = self.mock_mount_manager.enable_mount.call_args.kwargs
         self.assertTrue(enable_kwargs["with_automount"])
 
     def test_install_returns_false_if_install_mount_fails(self) -> None:
@@ -178,9 +174,7 @@ class TestSystemdAutomountInstallerFromToml(unittest.TestCase):
 
         self.installer.install_from_toml("/fake/path.toml", loader)
 
-        install_kwargs = (
-            self.mock_mount_manager.install_mount_unit.call_args.kwargs
-        )
+        install_kwargs = self.mock_mount_manager.install_mount_unit.call_args.kwargs
         self.assertFalse(install_kwargs["with_automount"])
         self.assertEqual(install_kwargs["automount_timeout"], 0)
 

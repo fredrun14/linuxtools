@@ -114,15 +114,12 @@ class InstallReport:
             lines.append("  Dépendances : gérées par uv")
         elif self.total_deps > 0:
             satisfied = self.total_deps - len(self.missing_deps)
-            lines.append(
-                f"  Dépendances : {satisfied}/{self.total_deps} satisfaites"
-            )
+            lines.append(f"  Dépendances : {satisfied}/{self.total_deps} satisfaites")
             for dep in self.installed_deps:
                 lines.append(f"    ✓ {dep.package}  ({dep.location})")
             for missing in self.missing_deps:
                 lines.append(
-                    f"    ✗ {missing.package} {missing.required}"
-                    f" ({missing.reason})"
+                    f"    ✗ {missing.package} {missing.required} ({missing.reason})"
                 )
             if self.install_command:
                 lines.append(f"  Commande : {self.install_command}")

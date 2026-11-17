@@ -87,14 +87,11 @@ def rebase_verification(
         Tuple (spec réécrite, cli_bin réécrit).
     """
     new_cli_bin = (
-        _rebase(cli_bin, venv_path, version_path)
-        if cli_bin is not None
-        else None
+        _rebase(cli_bin, venv_path, version_path) if cli_bin is not None else None
     )
     new_regression = (
         tuple(
-            _rebase(part, venv_path, version_path)
-            for part in spec.regression_command
+            _rebase(part, venv_path, version_path) for part in spec.regression_command
         )
         if spec.regression_command is not None
         else None
@@ -192,9 +189,7 @@ class InstallVerifier:
             self._log_check(check)
         return results
 
-    def _check_regression(
-        self, regression_command: tuple[str, ...]
-    ) -> CheckResult:
+    def _check_regression(self, regression_command: tuple[str, ...]) -> CheckResult:
         """Rejoue le hook de non-régression sur l'hôte cible.
 
         Args:
@@ -236,9 +231,7 @@ class InstallVerifier:
 
         if spec.subcommands:
             if cli_bin:
-                results += self._check_subcommands(
-                    venv_path, spec.subcommands, cli_bin
-                )
+                results += self._check_subcommands(venv_path, spec.subcommands, cli_bin)
             else:
                 check = CheckResult(
                     label="sous-commandes",

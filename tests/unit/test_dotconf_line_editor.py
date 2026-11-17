@@ -287,9 +287,7 @@ class TestEnsureBlock:
         assert "keepcache = false" in content
         assert "# throttle = 0" in content
 
-    def test_cree_section_dans_fichier_sans_newline_final(
-        self, tmp_path: Path
-    ) -> None:
+    def test_cree_section_dans_fichier_sans_newline_final(self, tmp_path: Path) -> None:
         # Arrange — fichier existant sans \n final
         path = tmp_path / "dnf.conf"
         path.write_text("[commands]\nupgrade_type = default", encoding="utf-8")
@@ -303,9 +301,7 @@ class TestEnsureBlock:
         assert "fastestmirror = true" in content
         assert "[commands]" in content
 
-    def test_remplace_valeur_cle_existante_sans_section(
-        self, tmp_path: Path
-    ) -> None:
+    def test_remplace_valeur_cle_existante_sans_section(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "config"
         write_file(path, "key = 1\n")
@@ -319,9 +315,7 @@ class TestEnsureBlock:
         assert "key = 1" not in content
         assert content.count("key") == 1
 
-    def test_remplace_valeur_cle_existante_dans_section(
-        self, tmp_path: Path
-    ) -> None:
+    def test_remplace_valeur_cle_existante_dans_section(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "dnf.conf"
         write_file(
@@ -330,9 +324,7 @@ class TestEnsureBlock:
         )
         editor = SectionAwareEditor(path)
         # Act
-        result = editor.ensure_block(
-            "fastestmirror = false", section="main"
-        )
+        result = editor.ensure_block("fastestmirror = false", section="main")
         # Assert
         assert result is True
         content = path.read_text()
@@ -341,9 +333,7 @@ class TestEnsureBlock:
         assert "[updates]" in content
         assert "foo = bar" in content
 
-    def test_ne_remplace_pas_cle_dans_autre_section(
-        self, tmp_path: Path
-    ) -> None:
+    def test_ne_remplace_pas_cle_dans_autre_section(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "dnf.conf"
         write_file(
@@ -414,9 +404,7 @@ class TestEnsureBlock:
         ]
         assert len(active_key_lines) == 1
 
-    def test_preserve_indentation_ligne_remplacee(
-        self, tmp_path: Path
-    ) -> None:
+    def test_preserve_indentation_ligne_remplacee(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "config"
         write_file(path, "    key = 1\n")
@@ -444,9 +432,7 @@ class TestEnsureBlock:
         # Aucune ligne ne doit se retrouver avec seulement \n (mélange)
         assert raw.count(b"\r\n") == raw.count(b"\n")
 
-    def test_ne_remplace_que_la_premiere_cle_dupliquee(
-        self, tmp_path: Path
-    ) -> None:
+    def test_ne_remplace_que_la_premiere_cle_dupliquee(self, tmp_path: Path) -> None:
         # Arrange — fichier déjà incohérent (clé dupliquée pré-existante)
         path = tmp_path / "config"
         write_file(path, "key = 1\nkey = 3\n")
@@ -467,9 +453,7 @@ class TestEnsureBlock:
 class TestIsKeyReplaceable:
     """Vérifie la détection de remplacement de clé (_is_key_replaceable)."""
 
-    def test_retourne_true_si_cle_active_differente(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_true_si_cle_active_differente(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "config"
         write_file(path, "key = 1\n")
@@ -477,9 +461,7 @@ class TestIsKeyReplaceable:
         # Act & Assert
         assert editor._is_key_replaceable("key = 2") is True
 
-    def test_retourne_false_si_valeur_identique(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_false_si_valeur_identique(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "config"
         write_file(path, "key = 1\n")
@@ -487,9 +469,7 @@ class TestIsKeyReplaceable:
         # Act & Assert
         assert editor._is_key_replaceable("key = 1") is False
 
-    def test_retourne_false_si_bloc_multiligne(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_false_si_bloc_multiligne(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "config"
         write_file(path, "a = 1\n")

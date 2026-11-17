@@ -292,9 +292,7 @@ class ConfigurationManager(ConfigManager):
 
         if writer_fn is None:
             supported = ", ".join(_WRITERS)
-            raise ValueError(
-                f"Extension non supportée: {suffix}. Utilisez {supported}"
-            )
+            raise ValueError(f"Extension non supportée: {suffix}. Utilisez {supported}")
 
         writer_fn(path, self.default_config)
         self._log_info(f"Configuration créée : {path}")

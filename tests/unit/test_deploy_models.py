@@ -158,12 +158,8 @@ class TestDeployPhase:
         """ACTIVATE existe et se situe entre VERIFY et ROLLBACK."""
         assert DeployPhase.ACTIVATE.value == "activate"
         members = list(DeployPhase)
-        assert members.index(DeployPhase.VERIFY) < members.index(
-            DeployPhase.ACTIVATE
-        )
-        assert members.index(DeployPhase.ACTIVATE) < members.index(
-            DeployPhase.ROLLBACK
-        )
+        assert members.index(DeployPhase.VERIFY) < members.index(DeployPhase.ACTIVATE)
+        assert members.index(DeployPhase.ACTIVATE) < members.index(DeployPhase.ROLLBACK)
 
 
 class TestDeployReportFormatSummary:
@@ -178,9 +174,7 @@ class TestDeployReportFormatSummary:
 
     def test_echec_affiche_croix(self) -> None:
         """Un échec affiche le symbole d'échec."""
-        report = DeployReport(
-            success=False, phase_reached=DeployPhase.TRANSPORT
-        )
+        report = DeployReport(success=False, phase_reached=DeployPhase.TRANSPORT)
         summary = report.format_summary()
         assert "Échec" in summary
         assert "transport" in summary
@@ -192,9 +186,7 @@ class TestDeployReportFormatSummary:
             phase_reached=DeployPhase.VERIFY,
             checks=(
                 CheckResult(label="import os", ok=True),
-                CheckResult(
-                    label="import bad", ok=False, detail="ModuleError"
-                ),
+                CheckResult(label="import bad", ok=False, detail="ModuleError"),
             ),
         )
         summary = report.format_summary()
@@ -238,10 +230,7 @@ class TestDeployReportFormatSummary:
             active_version=Path("/opt/app/venvs/app-20260929-120000-000000"),
         )
         summary = report.format_summary()
-        assert (
-            "Version active : /opt/app/venvs/app-20260929-120000-000000"
-            in summary
-        )
+        assert "Version active : /opt/app/venvs/app-20260929-120000-000000" in summary
 
     def test_fallback_version_affichee_dans_le_resume(self) -> None:
         """La version de repli est affichée si renseignée."""
@@ -251,10 +240,7 @@ class TestDeployReportFormatSummary:
             fallback_version=Path("/opt/app/venvs/app-20260928-000000-000000"),
         )
         summary = report.format_summary()
-        assert (
-            "Version de repli : /opt/app/venvs/app-20260928-000000-000000"
-            in summary
-        )
+        assert "Version de repli : /opt/app/venvs/app-20260928-000000-000000" in summary
 
     def test_versions_absentes_ne_sont_pas_affichees(self) -> None:
         """Sans active_version/fallback_version, rien n'est affiché."""

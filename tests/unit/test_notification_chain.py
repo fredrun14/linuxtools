@@ -63,9 +63,7 @@ class TestNotifierChain:
         chain = NotifierChain()
         assert chain.send(notif) is False
 
-    def test_diffuse_a_tous_les_notifiers(
-        self, notif: Notification
-    ) -> None:
+    def test_diffuse_a_tous_les_notifiers(self, notif: Notification) -> None:
         """Vérifie la diffusion à tous les canaux."""
         first = RecordingNotifier()
         second = RecordingNotifier()
@@ -86,13 +84,9 @@ class TestNotifierChain:
         chain.add_notifier(working)
         assert chain.send(notif) is True
         assert working.received == [notif]
-        assert any(
-            "RecordingNotifier" in msg for msg in logger.errors
-        )
+        assert any("RecordingNotifier" in msg for msg in logger.errors)
 
-    def test_retourne_false_si_tous_echouent(
-        self, notif: Notification
-    ) -> None:
+    def test_retourne_false_si_tous_echouent(self, notif: Notification) -> None:
         """Vérifie le retour False si aucun canal ne réussit."""
         chain = NotifierChain()
         chain.add_notifier(RecordingNotifier(fail=True))

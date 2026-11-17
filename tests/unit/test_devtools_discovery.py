@@ -74,9 +74,7 @@ def test_ignore_ce_qui_n_est_pas_un_consommateur(tmp_path: Path) -> None:
 
 def test_nom_projet_absent_replie_sur_le_dossier(tmp_path: Path) -> None:
     chemin = _projet(tmp_path, "sans-nom", pyproject=False)
-    (chemin / "pyproject.toml").write_text(
-        f'[project]\ndependencies=["{_PIN}"]'
-    )
+    (chemin / "pyproject.toml").write_text(f'[project]\ndependencies=["{_PIN}"]')
 
     assert [c.name for c in discover_consumers(tmp_path)] == ["sans-nom"]
 
@@ -89,9 +87,7 @@ def test_only_filtre_par_nom_de_projet_ou_de_dossier(tmp_path: Path) -> None:
     noms = [c.name for c in discover_consumers(tmp_path, only=["a-nom", "c"])]
 
     assert noms == ["a-nom", "c"]
-    assert [c.name for c in discover_consumers(tmp_path, only=["a_dir"])] == [
-        "a-nom"
-    ]
+    assert [c.name for c in discover_consumers(tmp_path, only=["a_dir"])] == ["a-nom"]
 
 
 def test_exclude_retire_les_projets(tmp_path: Path) -> None:

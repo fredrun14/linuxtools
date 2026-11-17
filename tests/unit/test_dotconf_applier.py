@@ -19,9 +19,7 @@ def _make_spec(
 class TestConfigApplierCreateFile:
     """Tests pour la création d'un nouveau fichier."""
 
-    def test_apply_creates_new_file_when_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_creates_new_file_when_absent(self, tmp_path: Path) -> None:
         spec = _make_spec(tmp_path, [ConfigBlock(content="key = value")])
         applier = ConfigApplier()
 
@@ -31,17 +29,13 @@ class TestConfigApplierCreateFile:
         assert len(actions) == 1
         assert "Created:" in actions[0]
 
-    def test_apply_writes_block_content_to_new_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_writes_block_content_to_new_file(self, tmp_path: Path) -> None:
         spec = _make_spec(tmp_path, [ConfigBlock(content="opt = yes")])
         ConfigApplier().apply(spec)
 
         assert "opt = yes" in spec.file_path.read_text(encoding="utf-8")
 
-    def test_apply_creates_parent_dirs_when_missing(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_creates_parent_dirs_when_missing(self, tmp_path: Path) -> None:
         deep = tmp_path / "a" / "b" / "c" / "config"
         spec = ConfigSpec(
             file_path=deep,
@@ -52,18 +46,14 @@ class TestConfigApplierCreateFile:
 
         assert deep.exists()
 
-    def test_apply_sets_chmod_644_on_new_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_sets_chmod_644_on_new_file(self, tmp_path: Path) -> None:
         spec = _make_spec(tmp_path, [ConfigBlock(content="k = v")])
         ConfigApplier().apply(spec)
 
         mode = oct(spec.file_path.stat().st_mode)[-3:]
         assert mode == "644"
 
-    def test_apply_action_message_contains_block_count(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_action_message_contains_block_count(self, tmp_path: Path) -> None:
         blocks = [
             ConfigBlock(content="a = 1"),
             ConfigBlock(content="b = 2"),
@@ -78,9 +68,7 @@ class TestConfigApplierCreateFile:
 class TestConfigApplierExistingFile:
     """Tests pour l'application sur un fichier existant."""
 
-    def test_apply_appends_missing_block_to_existing_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_appends_missing_block_to_existing_file(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("existing = yes\n", encoding="utf-8")
         spec = ConfigSpec(
@@ -94,9 +82,7 @@ class TestConfigApplierExistingFile:
         assert "Appended:" in actions[0]
         assert "new_opt = 1" in conf.read_text(encoding="utf-8")
 
-    def test_apply_uncomments_commented_block(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_uncomments_commented_block(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("# key = value\n", encoding="utf-8")
         spec = ConfigSpec(
@@ -112,9 +98,7 @@ class TestConfigApplierExistingFile:
         assert "# key = value" not in content
         assert "key = value" in content
 
-    def test_apply_skips_already_present_block(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_skips_already_present_block(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("key = value\n", encoding="utf-8")
         spec = ConfigSpec(
@@ -126,9 +110,7 @@ class TestConfigApplierExistingFile:
 
         assert actions == []
 
-    def test_apply_returns_empty_list_when_no_changes(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_returns_empty_list_when_no_changes(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("a = 1\nb = 2\n", encoding="utf-8")
         spec = ConfigSpec(
@@ -143,9 +125,7 @@ class TestConfigApplierExistingFile:
 
         assert actions == []
 
-    def test_apply_replaces_existing_key_message(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_replaces_existing_key_message(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("key = 1\n", encoding="utf-8")
         spec = ConfigSpec(
@@ -161,16 +141,12 @@ class TestConfigApplierExistingFile:
         assert "key = 2" in content
         assert "key = 1" not in content
 
-    def test_apply_adds_block_to_ini_section(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_adds_block_to_ini_section(self, tmp_path: Path) -> None:
         conf = tmp_path / "dnf.conf"
         conf.write_text("[main]\ncleanreqs = yes\n", encoding="utf-8")
         spec = ConfigSpec(
             file_path=conf,
-            blocks=[
-                ConfigBlock(content="fastestmirror = True", section="main")
-            ],
+            blocks=[ConfigBlock(content="fastestmirror = True", section="main")],
         )
 
         actions = ConfigApplier().apply(spec)
@@ -179,9 +155,7 @@ class TestConfigApplierExistingFile:
         assert "Added to [main]:" in actions[0]
         assert "fastestmirror = True" in conf.read_text(encoding="utf-8")
 
-    def test_apply_sets_chmod_644_after_modification(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_sets_chmod_644_after_modification(self, tmp_path: Path) -> None:
         conf = tmp_path / "app.conf"
         conf.write_text("", encoding="utf-8")
         conf.chmod(0o600)
@@ -211,9 +185,7 @@ class TestConfigApplierExistingFile:
         mode = oct(conf.stat().st_mode)[-3:]
         assert mode == "600"
 
-    def test_apply_idempotent_second_call_returns_empty(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_idempotent_second_call_returns_empty(self, tmp_path: Path) -> None:
         spec = _make_spec(tmp_path, [ConfigBlock(content="opt = 1")])
         applier = ConfigApplier()
         applier.apply(spec)
@@ -226,9 +198,7 @@ class TestConfigApplierExistingFile:
 class TestConfigApplierLogger:
     """Tests pour l'intégration du logger."""
 
-    def test_apply_calls_logger_when_provided(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_calls_logger_when_provided(self, tmp_path: Path) -> None:
         mock_logger = MagicMock()
         spec = _make_spec(tmp_path, [ConfigBlock(content="k = v")])
 
@@ -236,18 +206,14 @@ class TestConfigApplierLogger:
 
         mock_logger.log_info.assert_called_once()
 
-    def test_apply_no_logger_does_not_raise(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_no_logger_does_not_raise(self, tmp_path: Path) -> None:
         spec = _make_spec(tmp_path, [ConfigBlock(content="k = v")])
 
         actions = ConfigApplier(logger=None).apply(spec)
 
         assert len(actions) == 1
 
-    def test_apply_logger_message_contains_action(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_logger_message_contains_action(self, tmp_path: Path) -> None:
         mock_logger = MagicMock()
         spec = _make_spec(tmp_path, [ConfigBlock(content="k = v")])
 
@@ -260,22 +226,16 @@ class TestConfigApplierLogger:
 class TestConfigApplierBlocVide:
     """Tests défensifs pour bloc à contenu vide."""
 
-    def test_apply_block_contenu_vide_ne_crashe_pas(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_block_contenu_vide_ne_crashe_pas(self, tmp_path: Path) -> None:
         """Un bloc vide dans apply() ne lève pas IndexError."""
         spec = _make_spec(tmp_path, [ConfigBlock(content="")])
         actions = ConfigApplier().apply(spec)
         assert actions == []
 
-    def test_apply_block_contenu_espaces_ne_crashe_pas(
-        self, tmp_path: Path
-    ) -> None:
+    def test_apply_block_contenu_espaces_ne_crashe_pas(self, tmp_path: Path) -> None:
         """Un bloc contenant uniquement des espaces retourne None."""
         conf = tmp_path / "test.conf"
         conf.write_text("existing = true\n", encoding="utf-8")
-        spec = ConfigSpec(
-            file_path=conf, blocks=[ConfigBlock(content="   ")]
-        )
+        spec = ConfigSpec(file_path=conf, blocks=[ConfigBlock(content="   ")])
         actions = ConfigApplier().apply(spec)
         assert actions == []
