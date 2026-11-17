@@ -26,9 +26,7 @@ class TestParseVersion:
         assert parse_version(text) == expected
 
     @pytest.mark.parametrize("text", ["", "latest"])
-    def test_parse_version_retourne_none_si_non_numerique(
-        self, text: str
-    ) -> None:
+    def test_parse_version_retourne_none_si_non_numerique(self, text: str) -> None:
         """Aucun chiffre de tête -> None, pas d'exception."""
         assert parse_version(text) is None
 

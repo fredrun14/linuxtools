@@ -79,14 +79,13 @@ def scanner(
     mock_client: MagicMock,
 ) -> AsusRouterScanner:
     """Scanner avec client HTTP mocke."""
-    return AsusRouterScanner(
-        router_config, client=mock_client
-    )
+    return AsusRouterScanner(router_config, client=mock_client)
 
 
 # ---------------------------------------------------------------------------
 # Tests : _parse_custom_clientlist
 # ---------------------------------------------------------------------------
+
 
 class TestParseCustomClientlist:
     """Tests pour _parse_custom_clientlist."""
@@ -150,6 +149,7 @@ class TestParseCustomClientlist:
 # Tests : _parse_nvram_reservations
 # ---------------------------------------------------------------------------
 
+
 class TestParseNvramReservations:
     """Tests pour _parse_nvram_reservations."""
 
@@ -162,28 +162,17 @@ class TestParseNvramReservations:
             "&#60A8:CA:77:5E:EC:A0&#62192.168.50.42"
         )
         result = _parse_nvram_reservations(static_list, "")
-        assert result["28:73:f6:fe:30:3e"] == (
-            "192.168.50.41", ""
-        )
-        assert result["a8:ca:77:5e:ec:a0"] == (
-            "192.168.50.42", ""
-        )
+        assert result["28:73:f6:fe:30:3e"] == ("192.168.50.41", "")
+        assert result["a8:ca:77:5e:ec:a0"] == ("192.168.50.42", "")
 
     def test_parse_nvram_reservations_format_non_encode_toujours_ok(
         self,
     ) -> None:
         """Le format non encode (ancien firmware) reste supporte."""
-        static_list = (
-            "<28:73:F6:FE:30:3E>192.168.50.41"
-            "<A8:CA:77:5E:EC:A0>192.168.50.42"
-        )
+        static_list = "<28:73:F6:FE:30:3E>192.168.50.41<A8:CA:77:5E:EC:A0>192.168.50.42"
         result = _parse_nvram_reservations(static_list, "")
-        assert result["28:73:f6:fe:30:3e"] == (
-            "192.168.50.41", ""
-        )
-        assert result["a8:ca:77:5e:ec:a0"] == (
-            "192.168.50.42", ""
-        )
+        assert result["28:73:f6:fe:30:3e"] == ("192.168.50.41", "")
+        assert result["a8:ca:77:5e:ec:a0"] == ("192.168.50.42", "")
 
     def test_parse_nvram_reservations_hostnames_encodes(
         self,
@@ -191,24 +180,19 @@ class TestParseNvramReservations:
         """Le decodage HTML s'applique aussi a dhcp_hostnames."""
         static_list = "<28:73:F6:FE:30:3E>192.168.50.41"
         hostnames_str = "&#6028:73:F6:FE:30:3E&#62Shield"
-        result = _parse_nvram_reservations(
-            static_list, hostnames_str
-        )
-        assert result["28:73:f6:fe:30:3e"] == (
-            "192.168.50.41", "Shield"
-        )
+        result = _parse_nvram_reservations(static_list, hostnames_str)
+        assert result["28:73:f6:fe:30:3e"] == ("192.168.50.41", "Shield")
 
 
 # ---------------------------------------------------------------------------
 # Tests : AsusRouterScanner._merge_offline_clients
 # ---------------------------------------------------------------------------
 
+
 class TestMergeOfflineClients:
     """Tests pour _merge_offline_clients."""
 
-    def test_client_online_non_duplique(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_client_online_non_duplique(self, scanner: AsusRouterScanner) -> None:
         """Un client online n'est pas ajoute en double."""
         raw = [
             {
@@ -221,9 +205,7 @@ class TestMergeOfflineClients:
         custom = {"48:b0:2d:03:1e:ea": "Shield"}
         leases: dict[str, str] = {}
         reservations: dict[str, tuple[str, str]] = {}
-        result = scanner._merge_offline_clients(
-            raw, custom, leases, reservations
-        )
+        result = scanner._merge_offline_clients(raw, custom, leases, reservations)
         assert len(result) == 1
 
     def test_client_offline_ajoute_si_bail_connu(
@@ -234,9 +216,7 @@ class TestMergeOfflineClients:
         custom = {"58:16:d7:f1:77:6e": "Thermomix"}
         leases = {"58:16:d7:f1:77:6e": "192.168.50.7"}
         reservations: dict[str, tuple[str, str]] = {}
-        result = scanner._merge_offline_clients(
-            raw, custom, leases, reservations
-        )
+        result = scanner._merge_offline_clients(raw, custom, leases, reservations)
         assert len(result) == 1
         assert result[0]["mac"] == "58:16:d7:f1:77:6e"
         assert result[0]["ip"] == "192.168.50.7"
@@ -253,31 +233,23 @@ class TestMergeOfflineClients:
         reservations = {
             "7c:4d:8f:4c:a4:66": ("192.168.50.20", ""),
         }
-        result = scanner._merge_offline_clients(
-            raw, custom, leases, reservations
-        )
+        result = scanner._merge_offline_clients(raw, custom, leases, reservations)
         assert len(result) == 1
         assert result[0]["ip"] == "192.168.50.20"
         assert result[0]["ipMethod"] == "Manual"
 
-    def test_client_offline_inclus_sans_ip(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_client_offline_inclus_sans_ip(self, scanner: AsusRouterScanner) -> None:
         """Client offline sans IP est inclus avec ip=''."""
         raw: list[dict[str, Any]] = []
         custom = {"aa:bb:cc:dd:ee:ff": "Inconnu"}
         leases: dict[str, str] = {}
         reservations: dict[str, tuple[str, str]] = {}
-        result = scanner._merge_offline_clients(
-            raw, custom, leases, reservations
-        )
+        result = scanner._merge_offline_clients(raw, custom, leases, reservations)
         assert len(result) == 1
         assert result[0]["ip"] == ""
         assert result[0]["isOnline"] == "0"
 
-    def test_fusion_online_et_offline(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_fusion_online_et_offline(self, scanner: AsusRouterScanner) -> None:
         """Online et offline sont fusionnes correctement."""
         raw = [
             {
@@ -293,9 +265,7 @@ class TestMergeOfflineClients:
         }
         leases = {"58:16:d7:f1:77:6e": "192.168.50.7"}
         reservations: dict[str, tuple[str, str]] = {}
-        result = scanner._merge_offline_clients(
-            raw, custom, leases, reservations
-        )
+        result = scanner._merge_offline_clients(raw, custom, leases, reservations)
         assert len(result) == 2
 
 
@@ -303,12 +273,11 @@ class TestMergeOfflineClients:
 # Tests : AsusRouterScanner._parse_clients
 # ---------------------------------------------------------------------------
 
+
 class TestAsusRouterScannerParseClients:
     """Tests pour _parse_clients avec cas offline."""
 
-    def test_appareil_online_ip_directe(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_appareil_online_ip_directe(self, scanner: AsusRouterScanner) -> None:
         """Appareil online : IP issue du champ ip."""
         raw = [
             {
@@ -326,9 +295,7 @@ class TestAsusRouterScannerParseClients:
         assert result[0].ip == "192.168.50.3"
         assert result[0].hostname == "Shield"
 
-    def test_appareil_offline_avec_ip_connue(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_appareil_offline_avec_ip_connue(self, scanner: AsusRouterScanner) -> None:
         """Appareil offline dont le routeur connait la derniere IP."""
         raw = [
             {
@@ -408,9 +375,7 @@ class TestAsusRouterScannerParseClients:
         assert result[0].ip == ""
         assert result[0].hostname == "Inconnu"
 
-    def test_mac_invalide_ignore(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_mac_invalide_ignore(self, scanner: AsusRouterScanner) -> None:
         """MAC de mauvaise longueur est ignoree."""
         raw = [
             {
@@ -426,9 +391,7 @@ class TestAsusRouterScannerParseClients:
         result = scanner._parse_clients(raw, {}, {})
         assert result == []
 
-    def test_nickname_prioritaire_sur_name(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_nickname_prioritaire_sur_name(self, scanner: AsusRouterScanner) -> None:
         """nickName est utilise en priorite sur name."""
         raw = [
             {
@@ -445,9 +408,7 @@ class TestAsusRouterScannerParseClients:
         result = scanner._parse_clients(raw, {}, {})
         assert result[0].hostname == "Shield"
 
-    def test_name_utilise_si_pas_de_nickname(
-        self, scanner: AsusRouterScanner
-    ) -> None:
+    def test_name_utilise_si_pas_de_nickname(self, scanner: AsusRouterScanner) -> None:
         """name est utilise si nickName est absent."""
         raw = [
             {
@@ -468,6 +429,7 @@ class TestAsusRouterScannerParseClients:
 # ---------------------------------------------------------------------------
 # Tests : AsusRouterScanner.scan (integration)
 # ---------------------------------------------------------------------------
+
 
 class TestAsusRouterScannerScan:
     """Tests d'integration pour scan() avec appareils offline."""
@@ -494,9 +456,7 @@ class TestAsusRouterScannerScan:
         mock_client.get_nvram.return_value = {
             "dhcp_staticlist": "",
             "dhcp_hostnames": "",
-            "custom_clientlist": (
-                "<Shield>48:B0:2D:03:1E:EA>5>"
-            ),
+            "custom_clientlist": ("<Shield>48:B0:2D:03:1E:EA>5>"),
         }
 
         result = scanner.scan(network_config)
@@ -529,8 +489,7 @@ class TestAsusRouterScannerScan:
             "dhcp_staticlist": "",
             "dhcp_hostnames": "",
             "custom_clientlist": (
-                "<Shield>48:B0:2D:03:1E:EA>5>"
-                "<Thermomix>58:16:D7:F1:77:6E>9>"
+                "<Shield>48:B0:2D:03:1E:EA>5><Thermomix>58:16:D7:F1:77:6E>9>"
             ),
         }
 
@@ -540,9 +499,7 @@ class TestAsusRouterScannerScan:
         macs = {d.mac for d in result}
         assert "48:b0:2d:03:1e:ea" in macs
         assert "58:16:d7:f1:77:6e" in macs
-        thermo = next(
-            d for d in result if d.mac == "58:16:d7:f1:77:6e"
-        )
+        thermo = next(d for d in result if d.mac == "58:16:d7:f1:77:6e")
         assert thermo.hostname == "Thermomix"
         assert thermo.ip == "192.168.50.7"
 
@@ -556,13 +513,9 @@ class TestAsusRouterScannerScan:
         mock_client.get_clients.return_value = []
         mock_client.get_dhcp_leases.return_value = {}
         mock_client.get_nvram.return_value = {
-            "dhcp_staticlist": (
-                "<7C:4D:8F:4C:A4:66>192.168.50.20"
-            ),
+            "dhcp_staticlist": ("<7C:4D:8F:4C:A4:66>192.168.50.20"),
             "dhcp_hostnames": "",
-            "custom_clientlist": (
-                "<print>7C:4D:8F:4C:A4:66>1>"
-            ),
+            "custom_clientlist": ("<print>7C:4D:8F:4C:A4:66>1>"),
         }
 
         result = scanner.scan(network_config)
@@ -602,9 +555,7 @@ class TestAsusRouterScannerScan:
         network_config: NetworkConfig,
     ) -> None:
         """logout() est appele meme si get_clients() leve une exception."""
-        mock_client.get_clients.side_effect = RuntimeError(
-            "Erreur reseau"
-        )
+        mock_client.get_clients.side_effect = RuntimeError("Erreur reseau")
 
         with pytest.raises(RuntimeError):
             scanner.scan(network_config)
@@ -615,6 +566,7 @@ class TestAsusRouterScannerScan:
 # ---------------------------------------------------------------------------
 # Tests : RouterConfig validation
 # ---------------------------------------------------------------------------
+
 
 class TestRouterConfigValidation:
     """Tests pour la validation de RouterConfig."""
@@ -632,10 +584,7 @@ class TestRouterConfigValidation:
     def test_config_valide_acceptee(self) -> None:
         """Configuration valide est acceptée sans exception."""
         config = RouterConfig(
-            url="https://192.168.50.1",
-            timeout=15,
-            username="admin",
-            password="secret"
+            url="https://192.168.50.1", timeout=15, username="admin", password="secret"
         )
         assert config.url == "https://192.168.50.1"
         assert config.timeout == 15
@@ -649,14 +598,13 @@ class TestRouterConfigValidation:
 # Tests : helpers ip
 # ---------------------------------------------------------------------------
 
+
 class TestIpHelpers:
     """Tests pour _ip_to_int, _int_to_ip, _next_available_ip."""
 
     def test_ip_to_int(self) -> None:
         """_ip_to_int() convertit correctement une IP."""
-        assert _ip_to_int("192.168.50.1") == (
-            (192 << 24) + (168 << 16) + (50 << 8) + 1
-        )
+        assert _ip_to_int("192.168.50.1") == ((192 << 24) + (168 << 16) + (50 << 8) + 1)
 
     def test_int_to_ip(self) -> None:
         """_int_to_ip() convertit correctement un entier."""
@@ -693,6 +641,7 @@ class TestIpHelpers:
 # Tests : AsusRouterScanner avec logger
 # ---------------------------------------------------------------------------
 
+
 class TestAsusRouterScannerAvecLogger:
     """Tests pour AsusRouterScanner avec logger actif."""
 
@@ -721,9 +670,7 @@ class TestAsusRouterScannerAvecLogger:
             "dhcp_hostnames": "",
             "custom_clientlist": "<Shield>48:B0:2D:03:1E:EA>5>",
         }
-        scanner = AsusRouterScanner(
-            router_config, logger=logger, client=mock_client
-        )
+        scanner = AsusRouterScanner(router_config, logger=logger, client=mock_client)
         result = scanner.scan(network_config)
         assert len(result) == 1
         logger.log_info.assert_called_once()
@@ -732,6 +679,7 @@ class TestAsusRouterScannerAvecLogger:
 # ---------------------------------------------------------------------------
 # Tests : AsusRouterDhcpManager
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.filterwarnings("ignore:AsusRouterDhcpManager:DeprecationWarning")
 class TestAsusRouterDhcpManager:
@@ -755,9 +703,7 @@ class TestAsusRouterDhcpManager:
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
         """AsusRouterDhcpManager s'initialise avec un client injecté."""
-        manager, mock_client, _ = self._make_manager(
-            router_config, network_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config, network_config)
         assert manager._client is mock_client
 
     def test_generate_reservations_alloue_ips(
@@ -786,7 +732,7 @@ class TestAsusRouterDhcpManager:
                 ip="192.168.50.10",
                 mac="48:b0:2d:03:1e:ea",
                 hostname="Shield",
-                fixed_ip="192.168.50.10"
+                fixed_ip="192.168.50.10",
             )
         ]
         result = manager.generate_reservations(devices)
@@ -816,7 +762,7 @@ class TestAsusRouterDhcpManager:
                 ip="192.168.50.10",
                 mac="48:b0:2d:03:1e:ea",
                 hostname="Shield",
-                fixed_ip="192.168.50.10"
+                fixed_ip="192.168.50.10",
             )
         ]
         result = manager.export_reservations(devices)
@@ -842,9 +788,7 @@ class TestAsusRouterDhcpManager:
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
         """apply_reservations() appelle login() (sans argument) et logout()."""
-        manager, mock_client, logger = self._make_manager(
-            router_config, network_config
-        )
+        manager, mock_client, logger = self._make_manager(router_config, network_config)
         mock_client.get_nvram.return_value = {
             "dhcp_enable_x": "1",
             "dhcp_start": "192.168.50.100",
@@ -857,7 +801,7 @@ class TestAsusRouterDhcpManager:
                 ip="192.168.50.10",
                 mac="48:b0:2d:03:1e:ea",
                 hostname="Shield",
-                fixed_ip="192.168.50.10"
+                fixed_ip="192.168.50.10",
             )
         ]
         manager.apply_reservations(devices)
@@ -869,9 +813,7 @@ class TestAsusRouterDhcpManager:
         self, router_config: RouterConfig, network_config: NetworkConfig
     ) -> None:
         """read_reservations() retourne les réservations du routeur."""
-        manager, mock_client, _ = self._make_manager(
-            router_config, network_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config, network_config)
         mock_client.get_nvram.return_value = {
             "dhcp_staticlist": "<48:B0:2D:03:1E:EA>192.168.50.10",
             "dhcp_hostnames": "",
@@ -891,9 +833,7 @@ class TestAsusRouterDhcpManager:
         &#60/&#62 sans point-virgule terminal, ce qui faisait
         remonter 0 reservation avant correctif (faux negatif).
         """
-        manager, mock_client, _ = self._make_manager(
-            router_config, network_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config, network_config)
         mock_client.get_nvram.return_value = {
             "dhcp_staticlist": (
                 "&#6028:73:F6:FE:30:3E&#62192.168.50.41"
@@ -904,9 +844,7 @@ class TestAsusRouterDhcpManager:
         result = manager.read_reservations()
         assert len(result) == 2
         fixed_ips = {device.fixed_ip for device in result}
-        assert fixed_ips == {
-            "192.168.50.41", "192.168.50.42"
-        }
+        assert fixed_ips == {"192.168.50.41", "192.168.50.42"}
         mock_client.login.assert_called_once_with()
         mock_client.logout.assert_called_once()
 
@@ -940,7 +878,9 @@ class TestAsusRouterDhcpManagerEdgeCases:
         mgr = AsusRouterDhcpManager(network_config, router_config)
         devices = [
             NetworkDevice(ip="192.168.50.1", mac="aa:bb:cc:dd:ee:01"),
-            NetworkDevice(ip="192.168.50.2", mac="aa:bb:cc:dd:ee:02", fixed_ip="192.168.50.2"),
+            NetworkDevice(
+                ip="192.168.50.2", mac="aa:bb:cc:dd:ee:02", fixed_ip="192.168.50.2"
+            ),
         ]
         static_list, hostnames = mgr._build_nvram_strings(devices)
         assert "AA:BB:CC:DD:EE:01" not in static_list
@@ -954,12 +894,9 @@ class TestAsusRouterDhcpManagerEdgeCases:
         mgr = AsusRouterDhcpManager(network_config, router_config)
         with patch(
             "linuxtools.network.router.dhcp.NetworkDevice",
-            side_effect=ValueError("bad mac")
+            side_effect=ValueError("bad mac"),
         ):
-            result = mgr._parse_nvram_staticlist(
-                "<AA:BB:CC:DD:EE:01>192.168.50.1",
-                ""
-            )
+            result = mgr._parse_nvram_staticlist("<AA:BB:CC:DD:EE:01>192.168.50.1", "")
         assert result == []
 
 
@@ -1060,6 +997,7 @@ class TestSecuriteRouter:
 # Tests : AsusRouterMacFilterManager
 # ---------------------------------------------------------------------------
 
+
 class TestAsusRouterMacFilterManager:
     """Tests pour AsusRouterMacFilterManager."""
 
@@ -1080,13 +1018,9 @@ class TestAsusRouterMacFilterManager:
         self, router_config: RouterConfig
     ) -> None:
         """apply_mac_filter() appelle login() (sans argument) puis logout()."""
-        manager, mock_client, _ = self._make_manager(
-            router_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config)
         devices = [
-            NetworkDevice(
-                ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"
-            ),
+            NetworkDevice(ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"),
         ]
         manager.apply_mac_filter(devices, "allow", [0])
         mock_client.login.assert_called_once_with()
@@ -1096,16 +1030,10 @@ class TestAsusRouterMacFilterManager:
         self, router_config: RouterConfig
     ) -> None:
         """apply_mac_filter() extrait les MAC des devices fournis."""
-        manager, mock_client, _ = self._make_manager(
-            router_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config)
         devices = [
-            NetworkDevice(
-                ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"
-            ),
-            NetworkDevice(
-                ip="192.168.50.4", mac="11:22:33:44:55:66"
-            ),
+            NetworkDevice(ip="192.168.50.3", mac="aa:bb:cc:dd:ee:ff"),
+            NetworkDevice(ip="192.168.50.4", mac="11:22:33:44:55:66"),
         ]
         manager.apply_mac_filter(devices, "deny", [0, 1])
         mock_client.set_mac_filter.assert_called_once_with(
@@ -1118,14 +1046,10 @@ class TestAsusRouterMacFilterManager:
         self, router_config: RouterConfig
     ) -> None:
         """read_mac_filter() retourne une liste de MacFilterStatus."""
-        manager, mock_client, _ = self._make_manager(
-            router_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config)
         mock_client.get_nvram.return_value = {
             "wl0_macmode": "allow",
-            "wl0_maclist_x": (
-                "AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"
-            ),
+            "wl0_maclist_x": ("AA:BB:CC:DD:EE:FF 11:22:33:44:55:66"),
         }
         result = manager.read_mac_filter([0])
         assert result == [
@@ -1143,9 +1067,7 @@ class TestAsusRouterMacFilterManager:
         self, router_config: RouterConfig
     ) -> None:
         """read_mac_filter() appelle login() (sans argument) puis logout()."""
-        manager, mock_client, _ = self._make_manager(
-            router_config
-        )
+        manager, mock_client, _ = self._make_manager(router_config)
         mock_client.get_nvram.return_value = {}
         manager.read_mac_filter([0, 1])
         mock_client.login.assert_called_once_with()
@@ -1162,6 +1084,7 @@ class TestAsusRouterMacFilterManager:
 # traduire l'exception a la frontiere.
 # ---------------------------------------------------------------------------
 
+
 class TestTraductionRouterAuthError:
     """Verifie la traduction AuthError -> RouterAuthError par adaptateur."""
 
@@ -1172,12 +1095,8 @@ class TestTraductionRouterAuthError:
         network_config: NetworkConfig,
     ) -> None:
         """AsusRouterScanner.scan() traduit AuthError en RouterAuthError."""
-        mock_client.login.side_effect = AuthError(
-            "Authentification refusee"
-        )
-        with pytest.raises(
-            RouterAuthError, match="Authentification refusee"
-        ):
+        mock_client.login.side_effect = AuthError("Authentification refusee")
+        with pytest.raises(RouterAuthError, match="Authentification refusee"):
             scanner.scan(network_config)
 
     @pytest.mark.filterwarnings("ignore:AsusRouterDhcpManager:DeprecationWarning")
@@ -1186,17 +1105,13 @@ class TestTraductionRouterAuthError:
     ) -> None:
         """AsusRouterDhcpManager.apply_reservations() traduit AuthError."""
         mock_client = MagicMock(spec=AsusRouterClient)
-        mock_client.login.side_effect = AuthError(
-            "Authentification refusee"
-        )
+        mock_client.login.side_effect = AuthError("Authentification refusee")
         manager = AsusRouterDhcpManager(
             config=network_config,
             router_config=router_config,
             client=mock_client,
         )
-        with pytest.raises(
-            RouterAuthError, match="Authentification refusee"
-        ):
+        with pytest.raises(RouterAuthError, match="Authentification refusee"):
             manager.apply_reservations([])
 
     def test_mac_filter_manager_traduit_autherror_en_routerautherror(
@@ -1204,22 +1119,19 @@ class TestTraductionRouterAuthError:
     ) -> None:
         """AsusRouterMacFilterManager.apply_mac_filter() traduit AuthError."""
         mock_client = MagicMock(spec=AsusRouterClient)
-        mock_client.login.side_effect = AuthError(
-            "Authentification refusee"
-        )
+        mock_client.login.side_effect = AuthError("Authentification refusee")
         manager = AsusRouterMacFilterManager(
             router_config=router_config,
             client=mock_client,
         )
-        with pytest.raises(
-            RouterAuthError, match="Authentification refusee"
-        ):
+        with pytest.raises(RouterAuthError, match="Authentification refusee"):
             manager.apply_mac_filter([], "allow", [0])
 
 
 # ---------------------------------------------------------------------------
 # Tests : non-regression Q-03 (re-export AsusRouterClient)
 # ---------------------------------------------------------------------------
+
 
 class TestReexportAsusRouterClient:
     """Verifie le contrat Q-03 : re-export d'AsusRouterClient.
@@ -1238,9 +1150,7 @@ class TestReexportAsusRouterClient:
             AsusRouterClient as AsusRouterClientDepuisRouter,
         )
 
-        assert (
-            AsusRouterClientDepuisRouter is webapitools.AsusRouterClient
-        )
+        assert AsusRouterClientDepuisRouter is webapitools.AsusRouterClient
 
     def test_import_depuis_network(self) -> None:
         """from linuxtools.network import AsusRouterClient."""
@@ -1250,9 +1160,7 @@ class TestReexportAsusRouterClient:
             AsusRouterClient as AsusRouterClientDepuisNetwork,
         )
 
-        assert (
-            AsusRouterClientDepuisNetwork is webapitools.AsusRouterClient
-        )
+        assert AsusRouterClientDepuisNetwork is webapitools.AsusRouterClient
 
     def test_les_deux_formes_importent_la_meme_classe(self) -> None:
         """Les deux chemins d'import retournent bien la meme classe."""
@@ -1263,14 +1171,13 @@ class TestReexportAsusRouterClient:
             AsusRouterClient as AsusRouterClientDepuisRouter,
         )
 
-        assert (
-            AsusRouterClientDepuisNetwork is AsusRouterClientDepuisRouter
-        )
+        assert AsusRouterClientDepuisNetwork is AsusRouterClientDepuisRouter
 
 
 # ---------------------------------------------------------------------------
 # Tests : dépréciation d'AsusRouterDhcpManager
 # ---------------------------------------------------------------------------
+
 
 class TestAsusRouterDhcpManagerDeprecation:
     """Le DeprecationWarning est émis à l'instanciation, et là seulement."""
@@ -1286,9 +1193,7 @@ class TestAsusRouterDhcpManagerDeprecation:
                 client=MagicMock(spec=AsusRouterClient),
             )
 
-        deprecations = [
-            w for w in record if issubclass(w.category, DeprecationWarning)
-        ]
+        deprecations = [w for w in record if issubclass(w.category, DeprecationWarning)]
         assert len(deprecations) == 1
         message = str(deprecations[0].message)
         assert "3.0.0" in message

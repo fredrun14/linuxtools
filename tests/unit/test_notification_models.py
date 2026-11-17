@@ -130,9 +130,7 @@ class TestExecutionReportSummary:
 
     def test_summary_succes(self) -> None:
         """Vérifie le contenu du résumé en succès."""
-        report = ExecutionReport(
-            script_name="backup", hostname="nas"
-        )
+        report = ExecutionReport(script_name="backup", hostname="nas")
         report.add_step("rsync", success=True, duration=1.5)
         report.finish()
         summary = report.format_summary()

@@ -147,29 +147,17 @@ class TestCommandBuilder:
 
     def test_with_flag(self) -> None:
         """Test d'ajout d'un flag simple."""
-        cmd = (
-            CommandBuilder("ls")
-            .with_flag("-l")
-            .build()
-        )
+        cmd = CommandBuilder("ls").with_flag("-l").build()
         assert cmd == ["ls", "-l"]
 
     def test_with_options(self) -> None:
         """Test d'ajout d'une liste d'options."""
-        cmd = (
-            CommandBuilder("rsync")
-            .with_options(["-av", "--delete"])
-            .build()
-        )
+        cmd = CommandBuilder("rsync").with_options(["-av", "--delete"]).build()
         assert cmd == ["rsync", "-av", "--delete"]
 
     def test_with_option_cle_valeur(self) -> None:
         """Test d'ajout d'une option clé=valeur."""
-        cmd = (
-            CommandBuilder("borg")
-            .with_option("--compression", "lz4")
-            .build()
-        )
+        cmd = CommandBuilder("borg").with_option("--compression", "lz4").build()
         assert cmd == ["borg", "--compression=lz4"]
 
     def test_with_option_if_condition_vraie(self) -> None:
@@ -177,21 +165,21 @@ class TestCommandBuilder:
         cmd = (
             CommandBuilder("rsync")
             .with_option_if(
-                "--exclude-from", "/tmp/exclude",
+                "--exclude-from",
+                "/tmp/exclude",
                 condition=True,
             )
             .build()
         )
-        assert cmd == [
-            "rsync", "--exclude-from=/tmp/exclude"
-        ]
+        assert cmd == ["rsync", "--exclude-from=/tmp/exclude"]
 
     def test_with_option_if_condition_fausse(self) -> None:
         """Test d'ajout conditionnel avec condition fausse."""
         cmd = (
             CommandBuilder("rsync")
             .with_option_if(
-                "--exclude-from", "/tmp/exclude",
+                "--exclude-from",
+                "/tmp/exclude",
                 condition=False,
             )
             .build()
@@ -203,7 +191,8 @@ class TestCommandBuilder:
         cmd = (
             CommandBuilder("rsync")
             .with_option_if(
-                "--exclude-from", None,
+                "--exclude-from",
+                None,
                 condition=True,
             )
             .build()
@@ -212,11 +201,7 @@ class TestCommandBuilder:
 
     def test_with_args(self) -> None:
         """Test d'ajout d'arguments positionnels."""
-        cmd = (
-            CommandBuilder("cp")
-            .with_args(["/src", "/dest"])
-            .build()
-        )
+        cmd = CommandBuilder("cp").with_args(["/src", "/dest"]).build()
         assert cmd == ["cp", "/src", "/dest"]
 
     def test_chainage_complet(self) -> None:
@@ -230,9 +215,13 @@ class TestCommandBuilder:
             .build()
         )
         assert cmd == [
-            "rsync", "-av", "--delete",
-            "--compress-level=3", "--stats",
-            "/src/", "/dest/",
+            "rsync",
+            "-av",
+            "--delete",
+            "--compress-level=3",
+            "--stats",
+            "/src/",
+            "/dest/",
         ]
 
     def test_programme_vide_leve_erreur(self) -> None:
@@ -259,9 +248,7 @@ class TestLinuxCommandExecutorRun:
             logger=self.mock_logger,
         )
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_commande_reussie(self, mock_popen: MagicMock) -> None:
         """Test d'une commande réussie."""
         _setup_popen(mock_popen, returncode=0, stdout="sortie", stderr="")
@@ -274,9 +261,7 @@ class TestLinuxCommandExecutorRun:
         assert result.command == ("echo", "test")
         assert result.duration >= 0
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_commande_echouee(self, mock_popen: MagicMock) -> None:
         """Test d'une commande échouée."""
         _setup_popen(mock_popen, returncode=1, stdout="", stderr="erreur")
@@ -286,9 +271,7 @@ class TestLinuxCommandExecutorRun:
         assert result.return_code == 1
         assert result.stderr == "erreur"
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_timeout(self, mock_popen: MagicMock) -> None:
         """Test du timeout lors de l'exécution."""
         proc = _setup_popen(mock_popen, returncode=0)
@@ -297,23 +280,20 @@ class TestLinuxCommandExecutorRun:
             ("", ""),  # drain après kill
         ]
         result = self.executor.run(
-            ["sleep", "100"], timeout=5,
+            ["sleep", "100"],
+            timeout=5,
         )
 
         assert result.success is False
         assert result.return_code == -1
         self.mock_logger.log_error.assert_called_once()
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_timeout_tue_le_process(self, mock_popen: MagicMock) -> None:
         """Vérifie que kill() est appelé sur TimeoutExpired."""
         proc = _setup_popen(mock_popen, returncode=0)
         proc.communicate.side_effect = [
-            subprocess.TimeoutExpired(
-                cmd=["sleep", "100"], timeout=5
-            ),
+            subprocess.TimeoutExpired(cmd=["sleep", "100"], timeout=5),
             ("sortie partielle", ""),
         ]
 
@@ -325,9 +305,7 @@ class TestLinuxCommandExecutorRun:
         proc.kill.assert_called_once()
         self.mock_logger.log_error.assert_called_once()
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_keyboard_interrupt_termine_le_process(
         self, mock_popen: MagicMock
     ) -> None:
@@ -340,9 +318,7 @@ class TestLinuxCommandExecutorRun:
 
         proc.terminate.assert_called_once()
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_commande_introuvable(self, mock_popen: MagicMock) -> None:
         """Test avec une commande introuvable."""
         mock_popen.side_effect = FileNotFoundError(
@@ -354,23 +330,17 @@ class TestLinuxCommandExecutorRun:
         assert result.return_code == -1
         self.mock_logger.log_error.assert_called_once()
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_log_commande(self, mock_popen: MagicMock) -> None:
         """Test que la commande est loguée."""
         _setup_popen(mock_popen, returncode=0)
         self.executor.run(["ls", "-la"])
 
         self.mock_logger.log_info.assert_called_once()
-        call_args = (
-            self.mock_logger.log_info.call_args[0][0]
-        )
+        call_args = self.mock_logger.log_info.call_args[0][0]
         assert "ls -la" in call_args
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_avec_cwd(self, mock_popen: MagicMock) -> None:
         """Test de l'exécution avec répertoire de travail."""
         _setup_popen(mock_popen, returncode=0)
@@ -380,9 +350,7 @@ class TestLinuxCommandExecutorRun:
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["cwd"] == "/tmp"
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_sans_logger(self, mock_popen: MagicMock) -> None:
         """Test de l'exécution sans logger."""
         _setup_popen(mock_popen, returncode=0, stdout="ok", stderr="")
@@ -392,9 +360,7 @@ class TestLinuxCommandExecutorRun:
         assert result.success is True
         assert result.stdout == "ok"
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_logue_erreur_si_code_retour_non_zero(
         self, mock_popen: MagicMock
     ) -> None:
@@ -413,9 +379,7 @@ class TestLinuxCommandExecutorRun:
         assert "2" in msg
         assert "rsync" in msg
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_pas_log_erreur_si_code_retour_zero(
         self, mock_popen: MagicMock
     ) -> None:
@@ -443,10 +407,7 @@ class TestLinuxCommandExecutorRunStreaming:
             logger=self.mock_logger,
         )
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_capture_sortie(self, mock_popen: MagicMock) -> None:
         """Test de la capture de sortie en streaming."""
         mock_popen.return_value = _make_mock_proc(
@@ -457,10 +418,7 @@ class TestLinuxCommandExecutorRunStreaming:
         assert result.success is True
         assert result.stdout == "ligne1\nligne2"
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_log_chaque_ligne(self, mock_popen: MagicMock) -> None:
         """Test que chaque ligne est loguée."""
         mock_popen.return_value = _make_mock_proc(
@@ -472,10 +430,7 @@ class TestLinuxCommandExecutorRunStreaming:
         assert self.mock_logger.log_info.call_count == 4
 
     @patch("linuxtools.commands.runner.os.killpg")
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_timeout(
         self, mock_popen: MagicMock, mock_killpg: MagicMock
     ) -> None:
@@ -494,7 +449,8 @@ class TestLinuxCommandExecutorRunStreaming:
         mock_popen.return_value = mock_proc
 
         result = self.executor.run_streaming(
-            ["cmd"], timeout=1,
+            ["cmd"],
+            timeout=1,
         )
 
         assert result.success is False
@@ -503,10 +459,7 @@ class TestLinuxCommandExecutorRunStreaming:
         mock_killpg.assert_called_once_with(mock_proc.pid, signal.SIGKILL)
 
     @patch("linuxtools.commands.runner.os.killpg")
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_ctrl_c_tue_le_groupe_et_propage(
         self, mock_popen: MagicMock, mock_killpg: MagicMock
     ) -> None:
@@ -539,23 +492,18 @@ class TestLinuxCommandExecutorRunStreaming:
 
             proc.kill.assert_called_once()
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_capture_stderr(self, mock_popen: MagicMock) -> None:
         """Test de la capture de stderr."""
         mock_popen.return_value = _make_mock_proc(
-            ["ok\n"], stderr="avertissement",
+            ["ok\n"],
+            stderr="avertissement",
         )
         result = self.executor.run_streaming(["cmd"])
 
         assert result.stderr == "avertissement"
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_sans_logger(self, mock_popen: MagicMock) -> None:
         """Test du streaming sans logger."""
         mock_popen.return_value = _make_mock_proc(
@@ -567,23 +515,20 @@ class TestLinuxCommandExecutorRunStreaming:
         assert result.success is True
         assert result.stdout == "ligne1"
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_logue_erreur_si_code_retour_non_zero(
         self, mock_popen: MagicMock
     ) -> None:
         """Vérifie que log_error est appelé si returncode != 0."""
         # Arrange
         mock_popen.return_value = _make_mock_proc(
-            ["ligne1\n"], stderr="echec", returncode=1,
+            ["ligne1\n"],
+            stderr="echec",
+            returncode=1,
         )
 
         # Act
-        result = self.executor.run_streaming(
-            ["systemctl", "start", "svc"]
-        )
+        result = self.executor.run_streaming(["systemctl", "start", "svc"])
 
         # Assert
         assert result.success is False
@@ -593,17 +538,15 @@ class TestLinuxCommandExecutorRunStreaming:
         assert "1" in msg
         assert "systemctl" in msg
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_pas_log_erreur_si_code_retour_zero(
         self, mock_popen: MagicMock
     ) -> None:
         """Vérifie que log_error n'est pas appelé si returncode=0."""
         # Arrange
         mock_popen.return_value = _make_mock_proc(
-            ["ligne1\n"], returncode=0,
+            ["ligne1\n"],
+            returncode=0,
         )
 
         # Act
@@ -612,10 +555,7 @@ class TestLinuxCommandExecutorRunStreaming:
         # Assert
         self.mock_logger.log_error.assert_not_called()
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_merge_stderr_passe_stdout_a_popen(
         self, mock_popen: MagicMock
     ) -> None:
@@ -626,26 +566,21 @@ class TestLinuxCommandExecutorRunStreaming:
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["stderr"] is subprocess.STDOUT
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_sans_merge_stderr_passe_pipe_a_popen(
         self, mock_popen: MagicMock
     ) -> None:
         """Sans merge_stderr (défaut), Popen reçoit stderr=PIPE."""
         mock_popen.return_value = _make_mock_proc(
-            [], stderr="avert",
+            [],
+            stderr="avert",
         )
         self.executor.run_streaming(["cmd"])
 
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["stderr"] is subprocess.PIPE
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_lance_dans_son_propre_groupe(
         self, mock_popen: MagicMock
     ) -> None:
@@ -655,29 +590,22 @@ class TestLinuxCommandExecutorRunStreaming:
 
         assert mock_popen.call_args[1]["process_group"] == 0
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_merge_stderr_result_stderr_vide(
         self, mock_popen: MagicMock
     ) -> None:
         """Avec merge_stderr=True, result.stderr est toujours vide."""
         mock_popen.return_value = _make_mock_proc(
-            ["ligne\n"], stderr="ignoré",
+            ["ligne\n"],
+            stderr="ignoré",
         )
-        result = self.executor.run_streaming(
-            ["cmd"], merge_stderr=True
-        )
+        result = self.executor.run_streaming(["cmd"], merge_stderr=True)
 
         assert result.stderr == ""
         # Pas de fil de drainage : stderr n'a pas été consommé
         assert next(mock_popen.return_value.stderr) == "ignoré"
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_streaming_ne_fuite_jamais_le_dict_env(
         self, mock_popen: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -711,8 +639,7 @@ class TestLinuxCommandExecutorRunStreaming:
         logged = " ".join(
             str(call.args[0])
             for call in (
-                logger.log_info.call_args_list
-                + logger.log_error.call_args_list
+                logger.log_info.call_args_list + logger.log_error.call_args_list
             )
         )
         console = capsys.readouterr().out
@@ -735,9 +662,7 @@ class TestLinuxCommandExecutorDryRun:
             dry_run=True,
         )
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_dry_run_pas_execution(self, mock_popen: MagicMock) -> None:
         """Test que subprocess n'est pas appelé."""
         self.executor.run(["rm", "-rf", "/"])
@@ -747,9 +672,7 @@ class TestLinuxCommandExecutorDryRun:
         """Test que la commande est loguée avec [dry-run]."""
         self.executor.run(["echo", "test"])
 
-        call_args = (
-            self.mock_logger.log_info.call_args[0][0]
-        )
+        call_args = self.mock_logger.log_info.call_args[0][0]
         assert "[dry-run]" in call_args
         assert "echo test" in call_args
 
@@ -761,47 +684,32 @@ class TestLinuxCommandExecutorDryRun:
         assert result.return_code == 0
         assert result.duration == 0.0
 
-    @patch(
-        "linuxtools.commands.runner"
-        ".subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_dry_run_streaming(self, mock_popen: MagicMock) -> None:
         """Test du dry_run avec run_streaming."""
-        result = self.executor.run_streaming(
-            ["echo", "test"]
-        )
+        result = self.executor.run_streaming(["echo", "test"])
 
         assert result.success is True
         mock_popen.assert_not_called()
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_dry_run_avec_probe_execute_la_commande(
         self, mock_popen: MagicMock
     ) -> None:
         """Une sonde (probe=True) s'exécute même en dry-run."""
         # Arrange
-        _setup_popen(
-            mock_popen, returncode=0, stdout="paquet installé"
-        )
+        _setup_popen(mock_popen, returncode=0, stdout="paquet installé")
 
         # Act
-        result = self.executor.run(
-            ["rpm", "-q", "vim"], probe=True
-        )
+        result = self.executor.run(["rpm", "-q", "vim"], probe=True)
 
         # Assert
         mock_popen.assert_called_once()
         assert result.stdout == "paquet installé"
         assert result.return_code == 0
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
-    def test_dry_run_sans_probe_ne_execute_pas(
-        self, mock_popen: MagicMock
-    ) -> None:
+    @patch("linuxtools.commands.runner.subprocess.Popen")
+    def test_dry_run_sans_probe_ne_execute_pas(self, mock_popen: MagicMock) -> None:
         """Sans probe, le comportement dry-run actuel est inchangé."""
         # Arrange (self.executor déjà en dry_run=True)
 
@@ -812,17 +720,13 @@ class TestLinuxCommandExecutorDryRun:
         mock_popen.assert_not_called()
         assert result.return_code == 0
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_probe_hors_dry_run_execute_normalement(
         self, mock_popen: MagicMock
     ) -> None:
         """probe=True hors dry-run se comporte comme un run() normal."""
         # Arrange
-        executor = LinuxCommandExecutor(
-            logger=self.mock_logger, dry_run=False
-        )
+        executor = LinuxCommandExecutor(logger=self.mock_logger, dry_run=False)
         _setup_popen(mock_popen, returncode=0, stdout="ok")
 
         # Act
@@ -843,12 +747,8 @@ class TestLinuxCommandExecutorDryRun:
         assert result.success is True
         assert result.duration == 0.0
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
-    def test_probe_propage_le_code_retour_non_nul(
-        self, mock_popen: MagicMock
-    ) -> None:
+    @patch("linuxtools.commands.runner.subprocess.Popen")
+    def test_probe_propage_le_code_retour_non_nul(self, mock_popen: MagicMock) -> None:
         """Une sonde en échec (RC != 0) propage le vrai code retour."""
         # Arrange
         _setup_popen(
@@ -858,9 +758,7 @@ class TestLinuxCommandExecutorDryRun:
         )
 
         # Act
-        result = self.executor.run(
-            ["rpm", "-q", "inconnu"], probe=True
-        )
+        result = self.executor.run(["rpm", "-q", "inconnu"], probe=True)
 
         # Assert
         assert result.return_code == 1
@@ -939,9 +837,7 @@ class TestCommandExecutorProbeFacade:
         executor.probe(["rpm", "-q", "vim"], cwd="/tmp", timeout=5)
 
         # Assert
-        assert executor.calls == [
-            (["rpm", "-q", "vim"], None, "/tmp", 5, True)
-        ]
+        assert executor.calls == [(["rpm", "-q", "vim"], None, "/tmp", 5, True)]
 
     def test_probe_retourne_le_resultat_de_run(self) -> None:
         """probe() retourne tel quel le CommandResult de run()."""
@@ -1009,9 +905,7 @@ class TestLinuxCommandExecutorProbe:
 class TestLinuxCommandExecutorEnv:
     """Tests pour la gestion de l'environnement."""
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     @patch.dict("os.environ", {"EXISTING": "val"})
     def test_default_env_fusionne(self, mock_popen: MagicMock) -> None:
         """Test que default_env est fusionné."""
@@ -1026,9 +920,7 @@ class TestLinuxCommandExecutorEnv:
         assert env["EXISTING"] == "val"
         assert env["MY_VAR"] == "42"
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     @patch.dict("os.environ", {"EXISTING": "val"})
     def test_env_appel_prioritaire(self, mock_popen: MagicMock) -> None:
         """Test que l'env de l'appel est prioritaire."""
@@ -1042,9 +934,7 @@ class TestLinuxCommandExecutorEnv:
         env = call_kwargs["env"]
         assert env["KEY"] == "override"
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_aucun_env_passe_none(self, mock_popen: MagicMock) -> None:
         """Test que sans env, subprocess reçoit None."""
         _setup_popen(mock_popen, returncode=0)
@@ -1134,9 +1024,7 @@ class TestPlainCommandFormatter:
         self, formatter: PlainCommandFormatter
     ) -> None:
         """Vérifie que la commande est incluse dans le message."""
-        msg = formatter.format_start(
-            ["rsync", "-av", "/src"], is_root=False
-        )
+        msg = formatter.format_start(["rsync", "-av", "/src"], is_root=False)
         assert "rsync -av /src" in msg
 
     def test_format_start_pas_de_codes_ansi(
@@ -1152,9 +1040,7 @@ class TestPlainCommandFormatter:
         self, formatter: PlainCommandFormatter
     ) -> None:
         """Vérifie le préfixe [ROOT] en mode streaming."""
-        msg = formatter.format_start_streaming(
-            ["cmd"], is_root=True
-        )
+        msg = formatter.format_start_streaming(["cmd"], is_root=True)
         assert "[ROOT]" in msg
         assert "streaming" in msg
 
@@ -1162,9 +1048,7 @@ class TestPlainCommandFormatter:
         self, formatter: PlainCommandFormatter
     ) -> None:
         """Vérifie le préfixe [user] en mode streaming."""
-        msg = formatter.format_start_streaming(
-            ["cmd"], is_root=False
-        )
+        msg = formatter.format_start_streaming(["cmd"], is_root=False)
         assert "[user]" in msg
         assert "streaming" in msg
 
@@ -1260,9 +1144,7 @@ class TestAnsiCommandFormatter:
     ) -> None:
         """Vérifie le style root en streaming avec TTY."""
         with patch.object(formatter, "_is_tty", return_value=True):
-            msg = formatter.format_start_streaming(
-                ["cmd"], is_root=True
-            )
+            msg = formatter.format_start_streaming(["cmd"], is_root=True)
         assert AnsiCommandFormatter.ROOT_STYLE in msg
         assert "streaming" in msg
 
@@ -1271,9 +1153,7 @@ class TestAnsiCommandFormatter:
     ) -> None:
         """Vérifie l'absence d'ANSI en streaming sans TTY."""
         with patch.object(formatter, "_is_tty", return_value=False):
-            msg = formatter.format_start_streaming(
-                ["cmd"], is_root=False
-            )
+            msg = formatter.format_start_streaming(["cmd"], is_root=False)
         assert "\033[" not in msg
 
     # --- format_dry_run ---
@@ -1336,8 +1216,7 @@ class TestLinuxCommandExecutorPrefixeLogs:
         """Fixture fournissant un logger mock."""
         return MagicMock(spec=Logger)
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=1000)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=1000)
     @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_log_contient_prefixe_user_quand_non_root(
         self,
@@ -1353,8 +1232,7 @@ class TestLinuxCommandExecutorPrefixeLogs:
         log_msg = mock_logger.log_info.call_args[0][0]
         assert "[user]" in log_msg
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=0)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=0)
     @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_log_contient_prefixe_root_quand_root(
         self,
@@ -1370,30 +1248,24 @@ class TestLinuxCommandExecutorPrefixeLogs:
         log_msg = mock_logger.log_info.call_args[0][0]
         assert "[ROOT]" in log_msg
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=1000)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=1000)
     def test_dry_run_log_contient_prefixe_user(
         self, mock_getuid: MagicMock, mock_logger: MagicMock
     ) -> None:
         """Vérifie le préfixe [user] dans le log dry-run."""
-        executor = LinuxCommandExecutor(
-            logger=mock_logger, dry_run=True
-        )
+        executor = LinuxCommandExecutor(logger=mock_logger, dry_run=True)
         executor.run(["echo", "test"])
 
         log_msg = mock_logger.log_info.call_args[0][0]
         assert "[user]" in log_msg
         assert "[dry-run]" in log_msg
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=0)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=0)
     def test_dry_run_log_contient_prefixe_root(
         self, mock_getuid: MagicMock, mock_logger: MagicMock
     ) -> None:
         """Vérifie le préfixe [ROOT] dans le log dry-run root."""
-        executor = LinuxCommandExecutor(
-            logger=mock_logger, dry_run=True
-        )
+        executor = LinuxCommandExecutor(logger=mock_logger, dry_run=True)
         executor.run(["rm", "-rf", "/tmp/test"])
 
         log_msg = mock_logger.log_info.call_args[0][0]
@@ -1416,32 +1288,24 @@ class TestLinuxCommandExecutorConsoleFormatter:
         mock_formatter = MagicMock(spec=CommandFormatter)
         mock_formatter.format_start.return_value = "msg"
 
-        executor = LinuxCommandExecutor(
-            console_formatter=mock_formatter
-        )
+        executor = LinuxCommandExecutor(console_formatter=mock_formatter)
         executor.run(["ls"])
 
-        mock_formatter.format_start.assert_called_once_with(
-            ["ls"], executor._is_root
-        )
+        mock_formatter.format_start.assert_called_once_with(["ls"], executor._is_root)
 
     def test_console_formatter_format_dry_run_appele(self) -> None:
         """Vérifie que format_dry_run est appelé en mode dry_run."""
         mock_formatter = MagicMock(spec=CommandFormatter)
         mock_formatter.format_dry_run.return_value = "msg"
 
-        executor = LinuxCommandExecutor(
-            console_formatter=mock_formatter, dry_run=True
-        )
+        executor = LinuxCommandExecutor(console_formatter=mock_formatter, dry_run=True)
         executor.run(["echo"])
 
         mock_formatter.format_dry_run.assert_called_once_with(
             ["echo"], executor._is_root
         )
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_console_formatter_format_streaming_appele(
         self, mock_popen: MagicMock
     ) -> None:
@@ -1451,9 +1315,7 @@ class TestLinuxCommandExecutorConsoleFormatter:
         mock_formatter.format_start_streaming.return_value = "msg"
         mock_formatter.format_line.return_value = "ligne"
 
-        executor = LinuxCommandExecutor(
-            console_formatter=mock_formatter
-        )
+        executor = LinuxCommandExecutor(console_formatter=mock_formatter)
         executor.run_streaming(["cmd"])
 
         mock_formatter.format_start_streaming.assert_called_once_with(
@@ -1477,31 +1339,23 @@ class TestLinuxCommandExecutorConsoleFormatter:
     ) -> None:
         """Vérifie que le formatter console émet un message sur stdout."""
         _setup_popen(mock_popen, returncode=0)
-        executor = LinuxCommandExecutor(
-            console_formatter=PlainCommandFormatter()
-        )
+        executor = LinuxCommandExecutor(console_formatter=PlainCommandFormatter())
         executor.run(["echo", "test"])
 
         captured = capsys.readouterr()
         assert "echo test" in captured.out
 
-    @patch(
-        "linuxtools.commands.runner.subprocess.Popen"
-    )
+    @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_console_formatter_format_line_appele_par_ligne(
         self, mock_popen: MagicMock
     ) -> None:
         """Vérifie que format_line est appelé pour chaque ligne."""
-        mock_popen.return_value = _make_mock_proc(
-            ["ligne1\n", "ligne2\n"]
-        )
+        mock_popen.return_value = _make_mock_proc(["ligne1\n", "ligne2\n"])
         mock_formatter = MagicMock(spec=CommandFormatter)
         mock_formatter.format_start_streaming.return_value = "debut"
         mock_formatter.format_line.return_value = "ligne"
 
-        executor = LinuxCommandExecutor(
-            console_formatter=mock_formatter
-        )
+        executor = LinuxCommandExecutor(console_formatter=mock_formatter)
         executor.run_streaming(["cmd"])
 
         assert mock_formatter.format_line.call_count == 2
@@ -1513,8 +1367,7 @@ class TestLinuxCommandExecutorConsoleFormatter:
 class TestLinuxCommandExecutorExecutedAsRoot:
     """Tests du champ executed_as_root dans les résultats."""
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=1000)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=1000)
     @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_executed_as_root_faux_quand_uid_non_zero(
         self, mock_popen: MagicMock, mock_getuid: MagicMock
@@ -1526,8 +1379,7 @@ class TestLinuxCommandExecutorExecutedAsRoot:
 
         assert result.executed_as_root is False
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=0)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=0)
     @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_executed_as_root_vrai_quand_uid_zero(
         self, mock_popen: MagicMock, mock_getuid: MagicMock
@@ -1539,8 +1391,7 @@ class TestLinuxCommandExecutorExecutedAsRoot:
 
         assert result.executed_as_root is True
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=0)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=0)
     def test_dry_run_executed_as_root_vrai_quand_root(
         self, mock_getuid: MagicMock
     ) -> None:
@@ -1550,8 +1401,7 @@ class TestLinuxCommandExecutorExecutedAsRoot:
 
         assert result.executed_as_root is True
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=1000)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=1000)
     def test_dry_run_executed_as_root_faux_quand_user(
         self, mock_getuid: MagicMock
     ) -> None:
@@ -1561,8 +1411,7 @@ class TestLinuxCommandExecutorExecutedAsRoot:
 
         assert result.executed_as_root is False
 
-    @patch("linuxtools.commands.runner.os.getuid",
-           return_value=0)
+    @patch("linuxtools.commands.runner.os.getuid", return_value=0)
     @patch("linuxtools.commands.runner.subprocess.Popen")
     def test_run_echec_executed_as_root_preserve(
         self, mock_popen: MagicMock, mock_getuid: MagicMock
@@ -1673,9 +1522,7 @@ class TestRunStreamingProcessusReel:
         assert time.monotonic() - debut < 10
         assert "debut" in result.stdout
 
-    def test_streaming_timeout_tue_le_petit_fils(
-        self, garde_fou_alarme: None
-    ) -> None:
+    def test_streaming_timeout_tue_le_petit_fils(self, garde_fou_alarme: None) -> None:
         """Le délai tue le groupe : un petit-fils gardant stdout est tué."""
         executor = LinuxCommandExecutor()
         debut = time.monotonic()

@@ -56,7 +56,7 @@ class TestCalculateChecksum:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test")
 
-        checksum = calculate_checksum(test_file, algorithm='sha512')
+        checksum = calculate_checksum(test_file, algorithm="sha512")
 
         assert len(checksum) == 128  # SHA512 = 128 caractères hex
 
@@ -66,7 +66,7 @@ class TestCalculateChecksum:
         test_file.write_text("Test")
 
         with pytest.raises(ValueError, match="non autorisé"):
-            calculate_checksum(test_file, algorithm='invalid')
+            calculate_checksum(test_file, algorithm="invalid")
 
     def test_checksum_algorithme_non_autorise_leve_valueerror(
         self, tmp_path: Path
@@ -76,7 +76,7 @@ class TestCalculateChecksum:
         test_file.write_text("Test")
 
         with pytest.raises(ValueError, match="non autorisé"):
-            calculate_checksum(test_file, algorithm='md5')
+            calculate_checksum(test_file, algorithm="md5")
 
     def test_file_not_found(self) -> None:
         """Test avec fichier inexistant."""
@@ -243,9 +243,7 @@ class TestSHA256IntegrityChecker:
         checker = SHA256IntegrityChecker(logger)
 
         # Act
-        result = checker.verify(
-            str(source_dir), str(tmp_path / "dest")
-        )
+        result = checker.verify(str(source_dir), str(tmp_path / "dest"))
 
         # Assert
         assert result is True
@@ -266,9 +264,7 @@ class TestSHA256IntegrityChecker:
         checker = SHA256IntegrityChecker(logger)
 
         # Act
-        result = checker.verify(
-            str(source_dir), str(tmp_path / "dest")
-        )
+        result = checker.verify(str(source_dir), str(tmp_path / "dest"))
 
         # Assert
         assert result is False
@@ -287,9 +283,7 @@ class TestSHA256IntegrityChecker:
             "pathlib.Path.rglob",
             side_effect=OSError("Erreur de lecture"),
         ):
-            result = checker.verify(
-                str(source_dir), str(tmp_path / "dest")
-            )
+            result = checker.verify(str(source_dir), str(tmp_path / "dest"))
 
         # Assert
         assert result is False
@@ -404,9 +398,7 @@ class TestSHA256IntegrityCheckerOrRaise:
         checker = SHA256IntegrityChecker(logger)
 
         # Act
-        count = checker.verify_or_raise(
-            str(source_dir), str(tmp_path / "dest")
-        )
+        count = checker.verify_or_raise(str(source_dir), str(tmp_path / "dest"))
 
         # Assert
         assert count == 2
@@ -425,9 +417,7 @@ class TestSHA256IntegrityCheckerOrRaise:
 
         # Act / Assert
         with pytest.raises(IntegrityError):
-            checker.verify_or_raise(
-                str(source_dir), str(tmp_path / "dest")
-            )
+            checker.verify_or_raise(str(source_dir), str(tmp_path / "dest"))
 
     def test_verify_or_raise_checksum_different_leve_integrity_error(
         self, tmp_path: Path, logger: FileLogger
@@ -444,9 +434,7 @@ class TestSHA256IntegrityCheckerOrRaise:
 
         # Act / Assert
         with pytest.raises(IntegrityError):
-            checker.verify_or_raise(
-                str(source_dir), str(tmp_path / "dest")
-            )
+            checker.verify_or_raise(str(source_dir), str(tmp_path / "dest"))
 
     def test_verify_or_raise_source_vide_retourne_zero(
         self, tmp_path: Path, logger: FileLogger

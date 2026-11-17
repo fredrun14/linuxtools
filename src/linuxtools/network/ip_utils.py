@@ -57,9 +57,7 @@ def _iter_free_ips(start: str, end: str, used_ips: set[str]) -> Iterator[str]:
             yield ip
 
 
-def _next_available_ip(
-    dhcp_range: DhcpRange, used_ips: set[str]
-) -> str | None:
+def _next_available_ip(dhcp_range: DhcpRange, used_ips: set[str]) -> str | None:
     """Retourne la premiere IP libre dans la plage ou None.
 
     Args:
@@ -91,9 +89,7 @@ def _allocate_fixed_ips(
     Raises:
         ValueError: Si la plage DHCP est epuisee.
     """
-    used_ips: set[str] = {
-        d.fixed_ip for d in devices if d.fixed_ip is not None
-    }
+    used_ips: set[str] = {d.fixed_ip for d in devices if d.fixed_ip is not None}
     result = []
     for device in devices:
         if device.fixed_ip is not None:

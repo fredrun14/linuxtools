@@ -18,14 +18,14 @@ def flat_toml(tmp_path: Path) -> Path:
     """TOML de spec pour un fichier plat (sans section INI)."""
     f = tmp_path / "flat.toml"
     f.write_text(
-        '[target]\n'
+        "[target]\n"
         'file_path = "/tmp/test-flat.conf"\n'
-        '\n'
-        '[[target.content]]\n'
+        "\n"
+        "[[target.content]]\n"
         'comment = "# Quality"\n'
-        'content = \'-f best\'\n'
-        '\n'
-        '[[target.content]]\n'
+        "content = '-f best'\n"
+        "\n"
+        "[[target.content]]\n"
         'content = "--no-playlist"\n',
         encoding="utf-8",
     )
@@ -37,10 +37,10 @@ def ini_toml(tmp_path: Path) -> Path:
     """TOML de spec pour un fichier INI avec section."""
     f = tmp_path / "ini.toml"
     f.write_text(
-        '[target]\n'
+        "[target]\n"
         'file_path = "/tmp/test-ini.conf"\n'
-        '\n'
-        '[[target.content]]\n'
+        "\n"
+        "[[target.content]]\n"
         'section = "main"\n'
         'comment = "# Fast"\n'
         'content = "fastestmirror = True"\n',
@@ -138,8 +138,7 @@ class TestTomlSpecLoaderLoad:
     ) -> None:
         toml = tmp_path / "no_content.toml"
         toml.write_text(
-            '[target]\nfile_path = "/tmp/x"\n'
-            '[[target.content]]\ncomment = "# oops"\n',
+            '[target]\nfile_path = "/tmp/x"\n[[target.content]]\ncomment = "# oops"\n',
             encoding="utf-8",
         )
 

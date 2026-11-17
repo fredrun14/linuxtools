@@ -48,9 +48,7 @@ class TestPathCheckerMountPoint:
             with pytest.raises(ValueError, match=str(target)):
                 PathCheckerMountPoint(target).validate()
 
-    def test_nearest_mount_remonte_au_parent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_nearest_mount_remonte_au_parent(self, tmp_path: Path) -> None:
         """_nearest_mount_point retourne le bon ancêtre."""
         parent = tmp_path / "mnt"
         child = parent / "subdir"

@@ -27,9 +27,7 @@ def _copy_secure(src: str | Path, dst: str | Path) -> None:
     """
     src_fd = _open_secure(src, os.O_RDONLY, 0o000)
     try:
-        dst_fd = _open_secure(
-            dst, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644
-        )
+        dst_fd = _open_secure(dst, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644)
         try:
             os.fchmod(dst_fd, 0o644)
             while chunk := os.read(src_fd, _CHUNK):
@@ -199,9 +197,7 @@ class LinuxFileBackup(FileBackup):
         try:
             _copy_secure(file_path, backup_path)
             if self._logger:
-                self._logger.log_info(
-                    f"Sauvegarde de {file_path} vers {backup_path}"
-                )
+                self._logger.log_info(f"Sauvegarde de {file_path} vers {backup_path}")
             return True
         except OSError as exc:
             if self._logger:

@@ -8,9 +8,7 @@ from linuxtools.systemd.base import (
 from linuxtools.systemd.executor import UserSystemdExecutor
 
 
-class LinuxUserServiceUnitManager(
-    _ServiceOperationsMixin, UserServiceUnitManager
-):
+class LinuxUserServiceUnitManager(_ServiceOperationsMixin, UserServiceUnitManager):
     """Implémentation Linux de la gestion des unités .service utilisateur.
 
     Génère et installe des fichiers unit systemd pour les services

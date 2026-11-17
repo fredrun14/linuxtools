@@ -13,9 +13,7 @@ from linuxtools.deploy.verifier import (
 from linuxtools.logging.base import Logger
 
 
-def _result(
-    success: bool = True, stdout: str = "", stderr: str = ""
-) -> CommandResult:
+def _result(success: bool = True, stdout: str = "", stderr: str = "") -> CommandResult:
     """Construit un CommandResult scripté pour les tests."""
     return CommandResult(
         command=(),
@@ -158,9 +156,7 @@ class TestInstallVerifierSubcommands:
     def test_subcommand_inconnue_echoue(self) -> None:
         """Une sous-commande inconnue répond --help en code non nul."""
         executor = _make_executor()
-        executor.run.return_value = _result(
-            success=False, stderr="unknown command"
-        )
+        executor.run.return_value = _result(success=False, stderr="unknown command")
         verifier = InstallVerifier(executor)
 
         results = verifier.verify(
@@ -204,9 +200,7 @@ class TestInstallVerifierRegression:
     def test_regression_ko(self) -> None:
         """Un échec de la commande de non-régression est reporté."""
         executor = _make_executor()
-        executor.run.return_value = _result(
-            success=False, stderr="assertion failed"
-        )
+        executor.run.return_value = _result(success=False, stderr="assertion failed")
         verifier = InstallVerifier(executor)
 
         results = verifier.verify(
@@ -322,9 +316,7 @@ class TestRebaseVerification:
     def test_chemin_hors_venv_path_jamais_reecrit(self) -> None:
         """Un chemin `/opt/x/venv2/...` proche mais distinct n'est
         pas réécrit (pas de préfixe partiel foireux)."""
-        spec = VerificationSpec(
-            regression_command=("/opt/x/venv2/bin/autre-outil",)
-        )
+        spec = VerificationSpec(regression_command=("/opt/x/venv2/bin/autre-outil",))
         new_spec, _new_cli_bin = rebase_verification(
             spec,
             cli_bin=None,

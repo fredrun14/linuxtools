@@ -40,6 +40,7 @@ from linuxtools.credentials.providers.keyring import (
 # Tests CredentialKey et Credential
 # ---------------------------------------------------------------------------
 
+
 class TestCredentialKey:
     """Tests de la dataclass CredentialKey."""
 
@@ -87,9 +88,7 @@ class TestCredential:
 
     def test_source_vide_par_defaut(self) -> None:
         """La source est vide par defaut."""
-        c = Credential(
-            service="monapp", key="SECRET", value="val"
-        )
+        c = Credential(service="monapp", key="SECRET", value="val")
         assert c.source == ""
 
     def test_repr_ne_contient_pas_la_valeur(self) -> None:
@@ -99,9 +98,7 @@ class TestCredential:
 
     def test_credential_key_property(self) -> None:
         """La propriete credential_key retourne un CredentialKey."""
-        c = Credential(
-            service="monapp", key="SECRET", value="val"
-        )
+        c = Credential(service="monapp", key="SECRET", value="val")
         ck = c.credential_key
         assert isinstance(ck, CredentialKey)
         assert ck.service == "monapp"
@@ -122,6 +119,7 @@ class TestCredential:
 # Tests EnvCredentialProvider
 # ---------------------------------------------------------------------------
 
+
 class TestEnvCredentialProvider:
     """Tests du provider de variables d'environnement."""
 
@@ -133,25 +131,19 @@ class TestEnvCredentialProvider:
         provider = EnvCredentialProvider()
         assert provider.get("monapp", "MON_SECRET") == "valeur_test"
 
-    def test_get_normalise_cle_majuscule(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_normalise_cle_majuscule(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """get() normalise la cle en majuscules."""
         monkeypatch.setenv("MON_SECRET", "valeur_test")
         provider = EnvCredentialProvider()
         assert provider.get("monapp", "mon_secret") == "valeur_test"
 
-    def test_get_retourne_none_si_absent(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_retourne_none_si_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """get() retourne None si la variable est absente."""
         monkeypatch.delenv("VARIABLE_INEXISTANTE", raising=False)
         provider = EnvCredentialProvider()
         assert provider.get("monapp", "VARIABLE_INEXISTANTE") is None
 
-    def test_get_retourne_none_si_vide(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_retourne_none_si_vide(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """get() retourne None si la variable est vide."""
         monkeypatch.setenv("MON_SECRET", "")
         provider = EnvCredentialProvider()
@@ -177,21 +169,18 @@ class TestEnvCredentialProvider:
 # Tests DotEnvCredentialProvider
 # ---------------------------------------------------------------------------
 
+
 class TestDotEnvCredentialProvider:
     """Tests du provider de fichier .env."""
 
-    def test_load_charge_le_fichier(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_charge_le_fichier(self, tmp_path: Path) -> None:
         """load() charge les variables dans le dict interne."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("SECRET_DOTENV=valeur_dotenv\n")
         provider = DotEnvCredentialProvider(dotenv_path=dotenv_file)
 
         mock_dotenv = MagicMock()
-        mock_dotenv.dotenv_values.return_value = {
-            "SECRET_DOTENV": "valeur_dotenv"
-        }
+        mock_dotenv.dotenv_values.return_value = {"SECRET_DOTENV": "valeur_dotenv"}
         with patch.dict("sys.modules", {"dotenv": mock_dotenv}):
             result = provider.load()
         assert result is True
@@ -207,18 +196,14 @@ class TestDotEnvCredentialProvider:
         provider = DotEnvCredentialProvider(dotenv_path=dotenv_file)
 
         mock_dotenv = MagicMock()
-        mock_dotenv.dotenv_values.return_value = {
-            "SECRET_ISOLE": "valeur_privee"
-        }
+        mock_dotenv.dotenv_values.return_value = {"SECRET_ISOLE": "valeur_privee"}
         with patch.dict("sys.modules", {"dotenv": mock_dotenv}):
             result = provider.get("monapp", "SECRET_ISOLE")
 
         assert result == "valeur_privee"
         assert "SECRET_ISOLE" not in os.environ
 
-    def test_get_retourne_valeur_depuis_dotenv(
-        self, tmp_path: Path
-    ) -> None:
+    def test_get_retourne_valeur_depuis_dotenv(self, tmp_path: Path) -> None:
         """get() retourne la valeur depuis le dict interne (pas os.environ)."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("SECRET_GET=valeur_get\n")
@@ -230,48 +215,32 @@ class TestDotEnvCredentialProvider:
             result = provider.get("monapp", "SECRET_GET")
         assert result == "valeur_get"
 
-    def test_dotenv_avertit_si_env_world_readable(
-        self, tmp_path: Path
-    ) -> None:
+    def test_dotenv_avertit_si_env_world_readable(self, tmp_path: Path) -> None:
         """load() log un warning si le .env est lisible par d'autres."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("KEY=val\n")
         dotenv_file.chmod(0o644)
         mock_logger = MagicMock()
-        provider = DotEnvCredentialProvider(
-            dotenv_path=dotenv_file, logger=mock_logger
-        )
+        provider = DotEnvCredentialProvider(dotenv_path=dotenv_file, logger=mock_logger)
         mock_dotenv = MagicMock()
         mock_dotenv.dotenv_values.return_value = {"KEY": "val"}
         with patch.dict("sys.modules", {"dotenv": mock_dotenv}):
             provider.load()
         mock_logger.log_warning.assert_called()
-        calls_str = " ".join(
-            str(c) for c in mock_logger.log_warning.call_args_list
-        )
+        calls_str = " ".join(str(c) for c in mock_logger.log_warning.call_args_list)
         assert "accessible" in calls_str
 
-    def test_load_retourne_false_si_fichier_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_retourne_false_si_fichier_absent(self, tmp_path: Path) -> None:
         """load() retourne False si le fichier n'existe pas."""
-        provider = DotEnvCredentialProvider(
-            dotenv_path=tmp_path / "inexistant.env"
-        )
+        provider = DotEnvCredentialProvider(dotenv_path=tmp_path / "inexistant.env")
         assert provider.load() is False
 
-    def test_is_available_false_si_fichier_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_is_available_false_si_fichier_absent(self, tmp_path: Path) -> None:
         """is_available() retourne False si le fichier .env est absent."""
-        provider = DotEnvCredentialProvider(
-            dotenv_path=tmp_path / "inexistant.env"
-        )
+        provider = DotEnvCredentialProvider(dotenv_path=tmp_path / "inexistant.env")
         assert provider.is_available() is False
 
-    def test_is_available_true_si_fichier_existe(
-        self, tmp_path: Path
-    ) -> None:
+    def test_is_available_true_si_fichier_existe(self, tmp_path: Path) -> None:
         """is_available() retourne True si le fichier existe."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("KEY=val\n")
@@ -279,16 +248,12 @@ class TestDotEnvCredentialProvider:
         with patch.dict("sys.modules", {"dotenv": MagicMock()}):
             assert provider.is_available() is True
 
-    def test_is_available_false_si_dotenv_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_is_available_false_si_dotenv_absent(self, tmp_path: Path) -> None:
         """is_available() retourne False si python-dotenv absent."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("KEY=val\n")
         provider = DotEnvCredentialProvider(dotenv_path=dotenv_file)
-        with patch.dict(
-            "sys.modules", {"dotenv": None}
-        ):
+        with patch.dict("sys.modules", {"dotenv": None}):
             assert provider.is_available() is False
 
     def test_load_log_warning_si_fichier_absent_avec_logger(
@@ -308,15 +273,14 @@ class TestDotEnvCredentialProvider:
 
     def test_source_name(self, tmp_path: Path) -> None:
         """source_name retourne 'dotenv'."""
-        provider = DotEnvCredentialProvider(
-            dotenv_path=tmp_path / ".env"
-        )
+        provider = DotEnvCredentialProvider(dotenv_path=tmp_path / ".env")
         assert provider.source_name == "dotenv"
 
 
 # ---------------------------------------------------------------------------
 # Tests KeyringCredentialProvider
 # ---------------------------------------------------------------------------
+
 
 class TestKeyringCredentialProvider:
     """Tests du provider keyring avec backend mocke."""
@@ -327,17 +291,13 @@ class TestKeyringCredentialProvider:
     ) -> MagicMock:
         """Cree un backend keyring mocke."""
         backend = MagicMock()
-        _store: dict[tuple[str, str], str] = (
-            stored if stored is not None else {}
+        _store: dict[tuple[str, str], str] = stored if stored is not None else {}
+        backend.get_password.side_effect = lambda svc, key: _store.get((svc, key))
+        backend.set_password.side_effect = lambda svc, key, val: _store.update(
+            {(svc, key): val}
         )
-        backend.get_password.side_effect = (
-            lambda svc, key: _store.get((svc, key))
-        )
-        backend.set_password.side_effect = (
-            lambda svc, key, val: _store.update({(svc, key): val})
-        )
-        backend.delete_password.side_effect = (
-            lambda svc, key: _store.pop((svc, key), None)
+        backend.delete_password.side_effect = lambda svc, key: _store.pop(
+            (svc, key), None
         )
         return backend
 
@@ -507,9 +467,7 @@ class TestKeyringCredentialProvider:
         )
         provider.delete("svc", "key")  # ne doit pas lever
         mock_logger.log_warning.assert_called_once()
-        assert "erreur D-Bus" in str(
-            mock_logger.log_warning.call_args
-        )
+        assert "erreur D-Bus" in str(mock_logger.log_warning.call_args)
 
     def test_is_available_true_avec_keyring_installe(self) -> None:
         """is_available() retourne True si keyring est installe."""
@@ -521,6 +479,7 @@ class TestKeyringCredentialProvider:
 # ---------------------------------------------------------------------------
 # Tests CredentialChain
 # ---------------------------------------------------------------------------
+
 
 def _make_provider(
     value: str | None,
@@ -611,9 +570,7 @@ class TestCredentialChain:
         assert chain._providers[0].source_name == "env"
         assert chain._providers[1].source_name == "keyring"
 
-    def test_default_cree_chaine_avec_dotenv(
-        self, tmp_path: Path
-    ) -> None:
+    def test_default_cree_chaine_avec_dotenv(self, tmp_path: Path) -> None:
         """default() cree la chaine env -> dotenv -> keyring."""
         dotenv_path = tmp_path / ".env"
         dotenv_path.write_text("KEY=val\n")
@@ -666,6 +623,7 @@ class TestCredentialChain:
 # ---------------------------------------------------------------------------
 # Tests CredentialManager
 # ---------------------------------------------------------------------------
+
 
 class TestCredentialManager:
     """Tests de la facade CredentialManager."""
@@ -774,9 +732,7 @@ class TestCredentialManager:
         with pytest.raises(CredentialStoreError):
             manager.delete("KEY")
 
-    def test_from_dotenv_cree_manager(
-        self, tmp_path: Path
-    ) -> None:
+    def test_from_dotenv_cree_manager(self, tmp_path: Path) -> None:
         """from_dotenv() cree un CredentialManager operationnel."""
         dotenv_file = tmp_path / ".env"
         dotenv_file.write_text("API_KEY=test_value\n")

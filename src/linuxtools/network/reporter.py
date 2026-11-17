@@ -97,9 +97,7 @@ class ConsoleTableReporter(DeviceReporter):
         connus = sum(1 for d in devices if d.is_known)
         nouveaux = total - connus
         lines.append(sep)
-        lines.append(
-            f"Total : {total} | Connus : {connus} | Nouveaux : {nouveaux}"
-        )
+        lines.append(f"Total : {total} | Connus : {connus} | Nouveaux : {nouveaux}")
         return "\n".join(lines) + "\n"
 
 
@@ -249,21 +247,13 @@ class DiffReporter(DeviceReporter):
         lines: list[str] = []
 
         if self._new_devices:
-            lines.append(
-                f"=== Nouveaux peripheriques ({len(self._new_devices)}) ==="
-            )
-            lines.extend(
-                _format_device_line(d, "+") for d in self._new_devices
-            )
+            lines.append(f"=== Nouveaux peripheriques ({len(self._new_devices)}) ===")
+            lines.extend(_format_device_line(d, "+") for d in self._new_devices)
             lines.append("")
 
         if self._disappeared:
-            lines.append(
-                f"=== Peripheriques disparus ({len(self._disappeared)}) ==="
-            )
-            lines.extend(
-                _format_device_line(d, "-") for d in self._disappeared
-            )
+            lines.append(f"=== Peripheriques disparus ({len(self._disappeared)}) ===")
+            lines.extend(_format_device_line(d, "-") for d in self._disappeared)
             lines.append("")
 
         ip_changed = [d for d in devices if d.fixed_ip and d.ip != d.fixed_ip]

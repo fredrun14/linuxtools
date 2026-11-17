@@ -203,13 +203,10 @@ class Deployer:
                 f"{config.remote_source_dir}"
             )
             ctx.would_run_command(
-                "vérifications post-install (imports, sous-commandes, "
-                "non-régression)"
+                "vérifications post-install (imports, sous-commandes, non-régression)"
             )
         if config.config_deploy is not None:
-            ctx.would_run_command(
-                f"dépôt config -> {config.config_deploy.dest_path}"
-            )
+            ctx.would_run_command(f"dépôt config -> {config.config_deploy.dest_path}")
         if config.secrets is not None:
             if config.secrets.values_from == "target":
                 ctx.would_run_command(
@@ -230,9 +227,7 @@ class Deployer:
         )
 
     @staticmethod
-    def _dry_run_timer_units(
-        ctx: DryRunContext, spec: TimerDeploySpec
-    ) -> None:
+    def _dry_run_timer_units(ctx: DryRunContext, spec: TimerDeploySpec) -> None:
         """Affiche les unités service+timer qui seraient installées.
 
         Aucune sonde : le home distant n'est pas lu, le chemin du scope
@@ -457,8 +452,7 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages
-                + ("Installation du service+timer échouée.",),
+                messages=messages + ("Installation du service+timer échouée.",),
             )
         return ("Service+timer installés.",) + outcome.messages
 
@@ -554,9 +548,7 @@ class Deployer:
                 messages=messages + outcome.messages,
             )
 
-        result = self._run_post_install_phases(
-            config, outcome.checks, messages
-        )
+        result = self._run_post_install_phases(config, outcome.checks, messages)
         if isinstance(result, DeployReport):
             return DeployReport(
                 success=result.success,
@@ -607,8 +599,7 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TRANSPORT,
-                messages=messages
-                + (f"Transport échoué : {transport_result.stderr}",),
+                messages=messages + (f"Transport échoué : {transport_result.stderr}",),
             )
 
         if config.atomic_swap:
@@ -630,9 +621,7 @@ class Deployer:
         )
         if not install_result.success:
             rolled_back = self._rollback_if_possible(config, backup_path)
-            phase = (
-                DeployPhase.ROLLBACK if rolled_back else DeployPhase.INSTALL
-            )
+            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.INSTALL
             return DeployReport(
                 success=False,
                 phase_reached=phase,
@@ -644,9 +633,7 @@ class Deployer:
             )
 
         checks = tuple(
-            self._verifier.verify(
-                config.venv_path, config.verification, config.cli_bin
-            )
+            self._verifier.verify(config.venv_path, config.verification, config.cli_bin)
         )
         if not all(check.ok for check in checks):
             rolled_back = self._rollback_if_possible(config, backup_path)
@@ -683,9 +670,7 @@ class Deployer:
         target: DeployTarget,
         logger: Logger | None = None,
         dry_run: bool = False,
-        credential_manager_factory: (
-            Callable[[str], CredentialManager] | None
-        ) = None,
+        credential_manager_factory: (Callable[[str], CredentialManager] | None) = None,
         rsync_options: tuple[str, ...] | None = None,
     ) -> Deployer:
         """Fabrique un Deployer complet pour une cible donnée.
@@ -727,18 +712,14 @@ class Deployer:
         transport = (
             RsyncTransport(local_exec, logger)
             if rsync_options is None
-            else RsyncTransport(
-                local_exec, logger, extra_options=rsync_options
-            )
+            else RsyncTransport(local_exec, logger, extra_options=rsync_options)
         )
         installer = VenvInstaller(target_exec, logger)
         verifier = InstallVerifier(target_exec, logger)
         config_deployer = ConfigDeployer(logger)
         timer_deployer = TimerDeployer(logger)
         releaser = VenvReleaser(target_exec, installer, logger)
-        secrets_provisioner = SecretsProvisioner(
-            credential_manager_factory, logger
-        )
+        secrets_provisioner = SecretsProvisioner(credential_manager_factory, logger)
         return cls(
             transport,
             installer,

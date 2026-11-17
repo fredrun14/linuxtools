@@ -94,8 +94,7 @@ class ConsumerManifest:
         pins = [m for r in requirements if (m := _PIN_RE.match(r))]
         if len(pins) != 1:
             raise ManifestError(
-                f"pin linuxtools attendu en un seul exemplaire, "
-                f"trouvé {len(pins)}"
+                f"pin linuxtools attendu en un seul exemplaire, trouvé {len(pins)}"
             )
         extras_raw = pins[0].group("extras") or ""
         extras = tuple(e.strip() for e in extras_raw.split(",") if e.strip())
@@ -120,12 +119,8 @@ def _sibling(match: re.Match[str]) -> SiblingDep:
     """Valide une dépendance maison (dépôt et tag sûrs) ou refuse."""
     url = _SIBLING_URL_RE.match(match["url"])
     if url is None or not _SIBLING_TAG_RE.match(match["tag"]):
-        raise ManifestError(
-            f"dépendance maison {match['name']} : URL ou tag suspect"
-        )
-    return SiblingDep(
-        match["name"], match["url"], match["tag"], url.group("repo")
-    )
+        raise ManifestError(f"dépendance maison {match['name']} : URL ou tag suspect")
+    return SiblingDep(match["name"], match["url"], match["tag"], url.group("repo"))
 
 
 def _load(text: str) -> dict[str, Any]:
@@ -156,9 +151,7 @@ def _contract(
     sync_args = section.get("sync-args", [])
     checks = section.get("checks")
     if not _is_str_list(sync_args) or not _sync_args_allowed(sync_args):
-        raise ManifestError(
-            "contrat consommateur absent ou invalide : sync-args"
-        )
+        raise ManifestError("contrat consommateur absent ou invalide : sync-args")
     if (
         not isinstance(checks, list)
         or not checks
@@ -237,9 +230,7 @@ def rewrite_pin(text: str, new_tag: str) -> str:
         raise ManifestError(f"tag invalide : {new_tag!r}")
     old_data = _load(text)
     data_pins = [
-        r
-        for r in _requirements(old_data.get("project", {}))
-        if _PIN_RE.match(r)
+        r for r in _requirements(old_data.get("project", {})) if _PIN_RE.match(r)
     ]
     if len(_PIN_TEXT_RE.findall(text)) != 1 or len(data_pins) != 1:
         raise ManifestError("pin linuxtools absent ou en double")
@@ -269,7 +260,5 @@ def pinned_linuxtools_tags(text: str) -> tuple[str, ...]:
     """
     project = _load(text).get("project", {})
     return tuple(
-        m.group("tag")
-        for r in _requirements(project)
-        if (m := _PIN_RE.match(r))
+        m.group("tag") for r in _requirements(project) if (m := _PIN_RE.match(r))
     )

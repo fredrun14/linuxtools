@@ -35,9 +35,7 @@ class PathCheckerMountPoint(Validator):
         """
         mount = self._nearest_mount_point(self._path)
         if mount == Path("/"):
-            raise ValueError(
-                f"Aucun point de montage actif pour : {self._path}"
-            )
+            raise ValueError(f"Aucun point de montage actif pour : {self._path}")
 
     def _nearest_mount_point(self, path: Path) -> Path:
         """Remonte l'arborescence jusqu'au premier point de montage.

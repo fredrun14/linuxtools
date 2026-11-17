@@ -77,9 +77,7 @@ class DeployCommand(CliCommand):
             "--source",
             type=Path,
             default=None,
-            help=(
-                "Répertoire source local (auto-détecté depuis le cwd si omis)."
-            ),
+            help=("Répertoire source local (auto-détecté depuis le cwd si omis)."),
         )
         parser.add_argument(
             "--venv",
@@ -179,9 +177,7 @@ class DeployCommand(CliCommand):
         verification = VerificationSpec(
             imports=tuple(args.imports),
             subcommands=tuple(args.subcommands),
-            regression_command=(
-                tuple(args.regression) if args.regression else None
-            ),
+            regression_command=(tuple(args.regression) if args.regression else None),
         )
         try:
             config = DeployConfig(
@@ -255,9 +251,7 @@ class CheckVersionCommand(CliCommand):
             "--source",
             type=Path,
             default=None,
-            help=(
-                "Répertoire source local (auto-détecté depuis le cwd si omis)."
-            ),
+            help=("Répertoire source local (auto-détecté depuis le cwd si omis)."),
         )
         parser.add_argument(
             "--venv",

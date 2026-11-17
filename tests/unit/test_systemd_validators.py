@@ -15,17 +15,20 @@ from linuxtools.systemd.validators import (
 class TestValidateUnitName:
     """Tests pour validate_unit_name."""
 
-    @pytest.mark.parametrize("name", [
-        "backup",
-        "my-service",
-        "my_service",
-        "my.unit",
-        "sys:name",
-        "A1",
-        "backup-daily_2",
-        r"media-nas\x2dbackup",
-        r"a\x2d\x2f\x5c",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "backup",
+            "my-service",
+            "my_service",
+            "my.unit",
+            "sys:name",
+            "A1",
+            "backup-daily_2",
+            r"media-nas\x2dbackup",
+            r"a\x2d\x2f\x5c",
+        ],
+    )
     def test_noms_valides(self, name: str) -> None:
         """Vérifie l'acceptation de noms d'unités valides.
 
@@ -63,41 +66,62 @@ class TestValidateUnitName:
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name("name with spaces")
 
-    @pytest.mark.parametrize("name", [
-        "a\\",
-        "a\\n",
-        "a\\x",
-        "a\\x2",
-        "a\\xZZ",
-        "a\\x2D",
-        "a\\x2g",
-        "a\\u002d",
-        "a\\\\x2d",
-        "a\\x2d\\",
-        "a\\x2d\n",
-        "a\\x2d%n",
-        "a\\x2d/b",
-        "a\\x2d..b",
-        "\\x2da",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "a\\",
+            "a\\n",
+            "a\\x",
+            "a\\x2",
+            "a\\xZZ",
+            "a\\x2D",
+            "a\\x2g",
+            "a\\u002d",
+            "a\\\\x2d",
+            "a\\x2d\\",
+            "a\\x2d\n",
+            "a\\x2d%n",
+            "a\\x2d/b",
+            "a\\x2d..b",
+            "\\x2da",
+        ],
+    )
     def test_rejet_backslash_hors_echappement_hex(self, name: str) -> None:
         """Rejette tout backslash qui n'est pas ``\\x`` + 2 hex minuscules."""
         with pytest.raises(ValueError, match="invalide"):
             validate_unit_name(name)
 
-    @pytest.mark.parametrize("name", [
-        r"a\x20", r"a\x7e", r"a\x80", r"a\xff",
-        r"a\xc3\xa9", r"a\x8f", r"a\x9f",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            r"a\x20",
+            r"a\x7e",
+            r"a\x80",
+            r"a\xff",
+            r"a\xc3\xa9",
+            r"a\x8f",
+            r"a\x9f",
+        ],
+    )
     def test_acceptation_echappement_non_controle(self, name: str) -> None:
         """Accepte les échappements hors contrôles (``\\x20``, ``\\x7e``…)."""
         assert validate_unit_name(name) == name
 
-    @pytest.mark.parametrize("name", [
-        "a\\x00", "a\\x00b", "a\\x2d\\x00",
-        "a\\x01", "a\\x0a", "a\\x0d", "a\\x10", "a\\x1f", "a\\x7f",
-        "a\\x2d\\x1f",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "a\\x00",
+            "a\\x00b",
+            "a\\x2d\\x00",
+            "a\\x01",
+            "a\\x0a",
+            "a\\x0d",
+            "a\\x10",
+            "a\\x1f",
+            "a\\x7f",
+            "a\\x2d\\x1f",
+        ],
+    )
     def test_rejet_echappement_controle(self, name: str) -> None:
         """Rejette ``\\x00``-``\\x1f`` et ``\\x7f`` (contrôles)."""
         with pytest.raises(ValueError, match="invalide"):
@@ -112,13 +136,16 @@ class TestValidateUnitName:
 class TestValidateServiceName:
     """Tests pour validate_service_name."""
 
-    @pytest.mark.parametrize("name", [
-        "backup",
-        "my-service",
-        "my_service",
-        "A1",
-        "backup-daily_2",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "backup",
+            "my-service",
+            "my_service",
+            "A1",
+            "backup-daily_2",
+        ],
+    )
     def test_noms_valides(self, name: str) -> None:
         """Vérifie l'acceptation de noms de services valides."""
         assert validate_service_name(name) == name
@@ -199,15 +226,18 @@ class TestRejectControlChars:
 class TestValidateFullUnitName:
     """Tests pour validate_full_unit_name."""
 
-    @pytest.mark.parametrize("name", [
-        "backup.service",
-        "mon-service.timer",
-        "media-nas.mount",
-        "sshd.socket",
-        "my_unit.automount",
-        r"media-nas\x2dbackup.mount",
-        r"media-nas\x2dbackup.automount",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "backup.service",
+            "mon-service.timer",
+            "media-nas.mount",
+            "sshd.socket",
+            "my_unit.automount",
+            r"media-nas\x2dbackup.mount",
+            r"media-nas\x2dbackup.automount",
+        ],
+    )
     def test_noms_complets_valides(self, name: str) -> None:
         """Accepte les noms complets avec extension autorisée."""
         assert validate_full_unit_name(name) == name
@@ -232,12 +262,15 @@ class TestValidateFullUnitName:
         with pytest.raises(ValueError):
             validate_full_unit_name("../etc.service")
 
-    @pytest.mark.parametrize("name", [
-        "a\\x00.mount",
-        "a\\.mount",
-        "a\\n.service",
-        "a\\x2D.mount",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "a\\x00.mount",
+            "a\\.mount",
+            "a\\n.service",
+            "a\\x2D.mount",
+        ],
+    )
     def test_rejet_echappements_invalides_radical(self, name: str) -> None:
         """Rejette les radicaux avec backslash ou échappement invalide."""
         with pytest.raises(ValueError, match="invalide"):
@@ -277,11 +310,14 @@ class TestPathToUnitName:
         """Convertit un chemin sans caractère spécial."""
         assert path_to_unit_name("/media/nas/backup") == "media-nas-backup"
 
-    @pytest.mark.parametrize("chemin", [
-        "/media/a\\x2fb",
-        "/media/a\\b",
-        "/media/a\\",
-    ])
+    @pytest.mark.parametrize(
+        "chemin",
+        [
+            "/media/a\\x2fb",
+            "/media/a\\b",
+            "/media/a\\",
+        ],
+    )
     def test_rejet_backslash_dans_chemin(self, chemin: str) -> None:
         """Rejette un backslash littéral du chemin (collision systemd)."""
         with pytest.raises(ValueError, match="backslash"):

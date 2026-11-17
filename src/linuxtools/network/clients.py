@@ -11,9 +11,7 @@ from dataclasses import dataclass
 from linuxtools.network.validators import validate_mac
 
 # Clés admises d'une table [[client]] (schéma commun fermé).
-_ALLOWED_KEYS: frozenset[str] = frozenset(
-    {"mac", "name", "ip", "enabled", "note"}
-)
+_ALLOWED_KEYS: frozenset[str] = frozenset({"mac", "name", "ip", "enabled", "note"})
 
 
 @dataclass(frozen=True)
@@ -83,8 +81,7 @@ def _read_enabled(raw: dict[object, object]) -> bool:
     value = raw["enabled"]
     if not isinstance(value, bool):
         raise ValueError(
-            f"enabled doit être un booléen : {value!r}"
-            f" (client {raw.get('mac')!r})"
+            f"enabled doit être un booléen : {value!r} (client {raw.get('mac')!r})"
         )
     return value
 
@@ -106,8 +103,7 @@ def _read_note(raw: dict[object, object]) -> str | None:
     value = raw["note"]
     if not isinstance(value, str):
         raise ValueError(
-            f"note doit être une chaîne : {value!r}"
-            f" (client {raw.get('mac')!r})"
+            f"note doit être une chaîne : {value!r} (client {raw.get('mac')!r})"
         )
     return value
 

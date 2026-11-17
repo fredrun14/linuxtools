@@ -95,9 +95,7 @@ def _is_valid_chat_id(value: object) -> bool:
     Returns:
         True pour un entier non nul qui n'est pas un booléen.
     """
-    return (
-        isinstance(value, int) and not isinstance(value, bool) and value != 0
-    )
+    return isinstance(value, int) and not isinstance(value, bool) and value != 0
 
 
 def _is_valid_timeout(value: object) -> bool:
@@ -286,6 +284,4 @@ class TelegramNotifier(Notifier):
                         f"Telegram : échec pour {label} ({reason})"
                     )
         if failures:
-            raise NotificationSendError(
-                "Échec Telegram : " + ", ".join(failures)
-            )
+            raise NotificationSendError("Échec Telegram : " + ", ".join(failures))

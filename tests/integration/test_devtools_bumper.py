@@ -110,9 +110,7 @@ class _ForgejoView(LinuxCommandExecutor):
         stdin: str | None = None,
     ) -> CommandResult:
         if command[:3] == ["git", "remote", "get-url"]:
-            return CommandResult(
-                tuple(command), 0, _FORGEJO + "\n", "", True, 0.0
-            )
+            return CommandResult(tuple(command), 0, _FORGEJO + "\n", "", True, 0.0)
         return super().run(command, env, cwd, timeout, probe, stdin)
 
 
@@ -244,9 +242,7 @@ def test_montee_reelle_pousse_la_branche_sans_toucher_au_checkout(
     assert message.endswith(f"Co-Authored-By: {_CO_AUTHOR}")
     # Checkout de l'utilisateur : seule la branche chore/ est apparue.
     apres = _snapshot(env.app)
-    assert apres["branches"].split() == sorted(
-        [*avant["branches"].split(), _BRANCH]
-    )
+    assert apres["branches"].split() == sorted([*avant["branches"].split(), _BRANCH])
     for cle in ("branche", "head", "status", "pyproject", "worktrees", "main"):
         assert apres[cle] == avant[cle], cle
     # Worktree et dossier temporaire supprimés.
@@ -262,9 +258,7 @@ def test_hooks_versionnes_tournent_a_la_racine_du_worktree(
     outcome = bumper.bump(Consumer("app", env.app))
 
     assert outcome.status is Status.POUSSE, outcome.detail
-    lignes = dict(
-        ligne.split("=", 1) for ligne in env.marker.read_text().splitlines()
-    )
+    lignes = dict(ligne.split("=", 1) for ligne in env.marker.read_text().splitlines())
     # `core.hooksPath=.githooks` relatif : résolu dans le worktree, pas
     # dans le dépôt principal (hypothèse de la conception).
     assert lignes["toplevel"].endswith("/wt")
@@ -379,9 +373,7 @@ _BRANCHE_REF = f"refs/heads/{_BRANCH}:refs/heads/{_BRANCH}"
 
 
 def _rejouer(env: _Env) -> tuple[Status, str]:
-    outcome = _bumper(dry_run=False, root=env.app.parent).bump(
-        Consumer("app", env.app)
-    )
+    outcome = _bumper(dry_run=False, root=env.app.parent).bump(Consumer("app", env.app))
     return outcome.status, outcome.detail
 
 
@@ -416,9 +408,7 @@ def test_branche_distante_nom_avec_espace_cite_en_entier(
     assert "src/a b.py" in detail
 
 
-def test_branche_distante_suppression_simple_refusee(
-    env: _Env, tmp_path: Path
-) -> None:
+def test_branche_distante_suppression_simple_refusee(env: _Env, tmp_path: Path) -> None:
     def supprimer(clone: Path) -> None:
         _git(clone, "rm", "src/x.py")
 
@@ -452,9 +442,7 @@ def test_commit_avec_fichier_a_espace_inattendu_cite_en_entier(
     _git(clone, "config", "user.name", "Test")
     _git(clone, "config", "user.email", "test@example.com")
     hook = clone / ".githooks" / "pre-commit"
-    hook.write_text(
-        '#!/usr/bin/env bash\necho x > "a b.txt"\ngit add -- "a b.txt"\n'
-    )
+    hook.write_text('#!/usr/bin/env bash\necho x > "a b.txt"\ngit add -- "a b.txt"\n')
     _git(clone, "commit", "-am", "hook")
     _git(clone, "push", "origin", "main")
     _git(env.app, "fetch", "origin")
@@ -478,16 +466,11 @@ def test_nettoyage_n_elague_pas_le_worktree_absent_de_l_utilisateur(
     stub = env.uv_log.parent / "bin" / "uv"
     stub.write_text(stub.read_text().replace("exit 0", "exit 1", 1))
 
-    outcome = _bumper(dry_run=False, root=env.app.parent).bump(
-        Consumer("app", env.app)
-    )
+    outcome = _bumper(dry_run=False, root=env.app.parent).bump(Consumer("app", env.app))
 
     assert outcome.status is Status.ECHEC
     assert str(ailleurs) in _git(env.app, "worktree", "list", "--porcelain")
-    assert (
-        _BRANCH
-        not in _git(env.app, "branch", "--format=%(refname:short)").split()
-    )
+    assert _BRANCH not in _git(env.app, "branch", "--format=%(refname:short)").split()
 
 
 # --- T36/F27 : la sonde du tag ignore la config git du cwd ---------------

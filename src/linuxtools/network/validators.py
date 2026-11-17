@@ -90,9 +90,7 @@ def validate_hostname(hostname: str) -> str:
     if not hostname:
         raise ValueError("Le nom d'hote ne peut pas etre vide")
     if len(hostname) > 63:
-        raise ValueError(
-            f"Nom d'hote trop long ({len(hostname)} > 63) : {hostname!r}"
-        )
+        raise ValueError(f"Nom d'hote trop long ({len(hostname)} > 63) : {hostname!r}")
     pattern = r"[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
     if not re.fullmatch(pattern, hostname):
         raise ValueError(f"Nom d'hote invalide : {hostname!r}")

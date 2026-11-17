@@ -37,9 +37,7 @@ def test_tag_tuple_tag_valide() -> None:
     assert _tag_tuple("v2.11.1") == (2, 11, 1)
 
 
-@pytest.mark.parametrize(
-    "tag", ["2.11.1", "v2.11", "v2.11.1-rc1", "v2.11.1\n", ""]
-)
+@pytest.mark.parametrize("tag", ["2.11.1", "v2.11", "v2.11.1-rc1", "v2.11.1\n", ""])
 def test_tag_tuple_formes_refusees(tag: str) -> None:
     """Toute forme autre que `vX.Y.Z` strict donne None."""
     assert _tag_tuple(tag) is None

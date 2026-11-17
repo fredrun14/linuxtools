@@ -18,6 +18,7 @@ _TSchema = TypeVar("_TSchema")
 
 class SampleConfig(BaseModel):
     """Modele Pydantic de test."""
+
     name: str
     count: int
 
@@ -26,6 +27,7 @@ class SampleConfig(BaseModel):
 
 class NestedConfig(BaseModel):
     """Modele avec validation personnalisee."""
+
     path: str
 
     @field_validator("path")
@@ -38,6 +40,7 @@ class NestedConfig(BaseModel):
 
 class SectionedConfig(BaseModel):
     """Modele avec sous-sections."""
+
     paths: NestedConfig
     app: SampleConfig
 
@@ -50,9 +53,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
 
     def _write_json(self, data: dict[str, object]) -> str:
         """Ecrit un fichier JSON temporaire et retourne le chemin."""
-        f = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         json.dump(data, f)
         f.close()
         return f.name
@@ -75,6 +76,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
     def test_load_with_invalid_data_raises(self) -> None:
         """Donnees invalides levent pydantic.ValidationError."""
         from pydantic import ValidationError
+
         path = self._write_json({"name": "test", "count": "pas_un_int"})
         with self.assertRaises(ValidationError):
             self.loader.load(path, schema=SampleConfig)
@@ -82,25 +84,22 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
     def test_load_with_extra_fields_raises(self) -> None:
         """Champs inconnus avec extra=forbid levent une erreur."""
         from pydantic import ValidationError
-        path = self._write_json(
-            {"name": "test", "count": 1, "extra": "interdit"}
-        )
+
+        path = self._write_json({"name": "test", "count": 1, "extra": "interdit"})
         with self.assertRaises(ValidationError):
             self.loader.load(path, schema=SampleConfig)
 
     def test_load_with_missing_fields_raises(self) -> None:
         """Champs requis manquants levent une erreur."""
         from pydantic import ValidationError
+
         path = self._write_json({"name": "test"})
         with self.assertRaises(ValidationError):
             self.loader.load(path, schema=SampleConfig)
 
     def test_load_with_nested_model(self) -> None:
         """Modele imbrique fonctionne correctement."""
-        data = {
-            "paths": {"path": "/usr/bin"},
-            "app": {"name": "test", "count": 1}
-        }
+        data = {"paths": {"path": "/usr/bin"}, "app": {"name": "test", "count": 1}}
         path = self._write_json(data)
         result = self.loader.load(path, schema=SectionedConfig)
         assert isinstance(result, SectionedConfig)
@@ -109,6 +108,7 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
     def test_load_with_field_validator(self) -> None:
         """Les field_validators Pydantic sont executes."""
         from pydantic import ValidationError
+
         path = self._write_json({"path": "relatif/pas/absolu"})
         with self.assertRaises(ValidationError):
             self.loader.load(path, schema=NestedConfig)
@@ -143,9 +143,7 @@ class TestFileConfigLoaderWithoutPydantic(unittest.TestCase):
         self.loader = FileConfigLoader()
 
     def _write_json(self, data: dict[str, object]) -> str:
-        f = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         json.dump(data, f)
         f.close()
         return f.name
@@ -171,9 +169,8 @@ class TestConfigurationManagerValidate(unittest.TestCase):
     def test_validate_retourne_instance_modele(self) -> None:
         """validate() retourne une instance du modèle Pydantic."""
         from linuxtools.config import ConfigurationManager
-        cfg = ConfigurationManager(
-            default_config={"name": "test", "count": 42}
-        )
+
+        cfg = ConfigurationManager(default_config={"name": "test", "count": 42})
         result = cfg.validate(SampleConfig)
         self.assertIsInstance(result, SampleConfig)
         self.assertEqual(result.name, "test")
@@ -183,6 +180,7 @@ class TestConfigurationManagerValidate(unittest.TestCase):
         """Config invalide lève pydantic.ValidationError."""
         from pydantic import ValidationError
         from linuxtools.config import ConfigurationManager
+
         cfg = ConfigurationManager(
             default_config={"name": "test", "count": "pas_un_int"}
         )
@@ -192,9 +190,8 @@ class TestConfigurationManagerValidate(unittest.TestCase):
     def test_validate_schema_non_basemodel_leve_type_error(self) -> None:
         """Schema non-BaseModel lève TypeError."""
         from linuxtools.config import ConfigurationManager
-        cfg = ConfigurationManager(
-            default_config={"name": "test"}
-        )
+
+        cfg = ConfigurationManager(default_config={"name": "test"})
         with self.assertRaises(TypeError):
             cfg.validate(dict)
 
@@ -236,9 +233,8 @@ class TestConfigurationManagerValidateDelegation(unittest.TestCase):
     def test_validate_delegue_au_loader_injecte(self) -> None:
         """validate() retourne le résultat du loader injecté."""
         from linuxtools.config import ConfigurationManager
-        cfg = ConfigurationManager(
-            default_config={"a": 1}, config_loader=_StubLoader()
-        )
+
+        cfg = ConfigurationManager(default_config={"a": 1}, config_loader=_StubLoader())
 
         result = cfg.validate(SampleConfig)
 

@@ -53,9 +53,7 @@ class SystemdExecutor:
         """
         return self._executor.run(["systemctl", *args])
 
-    def run_raw(
-        self, command: list[str], stdin: str | None = None
-    ) -> CommandResult:
+    def run_raw(self, command: list[str], stdin: str | None = None) -> CommandResult:
         """Exécute une commande arbitraire via l'executor injecté.
 
         Passe-plat utilisé par UnitManager (systemd/base.py) pour
@@ -82,8 +80,7 @@ class SystemdExecutor:
         result = self._run_systemctl(["daemon-reload"])
         if not result.success:
             self.logger.log_error(
-                f"Erreur lors du rechargement de systemd{self._label}: "
-                f"{result.stderr}"
+                f"Erreur lors du rechargement de systemd{self._label}: {result.stderr}"
             )
             return False
         self.logger.log_info(f"Systemd{self._label} rechargé avec succès.")
@@ -108,8 +105,7 @@ class SystemdExecutor:
         result = self._run_systemctl(args)
         if not result.success:
             self.logger.log_error(
-                f"Erreur lors de l'activation de l'unité {unit_name}: "
-                f"{result.stderr}"
+                f"Erreur lors de l'activation de l'unité {unit_name}: {result.stderr}"
             )
             return False
         msg = f"Unité {unit_name} activée"
@@ -148,8 +144,7 @@ class SystemdExecutor:
                 )
                 return True
             self.logger.log_error(
-                f"Erreur lors de la désactivation de {unit_name}: "
-                f"{result.stderr}"
+                f"Erreur lors de la désactivation de {unit_name}: {result.stderr}"
             )
             return False
         self.logger.log_info(f"Unité {unit_name} désactivée et arrêtée.")
@@ -310,9 +305,7 @@ class SystemdExecutor:
             RuntimeError: Si l'exécution de systemctl échoue pour
                 une raison autre que l'absence de support JSON.
         """
-        result = self._run_systemctl(
-            ["list-units", "--no-pager", "--output=json"]
-        )
+        result = self._run_systemctl(["list-units", "--no-pager", "--output=json"])
 
         if result.return_code != 0:
             if (
@@ -320,9 +313,7 @@ class SystemdExecutor:
                 or "invalid option" in result.stderr.lower()
             ):
                 return self._list_units_text_fallback()
-            raise RuntimeError(
-                f"Erreur systemctl list-units : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-units : {result.stderr}")
 
         try:
             data = json.loads(result.stdout)
@@ -356,9 +347,7 @@ class SystemdExecutor:
         )
 
         if result.return_code != 0:
-            raise RuntimeError(
-                f"Erreur systemctl list-units : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-units : {result.stderr}")
 
         units = []
         for line in result.stdout.strip().split("\n"):
@@ -419,9 +408,7 @@ class SystemdExecutor:
                 or "invalid option" in result.stderr.lower()
             ):
                 return self._list_unit_files_text_fallback(unit_type, state)
-            raise RuntimeError(
-                f"Erreur systemctl list-unit-files : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-unit-files : {result.stderr}")
 
         try:
             data = json.loads(result.stdout)
@@ -465,9 +452,7 @@ class SystemdExecutor:
         result = self._run_systemctl(args)
 
         if result.return_code != 0:
-            raise RuntimeError(
-                f"Erreur systemctl list-unit-files : {result.stderr}"
-            )
+            raise RuntimeError(f"Erreur systemctl list-unit-files : {result.stderr}")
 
         files = []
         for line in result.stdout.strip().split("\n"):

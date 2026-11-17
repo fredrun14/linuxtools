@@ -37,9 +37,7 @@ class Status(Enum):
     PUSH_ECHOUE = "PUSH ÉCHOUÉ"
 
 
-_FAILURES = frozenset(
-    {Status.REFUSE, Status.BLOQUE, Status.ECHEC, Status.PUSH_ECHOUE}
-)
+_FAILURES = frozenset({Status.REFUSE, Status.BLOQUE, Status.ECHEC, Status.PUSH_ECHOUE})
 # Statuts dont le détail est rendu : échecs, plan simulé, et attente
 # (le détail dit si la branche distante a été vérifiée ou non).
 _DETAILED = _FAILURES | {Status.SIMULE, Status.EN_ATTENTE}
@@ -107,9 +105,7 @@ def format_report(outcomes: Sequence[BumpOutcome]) -> str:
         lines.extend(["", "Détails"])
         for outcome in shown:
             lines.append(f"* {outcome.project} ({outcome.status.value})")
-            lines.extend(
-                f"    {ln}" for ln in _truncate(mask_userinfo(outcome.detail))
-            )
+            lines.extend(f"    {ln}" for ln in _truncate(mask_userinfo(outcome.detail)))
     return "\n".join(lines)
 
 

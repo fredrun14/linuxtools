@@ -31,9 +31,7 @@ class DhcpRange:
         start_parts = [int(o) for o in self.start.split(".")]
         end_parts = [int(o) for o in self.end.split(".")]
         if start_parts > end_parts:
-            raise ValueError(
-                f"Plage DHCP inversee : {self.start} > {self.end}"
-            )
+            raise ValueError(f"Plage DHCP inversee : {self.start} > {self.end}")
 
 
 @dataclass(frozen=True)
@@ -81,6 +79,4 @@ class NetworkConfig:
         """
         validate_cidr(self.cidr)
         if self.scan_bandwidth <= 0:
-            raise ValueError(
-                f"scan_bandwidth invalide : {self.scan_bandwidth}"
-            )
+            raise ValueError(f"scan_bandwidth invalide : {self.scan_bandwidth}")

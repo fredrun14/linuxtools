@@ -172,9 +172,7 @@ class DnsManager(ABC):
     """Interface pour la gestion DNS locale."""
 
     @abstractmethod
-    def generate_dns_names(
-        self, devices: list[NetworkDevice]
-    ) -> list[NetworkDevice]:
+    def generate_dns_names(self, devices: list[NetworkDevice]) -> list[NetworkDevice]:
         """Genere les noms DNS pour les peripheriques.
 
         Args:

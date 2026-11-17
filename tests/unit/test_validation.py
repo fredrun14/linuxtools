@@ -65,22 +65,17 @@ class TestPathCheckerPermission:
         """Vérifie PermissionError si l'écriture est impossible."""
         checker = PathCheckerPermission([str(tmp_path / "file.log")])
         with patch(
-            "linuxtools.validation.path_checker_permission"
-            ".os.access",
+            "linuxtools.validation.path_checker_permission.os.access",
             return_value=False,
         ):
-            with pytest.raises(
-                PermissionError, match="Permissions insuffisantes"
-            ):
+            with pytest.raises(PermissionError, match="Permissions insuffisantes"):
                 checker.validate()
 
 
 class TestPathCheckerWorldWritable:
     """Tests pour PathCheckerWorldWritable."""
 
-    def test_fichier_non_world_writable_valide(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fichier_non_world_writable_valide(self, tmp_path: Path) -> None:
         """validate() ne lève pas d'exception si non world-writable."""
         f = tmp_path / "secure.conf"
         f.write_text("config")
@@ -88,9 +83,7 @@ class TestPathCheckerWorldWritable:
         checker = PathCheckerWorldWritable(str(f))
         checker.validate()  # Ne doit pas lever d'exception
 
-    def test_fichier_world_writable_leve_permission_error(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fichier_world_writable_leve_permission_error(self, tmp_path: Path) -> None:
         """validate() lève PermissionError si le fichier est world-writable."""
         f = tmp_path / "dangereux.conf"
         f.write_text("config")
@@ -99,19 +92,13 @@ class TestPathCheckerWorldWritable:
         with pytest.raises(PermissionError, match="world-writable"):
             checker.validate()
 
-    def test_fichier_inexistant_leve_file_not_found(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fichier_inexistant_leve_file_not_found(self, tmp_path: Path) -> None:
         """validate() lève FileNotFoundError si le fichier n'existe pas."""
-        checker = PathCheckerWorldWritable(
-            str(tmp_path / "inexistant.conf")
-        )
+        checker = PathCheckerWorldWritable(str(tmp_path / "inexistant.conf"))
         with pytest.raises(FileNotFoundError, match="introuvable"):
             checker.validate()
 
-    def test_world_writable_ne_suit_pas_symlink(
-        self, tmp_path: Path
-    ) -> None:
+    def test_world_writable_ne_suit_pas_symlink(self, tmp_path: Path) -> None:
         """lstat() ne suit pas les liens symboliques (TOCTOU-safe).
 
         Un lien symbolique a les bits 0o777 sur Linux, donc il est

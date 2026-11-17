@@ -37,9 +37,7 @@ class TestCheckForUpdate:
         )
         client = _make_client()
 
-        result = check_for_update(
-            "mon-outil", "fred", "mon-outil", client
-        )
+        result = check_for_update("mon-outil", "fred", "mon-outil", client)
 
         assert result.checked is False
         assert result.update_available is False
@@ -77,9 +75,7 @@ class TestCheckForUpdate:
         client = _make_client()
         client.get_latest_release.return_value = None
 
-        result = check_for_update(
-            "mon-outil", "fred", "mon-outil", client
-        )
+        result = check_for_update("mon-outil", "fred", "mon-outil", client)
 
         assert result.checked is False
         assert result.update_available is False
@@ -96,9 +92,7 @@ class TestCheckForUpdate:
         client = _make_client()
         client.get_latest_release.return_value = {"tag_name": "latest"}
 
-        result = check_for_update(
-            "mon-outil", "fred", "mon-outil", client
-        )
+        result = check_for_update("mon-outil", "fred", "mon-outil", client)
 
         assert result.checked is False
         assert result.update_available is False
@@ -137,9 +131,7 @@ class TestCheckForUpdate:
         client = _make_client()
         client.get_latest_release.return_value = {"tag_name": "v1.2.0"}
 
-        result = check_for_update(
-            "mon-outil", "fred", "mon-outil", client
-        )
+        result = check_for_update("mon-outil", "fred", "mon-outil", client)
 
         assert result.checked is True
         assert result.update_available is False

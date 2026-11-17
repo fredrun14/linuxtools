@@ -52,9 +52,7 @@ def purge_old_logs(
     """
     # Validation avant tout accès disque
     if not pattern or "/" in pattern or "\\" in pattern:
-        raise ValueError(
-            "Motif invalide : non vide et sans séparateur de chemin"
-        )
+        raise ValueError("Motif invalide : non vide et sans séparateur de chemin")
     if max_age_days < 1:
         raise ValueError("max_age_days doit être supérieur ou égal à 1")
 
@@ -73,9 +71,7 @@ def purge_old_logs(
         except OSError:
             # Listage impossible : rien n'a été traité
             return []
-        return _purge_names(
-            fd, log_dir, names, pattern, max_age_days, keep, dry_run
-        )
+        return _purge_names(fd, log_dir, names, pattern, max_age_days, keep, dry_run)
     finally:
         os.close(fd)
 

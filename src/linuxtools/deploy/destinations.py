@@ -189,9 +189,7 @@ class RemoteDestination:
             )
         return WriteOutcome(True)
 
-    def _write_exclusive(
-        self, dest: str, content: str, mode: int
-    ) -> WriteOutcome:
+    def _write_exclusive(self, dest: str, content: str, mode: int) -> WriteOutcome:
         """Crée `dest` seulement s'il n'existe pas (sonde, tmp, ``ln``).
 
         Étapes : sonde d'existence (code 0 = présent -> ``kept``, sauf
@@ -220,8 +218,7 @@ class RemoteDestination:
         if probe.return_code != 1:
             return WriteOutcome(
                 False,
-                f"Sonde d'existence ambiguë pour {dest} : "
-                f"code {probe.return_code}",
+                f"Sonde d'existence ambiguë pour {dest} : code {probe.return_code}",
             )
         parent = str(PurePosixPath(dest).parent)
         mkdir_result = self.executor.run(["mkdir", "-p", "--", parent])
@@ -241,9 +238,7 @@ class RemoteDestination:
                     False,
                     f"Échec du dépôt distant de {tmp} : {write_result.stderr}",
                 )
-            link_result = self.executor.run(
-                build_remote_link_command(tmp, dest)
-            )
+            link_result = self.executor.run(build_remote_link_command(tmp, dest))
             if not link_result.success:
                 return WriteOutcome(
                     False,

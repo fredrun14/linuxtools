@@ -41,9 +41,7 @@ def _result(
     """
     return CommandResult(
         command=(),
-        return_code=(
-            return_code if return_code is not None else (0 if success else 1)
-        ),
+        return_code=(return_code if return_code is not None else (0 if success else 1)),
         stdout=stdout,
         stderr=stderr,
         success=success,
@@ -109,14 +107,9 @@ class TestBashScriptConfig:
     def test_creation_with_notification(self) -> None:
         """Vérifie la création avec notification."""
         notif = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
+            title="Test", message_success="OK", message_failure="KO"
         )
-        config = BashScriptConfig(
-            exec_command="ls -la",
-            notification=notif
-        )
+        config = BashScriptConfig(exec_command="ls -la", notification=notif)
         assert config.exec_command == "ls -la"
         assert config.notification is notif
 
@@ -159,28 +152,18 @@ class TestBashScriptConfigToBashScript:
     def test_script_with_notification_contains_function(self) -> None:
         """Vérifie la présence de send_notification avec notification."""
         notif = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
+            title="Test", message_success="OK", message_failure="KO"
         )
-        config = BashScriptConfig(
-            exec_command="echo test",
-            notification=notif
-        )
+        config = BashScriptConfig(exec_command="echo test", notification=notif)
         result = config.to_bash_script()
         assert "send_notification()" in result
 
     def test_script_with_notification_captures_exit_code(self) -> None:
         """Vérifie la capture du code de retour."""
         notif = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
+            title="Test", message_success="OK", message_failure="KO"
         )
-        config = BashScriptConfig(
-            exec_command="echo test",
-            notification=notif
-        )
+        config = BashScriptConfig(exec_command="echo test", notification=notif)
         result = config.to_bash_script()
         assert "exit_code=$?" in result
         assert "exit $exit_code" in result
@@ -188,14 +171,9 @@ class TestBashScriptConfigToBashScript:
     def test_script_with_notification_has_conditional(self) -> None:
         """Vérifie la présence de la condition if/else."""
         notif = NotificationConfig(
-            title="Test",
-            message_success="OK",
-            message_failure="KO"
+            title="Test", message_success="OK", message_failure="KO"
         )
-        config = BashScriptConfig(
-            exec_command="echo test",
-            notification=notif
-        )
+        config = BashScriptConfig(exec_command="echo test", notification=notif)
         result = config.to_bash_script()
         assert "if [ $exit_code -eq 0 ]" in result
         assert "else" in result
@@ -208,11 +186,10 @@ class TestBashScriptConfigToBashScript:
             message_success="Mise à jour réussie",
             message_failure="Échec de la mise à jour",
             icon_success="emblem-ok",
-            icon_failure="emblem-error"
+            icon_failure="emblem-error",
         )
         config = BashScriptConfig(
-            exec_command="/usr/bin/flatpak update -y",
-            notification=notif
+            exec_command="/usr/bin/flatpak update -y", notification=notif
         )
         result = config.to_bash_script()
         assert "Flatpak Update" in result
@@ -229,10 +206,7 @@ class TestBashScriptInstaller:
         """Initialise les mocks pour chaque test."""
         self.mock_logger = MagicMock()
         self.mock_file_manager = MagicMock()
-        self.installer = BashScriptInstaller(
-            self.mock_logger,
-            self.mock_file_manager
-        )
+        self.installer = BashScriptInstaller(self.mock_logger, self.mock_file_manager)
         self.config = BashScriptConfig(exec_command="echo 'test'")
 
     def test_install_creates_file_when_not_exists(self) -> None:
@@ -240,8 +214,7 @@ class TestBashScriptInstaller:
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
 
-        with patch("os.open", return_value=3), \
-                patch("os.fchmod"), patch("os.close"):
+        with patch("os.open", return_value=3), patch("os.fchmod"), patch("os.close"):
             result = self.installer.install("/tmp/test.sh", self.config)
 
         assert result is True
@@ -272,9 +245,11 @@ class TestBashScriptInstaller:
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
 
-        with patch("os.open", return_value=3) as mock_os_open, \
-                patch("os.fchmod") as mock_fchmod, \
-                patch("os.close"):
+        with (
+            patch("os.open", return_value=3) as mock_os_open,
+            patch("os.fchmod") as mock_fchmod,
+            patch("os.close"),
+        ):
             self.installer.install("/tmp/test.sh", self.config)
             mock_os_open.assert_called_once_with(
                 "/tmp/test.sh", os.O_RDONLY | os.O_NOFOLLOW, 0
@@ -297,8 +272,7 @@ class TestBashScriptInstaller:
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
 
-        with patch("os.open", return_value=3), \
-                patch("os.fchmod"), patch("os.close"):
+        with patch("os.open", return_value=3), patch("os.fchmod"), patch("os.close"):
             self.installer.install("/tmp/test.sh", self.config)
 
         call_args = self.mock_file_manager.create_file.call_args
@@ -313,23 +287,21 @@ class TestBashScriptInstaller:
         result = self.installer.exists("/tmp/test.sh")
 
         assert result is True
-        self.mock_file_manager.file_exists.assert_called_once_with(
-            "/tmp/test.sh"
-        )
+        self.mock_file_manager.file_exists.assert_called_once_with("/tmp/test.sh")
 
     def test_custom_default_mode(self) -> None:
         """Vérifie l'utilisation d'un mode personnalisé."""
         installer = BashScriptInstaller(
-            self.mock_logger,
-            self.mock_file_manager,
-            default_mode=0o700
+            self.mock_logger, self.mock_file_manager, default_mode=0o700
         )
         self.mock_file_manager.file_exists.return_value = False
         self.mock_file_manager.create_file.return_value = True
 
-        with patch("os.open", return_value=3), \
-                patch("os.fchmod") as mock_fchmod, \
-                patch("os.close"):
+        with (
+            patch("os.open", return_value=3),
+            patch("os.fchmod") as mock_fchmod,
+            patch("os.close"),
+        ):
             installer.install("/tmp/test.sh", self.config)
             mock_fchmod.assert_called_once_with(3, 0o700)
 
@@ -341,10 +313,7 @@ class TestSetExecutableFdSafe:
         """Initialise les mocks avant chaque test."""
         self.mock_logger = MagicMock()
         self.mock_file_manager = MagicMock()
-        self.installer = BashScriptInstaller(
-            self.mock_logger,
-            self.mock_file_manager
-        )
+        self.installer = BashScriptInstaller(self.mock_logger, self.mock_file_manager)
 
     def test_set_executable_refuse_les_symlinks(self, tmp_path: Path) -> None:
         """_set_executable() retourne False et logue si le chemin est un symlink."""
@@ -372,6 +341,7 @@ class TestSetExecutableFdSafe:
 # ---------------------------------------------------------------------------
 # PythonCliConfig
 # ---------------------------------------------------------------------------
+
 
 class TestPythonCliConfig:
     """Tests pour la dataclass PythonCliConfig."""
@@ -461,6 +431,7 @@ class TestPythonCliConfig:
 # InstallReport
 # ---------------------------------------------------------------------------
 
+
 class TestInstallReport:
     """Tests pour la dataclass InstallReport."""
 
@@ -540,6 +511,7 @@ class TestInstallReport:
 # ---------------------------------------------------------------------------
 # ScriptPaths
 # ---------------------------------------------------------------------------
+
 
 class TestScriptPaths:
     """Tests pour ScriptPaths (chemins FHS via platformdirs)."""
@@ -622,6 +594,7 @@ class TestScriptPaths:
 # LinuxScriptChecker
 # ---------------------------------------------------------------------------
 
+
 class TestLinuxScriptCheckerPython:
     """Tests pour LinuxScriptChecker.check_python()."""
 
@@ -693,18 +666,14 @@ class TestLinuxScriptCheckerScript:
     def test_returns_false_when_not_found(self, tmp_path: Path) -> None:
         """Vérifie False si le script n'existe pas."""
         self.executor.probe.return_value = _result(success=False)
-        assert self.checker.check_script_syntax(
-            tmp_path / "missing.py"
-        ) is False
+        assert self.checker.check_script_syntax(tmp_path / "missing.py") is False
         self.logger.log_error.assert_called()
 
     def test_returns_false_when_syntax_error(self, tmp_path: Path) -> None:
         """Vérifie False si py_compile détecte une erreur."""
         script = tmp_path / "bad.py"
         self.executor.probe.return_value = _result(success=True)
-        self.executor.run.return_value = _result(
-            success=False, stderr="SyntaxError"
-        )
+        self.executor.run.return_value = _result(success=False, stderr="SyntaxError")
         assert self.checker.check_script_syntax(script) is False
         self.logger.log_error.assert_called()
 
@@ -782,7 +751,7 @@ class TestLinuxScriptCheckerPyproject:
     def test_raises_value_error_missing_project_section(self, tmp_path: Path) -> None:
         """Vérifie ValueError si [project] est absent."""
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_bytes(b'[build-system]\nrequires = []\n')
+        pyproject.write_bytes(b"[build-system]\nrequires = []\n")
         with pytest.raises(ValueError, match="Section \\[project\\]"):
             self.checker.read_pyproject(pyproject)
 
@@ -790,8 +759,7 @@ class TestLinuxScriptCheckerPyproject:
         """Vérifie la présence de la clé scripts dans le retour."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
-            b'[project]\nname = "app"\n'
-            b'[project.scripts]\napp = "app.main:main"\n'
+            b'[project]\nname = "app"\n[project.scripts]\napp = "app.main:main"\n'
         )
         data = self.checker.read_pyproject(pyproject)
         assert data["scripts"] == {"app": "app.main:main"}
@@ -849,9 +817,7 @@ class TestLinuxScriptCheckerDeps:
         assert total == 1
         assert cmd == f"uv tool install --editable '{tmp_path}'"
 
-    def test_venv_fourni_install_cmd_pip_editable(
-        self, tmp_path: Path
-    ) -> None:
+    def test_venv_fourni_install_cmd_pip_editable(self, tmp_path: Path) -> None:
         """Mode venv : install_cmd = `<venv>/bin/pip install -e '<dir>'`."""
         pyproject = self._make_pyproject(tmp_path, ["click>=8.0"])
         self.executor.probe.return_value = _result(success=True)
@@ -859,9 +825,7 @@ class TestLinuxScriptCheckerDeps:
         _, _, _, cmd = self.checker.check_dependencies(pyproject, venv, [])
         assert cmd == f"{venv}/bin/pip install -e '{tmp_path}'"
 
-    def test_checker_venv_cible_utilise_pip_du_venv(
-        self, tmp_path: Path
-    ) -> None:
+    def test_checker_venv_cible_utilise_pip_du_venv(self, tmp_path: Path) -> None:
         """check_dependencies interroge le pip du venv cible fourni."""
         pyproject = self._make_pyproject(tmp_path, ["requests>=2.0"])
         self.executor.probe.return_value = _result(
@@ -877,7 +841,7 @@ class TestLinuxScriptCheckerDeps:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_bytes(
             b'[project]\nname = "app"\ndependencies = []\n'
-            b'[project.optional-dependencies]\n'
+            b"[project.optional-dependencies]\n"
             b'dev = ["pytest>=7.0"]\n'
         )
         self.executor.probe.return_value = _result(success=True)
@@ -890,6 +854,7 @@ class TestLinuxScriptCheckerDeps:
 # ---------------------------------------------------------------------------
 # LinuxCliInstaller
 # ---------------------------------------------------------------------------
+
 
 class TestLinuxCliInstaller:
     """Tests pour LinuxCliInstaller.install()."""
@@ -920,9 +885,7 @@ class TestLinuxCliInstaller:
         """Vérifie InstallReport(success=False) si python3 absent."""
         self.checker.check_python.return_value = False
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
@@ -934,9 +897,7 @@ class TestLinuxCliInstaller:
             "pyproject.toml introuvable"
         )
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
@@ -945,26 +906,23 @@ class TestLinuxCliInstaller:
         """Vérifie InstallReport(success=False) si uv échoue."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
-            self.executor.run.return_value = _result(
-                success=False, stderr="uv error"
-            )
+            self.executor.run.return_value = _result(success=False, stderr="uv error")
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
 
-    def _install_ok(
-        self, tmp_path: Path, config: PythonCliConfig
-    ) -> InstallReport:
+    def _install_ok(self, tmp_path: Path, config: PythonCliConfig) -> InstallReport:
         """Lance install() avec des mocks de succès et retourne le rapport."""
         self.checker.check_python.return_value = True
         self.checker.check_venv.return_value = True
@@ -1041,17 +999,19 @@ class TestLinuxCliInstaller:
         """Vérifie qu'aucun wrapper n'est généré si [project.scripts] existe."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch.object(
-            self.installer, "_write_wrapper"
-        ) as mock_write:
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch.object(self.installer, "_write_wrapper") as mock_write,
+        ):
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1062,26 +1022,26 @@ class TestLinuxCliInstaller:
         """Vérifie que le wrapper est généré si [project.scripts] absent."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch.object(
-            self.installer, "_write_wrapper"
-        ) as mock_write:
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch.object(self.installer, "_write_wrapper") as mock_write,
+        ):
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
             self.installer.install(config, confirm_wrapper=False)
         mock_write.assert_called_once()
 
-    def _run_system_install_cmd(
-        self, tmp_path: Path, target_uid: str
-    ) -> list[str]:
+    def _run_system_install_cmd(self, tmp_path: Path, target_uid: str) -> list[str]:
         """Lance un install system mocké et retourne la commande uv.
 
         Args:
@@ -1093,21 +1053,18 @@ class TestLinuxCliInstaller:
         """
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
-        config = PythonCliConfig(
-            name="app", deploy_type="system", source_dir=tmp_path
-        )
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        config = PythonCliConfig(name="app", deploy_type="system", source_dir=tmp_path)
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
-            self.executor.probe.side_effect = _probe_dispatch(
-                uid=target_uid
-            )
+            self.executor.probe.side_effect = _probe_dispatch(uid=target_uid)
             self.executor.run.return_value = _result(success=True)
             self.installer.install(config, confirm_wrapper=False)
             return list(self.executor.run.call_args[0][0])
@@ -1127,18 +1084,22 @@ class TestLinuxCliInstaller:
         """Vérifie que les deps manquantes sont dans le rapport."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": ["requests>=2.0"],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": ["requests>=2.0"],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         missing_dep = MissingDependency("requests", ">=2.0")
         self.checker.check_dependencies.return_value = (
-            [missing_dep], [], 1, "pip3 install -e '/app'"
+            [missing_dep],
+            [],
+            1,
+            "pip3 install -e '/app'",
         )
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1148,9 +1109,7 @@ class TestLinuxCliInstaller:
 
     def test_find_uv_prefere_le_path(self) -> None:
         """_find_uv retourne le résultat de ``command -v uv`` en priorité."""
-        self.executor.probe.side_effect = _probe_dispatch(
-            uv_found="/usr/bin/uv"
-        )
+        self.executor.probe.side_effect = _probe_dispatch(uv_found="/usr/bin/uv")
         assert self.installer._find_uv() == "/usr/bin/uv"
 
     def test_find_uv_repli_local_bin(self) -> None:
@@ -1296,9 +1255,7 @@ class TestLinuxCliInstallerWrapper:
         assert calls[2][1]["stdin"] == "#!/bin/bash\n"
         assert calls[3][0][0] == ["chmod", "0755", tmp_file]
         assert calls[4][0][0] == ["mv", tmp_file, str(target)]
-        self.executor.probe.assert_called_once_with(
-            ["test", "-L", str(target)]
-        )
+        self.executor.probe.assert_called_once_with(["test", "-L", str(target)])
         self.logger.log_info.assert_called()
 
     def test_wrapper_refuse_symlink(self, tmp_path: Path) -> None:
@@ -1343,9 +1300,7 @@ class TestLinuxCliInstallerWrapper:
         ]
         with pytest.raises(OSError, match="écriture"):
             self.installer._write_wrapper("content", target)
-        assert self.executor.run.call_args_list[-1][0][0] == [
-            "rm", "-f", tmp_file
-        ]
+        assert self.executor.run.call_args_list[-1][0][0] == ["rm", "-f", tmp_file]
 
     def test_write_wrapper_chmod_echoue_nettoie(self, tmp_path: Path) -> None:
         """_write_wrapper lève OSError et nettoie si chmod échoue."""
@@ -1360,9 +1315,7 @@ class TestLinuxCliInstallerWrapper:
         ]
         with pytest.raises(OSError, match="chmod"):
             self.installer._write_wrapper("content", target)
-        assert self.executor.run.call_args_list[-1][0][0] == [
-            "rm", "-f", tmp_file
-        ]
+        assert self.executor.run.call_args_list[-1][0][0] == ["rm", "-f", tmp_file]
 
     def test_write_wrapper_mv_echoue_nettoie(self, tmp_path: Path) -> None:
         """_write_wrapper lève OSError et nettoie si mv échoue."""
@@ -1379,9 +1332,7 @@ class TestLinuxCliInstallerWrapper:
         self.executor.probe.return_value = _result(success=False)  # test -L
         with pytest.raises(OSError, match="déplacement"):
             self.installer._write_wrapper("content", target)
-        assert self.executor.run.call_args_list[-1][0][0] == [
-            "rm", "-f", tmp_file
-        ]
+        assert self.executor.run.call_args_list[-1][0][0] == ["rm", "-f", tmp_file]
 
     def test_write_wrapper_integration_reel(self, tmp_path: Path) -> None:
         """Non-régression : écrit un fichier réel, exécutable 0755."""
@@ -1418,9 +1369,7 @@ class TestLinuxCliInstallerWrapper:
             installer._write_wrapper("#!/bin/bash\n", symlink)
         assert real_file.read_text() == "#!/bin/bash\n"
 
-    def test_write_wrapper_oserror_retourne_rapport_echec(
-        self, tmp_path: Path
-    ) -> None:
+    def test_write_wrapper_oserror_retourne_rapport_echec(self, tmp_path: Path) -> None:
         """install() retourne InstallReport(success=False) si wrapper échoue."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
@@ -1432,33 +1381,25 @@ class TestLinuxCliInstallerWrapper:
             "scripts": {},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
-        config = PythonCliConfig(
-            name="app", deploy_type="user", source_dir=tmp_path
-        )
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch.object(
-            self.installer,
-            "_write_wrapper",
-            side_effect=OSError("Permission denied"),
+        config = PythonCliConfig(name="app", deploy_type="user", source_dir=tmp_path)
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch.object(
+                self.installer,
+                "_write_wrapper",
+                side_effect=OSError("Permission denied"),
+            ),
         ):
             mock_paths = MagicMock()
             mock_paths.bin_path = tmp_path / "bin" / "app"
             mock_cls.return_value = mock_paths
-            report = self.installer.install(
-                config, confirm_wrapper=False
-            )
+            report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
-        assert any(
-            "Wrapper" in w or "Permission" in w
-            for w in report.warnings
-        )
+        assert any("Wrapper" in w or "Permission" in w for w in report.warnings)
 
     def test_generate_wrapper_user_sans_venv(self, tmp_path: Path) -> None:
         """Wrapper user sans venv : pas de bloc activate."""
-        config = PythonCliConfig(
-            name="app", deploy_type="user", source_dir=tmp_path
-        )
+        config = PythonCliConfig(name="app", deploy_type="user", source_dir=tmp_path)
         paths = MagicMock()
         paths.data_dir = tmp_path / "data"
         content = self.installer._generate_wrapper_content(config, paths)
@@ -1470,8 +1411,10 @@ class TestLinuxCliInstallerWrapper:
         """Wrapper user avec venv : le bloc activate est présent."""
         venv = tmp_path / "venv"
         config = PythonCliConfig(
-            name="app", deploy_type="user",
-            source_dir=tmp_path, venv_path=venv,
+            name="app",
+            deploy_type="user",
+            source_dir=tmp_path,
+            venv_path=venv,
         )
         paths = MagicMock()
         paths.data_dir = tmp_path / "data"
@@ -1480,9 +1423,7 @@ class TestLinuxCliInstallerWrapper:
 
     def test_generate_wrapper_system_sans_venv(self, tmp_path: Path) -> None:
         """Wrapper system sans venv : chemin /usr/local/share."""
-        config = PythonCliConfig(
-            name="app", deploy_type="system", source_dir=tmp_path
-        )
+        config = PythonCliConfig(name="app", deploy_type="system", source_dir=tmp_path)
         paths = MagicMock()
         content = self.installer._generate_wrapper_content(config, paths)
         assert "/usr/local/share/app" in content
@@ -1492,8 +1433,10 @@ class TestLinuxCliInstallerWrapper:
         """Wrapper system avec venv : bloc activate présent."""
         venv = tmp_path / "venv"
         config = PythonCliConfig(
-            name="app", deploy_type="system",
-            source_dir=tmp_path, venv_path=venv,
+            name="app",
+            deploy_type="system",
+            source_dir=tmp_path,
+            venv_path=venv,
         )
         paths = MagicMock()
         content = self.installer._generate_wrapper_content(config, paths)
@@ -1504,6 +1447,7 @@ class TestLinuxCliInstallerWrapper:
 # ---------------------------------------------------------------------------
 # Branches non couvertes — no-logger + edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestBashScriptInstallerNoLogger:
     """Chemins sans logger dans BashScriptInstaller."""
@@ -1516,18 +1460,24 @@ class TestBashScriptInstallerNoLogger:
         """install() retourne True sur un script existant sans logger."""
         installer, fm = self._make_installer()
         fm.file_exists.return_value = True
-        assert installer.install(str(tmp_path / "s.sh"), BashScriptConfig(
-            exec_command="echo x"
-        )) is True
+        assert (
+            installer.install(
+                str(tmp_path / "s.sh"), BashScriptConfig(exec_command="echo x")
+            )
+            is True
+        )
 
     def test_install_create_fails_sans_logger(self, tmp_path: Path) -> None:
         """install() retourne False si create_file échoue sans logger."""
         installer, fm = self._make_installer()
         fm.file_exists.return_value = False
         fm.create_file.return_value = False
-        assert installer.install(str(tmp_path / "s.sh"), BashScriptConfig(
-            exec_command="echo x"
-        )) is False
+        assert (
+            installer.install(
+                str(tmp_path / "s.sh"), BashScriptConfig(exec_command="echo x")
+            )
+            is False
+        )
 
     def test_set_executable_fails_sans_logger(self, tmp_path: Path) -> None:
         """_set_executable retourne False sur OSError sans logger."""
@@ -1542,9 +1492,7 @@ class TestBashScriptInstallerNoLogger:
         fm.create_file.return_value = True
         script = tmp_path / "s.sh"
         script.write_text("#!/bin/bash\n")
-        result = installer.install(str(script), BashScriptConfig(
-            exec_command="echo x"
-        ))
+        result = installer.install(str(script), BashScriptConfig(exec_command="echo x"))
         assert result is True
 
 
@@ -1587,17 +1535,13 @@ class TestLinuxScriptCheckerSansLogger:
     def test_check_script_syntax_introuvable(self, tmp_path: Path) -> None:
         """Retourne False si script absent sans logger."""
         self.executor.probe.return_value = _result(success=False)
-        assert self.checker.check_script_syntax(
-            tmp_path / "missing.py"
-        ) is False
+        assert self.checker.check_script_syntax(tmp_path / "missing.py") is False
 
     def test_check_script_syntax_erreur(self, tmp_path: Path) -> None:
         """Retourne False si syntaxe incorrecte sans logger."""
         script = tmp_path / "bad.py"
         self.executor.probe.return_value = _result(success=True)
-        self.executor.run.return_value = _result(
-            success=False, stderr="err"
-        )
+        self.executor.run.return_value = _result(success=False, stderr="err")
         assert self.checker.check_script_syntax(script) is False
 
     def test_check_script_syntax_ok(self, tmp_path: Path) -> None:
@@ -1676,9 +1620,7 @@ class TestLinuxScriptCheckerEdgeCases:
     def test_check_extras_inconnu_ignore(self, tmp_path: Path) -> None:
         """Un extra inexistant dans opt-deps n'ajoute pas de dépendances."""
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_bytes(
-            b'[project]\nname = "app"\ndependencies = []\n'
-        )
+        pyproject.write_bytes(b'[project]\nname = "app"\ndependencies = []\n')
         self.executor.probe.return_value = _result(success=True)
         _, _, total, _ = self.checker.check_dependencies(
             pyproject, None, ["inexistant"]
@@ -1725,23 +1667,22 @@ class TestLinuxCliInstallerEdgeCases:
         return mock_paths
 
     def _user_config(self, tmp_path: Path) -> PythonCliConfig:
-        return PythonCliConfig(
-            name="app", deploy_type="user", source_dir=tmp_path
-        )
+        return PythonCliConfig(name="app", deploy_type="user", source_dir=tmp_path)
 
     def test_install_success_sans_logger(self, tmp_path: Path) -> None:
         """install() réussit sans logger injecté."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1753,19 +1694,22 @@ class TestLinuxCliInstallerEdgeCases:
         venv = tmp_path / "missing_venv"
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         self.checker.check_venv.return_value = False
         config = PythonCliConfig(
-            name="app", deploy_type="user",
-            source_dir=tmp_path, venv_path=venv,
+            name="app",
+            deploy_type="user",
+            source_dir=tmp_path,
+            venv_path=venv,
         )
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1776,20 +1720,23 @@ class TestLinuxCliInstallerEdgeCases:
         """confirm_wrapper=True basculé sur False si stdin non-TTY."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch(
-            "linuxtools.scripts.installer.sys.stdin.isatty",
-            return_value=False,
-        ), patch.object(
-            self.installer, "_write_wrapper"
-        ) as mock_write:
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch(
+                "linuxtools.scripts.installer.sys.stdin.isatty",
+                return_value=False,
+            ),
+            patch.object(self.installer, "_write_wrapper") as mock_write,
+        ):
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1801,19 +1748,24 @@ class TestLinuxCliInstallerEdgeCases:
         """Wrapper refusé interactivement → InstallReport(success=False)."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch(
-            "linuxtools.scripts.installer.sys.stdin.isatty",
-            return_value=True,
-        ), patch("builtins.input", return_value="n"), \
-             patch("builtins.print"):
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch(
+                "linuxtools.scripts.installer.sys.stdin.isatty",
+                return_value=True,
+            ),
+            patch("builtins.input", return_value="n"),
+            patch("builtins.print"),
+        ):
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=True)
         assert report.success is False
@@ -1831,9 +1783,7 @@ class TestLinuxCliInstallerEdgeCases:
         """_run_uv_install retourne False si uv échoue sans logger."""
         config = self._user_config(tmp_path)
         self.executor.probe.side_effect = _probe_dispatch()
-        self.executor.run.return_value = _result(
-            success=False, stderr="uv error"
-        )
+        self.executor.run.return_value = _result(success=False, stderr="uv error")
         assert self.installer._run_uv_install(config) is False
 
     def test_write_wrapper_sans_logger(self, tmp_path: Path) -> None:
@@ -1853,7 +1803,9 @@ class TestLinuxCliInstallerEdgeCases:
         self.executor.probe.return_value = _result(success=False)
         installer._write_wrapper("#!/bin/bash\n", target)
         assert self.executor.run.call_args_list[-1][0][0] == [
-            "mv", tmp_file, str(target)
+            "mv",
+            tmp_file,
+            str(target),
         ]
 
     def test_preconditions_valueerror_sans_logger(self, tmp_path: Path) -> None:
@@ -1863,9 +1815,7 @@ class TestLinuxCliInstallerEdgeCases:
             "Section [project] manquante"
         )
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             report = self.installer.install(config, confirm_wrapper=False)
         assert report.success is False
@@ -1875,19 +1825,22 @@ class TestLinuxCliInstallerEdgeCases:
         venv = tmp_path / "venv"
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         self.checker.check_venv.return_value = True
         config = PythonCliConfig(
-            name="app", deploy_type="user",
-            source_dir=tmp_path, venv_path=venv,
+            name="app",
+            deploy_type="user",
+            source_dir=tmp_path,
+            venv_path=venv,
         )
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_cls.return_value = self._patch_paths(tmp_path)
             self.executor.probe.side_effect = _probe_dispatch()
             self.executor.run.return_value = _result(success=True)
@@ -1899,26 +1852,28 @@ class TestLinuxCliInstallerEdgeCases:
         logger = MagicMock()
         checker = MagicMock()
         executor = _make_executor()
-        installer = LinuxCliInstaller(
-            checker=checker, executor=executor, logger=logger
-        )
+        installer = LinuxCliInstaller(checker=checker, executor=executor, logger=logger)
         checker.check_python.return_value = True
         checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {},
         }
         checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch(
-            "linuxtools.scripts.installer.sys.stdin.isatty",
-            return_value=True,
-        ), patch("builtins.input", return_value="o"), \
-             patch("builtins.print"), patch.object(
-                 installer, "_write_wrapper"
-             ) as mock_write:
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch(
+                "linuxtools.scripts.installer.sys.stdin.isatty",
+                return_value=True,
+            ),
+            patch("builtins.input", return_value="o"),
+            patch("builtins.print"),
+            patch.object(installer, "_write_wrapper") as mock_write,
+        ):
             mock_cls.return_value = self._patch_paths(tmp_path)
             executor.probe.side_effect = _probe_dispatch()
             executor.run.return_value = _result(success=True)
@@ -1930,18 +1885,22 @@ class TestLinuxCliInstallerEdgeCases:
         """Wrapper OSError sans logger → rapport d'échec."""
         self.checker.check_python.return_value = True
         self.checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {},
         }
         self.checker.check_dependencies.return_value = ([], [], 0, "")
         config = self._user_config(tmp_path)
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls, patch.object(
-            self.installer,
-            "_write_wrapper",
-            side_effect=OSError("perm"),
+        with (
+            patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls,
+            patch.object(
+                self.installer,
+                "_write_wrapper",
+                side_effect=OSError("perm"),
+            ),
         ):
             mock_paths = MagicMock()
             mock_paths.bin_path = tmp_path / "bin" / "app"
@@ -1970,9 +1929,7 @@ class TestLinuxCliInstallerEdgeCases:
         )
         config = self._user_config(tmp_path)
         executor.probe.side_effect = _probe_dispatch()
-        executor.run.return_value = _result(
-            success=False, stderr="uv error"
-        )
+        executor.run.return_value = _result(success=False, stderr="uv error")
         assert installer._run_uv_install(config) is False
         logger.log_error.assert_called()
 
@@ -2006,6 +1963,7 @@ class TestLinuxCliInstallerEdgeCases:
 # Abstraction CommandExecutor — pas de supposition sur le type concret
 # ---------------------------------------------------------------------------
 
+
 class TestExecutorAbstractionRespectee:
     """Prouve l'absence de supposition sur le type concret de l'exécuteur.
 
@@ -2037,20 +1995,19 @@ class TestExecutorAbstractionRespectee:
         checker = MagicMock()
         checker.check_python.return_value = True
         checker.read_pyproject.return_value = {
-            "name": "app", "version": "1.0",
-            "requires_python": None, "dependencies": [],
-            "optional_dependencies": {}, "scripts": {"app": "app:main"},
+            "name": "app",
+            "version": "1.0",
+            "requires_python": None,
+            "dependencies": [],
+            "optional_dependencies": {},
+            "scripts": {"app": "app:main"},
         }
         checker.check_dependencies.return_value = ([], [], 0, "")
         installer = LinuxCliInstaller(
             checker=checker, executor=generic_executor, logger=None
         )
-        config = PythonCliConfig(
-            name="app", deploy_type="user", source_dir=tmp_path
-        )
-        with patch(
-            "linuxtools.scripts.installer.ScriptPaths"
-        ) as mock_cls:
+        config = PythonCliConfig(name="app", deploy_type="user", source_dir=tmp_path)
+        with patch("linuxtools.scripts.installer.ScriptPaths") as mock_cls:
             mock_paths = MagicMock()
             mock_paths.bin_path = tmp_path / "bin" / "app"
             mock_cls.return_value = mock_paths

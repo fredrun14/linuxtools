@@ -110,9 +110,7 @@ class LinuxArpScanner(NetworkScanner):
             RuntimeError: Si la commande echoue.
         """
         command = self._build_command(config)
-        result: CommandResult = self._executor.run(
-            command, timeout=config.scan_timeout
-        )
+        result: CommandResult = self._executor.run(command, timeout=config.scan_timeout)
         if not result.success:
             raise RuntimeError(f"Echec arp-scan : {result.stderr}")
         devices = self._parse_output(result.stdout)
@@ -155,10 +153,7 @@ class LinuxArpScanner(NetworkScanner):
         for line in stdout.strip().split("\n"):
             if not line or "\t" not in line:
                 continue
-            if any(
-                mot in line.lower()
-                for mot in ["packets", "ending", "interface:"]
-            ):
+            if any(mot in line.lower() for mot in ["packets", "ending", "interface:"]):
                 continue
             parts = line.split("\t")
             if len(parts) < 2:
@@ -234,16 +229,12 @@ class LinuxNmapScanner(NetworkScanner):
             RuntimeError: Si la commande echoue.
         """
         command = self._build_command(config)
-        result: CommandResult = self._executor.run(
-            command, timeout=config.scan_timeout
-        )
+        result: CommandResult = self._executor.run(command, timeout=config.scan_timeout)
         if not result.success:
             raise RuntimeError(f"Echec nmap : {result.stderr}")
         devices = self._parse_xml_output(result.stdout)
         if self._logger:
-            self._logger.log_info(
-                f"nmap : {len(devices)} peripherique(s) decouvert(s)"
-            )
+            self._logger.log_info(f"nmap : {len(devices)} peripherique(s) decouvert(s)")
         return devices
 
     def _build_command(self, config: NetworkConfig) -> list[str]:

@@ -50,9 +50,7 @@ class SecurityEvent:
     details: dict[str, Any] = field(default_factory=dict)
     severity: str = "info"
     user_id: str | None = None
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 _CLES_SENSIBLES = frozenset(
@@ -79,8 +77,7 @@ _SEVERITY_DISPATCH: dict[str, str] = {
 def _masquer(details: dict[str, Any]) -> dict[str, Any]:
     """Remplace la valeur des clés sensibles par '***'."""
     return {
-        k: ("***" if k.lower() in _CLES_SENSIBLES else v)
-        for k, v in details.items()
+        k: ("***" if k.lower() in _CLES_SENSIBLES else v) for k, v in details.items()
     }
 
 

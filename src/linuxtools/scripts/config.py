@@ -170,9 +170,7 @@ class PythonCliConfig:
         if not self.name or not self.name.strip():
             raise ValueError("name est requis et ne peut pas être vide")
         if not _NOM_VALIDE.match(self.name) or self.name in {".", ".."}:
-            raise ValueError(
-                f"name invalide (caractères interdits) : {self.name!r}"
-            )
+            raise ValueError(f"name invalide (caractères interdits) : {self.name!r}")
         if self.deploy_type not in ("system", "user"):
             raise ValueError(
                 f"deploy_type invalide : '{self.deploy_type}'."

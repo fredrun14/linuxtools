@@ -29,9 +29,7 @@ def _cmd(stdout: str = "", code: int = 0) -> CommandResult:
     )
 
 
-def _linger_executor(
-    user: str = "fred", linger: str | None = "no"
-) -> MagicMock:
+def _linger_executor(user: str = "fred", linger: str | None = "no") -> MagicMock:
     """Exécuteur répondant aux sondes ``id -un`` et ``loginctl``."""
     executor = MagicMock(spec=CommandExecutor)
 
@@ -150,9 +148,7 @@ class TestTimerDeployerDeploy:
             deployer.deploy(spec, DeployTarget(), executor)
 
         m_console_logger.assert_called_once_with()
-        m_systemd_exec.assert_called_once_with(
-            m_console_logger.return_value, executor
-        )
+        m_systemd_exec.assert_called_once_with(m_console_logger.return_value, executor)
 
     def test_deploy_echec_installation_retourne_false(self) -> None:
         """Cas d'erreur : install() échoue -> deploy() retourne False."""
@@ -192,9 +188,7 @@ class TestTimerDeployerDeployUser:
 
         with (
             patch(f"{_MODULE}.UserSystemdExecutor") as m_user_systemd_exec,
-            patch(
-                f"{_MODULE}.LinuxUserServiceUnitManager"
-            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserServiceUnitManager") as m_service_mgr,
             patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
             patch(f"{_MODULE}.SystemdServiceTimerInstaller") as m_installer,
         ):
@@ -221,9 +215,7 @@ class TestTimerDeployerDeployUser:
         m_timer_mgr.return_value.install_timer_unit.assert_called_once_with(
             spec.timer_config
         )
-        m_timer_mgr.return_value.enable_timer.assert_called_once_with(
-            "backup"
-        )
+        m_timer_mgr.return_value.enable_timer.assert_called_once_with("backup")
         m_installer.assert_not_called()
 
     def test_deploy_user_scope_cible_distante_propage_remote_write(
@@ -238,9 +230,7 @@ class TestTimerDeployerDeployUser:
 
         with (
             patch(f"{_MODULE}.UserSystemdExecutor") as m_user_systemd_exec,
-            patch(
-                f"{_MODULE}.LinuxUserServiceUnitManager"
-            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserServiceUnitManager") as m_service_mgr,
             patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
             patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
         ):
@@ -271,9 +261,7 @@ class TestTimerDeployerDeployUser:
 
         with (
             patch(f"{_MODULE}.UserSystemdExecutor"),
-            patch(
-                f"{_MODULE}.LinuxUserServiceUnitManager"
-            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserServiceUnitManager") as m_service_mgr,
             patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
             patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
         ):
@@ -298,9 +286,7 @@ class TestTimerDeployerDeployUser:
 
         with (
             patch(f"{_MODULE}.UserSystemdExecutor"),
-            patch(
-                f"{_MODULE}.LinuxUserServiceUnitManager"
-            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserServiceUnitManager") as m_service_mgr,
             patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
             patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
         ):
@@ -326,9 +312,7 @@ class TestTimerDeployerDeployUser:
 
         with (
             patch(f"{_MODULE}.UserSystemdExecutor"),
-            patch(
-                f"{_MODULE}.LinuxUserServiceUnitManager"
-            ) as m_service_mgr,
+            patch(f"{_MODULE}.LinuxUserServiceUnitManager") as m_service_mgr,
             patch(f"{_MODULE}.LinuxUserTimerUnitManager") as m_timer_mgr,
             patch(f"{_MODULE}.SystemdServiceTimerInstaller"),
         ):
@@ -446,9 +430,7 @@ class TestTimerDeployerLinger:
 
         outcome = self._deploy_user(executor)
 
-        assert outcome.messages == (
-            "Linger indéterminé (utilisateur introuvable).",
-        )
+        assert outcome.messages == ("Linger indéterminé (utilisateur introuvable).",)
         assert all(c[0] != "loginctl" for c in _commands(executor))
 
     def test_deploy_user_echec_etape_ne_sonde_pas_le_linger(self) -> None:
@@ -461,9 +443,7 @@ class TestTimerDeployerLinger:
             patch(f"{_MODULE}.LinuxUserTimerUnitManager"),
         ):
             m_service.return_value.install_service_unit_with_name.return_value = False
-            outcome = TimerDeployer(MagicMock()).deploy(
-                spec, DeployTarget(), executor
-            )
+            outcome = TimerDeployer(MagicMock()).deploy(spec, DeployTarget(), executor)
 
         assert outcome == PhaseOutcome(False)
         executor.run.assert_not_called()

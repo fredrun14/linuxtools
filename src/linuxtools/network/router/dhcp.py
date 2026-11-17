@@ -89,9 +89,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             raise ValueError("Plage DHCP non configuree")
         result = _allocate_fixed_ips(devices, self._config.dhcp_range)
         if self._logger:
-            self._logger.log_info(
-                f"Reservations DHCP : {len(result)} peripherique(s)"
-            )
+            self._logger.log_info(f"Reservations DHCP : {len(result)} peripherique(s)")
         return result
 
     def export_reservations(self, devices: list[NetworkDevice]) -> str:
@@ -140,9 +138,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
                 "dhcp_static_x",
             )
             static_list, hostnames = self._build_nvram_strings(devices)
-            self._client.set_static_reservations(
-                static_list, hostnames, dhcp_cfg
-            )
+            self._client.set_static_reservations(static_list, hostnames, dhcp_cfg)
         finally:
             self._client.logout()
         if self._logger:
@@ -176,9 +172,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
             nvram.get("dhcp_hostnames", ""),
         )
 
-    def _build_nvram_strings(
-        self, devices: list[NetworkDevice]
-    ) -> tuple[str, str]:
+    def _build_nvram_strings(self, devices: list[NetworkDevice]) -> tuple[str, str]:
         """Construit les chaines NVRAM dhcp_staticlist et
         dhcp_hostnames.
 

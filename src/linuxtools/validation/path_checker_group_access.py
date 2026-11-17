@@ -69,9 +69,7 @@ class PathCheckerGroupAccess(Validator):
         try:
             st = os.stat(self._path)
         except FileNotFoundError as exc:
-            raise FileNotFoundError(
-                f"Répertoire introuvable : {self._path}"
-            ) from exc
+            raise FileNotFoundError(f"Répertoire introuvable : {self._path}") from exc
 
         if st.st_gid != expected_gid:
             actual = self._gid_to_name(st.st_gid)

@@ -84,9 +84,7 @@ def _version_id_pattern(name: str) -> re.Pattern[str]:
         avec suffixe `-legacy` optionnel. `re.escape(name)` empêche
         qu'un nom voisin ("app" / "app2") ne se recouvrent.
     """
-    return re.compile(
-        rf"^{re.escape(name)}-\d{{8}}-\d{{6}}-\d{{6}}(-legacy)?$"
-    )
+    return re.compile(rf"^{re.escape(name)}-\d{{8}}-\d{{6}}-\d{{6}}(-legacy)?$")
 
 
 def _version_sort_key(version_id: str) -> str:
@@ -199,9 +197,7 @@ def _managed_version_path(venv_path: Path, raw_id: str) -> Path:
     """
     pattern = _version_id_pattern(venv_path.name)
     if not pattern.fullmatch(raw_id):
-        raise DeployError(
-            f"Identifiant de version non conforme, refusé : {raw_id}"
-        )
+        raise DeployError(f"Identifiant de version non conforme, refusé : {raw_id}")
     return _versions_dir(venv_path) / raw_id
 
 
@@ -259,8 +255,7 @@ def _validate_venv_path(venv_path: Path) -> None:
         raise DeployError(f"venv_path doit être normalisé : {venv_path}")
     if venv_path.parent == Path("/"):
         raise DeployError(
-            f"venv_path ne peut pas être directement sous la racine : "
-            f"{venv_path}"
+            f"venv_path ne peut pas être directement sous la racine : {venv_path}"
         )
 
 
@@ -435,14 +430,12 @@ class VenvReleaser:
         state, target = self._current_state(venv_path)
         if state == "other":
             raise DeployError(
-                "venv_path existe mais n'est ni un lien ni un répertoire"
-                f" : {venv_path}"
+                f"venv_path existe mais n'est ni un lien ni un répertoire : {venv_path}"
             )
         if state == "link":
             if target is None:
                 raise DeployError(
-                    f"état incohérent : lien détecté sans cible pour "
-                    f"{venv_path}"
+                    f"état incohérent : lien détecté sans cible pour {venv_path}"
                 )
             _ensure_managed_link_target(venv_path, expected_dir, target)
         elif state == "dir" and version_path.name.endswith(_LEGACY_SUFFIX):
@@ -459,15 +452,12 @@ class VenvReleaser:
         )
         if not ln_result.success:
             raise DeployError(
-                f"Échec de création du lien temporaire {tmp} : "
-                f"{ln_result.stderr}"
+                f"Échec de création du lien temporaire {tmp} : {ln_result.stderr}"
             )
 
         if state == "dir":
             legacy_ts = _legacy_ts_before(venv_path.name, version_path.name)
-            legacy = (
-                expected_dir / f"{venv_path.name}-{legacy_ts}{_LEGACY_SUFFIX}"
-            )
+            legacy = expected_dir / f"{venv_path.name}-{legacy_ts}{_LEGACY_SUFFIX}"
             python_bin = str(version_path / "bin" / "python")
             migrate_result = self._executor.run(
                 [
@@ -492,9 +482,7 @@ class VenvReleaser:
             )
             return legacy
 
-        mv_result = self._executor.run(
-            ["mv", "-T", "--", str(tmp), str(venv_path)]
-        )
+        mv_result = self._executor.run(["mv", "-T", "--", str(tmp), str(venv_path)])
         if not mv_result.success:
             self._executor.run(["rm", "-f", "--", str(tmp)])
             raise DeployError(
@@ -613,8 +601,7 @@ class VenvReleaser:
             result = self._executor.run(["rm", "-rf", "--", str(path)])
             if not result.success:
                 self._log_error(
-                    f"Échec de purge de {path} (non bloquant) : "
-                    f"{result.stderr}"
+                    f"Échec de purge de {path} (non bloquant) : {result.stderr}"
                 )
         if to_prune:
             self._log(
@@ -706,25 +693,20 @@ class VenvReleaser:
                 messages=(f"{expected_dir} est un lien : refus avant build.",),
             )
 
-        mkdir_result = self._executor.run(
-            ["mkdir", "-p", "--", str(expected_dir)]
-        )
+        mkdir_result = self._executor.run(["mkdir", "-p", "--", str(expected_dir)])
         if not mkdir_result.success:
             return ReleaseOutcome(
                 success=False,
                 phase_reached=DeployPhase.INSTALL,
                 messages=(
-                    f"Échec de création de {expected_dir} : "
-                    f"{mkdir_result.stderr}",
+                    f"Échec de création de {expected_dir} : {mkdir_result.stderr}",
                 ),
             )
 
         version_id = _new_version_id(venv_path.name, self._clock())
         version = expected_dir / version_id
 
-        install_result = self._installer.install(
-            version, source_dir, recreate=True
-        )
+        install_result = self._installer.install(version, source_dir, recreate=True)
         if not install_result.success:
             self._discard(version, venv_path)
             return ReleaseOutcome(
@@ -754,9 +736,7 @@ class VenvReleaser:
                 messages=(str(exc),),
             )
 
-        prune_messages = self._prune(
-            venv_path, version, previous, keep_versions
-        )
+        prune_messages = self._prune(venv_path, version, previous, keep_versions)
 
         return ReleaseOutcome(
             success=True,

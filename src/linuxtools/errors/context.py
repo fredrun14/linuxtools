@@ -22,9 +22,7 @@ class ErrorContext:
         self._logger = logger
         self._rollback_actions: list[tuple[Callable[[], None], str]] = []
 
-    def add_rollback_action(
-        self, action: Callable[[], None], label: str
-    ) -> None:
+    def add_rollback_action(self, action: Callable[[], None], label: str) -> None:
         """Ajoute une action de rollback avec un libellé descriptif.
 
         Args:

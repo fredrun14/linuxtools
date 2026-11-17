@@ -58,13 +58,7 @@ class TestConfigurationManager:
     def test_get_dotted_path(self, tmp_path: Path) -> None:
         """Test de l'accès par chemin pointé."""
         config_file = tmp_path / "config.json"
-        config_data = {
-            "level1": {
-                "level2": {
-                    "value": "found"
-                }
-            }
-        }
+        config_data = {"level1": {"level2": {"value": "found"}}}
         config_file.write_text(json.dumps(config_data))
 
         manager = ConfigurationManager(config_file)
@@ -82,18 +76,13 @@ class TestConfigurationManager:
 
         assert manager.get("a.b") == 2  # Écrasé par le fichier
         assert manager.get("a.c") == 3  # Conservé du défaut
-        assert manager.get("d") == 4    # Conservé du défaut
+        assert manager.get("d") == 4  # Conservé du défaut
 
     def test_get_profile(self, tmp_path: Path) -> None:
         """Test de la récupération de profils."""
         config_file = tmp_path / "config.json"
         config_data = {
-            "profiles": {
-                "test": {
-                    "source": "~/source",
-                    "destination": "/dest"
-                }
-            }
+            "profiles": {"test": {"source": "~/source", "destination": "/dest"}}
         }
         config_file.write_text(json.dumps(config_data))
 
@@ -116,12 +105,7 @@ class TestConfigurationManager:
     def test_list_profiles(self, tmp_path: Path) -> None:
         """Test de la liste des profils."""
         config_file = tmp_path / "config.json"
-        config_data: dict[str, Any] = {
-            "profiles": {
-                "profile1": {},
-                "profile2": {}
-            }
-        }
+        config_data: dict[str, Any] = {"profiles": {"profile1": {}, "profile2": {}}}
         config_file.write_text(json.dumps(config_data))
 
         manager = ConfigurationManager(config_file)
@@ -132,11 +116,8 @@ class TestConfigurationManager:
         """Test de la récupération d'une section complète."""
         config_file = tmp_path / "config.json"
         config_data = {
-            "logging": {
-                "level": "DEBUG",
-                "format": "%(message)s"
-            },
-            "other": {"key": "value"}
+            "logging": {"level": "DEBUG", "format": "%(message)s"},
+            "other": {"key": "value"},
         }
         config_file.write_text(json.dumps(config_data))
 
@@ -165,9 +146,7 @@ class TestConfigurationManager:
             "simple": "value",
             "number": 42,
             "enabled": True,
-            "section": {
-                "nested_key": "nested_value"
-            }
+            "section": {"nested_key": "nested_value"},
         }
         manager = ConfigurationManager(default_config=default)
 
@@ -185,12 +164,12 @@ class TestConfigurationManager:
     def test_search_paths(self, tmp_path: Path) -> None:
         """Test de la recherche dans plusieurs emplacements."""
         config_file = tmp_path / "found.toml"
-        config_file.write_text('[test]\nfound = true\n')
+        config_file.write_text("[test]\nfound = true\n")
 
         search_paths: list[str | Path] = [
             tmp_path / "nonexistent.toml",
             config_file,
-            tmp_path / "another.toml"
+            tmp_path / "another.toml",
         ]
 
         manager = ConfigurationManager(search_paths=search_paths)
@@ -225,9 +204,7 @@ class TestConfigurationManager:
         first.write_text('[app]\nname = "first"\n')
         second.write_text('[app]\nname = "second"\n')
 
-        manager = ConfigurationManager(
-            search_paths=[first, second]
-        )
+        manager = ConfigurationManager(search_paths=[first, second])
 
         assert manager.get("app.name") == "first"
 
@@ -238,9 +215,7 @@ class TestConfigurationManager:
         second = tmp_path / "second.toml"
         second.write_text('[app]\nname = "second"\n')
 
-        manager = ConfigurationManager(
-            search_paths=[tmp_path / "absent.toml", second]
-        )
+        manager = ConfigurationManager(search_paths=[tmp_path / "absent.toml", second])
 
         assert manager.get("app.name") == "second"
 
@@ -254,9 +229,7 @@ class TestConfigurationManager:
                 "prod": {"log_dir": "~/logs"},
             }
         }
-        manager = ConfigurationManager(
-            default_config=default, path_keys=("log_dir",)
-        )
+        manager = ConfigurationManager(default_config=default, path_keys=("log_dir",))
 
         profile = manager.get_profile("prod")
 
@@ -289,10 +262,7 @@ class TestConfigurationManagerLogger:
         logger = MagicMock()
         chemin_inexistant = tmp_path / "inexistant.json"
 
-        manager = ConfigurationManager(
-            config_path=chemin_inexistant,
-            logger=logger
-        )
+        manager = ConfigurationManager(config_path=chemin_inexistant, logger=logger)
 
         logger.log_warning.assert_called_once()
         assert "inexistant.json" in logger.log_warning.call_args[0][0]
@@ -308,9 +278,7 @@ class TestConfigurationManagerLogger:
         mock_loader.load.side_effect = ValueError("JSON invalide")
 
         manager = ConfigurationManager(
-            config_path=config_file,
-            config_loader=mock_loader,
-            logger=logger
+            config_path=config_file, config_loader=mock_loader, logger=logger
         )
 
         logger.log_warning.assert_called_once()
@@ -332,9 +300,7 @@ class TestConfigurationManagerLogger:
         chemin_inexistant = tmp_path / "inexistant.json"
 
         manager = ConfigurationManager(
-            config_path=chemin_inexistant,
-            default_config=default,
-            logger=logger
+            config_path=chemin_inexistant, default_config=default, logger=logger
         )
 
         assert manager.get("cle") == "valeur_defaut"

@@ -111,9 +111,7 @@ class RsyncTransport(Transport):
             return f"{target.ssh_destination}:{dest_dir}"
         return str(dest_dir)
 
-    def _build_command(
-        self, src: str, dest: str, target: DeployTarget
-    ) -> list[str]:
+    def _build_command(self, src: str, dest: str, target: DeployTarget) -> list[str]:
         """Assemble la commande rsync via CommandBuilder.
 
         Args:
@@ -124,9 +122,7 @@ class RsyncTransport(Transport):
         Returns:
             Commande rsync sous forme de liste.
         """
-        builder = CommandBuilder("rsync").with_options(
-            list(self._extra_options)
-        )
+        builder = CommandBuilder("rsync").with_options(list(self._extra_options))
         if target.is_remote and target.ssh_options:
             ssh_cmd = shlex.join(["ssh", *target.ssh_options])
             builder = builder.with_options(["-e", ssh_cmd])
@@ -153,9 +149,7 @@ class RsyncTransport(Transport):
             FileNotFoundError: Si source_dir n'existe pas.
         """
         if not source_dir.is_dir():
-            raise FileNotFoundError(
-                f"Répertoire source introuvable : {source_dir}"
-            )
+            raise FileNotFoundError(f"Répertoire source introuvable : {source_dir}")
 
         src = f"{source_dir}/"
         dest = self._build_destination(dest_dir, target)

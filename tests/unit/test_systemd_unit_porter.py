@@ -169,9 +169,7 @@ class TestToToml:
 
     def test_contient_section_meta(self) -> None:
         """Le TOML produit contient une section [meta]."""
-        data: dict[str, dict[str, list[str]]] = {
-            "Unit": {"Description": ["Test"]}
-        }
+        data: dict[str, dict[str, list[str]]] = {"Unit": {"Description": ["Test"]}}
         result = SystemdUnitExporter.to_toml(data, "service", enabled=True)
         assert "[meta]" in result
         assert 'unit_type = "service"' in result
@@ -203,9 +201,7 @@ class TestToToml:
 
     def test_echappe_guillemets_dans_valeurs(self) -> None:
         """Les guillemets dans les valeurs sont échappés."""
-        data: dict[str, dict[str, list[str]]] = {
-            "Unit": {"Description": ['Va"leur']}
-        }
+        data: dict[str, dict[str, list[str]]] = {"Unit": {"Description": ['Va"leur']}}
         result = SystemdUnitExporter.to_toml(data, "service")
         assert 'Description = "Va\\"leur"' in result
 
@@ -257,9 +253,7 @@ class TestExport:
         assert 'unit_type = "mount"' in result
         assert "[Mount]" in result
 
-    def test_export_type_non_supporte_retourne_none(
-        self, tmp_path: Path
-    ) -> None:
+    def test_export_type_non_supporte_retourne_none(self, tmp_path: Path) -> None:
         """Retourne None pour un type non supporté (.socket)."""
         p = _write_unit(tmp_path, "mon.socket", "[Unit]\nDescription=X\n")
         logger = MagicMock()
@@ -269,9 +263,7 @@ class TestExport:
         assert result is None
         logger.log_error.assert_called_once()
 
-    def test_export_fichier_absent_retourne_none(
-        self, tmp_path: Path
-    ) -> None:
+    def test_export_fichier_absent_retourne_none(self, tmp_path: Path) -> None:
         """Retourne None si le fichier est illisible."""
         logger = MagicMock()
         exporter = _make_exporter(logger)
@@ -280,9 +272,7 @@ class TestExport:
         assert result is None
         logger.log_error.assert_called_once()
 
-    def test_export_sans_logger_utilise_console_logger(
-        self, tmp_path: Path
-    ) -> None:
+    def test_export_sans_logger_utilise_console_logger(self, tmp_path: Path) -> None:
         """L'export fonctionne sans logger explicite (ConsoleLogger par défaut)."""
         p = _write_unit(tmp_path, "mon.service", SERVICE_INI)
         exporter = SystemdUnitExporter()
@@ -391,21 +381,16 @@ class TestRestore:
             "\n"
             "[Install]\n"
             'WantedBy = "multi-user.target"\n'
-            "\n"
-            + extra_sections
+            "\n" + extra_sections
         )
         tmp_path.mkdir(parents=True, exist_ok=True)
         p = tmp_path / name
         p.write_text(content, encoding="utf-8")
         return p
 
-    def test_ecrit_fichier_ini_dans_dest(
-        self, tmp_path: Path
-    ) -> None:
+    def test_ecrit_fichier_ini_dans_dest(self, tmp_path: Path) -> None:
         """Écrit le fichier INI reconstruit dans dest_dir."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml"
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml")
         dest_dir = tmp_path / "dest"
         restorer = _make_restorer()
         with (
@@ -419,9 +404,7 @@ class TestRestore:
 
     def test_active_si_enabled_true(self, tmp_path: Path) -> None:
         """Appelle enable sur l'executor si enabled=true."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml", enabled=True
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml", enabled=True)
         dest_dir = tmp_path / "dest"
         executor = MagicMock()
         restorer = _make_restorer(executor=executor)
@@ -432,9 +415,7 @@ class TestRestore:
 
     def test_pas_enable_si_enabled_false(self, tmp_path: Path) -> None:
         """Ne pas appeler enable si enabled=false."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml", enabled=False
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml", enabled=False)
         dest_dir = tmp_path / "dest"
         executor = MagicMock()
         restorer = _make_restorer(executor=executor)
@@ -444,9 +425,7 @@ class TestRestore:
 
     def test_daemon_reload_apres_ecriture(self, tmp_path: Path) -> None:
         """daemon-reload est appelé après écriture réussie."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml"
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml")
         dest_dir = tmp_path / "dest"
         executor = MagicMock()
         restorer = _make_restorer(executor=executor)
@@ -454,9 +433,7 @@ class TestRestore:
 
         executor.reload_systemd.assert_called_once()
 
-    def test_requires_exec_absent_retourne_false(
-        self, tmp_path: Path
-    ) -> None:
+    def test_requires_exec_absent_retourne_false(self, tmp_path: Path) -> None:
         """Retourne False si requires_exec pointe vers un binaire absent."""
         toml_path = self._make_toml(
             tmp_path / "src",
@@ -470,9 +447,7 @@ class TestRestore:
         assert ok is False
         assert name == ""
 
-    def test_requires_exec_present_accepte(
-        self, tmp_path: Path
-    ) -> None:
+    def test_requires_exec_present_accepte(self, tmp_path: Path) -> None:
         """Accepte si requires_exec pointe vers un binaire existant."""
         toml_path = self._make_toml(
             tmp_path / "src",
@@ -491,13 +466,9 @@ class TestRestore:
 
         assert ok is True
 
-    def test_dry_run_ne_cree_pas_fichier(
-        self, tmp_path: Path
-    ) -> None:
+    def test_dry_run_ne_cree_pas_fichier(self, tmp_path: Path) -> None:
         """En dry_run, aucun fichier n'est créé."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml"
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml")
         dest_dir = tmp_path / "dest"
         restorer = _make_restorer()
         ok, name = restorer.restore(toml_path, dest_dir, dry_run=True)
@@ -506,16 +477,9 @@ class TestRestore:
         assert name == ""
         assert not (dest_dir / "mon.service").exists()
 
-    def test_unit_type_invalide_retourne_false(
-        self, tmp_path: Path
-    ) -> None:
+    def test_unit_type_invalide_retourne_false(self, tmp_path: Path) -> None:
         """Retourne False si unit_type est invalide."""
-        content = (
-            "[meta]\n"
-            'unit_type = "socket"\n'
-            "enabled = false\n"
-            'requires_exec = ""\n'
-        )
+        content = '[meta]\nunit_type = "socket"\nenabled = false\nrequires_exec = ""\n'
         toml_path = tmp_path / "mon-socket.toml"
         toml_path.write_text(content)
         dest_dir = tmp_path / "dest"
@@ -526,9 +490,7 @@ class TestRestore:
         assert ok is False
         logger.log_error.assert_called_once()
 
-    def test_toml_illisible_retourne_false(
-        self, tmp_path: Path
-    ) -> None:
+    def test_toml_illisible_retourne_false(self, tmp_path: Path) -> None:
         """Retourne False si le fichier TOML est illisible."""
         toml_path = tmp_path / "absent-service.toml"
         dest_dir = tmp_path / "dest"
@@ -539,9 +501,7 @@ class TestRestore:
         assert ok is False
         logger.log_error.assert_called_once()
 
-    def test_toml_invalide_retourne_false(
-        self, tmp_path: Path
-    ) -> None:
+    def test_toml_invalide_retourne_false(self, tmp_path: Path) -> None:
         """Retourne False si le contenu TOML est malformé."""
         toml_path = tmp_path / "broken-service.toml"
         toml_path.write_text("ceci n'est pas du TOML valide [[[")
@@ -552,13 +512,9 @@ class TestRestore:
 
         assert ok is False
 
-    def test_sans_executor_appelle_subprocess(
-        self, tmp_path: Path
-    ) -> None:
+    def test_sans_executor_appelle_subprocess(self, tmp_path: Path) -> None:
         """Sans executor, subprocess.run est appelé pour enable et reload."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml", enabled=True
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml", enabled=True)
         dest_dir = tmp_path / "dest"
         restorer = SystemdUnitRestorer(logger=MagicMock())
         with patch("subprocess.run") as mock_run:
@@ -568,13 +524,9 @@ class TestRestore:
         assert any("enable" in c for c in calls)
         assert any("daemon-reload" in c for c in calls)
 
-    def test_user_true_sans_executor_ajoute_flag_user(
-        self, tmp_path: Path
-    ) -> None:
+    def test_user_true_sans_executor_ajoute_flag_user(self, tmp_path: Path) -> None:
         """Avec user=True sans executor, --user est ajouté aux commandes."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml", enabled=True
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml", enabled=True)
         dest_dir = tmp_path / "dest"
         restorer = SystemdUnitRestorer(logger=MagicMock())
         with patch("subprocess.run") as mock_run:
@@ -583,9 +535,7 @@ class TestRestore:
         all_args = [a for c in mock_run.call_args_list for a in c.args[0]]
         assert "--user" in all_args
 
-    def test_sans_logger_utilise_console_logger(
-        self, tmp_path: Path
-    ) -> None:
+    def test_sans_logger_utilise_console_logger(self, tmp_path: Path) -> None:
         """Fonctionne sans logger explicite (ConsoleLogger par défaut)."""
         toml_path = tmp_path / "absent-service.toml"
         dest_dir = tmp_path / "dest"
@@ -593,13 +543,9 @@ class TestRestore:
         ok, _ = restorer.restore(toml_path, dest_dir)
         assert ok is False
 
-    def test_deduit_nom_unit_depuis_nom_fichier(
-        self, tmp_path: Path
-    ) -> None:
+    def test_deduit_nom_unit_depuis_nom_fichier(self, tmp_path: Path) -> None:
         """Déduit correctement le nom de l'unit depuis le nom TOML."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "thermal-monitor-service.toml"
-        )
+        toml_path = self._make_toml(tmp_path / "src", "thermal-monitor-service.toml")
         dest_dir = tmp_path / "dest"
         executor = MagicMock()
         restorer = _make_restorer(executor=executor)
@@ -609,16 +555,9 @@ class TestRestore:
         assert name == "thermal-monitor.service"
         assert (dest_dir / "thermal-monitor.service").exists()
 
-    def test_rejette_stem_incoherent_avec_unit_type(
-        self, tmp_path: Path
-    ) -> None:
+    def test_rejette_stem_incoherent_avec_unit_type(self, tmp_path: Path) -> None:
         """Retourne False si le stem TOML ne se termine pas par -{unit_type}."""
-        content = (
-            "[meta]\n"
-            'unit_type = "service"\n'
-            "enabled = false\n"
-            'requires_exec = ""\n'
-        )
+        content = '[meta]\nunit_type = "service"\nenabled = false\nrequires_exec = ""\n'
         # nom = "mon-timer.toml" mais unit_type = "service"
         toml_path = tmp_path / "mon-timer.toml"
         toml_path.write_text(content)
@@ -629,16 +568,9 @@ class TestRestore:
         assert ok is False
         logger.log_error.assert_called_once()
 
-    def test_rejette_unit_name_traversal(
-        self, tmp_path: Path
-    ) -> None:
+    def test_rejette_unit_name_traversal(self, tmp_path: Path) -> None:
         """Retourne False si le nom déduit tente un path traversal."""
-        content = (
-            "[meta]\n"
-            'unit_type = "service"\n'
-            "enabled = false\n"
-            'requires_exec = ""\n'
-        )
+        content = '[meta]\nunit_type = "service"\nenabled = false\nrequires_exec = ""\n'
         # stem = "../etc/cron.d/x-service" → unit_name = "../etc/cron.d/x.service"
         toml_path = tmp_path / "..etc.cron.d.x-service.toml"
         toml_path.write_text(content)
@@ -648,13 +580,9 @@ class TestRestore:
 
         assert ok is False
 
-    def test_refuse_symlink_dans_dest(
-        self, tmp_path: Path
-    ) -> None:
+    def test_refuse_symlink_dans_dest(self, tmp_path: Path) -> None:
         """write_text_secure lève OSError si dest est un symlink."""
-        toml_path = self._make_toml(
-            tmp_path / "src", "mon-service.toml"
-        )
+        toml_path = self._make_toml(tmp_path / "src", "mon-service.toml")
         dest_dir = tmp_path / "dest"
         dest_dir.mkdir()
         target = dest_dir / "mon.service"

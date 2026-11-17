@@ -55,9 +55,7 @@ class TestWriteUnitContentRemote:
         logger = MagicMock()
 
         # Act
-        result = _write_unit_content_remote(
-            unit_path, "[Unit]\n", executor, logger
-        )
+        result = _write_unit_content_remote(unit_path, "[Unit]\n", executor, logger)
 
         # Assert
         assert result is True
@@ -91,15 +89,11 @@ class TestWriteUnitContentRemote:
         # Arrange
         unit_path = "/etc/systemd/system/mon-service.service"
         executor = MagicMock(spec=SystemdExecutor)
-        executor.run_raw.return_value = _result(
-            False, stderr="permission denied"
-        )
+        executor.run_raw.return_value = _result(False, stderr="permission denied")
         logger = MagicMock()
 
         # Act
-        result = _write_unit_content_remote(
-            unit_path, "[Unit]\n", executor, logger
-        )
+        result = _write_unit_content_remote(unit_path, "[Unit]\n", executor, logger)
 
         # Assert
         assert result is False
@@ -118,9 +112,7 @@ class TestWriteUnitContentRemote:
         logger = MagicMock()
 
         # Act
-        result = _write_unit_content_remote(
-            unit_path, "[Unit]\n", executor, logger
-        )
+        result = _write_unit_content_remote(unit_path, "[Unit]\n", executor, logger)
 
         # Assert
         assert result is True
@@ -146,9 +138,7 @@ class TestRemoveUnitContentRemote:
 
         # Assert
         assert result is True
-        executor.run_raw.assert_called_once_with(
-            ["rm", "-f", unit_path]
-        )
+        executor.run_raw.assert_called_once_with(["rm", "-f", unit_path])
 
     def test_suppression_distante_succes_logue_le_chemin(self) -> None:
         """Succès -> True, un seul log d'information mentionnant le
@@ -176,9 +166,7 @@ class TestRemoveUnitContentRemote:
         # Arrange
         unit_path = "/etc/systemd/system/mon-service.service"
         executor = MagicMock(spec=SystemdExecutor)
-        executor.run_raw.return_value = _result(
-            False, stderr="permission denied"
-        )
+        executor.run_raw.return_value = _result(False, stderr="permission denied")
         logger = MagicMock()
 
         # Act
@@ -223,16 +211,18 @@ class TestRemoteWriteRouting:
         manager = UnitManager(logger, executor, remote_write=True)
 
         # Act
-        result = manager._write_unit_file(
-            "mon-outil.service", "[Unit]\n"
-        )
+        result = manager._write_unit_file("mon-outil.service", "[Unit]\n")
 
         # Assert
         assert result is True
         executor.run_raw.assert_called_once()
         command = executor.run_raw.call_args.args[0]
         assert command == [
-            "install", "-m", "644", "-T", "/dev/stdin",
+            "install",
+            "-m",
+            "644",
+            "-T",
+            "/dev/stdin",
             "/etc/systemd/system/mon-outil.service",
         ]
         assert executor.run_raw.call_args.kwargs["stdin"] == "[Unit]\n"
@@ -249,9 +239,7 @@ class TestRemoteWriteRouting:
         manager = UnitManager(logger, executor, remote_write=False)
 
         # Act
-        result = manager._write_unit_file(
-            "mon-outil.service", "[Unit]\n"
-        )
+        result = manager._write_unit_file("mon-outil.service", "[Unit]\n")
 
         # Assert
         assert result is True
@@ -277,7 +265,9 @@ class TestRemoteWriteRouting:
         assert result is True
         executor.run_raw.assert_called_once()
         assert executor.run_raw.call_args.args[0] == [
-            "rm", "-f", "/etc/systemd/system/mon-outil.service",
+            "rm",
+            "-f",
+            "/etc/systemd/system/mon-outil.service",
         ]
 
     def test_suppression_systeme_locale_n_appelle_pas_l_executor(
@@ -313,9 +303,7 @@ class TestRemoteWriteRouting:
         manager = UserUnitManager(logger, executor, remote_write=True)
 
         # Act
-        result = manager._write_unit_file(
-            "mon-outil.service", "[Unit]\n"
-        )
+        result = manager._write_unit_file("mon-outil.service", "[Unit]\n")
 
         # Assert
         assert result is True
@@ -323,7 +311,12 @@ class TestRemoteWriteRouting:
         command = executor.run_raw.call_args.args[0]
         attendu = os.path.join(manager.unit_path, "mon-outil.service")
         assert command == [
-            "install", "-m", "644", "-T", "/dev/stdin", attendu,
+            "install",
+            "-m",
+            "644",
+            "-T",
+            "/dev/stdin",
+            attendu,
         ]
         assert executor.run_raw.call_args.kwargs["stdin"] == "[Unit]\n"
 
@@ -333,17 +326,13 @@ class TestRemoteWriteRouting:
         """`remote_write=False` (défaut) : l'écriture utilisateur
         reste locale, l'executor n'est jamais sollicité."""
         # Arrange
-        monkeypatch.setattr(
-            UserUnitManager, "SYSTEMD_USER_UNIT_PATH", str(tmp_path)
-        )
+        monkeypatch.setattr(UserUnitManager, "SYSTEMD_USER_UNIT_PATH", str(tmp_path))
         executor = MagicMock(spec=SystemdExecutor)
         logger = MagicMock()
         manager = UserUnitManager(logger, executor, remote_write=False)
 
         # Act
-        result = manager._write_unit_file(
-            "mon-outil.service", "[Unit]\n"
-        )
+        result = manager._write_unit_file("mon-outil.service", "[Unit]\n")
 
         # Assert
         assert result is True
@@ -370,7 +359,9 @@ class TestRemoteWriteRouting:
         executor.run_raw.assert_called_once()
         attendu = os.path.join(manager.unit_path, "mon-outil.service")
         assert executor.run_raw.call_args.args[0] == [
-            "rm", "-f", attendu,
+            "rm",
+            "-f",
+            attendu,
         ]
 
     def test_suppression_utilisateur_locale_n_appelle_pas_l_executor(
@@ -379,9 +370,7 @@ class TestRemoteWriteRouting:
         """`remote_write=False` (défaut) : la suppression utilisateur
         reste locale, l'executor n'est jamais sollicité."""
         # Arrange
-        monkeypatch.setattr(
-            UserUnitManager, "SYSTEMD_USER_UNIT_PATH", str(tmp_path)
-        )
+        monkeypatch.setattr(UserUnitManager, "SYSTEMD_USER_UNIT_PATH", str(tmp_path))
         executor = MagicMock(spec=SystemdExecutor)
         logger = MagicMock()
         manager = UserUnitManager(logger, executor, remote_write=False)

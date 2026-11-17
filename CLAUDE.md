@@ -9,7 +9,7 @@
 
 ## Conventions propres au projet
 
-- Ligne max **79** ; docstrings en **français** (modules, classes, fonctions publiques)
+- Ligne max **88** ; docstrings en **français** (modules, classes, fonctions publiques)
 - Toutes les classes acceptent un `Logger` optionnel (injection de dépendances)
 - `mypy --strict` à zéro et bloquant (règle de `../CLAUDE.md`). Une régression ici ne
   casse pas que ce dépôt : elle redonne aux consommateurs le prétexte « la lib n'est

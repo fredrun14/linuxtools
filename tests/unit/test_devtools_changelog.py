@@ -28,9 +28,7 @@ def test_ajoute_dans_modifie_colle_au_titre() -> None:
 
     resultat = add_modified_entry(texte, _ENTREE)
 
-    assert resultat == (
-        f"## [Non publié]\n### Modifié\n- {_ENTREE}\n- ancienne\n"
-    )
+    assert resultat == (f"## [Non publié]\n### Modifié\n- {_ENTREE}\n- ancienne\n")
 
 
 def test_cree_modifie_apres_ajoute_avant_corrige() -> None:

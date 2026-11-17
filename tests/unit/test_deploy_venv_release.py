@@ -175,9 +175,7 @@ class TestEnsureManagedLinkTarget:
             _ensure_managed_link_target(
                 venv_path=Path("/opt/app/venv"),
                 expected_dir=Path("/opt/app/venvs"),
-                target=Path(
-                    "/opt/app/venvs/autre-outil-20260901-000000-000000"
-                ),
+                target=Path("/opt/app/venvs/autre-outil-20260901-000000-000000"),
             )
 
 
@@ -382,9 +380,7 @@ class TestVenvReleaserActivate:
         # suffixe -legacy inclus : la version_path est donc reconnue
         # comme "gérée" par la validation générique — seul le nouveau
         # garde-fou explicite sur le suffixe -legacy doit la refuser.
-        legacy_version = Path(
-            "/opt/app/venvs/venv-20260901-000000-000000-legacy"
-        )
+        legacy_version = Path("/opt/app/venvs/venv-20260901-000000-000000-legacy")
         executor = _make_executor()
         executor.run.side_effect = [
             _result(success=True),  # test -d version_path réussit (F18)
@@ -405,9 +401,7 @@ class TestVenvReleaserActivate:
         rollback vers fallback_version après une migration (F14,
         régression du correctif F12 de la passe 2 — le refus ne doit
         s'appliquer qu'à l'état "dir")."""
-        legacy_version = Path(
-            "/opt/app/venvs/venv-20260901-000000-000000-legacy"
-        )
+        legacy_version = Path("/opt/app/venvs/venv-20260901-000000-000000-legacy")
         current_target = "/opt/app/venvs/venv-20260929-164900-000000"
         executor = _make_executor()
         executor.run.side_effect = [
@@ -497,9 +491,7 @@ class TestVenvReleaserActivate:
         new_version = Path("/opt/app/venvs/venv-20260929-000000-000000")
         releaser = VenvReleaser(_make_executor(), installer=MagicMock())
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(
-                releaser, "_current_state", lambda _venv_path: ("link", None)
-            )
+            mp.setattr(releaser, "_current_state", lambda _venv_path: ("link", None))
 
             with pytest.raises(DeployError, match="incohérent"):
                 releaser.activate(Path("/opt/app/venv"), new_version)
@@ -633,9 +625,7 @@ class TestVenvReleaserActivate:
         assert legacy is not None
         from linuxtools.deploy.venv_release import _version_sort_key
 
-        assert _version_sort_key(legacy.name) < _version_sort_key(
-            new_version.name
-        )
+        assert _version_sort_key(legacy.name) < _version_sort_key(new_version.name)
 
     def test_activate_version_path_inexistante_refuse_avant_ln(self) -> None:
         """version_path absente sur l'hôte (test -d échoue) : refus par
@@ -652,9 +642,7 @@ class TestVenvReleaserActivate:
         with pytest.raises(DeployError, match="n'existe pas"):
             releaser.activate(Path("/opt/app/venv"), new_version)
 
-        assert not any(
-            call.args[0][0] == "ln" for call in executor.run.call_args_list
-        )
+        assert not any(call.args[0][0] == "ln" for call in executor.run.call_args_list)
 
     def test_migration_echouee_nettoie_le_tmp_et_leve_deploy_error(
         self,
@@ -732,9 +720,7 @@ class TestVenvReleaserDiscard:
 
         releaser._discard(version, venv_path)  # noqa: SLF001
 
-        assert not any(
-            call.args[0][0] == "rm" for call in executor.run.call_args_list
-        )
+        assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
         logger.log_error.assert_called_once()
         assert "indéterminé" in logger.log_error.call_args.args[0]
 
@@ -773,9 +759,7 @@ class TestVenvReleaserDiscard:
 
         releaser._discard(version, venv_path)  # noqa: SLF001
 
-        assert not any(
-            call.args[0][0] == "rm" for call in executor.run.call_args_list
-        )
+        assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
 
 
 class TestVenvReleaserRelease:
@@ -834,13 +818,9 @@ class TestVenvReleaserRelease:
         installer = VenvInstaller(executor)
         clock = MagicMock(return_value=datetime(2026, 9, 29, 16, 49, 0, 0))
         releaser = VenvReleaser(executor, installer, clock=clock)
-        verify = MagicMock(
-            return_value=(CheckResult(label="import app", ok=True),)
-        )
+        verify = MagicMock(return_value=(CheckResult(label="import app", ok=True),))
 
-        outcome = releaser.release(
-            venv_path, Path("/src"), verify, keep_versions=2
-        )
+        outcome = releaser.release(venv_path, Path("/src"), verify, keep_versions=2)
 
         assert outcome.success is True
         assert outcome.phase_reached == DeployPhase.DONE
@@ -872,9 +852,7 @@ class TestVenvReleaserRelease:
         clock = MagicMock(return_value=datetime(2026, 9, 29, 16, 49, 0, 0))
         releaser = VenvReleaser(executor, installer, clock=clock)
         verify = MagicMock(
-            return_value=(
-                CheckResult(label="import app", ok=False, detail="boom"),
-            )
+            return_value=(CheckResult(label="import app", ok=False, detail="boom"),)
         )
 
         outcome = releaser.release(venv_path, Path("/src"), verify)
@@ -946,9 +924,7 @@ class TestVenvReleaserRelease:
         releaser = VenvReleaser(_make_executor(), installer)
         verify = MagicMock()
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(
-                releaser, "_current_state", lambda _venv_path: ("link", None)
-            )
+            mp.setattr(releaser, "_current_state", lambda _venv_path: ("link", None))
 
             outcome = releaser.release(venv_path, Path("/src"), verify)
 
@@ -1000,9 +976,7 @@ class TestVenvReleaserRelease:
         installer = VenvInstaller(executor)
         clock = MagicMock(return_value=datetime(2026, 9, 29, 16, 49, 0, 0))
         releaser = VenvReleaser(executor, installer, clock=clock)
-        verify = MagicMock(
-            return_value=(CheckResult(label="import app", ok=True),)
-        )
+        verify = MagicMock(return_value=(CheckResult(label="import app", ok=True),))
 
         outcome = releaser.release(venv_path, Path("/src"), verify)
 
@@ -1098,9 +1072,7 @@ class TestVenvReleaserRelease:
         ]
         installer = VenvInstaller(executor)
         releaser = VenvReleaser(executor, installer)
-        verify = MagicMock(
-            return_value=(CheckResult(label="import app", ok=True),)
-        )
+        verify = MagicMock(return_value=(CheckResult(label="import app", ok=True),))
 
         outcome = releaser.release(venv_path, Path("/src"), verify)
 
@@ -1137,9 +1109,7 @@ class TestVenvReleaserRelease:
         installer = VenvInstaller(executor)
         clock = MagicMock(return_value=datetime(2026, 9, 29, 16, 49, 0, 0))
         releaser = VenvReleaser(executor, installer, clock=clock)
-        verify = MagicMock(
-            return_value=(CheckResult(label="import app", ok=True),)
-        )
+        verify = MagicMock(return_value=(CheckResult(label="import app", ok=True),))
 
         outcome = releaser.release(venv_path, Path("/src"), verify)
 
@@ -1208,9 +1178,7 @@ class TestVenvReleaserPruneBranchesSupplementaires:
         )
 
         assert messages == ()
-        assert not any(
-            call.args[0][0] == "rm" for call in executor.run.call_args_list
-        )
+        assert not any(call.args[0][0] == "rm" for call in executor.run.call_args_list)
 
     def test_purge_reussie_logue_les_versions_supprimees(self) -> None:
         """Purge avec au moins une version supprimée : un log
@@ -1280,13 +1248,9 @@ class TestVenvReleaserPruneBranchesSupplementaires:
         installer = VenvInstaller(executor)
         clock = MagicMock(return_value=datetime(2026, 9, 29, 16, 49, 0, 0))
         releaser = VenvReleaser(executor, installer, clock=clock)
-        verify = MagicMock(
-            return_value=(CheckResult(label="import app", ok=True),)
-        )
+        verify = MagicMock(return_value=(CheckResult(label="import app", ok=True),))
 
-        outcome = releaser.release(
-            venv_path, Path("/src"), verify, keep_versions=1
-        )
+        outcome = releaser.release(venv_path, Path("/src"), verify, keep_versions=1)
 
         assert outcome.success is True
         last_call = executor.run.call_args_list[-1].args[0]

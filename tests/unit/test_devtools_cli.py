@@ -193,9 +193,7 @@ def test_tag_verifie_sur_l_url_du_pin_depuis_un_dossier_neutre(
 
     assert code == 0
     sondes = [c for c in ex.calls if c.argv[:3] == _LS_TAGS]
-    assert [c.argv for c in sondes] == [
-        (*_LS_TAGS, _URL_PIN, "refs/tags/v2.11.1")
-    ]
+    assert [c.argv for c in sondes] == [(*_LS_TAGS, _URL_PIN, "refs/tags/v2.11.1")]
     cwd = sondes[0].cwd
     assert cwd is not None
     assert Path(cwd).name.startswith("linuxtools-tag-")
@@ -255,9 +253,7 @@ def test_refuse_co_author_invalide(
 ) -> None:
     ex = _base(projets)
 
-    code = _lancer(
-        ex, tmp_path, "--dry-run", "--co-authored-by", co_author, "v2.11.1"
-    )
+    code = _lancer(ex, tmp_path, "--dry-run", "--co-authored-by", co_author, "v2.11.1")
 
     assert code == 2
     assert "co-auteur" in capsys.readouterr().err
@@ -328,9 +324,7 @@ def test_nom_inconnu_donne_exit_2(
     assert "fantome" in capsys.readouterr().err
 
 
-def test_only_et_exclude_exclusifs_par_argparse(
-    tmp_path: Path, projets: Path
-) -> None:
+def test_only_et_exclude_exclusifs_par_argparse(tmp_path: Path, projets: Path) -> None:
     commande = _commande(_base(projets), tmp_path)
 
     with pytest.raises(SystemExit) as exc:
@@ -423,9 +417,7 @@ def test_options_par_defaut_et_no_push(tmp_path: Path) -> None:
     commande = _commande(ScriptedExecutor(), tmp_path)
 
     defaut = _args(commande, tmp_path, "v2.11.1")
-    explicite = _args(
-        commande, tmp_path, "--no-push", "--only", "a", "v2.11.1"
-    )
+    explicite = _args(commande, tmp_path, "--no-push", "--only", "a", "v2.11.1")
 
     assert defaut.no_push is False
     assert defaut.dry_run is False

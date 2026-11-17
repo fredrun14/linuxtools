@@ -56,8 +56,7 @@ def _validate_router_url(url: str) -> None:
                 continue
             if not any(resolved in net for net in _LAN_NETWORKS):
                 raise ValueError(
-                    f"Hostname {hostname!r} résolu en adresse "
-                    f"non-LAN : {raw_ip!r}."
+                    f"Hostname {hostname!r} résolu en adresse non-LAN : {raw_ip!r}."
                 ) from None
         return
     if not any(addr in net for net in _LAN_NETWORKS):

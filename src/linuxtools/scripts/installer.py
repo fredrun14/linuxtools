@@ -143,8 +143,7 @@ class BashScriptInstaller(ScriptInstaller):
         if self.exists(path):
             if self._logger:
                 self._logger.log_info(
-                    f"Le script {path} existe déjà. "
-                    "Aucune modification apportée."
+                    f"Le script {path} existe déjà. Aucune modification apportée."
                 )
             return True
 
@@ -382,9 +381,7 @@ class LinuxCliInstaller(CliInstaller):
         except (FileNotFoundError, ValueError) as exc:
             if self._logger:
                 self._logger.log_error(str(exc))
-            return self._failure(
-                config, paths.bin_path, warnings=[str(exc)]
-            ), None
+            return self._failure(config, paths.bin_path, warnings=[str(exc)]), None
 
         return None, pyproject_data
 
@@ -417,9 +414,7 @@ class LinuxCliInstaller(CliInstaller):
             InstallReport d'échec si le wrapper est refusé ou non
             écrit, None si aucun wrapper ou wrapper écrit avec succès.
         """
-        needs_wrapper = config.generate_wrapper and not pyproject_data.get(
-            "scripts"
-        )
+        needs_wrapper = config.generate_wrapper and not pyproject_data.get("scripts")
         if not needs_wrapper:
             return None
 
@@ -486,10 +481,8 @@ class LinuxCliInstaller(CliInstaller):
             return failure
 
         pyproject_path = config.source_dir / "pyproject.toml"
-        missing, installed, total, install_cmd = (
-            self._checker.check_dependencies(
-                pyproject_path, config.venv_path, config.check_extras
-            )
+        missing, installed, total, install_cmd = self._checker.check_dependencies(
+            pyproject_path, config.venv_path, config.check_extras
         )
         if missing:
             warnings.append(f"{len(missing)}/{total} dépendances manquantes")
@@ -555,11 +548,7 @@ class LinuxCliInstaller(CliInstaller):
         Returns:
             Contenu complet du script bash.
         """
-        template = (
-            _WRAPPER_SYSTEM
-            if config.deploy_type == "system"
-            else _WRAPPER_USER
-        )
+        template = _WRAPPER_SYSTEM if config.deploy_type == "system" else _WRAPPER_USER
         content = template.format(name=config.name)
         if config.venv_path is None:
             content = self._strip_venv_block(content)
@@ -618,35 +607,26 @@ class LinuxCliInstaller(CliInstaller):
         )
         if not mktemp_result.success:
             raise OSError(
-                f"Échec mktemp pour {target_path} : "
-                f"{mktemp_result.stderr.strip()}"
+                f"Échec mktemp pour {target_path} : {mktemp_result.stderr.strip()}"
             )
         tmp_path = mktemp_result.stdout.strip()
 
         try:
             write_result = self._executor.run(["tee", tmp_path], stdin=content)
             if not write_result.success:
-                raise OSError(
-                    f"Échec écriture wrapper : {write_result.stderr.strip()}"
-                )
+                raise OSError(f"Échec écriture wrapper : {write_result.stderr.strip()}")
 
             chmod_result = self._executor.run(["chmod", "0755", tmp_path])
             if not chmod_result.success:
-                raise OSError(
-                    f"Échec chmod wrapper : {chmod_result.stderr.strip()}"
-                )
+                raise OSError(f"Échec chmod wrapper : {chmod_result.stderr.strip()}")
 
-            symlink_check = self._executor.probe(
-                ["test", "-L", str(target_path)]
-            )
+            symlink_check = self._executor.probe(["test", "-L", str(target_path)])
             if symlink_check.success:
                 raise OSError(f"{target_path} est un lien symbolique, refusé")
 
             mv_result = self._executor.run(["mv", tmp_path, str(target_path)])
             if not mv_result.success:
-                raise OSError(
-                    f"Échec déplacement wrapper : {mv_result.stderr.strip()}"
-                )
+                raise OSError(f"Échec déplacement wrapper : {mv_result.stderr.strip()}")
         except OSError:
             self._executor.run(["rm", "-f", tmp_path])
             raise
@@ -673,14 +653,10 @@ class LinuxCliInstaller(CliInstaller):
         if home_result.success and home_result.stdout.strip():
             homes.append(home_result.stdout.strip())
 
-        sudo_user_result = self._executor.probe(
-            ["sh", "-c", "echo $SUDO_USER"]
-        )
+        sudo_user_result = self._executor.probe(["sh", "-c", "echo $SUDO_USER"])
         sudo_user = sudo_user_result.stdout.strip()
         if sudo_user_result.success and sudo_user:
-            passwd_result = self._executor.probe(
-                ["getent", "passwd", sudo_user]
-            )
+            passwd_result = self._executor.probe(["getent", "passwd", sudo_user])
             if passwd_result.success:
                 fields = passwd_result.stdout.strip().split(":")
                 if len(fields) >= 6:

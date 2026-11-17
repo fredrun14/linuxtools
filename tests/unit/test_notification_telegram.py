@@ -74,9 +74,7 @@ class TestTelegramNotifierConstruction:
         "token",
         ["", "abc", "a b", "12:ab/cd", "12:ab?x", "12:ab\n", "SECRET-TOKEN"],
     )
-    def test_token_invalide_leve_value_error_sans_la_valeur(
-        self, token: str
-    ) -> None:
+    def test_token_invalide_leve_value_error_sans_la_valeur(self, token: str) -> None:
         """Un token mal formé est refusé sans être cité."""
         with pytest.raises(ValueError) as info:
             TelegramNotifier(token=token, recipients={"alice": 1})
@@ -88,12 +86,8 @@ class TestTelegramNotifierConstruction:
             TelegramNotifier(token=TOKEN, recipients={})
         assert str(info.value) == "au moins un destinataire est requis"
 
-    @pytest.mark.parametrize(
-        "label", ["a\nb", "a b", "", "x" * 33, "ok\n", "é"]
-    )
-    def test_libelle_invalide_leve_value_error_sans_la_valeur(
-        self, label: str
-    ) -> None:
+    @pytest.mark.parametrize("label", ["a\nb", "a b", "", "x" * 33, "ok\n", "é"])
+    def test_libelle_invalide_leve_value_error_sans_la_valeur(self, label: str) -> None:
         """Un libellé hors [A-Za-z0-9_-]{1,32} est refusé."""
         with pytest.raises(ValueError) as info:
             TelegramNotifier(token=TOKEN, recipients={label: 1})
@@ -116,9 +110,7 @@ class TestTelegramNotifierConstruction:
     def test_chat_id_en_double_leve_value_error(self) -> None:
         """Deux libellés ne peuvent pas partager un chat_id."""
         with pytest.raises(ValueError) as info:
-            TelegramNotifier(
-                token=TOKEN, recipients={"alice": 4242, "bob": 4242}
-            )
+            TelegramNotifier(token=TOKEN, recipients={"alice": 4242, "bob": 4242})
         assert str(info.value) == "chat_id en double"
 
     def test_chat_id_negatif_accepte(self) -> None:
@@ -202,9 +194,7 @@ class TestTelegramNotifierConstruction:
 
     def test_repr_ne_contient_ni_token_ni_chat_id(self) -> None:
         """repr() ne divulgue rien (garde-fou anti-dataclass)."""
-        notifier = TelegramNotifier(
-            token=TOKEN, recipients={"alice": 987654321}
-        )
+        notifier = TelegramNotifier(token=TOKEN, recipients={"alice": 987654321})
         text = repr(notifier)
         assert "SECRET-TOKEN" not in text
         assert "987654321" not in text
@@ -217,12 +207,8 @@ class TestFormatage:
     def test_titre_seul_par_defaut(self) -> None:
         """Par défaut, seul le titre part chez Telegram (Q-02)."""
         opener = RecordingOpener()
-        notifier = TelegramNotifier(
-            token=TOKEN, recipients={"alice": 1}, opener=opener
-        )
-        notifier.send(
-            Notification(title="✗ backup-nas — échec", message="DETAIL")
-        )
+        notifier = TelegramNotifier(token=TOKEN, recipients={"alice": 1}, opener=opener)
+        notifier.send(Notification(title="✗ backup-nas — échec", message="DETAIL"))
         assert opener.bodies()[0]["text"] == "✗ backup-nas — échec"
 
     def test_include_message_joint_titre_et_message(self) -> None:
@@ -240,9 +226,7 @@ class TestFormatage:
     def _text_envoye(self, title: str) -> str:
         """Envoie un titre et retourne le texte reçu par l'opener."""
         opener = RecordingOpener()
-        notifier = TelegramNotifier(
-            token=TOKEN, recipients={"alice": 1}, opener=opener
-        )
+        notifier = TelegramNotifier(token=TOKEN, recipients={"alice": 1}, opener=opener)
         notifier.send(Notification(title=title, message="M"))
         text = opener.bodies()[0]["text"]
         assert isinstance(text, str)
@@ -273,9 +257,7 @@ class TestFormatage:
     def test_substitut_isole_est_envoye_et_echappe_dans_le_json(self) -> None:
         """Un substitut isolé (surrogateescape) est envoyé, sans erreur."""
         opener = RecordingOpener()
-        notifier = TelegramNotifier(
-            token=TOKEN, recipients={"alice": 1}, opener=opener
-        )
+        notifier = TelegramNotifier(token=TOKEN, recipients={"alice": 1}, opener=opener)
         notifier.send(Notification(title="a\udcffb", message="M"))
         request = opener.requests[0]
         assert isinstance(request.data, bytes)
@@ -353,9 +335,7 @@ class TestSendNominal:
         """Le mapping est copié : le muter ensuite ne change rien."""
         opener = RecordingOpener()
         recipients = {"alice": 111}
-        notifier = TelegramNotifier(
-            token=TOKEN, recipients=recipients, opener=opener
-        )
+        notifier = TelegramNotifier(token=TOKEN, recipients=recipients, opener=opener)
         recipients["alice"] = 999
         recipients["evil"] = 222
         notifier.send(Notification(title="T", message="M"))
@@ -401,9 +381,7 @@ class ScriptedOpener:
         return FakeResponse(status=outcome)
 
 
-def make_http_error(
-    code: int, fp: io.BytesIO | None = None
-) -> urllib.error.HTTPError:
+def make_http_error(code: int, fp: io.BytesIO | None = None) -> urllib.error.HTTPError:
     """Construit une HTTPError dont l'URL contient le token."""
     return urllib.error.HTTPError(
         "https://api.telegram.org/bot123456:SECRET-TOKEN_abc/sendMessage",
@@ -430,8 +408,7 @@ class TestIsolation:
         with pytest.raises(NotificationSendError) as info:
             notifier.send(Notification(title="T", message="M"))
         assert str(info.value) == (
-            "Échec Telegram : alice (bot bloqué ou jamais démarré par le "
-            "destinataire)"
+            "Échec Telegram : alice (bot bloqué ou jamais démarré par le destinataire)"
         )
         assert opener.chat_ids == [10, 20]
         assert logger.infos == ["Telegram : envoyé à bob"]
@@ -524,9 +501,7 @@ class TestIsolation:
             ),
         ],
     )
-    def test_os_error_donne_le_nom_du_type(
-        self, error: OSError, reason: str
-    ) -> None:
+    def test_os_error_donne_le_nom_du_type(self, error: OSError, reason: str) -> None:
         """Les erreurs système ne donnent que le nom de leur type."""
         opener = ScriptedOpener({10: error})
         notifier = TelegramNotifier(
@@ -550,9 +525,7 @@ class TestIsolation:
 
     def test_plusieurs_echecs_agreges_dans_l_ordre_du_mapping(self) -> None:
         """Les échecs sont listés dans une seule erreur, bob réussit."""
-        opener = ScriptedOpener(
-            {10: make_http_error(401), 30: make_http_error(404)}
-        )
+        opener = ScriptedOpener({10: make_http_error(401), 30: make_http_error(404)})
         notifier = TelegramNotifier(
             token=TOKEN,
             recipients={"alice": 10, "bob": 20, "carol": 30},
@@ -561,8 +534,7 @@ class TestIsolation:
         with pytest.raises(NotificationSendError) as info:
             notifier.send(Notification(title="T", message="M"))
         assert str(info.value) == (
-            "Échec Telegram : alice (token invalide), "
-            "carol (token ou méthode inconnus)"
+            "Échec Telegram : alice (token invalide), carol (token ou méthode inconnus)"
         )
         assert opener.chat_ids == [10, 20, 30]
 
@@ -611,9 +583,7 @@ class TestAntiFuite:
         [cas[1] for cas in _cas_d_echec()],
         ids=[cas[0] for cas in _cas_d_echec()],
     )
-    def test_aucune_sentinelle_nulle_part(
-        self, outcome: BaseException | int
-    ) -> None:
+    def test_aucune_sentinelle_nulle_part(self, outcome: BaseException | int) -> None:
         """Aucune sentinelle dans l'erreur, sa trace, les logs, repr."""
         logger = RecordingLogger()
         notifier = TelegramNotifier(
@@ -681,9 +651,7 @@ class TestDansNotifierChain:
         chain = NotifierChain()
         chain.add_notifier(FakeNotifier(fails=True))
         chain.add_notifier(
-            TelegramNotifier(
-                token=TOKEN, recipients={"alice": 10}, opener=opener
-            )
+            TelegramNotifier(token=TOKEN, recipients={"alice": 10}, opener=opener)
         )
         delivered = chain.send(
             Notification(title="✗ backup-nas — échec", message="DETAIL")
@@ -700,9 +668,7 @@ class TestDansNotifierChain:
             TelegramNotifier(
                 token=TOKEN,
                 recipients={"alice": SENTINELLE_CHAT_ID, "bob": 20},
-                opener=ScriptedOpener(
-                    {SENTINELLE_CHAT_ID: make_http_error(403)}
-                ),
+                opener=ScriptedOpener({SENTINELLE_CHAT_ID: make_http_error(403)}),
             )
         )
         chain.add_notifier(gotify)

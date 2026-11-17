@@ -196,9 +196,7 @@ class LinuxIniConfigManager(IniConfigManager):
 
         current = dict(parser[section_name])
         expected = section.to_dict()
-        return all(
-            current.get(key) == value for key, value in expected.items()
-        )
+        return all(current.get(key) == value for key, value in expected.items())
 
     @staticmethod
     def _parser_to_string(parser: configparser.ConfigParser) -> str:

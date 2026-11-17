@@ -56,9 +56,7 @@ class ConfTomlExporter:
         try:
             contenu = source.read_text(encoding="utf-8")
         except UnicodeDecodeError:
-            contenu = source.read_text(
-                encoding="utf-8", errors="surrogateescape"
-            )
+            contenu = source.read_text(encoding="utf-8", errors="surrogateescape")
         lines = contenu.splitlines()
         abs_path = source.resolve()
         blocks = self._parse(lines)

@@ -18,9 +18,7 @@ class TestSystemCommandValidator:
             "linuxtools.validation.system.shutil.which",
             return_value="/usr/bin/cmd",
         ):
-            validator = SystemCommandValidator(
-                {"cmd": "sudo dnf install cmd"}
-            )
+            validator = SystemCommandValidator({"cmd": "sudo dnf install cmd"})
             validator.validate()
 
     def test_validate_leve_si_commande_absente(self) -> None:
@@ -41,15 +39,14 @@ class TestSystemCommandValidator:
             "linuxtools.validation.system.shutil.which",
             return_value=None,
         ):
-            validator = SystemCommandValidator(
-                {"borg": "sudo dnf install borgbackup"}
-            )
+            validator = SystemCommandValidator({"borg": "sudo dnf install borgbackup"})
             with pytest.raises(MissingDependencyError) as exc_info:
                 validator.validate()
             assert "borgbackup" in str(exc_info.value)
 
     def test_validate_partiel_liste_manquants_seulement(self) -> None:
         """Seules les commandes absentes apparaissent dans l'erreur."""
+
         def which_side_effect(cmd: str) -> str | None:
             return "/usr/bin/borg" if cmd == "borg" else None
 
@@ -57,10 +54,12 @@ class TestSystemCommandValidator:
             "linuxtools.validation.system.shutil.which",
             side_effect=which_side_effect,
         ):
-            validator = SystemCommandValidator({
-                "borg": "sudo dnf install borgbackup",
-                "rsync": "sudo dnf install rsync",
-            })
+            validator = SystemCommandValidator(
+                {
+                    "borg": "sudo dnf install borgbackup",
+                    "rsync": "sudo dnf install rsync",
+                }
+            )
             with pytest.raises(MissingDependencyError) as exc_info:
                 validator.validate()
             assert "rsync" in str(exc_info.value)
@@ -85,10 +84,12 @@ class TestSystemCommandValidator:
             "linuxtools.validation.system.shutil.which",
             return_value=None,
         ):
-            validator = SystemCommandValidator({
-                "a": "install a",
-                "b": "install b",
-            })
+            validator = SystemCommandValidator(
+                {
+                    "a": "install a",
+                    "b": "install b",
+                }
+            )
             missing = validator.missing_commands()
             assert sorted(missing) == ["a", "b"]
 

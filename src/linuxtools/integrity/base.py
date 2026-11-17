@@ -5,9 +5,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 # Algorithmes cryptographiquement acceptables (MD5/SHA1 exclus).
-_ALGOS_AUTORISES: frozenset[str] = frozenset(
-    {"sha256", "sha384", "sha512", "blake2b"}
-)
+_ALGOS_AUTORISES: frozenset[str] = frozenset({"sha256", "sha384", "sha512", "blake2b"})
 
 
 class ChecksumCalculator(ABC):

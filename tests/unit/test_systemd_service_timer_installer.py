@@ -80,8 +80,7 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
 
     def _setup_all_success(self) -> None:
         """Configure tous les mocks pour retourner True."""
-        self.mock_service_manager.install_service_unit_with_name \
-            .return_value = True
+        self.mock_service_manager.install_service_unit_with_name.return_value = True
         self.mock_timer_manager.install_timer_unit.return_value = True
         self.mock_timer_manager.enable_timer.return_value = True
 
@@ -100,19 +99,19 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
         result = self._install()
 
         self.assertTrue(result)
-        self.mock_service_manager.install_service_unit_with_name \
-            .assert_called_once_with(self.unit_name, self.service_config)
-        self.mock_timer_manager.install_timer_unit \
-            .assert_called_once_with(self.timer_config)
-        self.mock_timer_manager.enable_timer \
-            .assert_called_once_with(self.unit_name)
+        self.mock_service_manager.install_service_unit_with_name.assert_called_once_with(
+            self.unit_name, self.service_config
+        )
+        self.mock_timer_manager.install_timer_unit.assert_called_once_with(
+            self.timer_config
+        )
+        self.mock_timer_manager.enable_timer.assert_called_once_with(self.unit_name)
 
     def test_install_returns_false_if_service_install_fails(
         self,
     ) -> None:
         """Vérifie l'arrêt si l'installation du service échoue."""
-        self.mock_service_manager.install_service_unit_with_name \
-            .return_value = False
+        self.mock_service_manager.install_service_unit_with_name.return_value = False
 
         result = self._install()
 
@@ -148,8 +147,7 @@ class TestSystemdServiceTimerInstallerFromToml(unittest.TestCase):
         """Crée les mocks et le contenu TOML simulé."""
         self.mock_logger = Mock(spec=Logger)
         self.mock_service_manager = Mock()
-        self.mock_service_manager.install_service_unit_with_name \
-            .return_value = True
+        self.mock_service_manager.install_service_unit_with_name.return_value = True
         self.mock_timer_manager = Mock()
         self.mock_timer_manager.install_timer_unit.return_value = True
         self.mock_timer_manager.enable_timer.return_value = True
@@ -188,13 +186,10 @@ class TestSystemdServiceTimerInstallerFromToml(unittest.TestCase):
 
         self.assertTrue(result)
         service_config = (
-            self.mock_service_manager.install_service_unit_with_name
-            .call_args.args[1]
+            self.mock_service_manager.install_service_unit_with_name.call_args.args[1]
         )
         self.assertTrue(service_config.no_new_privileges)
-        self.assertEqual(
-            service_config.read_write_paths, ("/var/lib/backup",)
-        )
+        self.assertEqual(service_config.read_write_paths, ("/var/lib/backup",))
 
     def test_install_from_toml_uses_unit_name_for_timer_unit(
         self,
@@ -204,9 +199,7 @@ class TestSystemdServiceTimerInstallerFromToml(unittest.TestCase):
             "backup", "/fake/path.toml", self.mock_config_loader
         )
 
-        timer_config = (
-            self.mock_timer_manager.install_timer_unit.call_args.args[0]
-        )
+        timer_config = self.mock_timer_manager.install_timer_unit.call_args.args[0]
         self.assertEqual(timer_config.unit, "backup.service")
 
 

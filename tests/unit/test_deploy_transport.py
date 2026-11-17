@@ -50,15 +50,11 @@ class TestRsyncTransportTransfer:
                 DeployTarget(),
             )
 
-    def test_commande_locale_utilise_chemins_bruts(
-        self, tmp_path: Path
-    ) -> None:
+    def test_commande_locale_utilise_chemins_bruts(self, tmp_path: Path) -> None:
         """Cible locale : destination = chemin brut, pas de -e ssh."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
-        transport.transfer(
-            tmp_path, Path("/opt/app/src"), DeployTarget()
-        )
+        transport.transfer(tmp_path, Path("/opt/app/src"), DeployTarget())
 
         command = local.run.call_args.args[0]
         assert command[0] == "rsync"
@@ -66,9 +62,7 @@ class TestRsyncTransportTransfer:
         assert command[-1] == "/opt/app/src"
         assert "-e" not in command
 
-    def test_commande_distante_prefixe_destination(
-        self, tmp_path: Path
-    ) -> None:
+    def test_commande_distante_prefixe_destination(self, tmp_path: Path) -> None:
         """Cible distante : destination préfixée par user@host:."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local)
@@ -125,26 +119,19 @@ class TestRsyncTransportTransfer:
 
         command = local.run.call_args.args[0]
         assert "--mkpath" in command
-        assert (
-            command[-1]
-            == "deploy@srv01:/opt/nouvelle-arbo/inexistante/src"
-        )
+        assert command[-1] == "deploy@srv01:/opt/nouvelle-arbo/inexistante/src"
 
     def test_extra_options_personnalisees(self, tmp_path: Path) -> None:
         """extra_options remplace les options par défaut."""
         local = _make_local_mock()
-        transport = RsyncTransport(
-            local_executor=local, extra_options=("-avz",)
-        )
+        transport = RsyncTransport(local_executor=local, extra_options=("-avz",))
         transport.transfer(tmp_path, Path("/dst"), DeployTarget())
 
         command = local.run.call_args.args[0]
         assert "-avz" in command
         assert "--delete" not in command
 
-    def test_execute_via_local_executor_avec_timeout(
-        self, tmp_path: Path
-    ) -> None:
+    def test_execute_via_local_executor_avec_timeout(self, tmp_path: Path) -> None:
         """rsync est exécuté via l'exécuteur local avec un timeout."""
         local = _make_local_mock()
         transport = RsyncTransport(local_executor=local, timeout=120)
@@ -152,15 +139,11 @@ class TestRsyncTransportTransfer:
 
         assert local.run.call_args.kwargs["timeout"] == 120
 
-    def test_retourne_le_resultat_de_l_executeur_local(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_le_resultat_de_l_executeur_local(self, tmp_path: Path) -> None:
         """transfer() retourne tel quel le CommandResult de rsync."""
         local = _make_local_mock(return_code=1)
         transport = RsyncTransport(local_executor=local)
-        result = transport.transfer(
-            tmp_path, Path("/dst"), DeployTarget()
-        )
+        result = transport.transfer(tmp_path, Path("/dst"), DeployTarget())
 
         assert result.success is False
         assert result.stderr == "rsync error"
@@ -179,9 +162,7 @@ class TestRsyncTransportTransfer:
 class TestDefaultRsyncOptions:
     """Tests pour la constante publique DEFAULT_RSYNC_OPTIONS."""
 
-    def test_defaut_du_transport_est_la_constante(
-        self, tmp_path: Path
-    ) -> None:
+    def test_defaut_du_transport_est_la_constante(self, tmp_path: Path) -> None:
         """Sans extra_options, la commande rsync porte les options par
         défaut littérales, inchangées par rapport à avant l'extraction."""
         local = _make_local_mock()

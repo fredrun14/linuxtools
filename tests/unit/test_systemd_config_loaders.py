@@ -671,9 +671,7 @@ class TestConfigFileLoaderBase(unittest.TestCase):
         mock_loader = MockConfigLoader(config)
         loader = ServiceConfigLoader("/fake/path.toml", mock_loader)
 
-        result = loader._get_nested_value(
-            "paths", "missing", default="/default/path"
-        )
+        result = loader._get_nested_value("paths", "missing", default="/default/path")
 
         self.assertEqual(result, "/default/path")
 

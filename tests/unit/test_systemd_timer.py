@@ -16,18 +16,12 @@ class TestTimerConfig:
 
     def test_timer_name_extracts_from_service(self) -> None:
         """Vérifie l'extraction du nom du timer depuis l'unité cible."""
-        config = TimerConfig(
-            description="Test",
-            unit="backup.service"
-        )
+        config = TimerConfig(description="Test", unit="backup.service")
         assert config.timer_name == "backup"
 
     def test_timer_name_handles_complex_unit_names(self) -> None:
         """Vérifie l'extraction avec des noms d'unités complexes."""
-        config = TimerConfig(
-            description="Test",
-            unit="my-backup-task.service"
-        )
+        config = TimerConfig(description="Test", unit="my-backup-task.service")
         assert config.timer_name == "my-backup-task"
 
     def test_post_init_raises_on_empty_unit(self) -> None:
@@ -44,7 +38,7 @@ class TestTimerConfigToUnitFile:
         config = TimerConfig(
             description="Sauvegarde quotidienne",
             unit="backup.service",
-            on_calendar="daily"
+            on_calendar="daily",
         )
 
         result = config.to_unit_file()
@@ -62,7 +56,7 @@ class TestTimerConfigToUnitFile:
         config = TimerConfig(
             description="Démarrage différé",
             unit="startup-task.service",
-            on_boot_sec="5min"
+            on_boot_sec="5min",
         )
 
         result = config.to_unit_file()
@@ -74,7 +68,7 @@ class TestTimerConfigToUnitFile:
         config = TimerConfig(
             description="Tâche récurrente",
             unit="recurring.service",
-            on_unit_active_sec="1h"
+            on_unit_active_sec="1h",
         )
 
         result = config.to_unit_file()
@@ -87,7 +81,7 @@ class TestTimerConfigToUnitFile:
             description="Timer persistant",
             unit="persistent.service",
             on_calendar="weekly",
-            persistent=True
+            persistent=True,
         )
 
         result = config.to_unit_file()
@@ -100,7 +94,7 @@ class TestTimerConfigToUnitFile:
             description="Timer non persistant",
             unit="non-persistent.service",
             on_calendar="daily",
-            persistent=False
+            persistent=False,
         )
 
         result = config.to_unit_file()
@@ -113,7 +107,7 @@ class TestTimerConfigToUnitFile:
             description="Timer avec délai aléatoire",
             unit="random.service",
             on_calendar="hourly",
-            randomized_delay_sec="15min"
+            randomized_delay_sec="15min",
         )
 
         result = config.to_unit_file()
@@ -122,10 +116,7 @@ class TestTimerConfigToUnitFile:
 
     def test_timer_without_optional_fields_omits_them(self) -> None:
         """Vérifie l'absence des champs optionnels non définis."""
-        config = TimerConfig(
-            description="Timer minimal",
-            unit="minimal.service"
-        )
+        config = TimerConfig(description="Timer minimal", unit="minimal.service")
 
         result = config.to_unit_file()
 
@@ -144,7 +135,7 @@ class TestTimerConfigToUnitFile:
             on_boot_sec="10min",
             on_unit_active_sec="30min",
             persistent=True,
-            randomized_delay_sec="5min"
+            randomized_delay_sec="5min",
         )
 
         result = config.to_unit_file()
@@ -176,9 +167,14 @@ class TestLinuxTimerListTimers:
     def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
         data = [
-            {"unit": "backup.timer", "activates": "backup.service",
-             "next": "Mon 2026-01-01", "left": "1h",
-             "last": "Sun 2025-12-31", "passed": "23h"}
+            {
+                "unit": "backup.timer",
+                "activates": "backup.service",
+                "next": "Mon 2026-01-01",
+                "left": "1h",
+                "last": "Sun 2025-12-31",
+                "passed": "23h",
+            }
         ]
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
@@ -201,8 +197,7 @@ class TestLinuxTimerListTimers:
     def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
-            return_code=1, stdout="",
-            stderr="unknown option '--output=json'"
+            return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
@@ -210,9 +205,7 @@ class TestLinuxTimerListTimers:
         )
         text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = [
-            fail_result, text_result
-        ]
+        executor._run_systemctl.side_effect = [fail_result, text_result]
         result = manager.list_timers()
         assert len(result) == 1
         assert result[0]["unit"] == "backup.timer"
@@ -225,7 +218,6 @@ class TestLinuxTimerListTimers:
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
-
 
 
 class TestLinuxUserTimerListTimers:
@@ -246,8 +238,14 @@ class TestLinuxUserTimerListTimers:
     def test_list_timers_json_valide(self) -> None:
         """Vérifie le parsing d'une réponse JSON valide."""
         data = [
-            {"unit": "backup.timer", "activates": "backup.service",
-             "next": "", "left": "", "last": "", "passed": ""}
+            {
+                "unit": "backup.timer",
+                "activates": "backup.service",
+                "next": "",
+                "left": "",
+                "last": "",
+                "passed": "",
+            }
         ]
         manager, executor = self._make_manager()
         executor._run_systemctl.return_value = MagicMock(
@@ -269,8 +267,7 @@ class TestLinuxUserTimerListTimers:
     def test_list_timers_fallback_texte(self) -> None:
         """Vérifie le fallback texte si JSON non supporté."""
         fail_result = MagicMock(
-            return_code=1, stdout="",
-            stderr="unknown option '--output=json'"
+            return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
         text_output = (
             "NEXT LEFT LAST PASSED UNIT ACTIVATES\n"
@@ -278,9 +275,7 @@ class TestLinuxUserTimerListTimers:
         )
         text_result = MagicMock(return_code=0, stdout=text_output, stderr="")
         manager, executor = self._make_manager()
-        executor._run_systemctl.side_effect = [
-            fail_result, text_result
-        ]
+        executor._run_systemctl.side_effect = [fail_result, text_result]
         result = manager.list_timers()
         assert len(result) == 1
         assert result[0]["unit"] == "user.timer"
@@ -293,7 +288,6 @@ class TestLinuxUserTimerListTimers:
         )
         with pytest.raises(RuntimeError, match="Erreur systemctl"):
             manager.list_timers()
-
 
 
 class TestLinuxTimerUnitManagerSuccessPaths:
@@ -319,7 +313,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         config = TimerConfig(
             description="Sauvegarde quotidienne",
             unit="backup.service",
-            on_calendar="daily"
+            on_calendar="daily",
         )
         result = manager.install_timer_unit(config)
         assert result is True
@@ -331,9 +325,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
         config = TimerConfig(
-            description="Test",
-            unit="backup.service",
-            on_calendar="daily"
+            description="Test", unit="backup.service", on_calendar="daily"
         )
         result = manager.install_timer_unit(config)
         assert result is False
@@ -402,9 +394,7 @@ class TestLinuxTimerUnitManagerSuccessPaths:
         fail_result = MagicMock(
             return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
-        text_fail = MagicMock(
-            return_code=1, stdout="", stderr="Failed to connect"
-        )
+        text_fail = MagicMock(return_code=1, stdout="", stderr="Failed to connect")
         executor = MagicMock()
         executor._run_systemctl.side_effect = [fail_result, text_fail]
         manager = LinuxTimerUnitManager(MagicMock(), executor)
@@ -437,7 +427,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         config = TimerConfig(
             description="Timer\nUnit=evil.service",
             unit="backup.service",
-            on_calendar="daily"
+            on_calendar="daily",
         )
         with pytest.raises(ValueError, match="contrôle"):
             manager.install_timer_unit(config)
@@ -446,9 +436,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         """install_timer_unit() retourne True en cas de succès."""
         manager, logger, _ = self._make_manager(tmp_path)
         config = TimerConfig(
-            description="Timer test",
-            unit="backup.service",
-            on_calendar="weekly"
+            description="Timer test", unit="backup.service", on_calendar="weekly"
         )
         result = manager.install_timer_unit(config)
         assert result is True
@@ -459,10 +447,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         """install_timer_unit() retourne False si reload_systemd échoue."""
         manager, _, executor = self._make_manager(tmp_path)
         executor.reload_systemd.return_value = False
-        config = TimerConfig(
-            description="Test",
-            unit="backup.service"
-        )
+        config = TimerConfig(description="Test", unit="backup.service")
         result = manager.install_timer_unit(config)
         assert result is False
 
@@ -530,9 +515,7 @@ class TestLinuxUserTimerUnitManagerSuccessPaths:
         fail_result = MagicMock(
             return_code=1, stdout="", stderr="unknown option '--output=json'"
         )
-        text_fail = MagicMock(
-            return_code=1, stdout="", stderr="Failed to connect"
-        )
+        text_fail = MagicMock(return_code=1, stdout="", stderr="Failed to connect")
         executor = MagicMock()
         executor._run_systemctl.side_effect = [fail_result, text_fail]
         manager = LinuxUserTimerUnitManager(MagicMock(), executor)
@@ -629,6 +612,7 @@ class TestTimerToUnitFileSecurite:
     def test_rejette_newline_dans_description(self) -> None:
         """to_unit_file lève ValueError si description contient \\n."""
         from linuxtools.systemd.base import TimerConfig
+
         config = TimerConfig(
             description="timer\nExecStart=/bin/evil",
             unit="backup.service",
@@ -640,6 +624,7 @@ class TestTimerToUnitFileSecurite:
     def test_rejette_newline_dans_on_calendar(self) -> None:
         """to_unit_file lève ValueError si on_calendar contient \\n."""
         from linuxtools.systemd.base import TimerConfig
+
         config = TimerConfig(
             description="timer",
             unit="backup.service",
@@ -651,6 +636,7 @@ class TestTimerToUnitFileSecurite:
     def test_rejette_newline_dans_unit(self) -> None:
         """to_unit_file lève ValueError si unit contient \\n."""
         from linuxtools.systemd.base import TimerConfig
+
         config = TimerConfig(
             description="timer",
             unit="backup.service\nExecStart=/bin/evil",

@@ -59,8 +59,7 @@ class JsonDeviceRepository(DeviceRepository):
         devices = [NetworkDevice.from_dict(d) for d in data]
         if self._logger:
             self._logger.log_info(
-                f"Charge {len(devices)} peripherique(s) "
-                f"depuis {self._file_path}"
+                f"Charge {len(devices)} peripherique(s) depuis {self._file_path}"
             )
         return devices
 
@@ -75,9 +74,7 @@ class JsonDeviceRepository(DeviceRepository):
             indent=2,
             ensure_ascii=False,
         )
-        fd, tmp = tempfile.mkstemp(
-            dir=str(self._file_path.parent), suffix=".tmp"
-        )
+        fd, tmp = tempfile.mkstemp(dir=str(self._file_path.parent), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(payload)
@@ -88,8 +85,7 @@ class JsonDeviceRepository(DeviceRepository):
             raise
         if self._logger:
             self._logger.log_info(
-                f"Sauvegarde {len(devices)} peripherique(s)"
-                f" dans {self._file_path}"
+                f"Sauvegarde {len(devices)} peripherique(s) dans {self._file_path}"
             )
 
     def find_by_mac(self, mac: str) -> NetworkDevice | None:

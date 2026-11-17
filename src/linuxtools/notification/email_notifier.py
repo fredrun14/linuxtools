@@ -128,6 +128,4 @@ class SmtpEmailNotifier(Notifier):
                 f"Envoi email échoué via {self._host} : {exc}"
             ) from exc
         if self._logger:
-            self._logger.log_info(
-                f"Notification email envoyée : {notification.title}"
-            )
+            self._logger.log_info(f"Notification email envoyée : {notification.title}")

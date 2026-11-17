@@ -124,8 +124,7 @@ class VersionChecker:
             [
                 python_bin,
                 "-c",
-                "from importlib.metadata import version; "
-                f"print(version({package!r}))",
+                f"from importlib.metadata import version; print(version({package!r}))",
             ],
             timeout=self._PROBE_TIMEOUT,
         )

@@ -35,6 +35,10 @@
 
 ### Modifié
 
+- refactor(format): longueur de ligne ruff portée de 79 à 88 (base commune
+  2/6) ; `src/` et `tests/` reformatés par `ruff format` seul (AST identique
+  avant/après) ; le gate `make format-check` couvre désormais tout `src/` et
+  `tests/` (T1 à T3).
 - build(lint): `make lint` exécute d'abord `format-check`, et la CI et le hook
   pre-commit appellent la même cible (T21, T31/F22).
 - refactor(pyproject): outillage de développement en `[dependency-groups]`

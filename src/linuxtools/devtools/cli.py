@@ -62,9 +62,7 @@ class _UsageError(Exception):
 class BumpConsumersCommand(CliCommand):
     """Sous-commande ``bump-consumers`` : monte le pin sur les projets."""
 
-    def __init__(
-        self, executor_factory: ExecutorFactory | None = None
-    ) -> None:
+    def __init__(self, executor_factory: ExecutorFactory | None = None) -> None:
         """Initialise la commande.
 
         Args:
@@ -148,9 +146,7 @@ class BumpConsumersCommand(CliCommand):
     def _run(self, args: argparse.Namespace) -> list[BumpOutcome]:
         """Contrôles d'entrée puis boucle sur les consommateurs."""
         self._check_arguments(args)
-        logger: Logger = (
-            ConsoleLogger() if args.dry_run else self._file_logger()
-        )
+        logger: Logger = ConsoleLogger() if args.dry_run else self._file_logger()
         executor = self._executor_factory(logger, args.dry_run)
         self._check_tools(executor)
         self._check_tag_exists(executor, args.tag)
@@ -202,8 +198,7 @@ class BumpConsumersCommand(CliCommand):
             raise _UsageError("git introuvable ou version illisible")
         if (int(match[1]), int(match[2])) < _MIN_GIT:
             raise _UsageError(
-                f"git >= {_MIN_GIT[0]}.{_MIN_GIT[1]} requis "
-                f"({git.stdout.strip()})"
+                f"git >= {_MIN_GIT[0]}.{_MIN_GIT[1]} requis ({git.stdout.strip()})"
             )
         if not executor.probe(["uv", "--version"]).success:
             raise _UsageError("uv introuvable")
@@ -232,8 +227,7 @@ class BumpConsumersCommand(CliCommand):
             shutil.rmtree(neutral, ignore_errors=True)
         if not result.success:
             raise _UsageError(
-                f"impossible de vérifier le tag {tag} : "
-                f"{result.stderr.strip()}"
+                f"impossible de vérifier le tag {tag} : {result.stderr.strip()}"
             )
         if not result.stdout.strip():
             raise _UsageError(f"le tag {tag} n'existe pas dans linuxtools")

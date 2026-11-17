@@ -229,27 +229,21 @@ def test_purge_old_logs_keep_inexistant_ne_protege_rien(
     """F04 : un `keep` introuvable n'empêche pas la purge des autres."""
     ancien = _creer(tmp_path / "run_vieux.log", 400)
 
-    supprimes = purge_old_logs(
-        tmp_path, "run_*.log", keep=tmp_path / "run_absent.log"
-    )
+    supprimes = purge_old_logs(tmp_path, "run_*.log", keep=tmp_path / "run_absent.log")
 
     assert supprimes == [ancien]
     assert not ancien.exists()
 
 
 @pytest.mark.parametrize("motif", ["", "../x", "a/b", "/etc/*", "**/x"])
-def test_purge_old_logs_rejette_motif_invalide(
-    tmp_path: Path, motif: str
-) -> None:
+def test_purge_old_logs_rejette_motif_invalide(tmp_path: Path, motif: str) -> None:
     """SEC : motif vide ou contenant un séparateur -> ValueError."""
     with pytest.raises(ValueError):
         purge_old_logs(tmp_path, motif)
 
 
 @pytest.mark.parametrize("duree", [0, -1])
-def test_purge_old_logs_rejette_duree_invalide(
-    tmp_path: Path, duree: int
-) -> None:
+def test_purge_old_logs_rejette_duree_invalide(tmp_path: Path, duree: int) -> None:
     """Une durée inférieure à 1 jour -> ValueError."""
     with pytest.raises(ValueError):
         purge_old_logs(tmp_path, "run_*.log", max_age_days=duree)

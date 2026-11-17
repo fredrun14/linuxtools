@@ -6,9 +6,7 @@ from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.distro.fedora import fedora_version
 
 
-def _make_executor(
-    return_code: int = 0, stdout: str = ""
-) -> MagicMock:
+def _make_executor(return_code: int = 0, stdout: str = "") -> MagicMock:
     """Crée un mock de CommandExecutor pour fedora_version()."""
     mock = MagicMock(spec=CommandExecutor)
     mock.probe.return_value = CommandResult(
@@ -45,17 +43,13 @@ class TestFedoraVersion:
         fedora_version(executor)
 
         # Assert
-        executor.probe.assert_called_once_with(
-            ["rpm", "--eval", "%fedora"]
-        )
+        executor.probe.assert_called_once_with(["rpm", "--eval", "%fedora"])
         executor.run.assert_not_called()
 
     def test_code_retour_non_nul_retourne_chaine_vide(self) -> None:
         """Code retour non nul → chaîne vide (variante défensive)."""
         # Arrange
-        executor = _make_executor(
-            return_code=1, stdout="erreur rpm"
-        )
+        executor = _make_executor(return_code=1, stdout="erreur rpm")
 
         # Act
         version = fedora_version(executor)

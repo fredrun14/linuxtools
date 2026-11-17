@@ -213,15 +213,11 @@ class FileLogger(_BaseFileLogger):
         self.handler: logging.StreamHandler[Any]
 
         if not self.logger.handlers:
-            self.handler = self._make_file_handler(
-                self.log_file, log_level, log_format
-            )
+            self.handler = self._make_file_handler(self.log_file, log_level, log_format)
             self.logger.addHandler(self.handler)
             if console_output:
                 self.logger.addHandler(
-                    self._make_console_handler(
-                        log_level, log_format, colored_console
-                    )
+                    self._make_console_handler(log_level, log_format, colored_console)
                 )
         else:
             self.handler = self.logger.handlers[0]  # type: ignore[assignment]
@@ -280,9 +276,7 @@ class FileLogger(_BaseFileLogger):
         handler: logging.StreamHandler[TextIO] = logging.StreamHandler()
         handler.setLevel(log_level)
         formatter = (
-            _ColoredFormatter(log_format)
-            if colored
-            else logging.Formatter(log_format)
+            _ColoredFormatter(log_format) if colored else logging.Formatter(log_format)
         )
         handler.setFormatter(formatter)
         return handler

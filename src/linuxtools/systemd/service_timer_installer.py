@@ -171,9 +171,7 @@ class SystemdServiceTimerInstaller(ServiceTimerInstaller):
             return False
 
         if not self._timer_manager.enable_timer(unit_name):
-            self._logger.log_error(
-                f"Échec de l'activation du timer {unit_name}.timer"
-            )
+            self._logger.log_error(f"Échec de l'activation du timer {unit_name}.timer")
             return False
 
         self._logger.log_info(
@@ -205,8 +203,8 @@ class SystemdServiceTimerInstaller(ServiceTimerInstaller):
             ValueError: Si une configuration est invalide.
         """
         service_config = ServiceConfigLoader(toml_path, config_loader).load()
-        timer_config = TimerConfigLoader(
-            toml_path, config_loader
-        ).load_for_service(unit_name)
+        timer_config = TimerConfigLoader(toml_path, config_loader).load_for_service(
+            unit_name
+        )
 
         return self.install(unit_name, service_config, timer_config)

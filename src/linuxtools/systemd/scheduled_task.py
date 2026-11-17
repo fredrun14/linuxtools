@@ -143,9 +143,7 @@ class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):
         if not self._enable_timer(task_name):
             return False
 
-        self._logger.log_info(
-            f"Tâche planifiée '{task_name}' installée avec succès."
-        )
+        self._logger.log_info(f"Tâche planifiée '{task_name}' installée avec succès.")
         return True
 
     def _install_script(
@@ -161,15 +159,11 @@ class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):
             True si l'installation a réussi, False sinon.
         """
         if not self._script_installer.install(script_path, script_config):
-            self._logger.log_error(
-                f"Échec de l'installation du script {script_path}"
-            )
+            self._logger.log_error(f"Échec de l'installation du script {script_path}")
             return False
         return True
 
-    def _install_service(
-        self, task_name: str, service_config: ServiceConfig
-    ) -> bool:
+    def _install_service(self, task_name: str, service_config: ServiceConfig) -> bool:
         """Installe le service systemd.
 
         Args:
@@ -214,8 +208,6 @@ class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):
             True si l'activation a réussi, False sinon.
         """
         if not self._timer_manager.enable_timer(task_name):
-            self._logger.log_error(
-                f"Échec de l'activation du timer {task_name}.timer"
-            )
+            self._logger.log_error(f"Échec de l'activation du timer {task_name}.timer")
             return False
         return True

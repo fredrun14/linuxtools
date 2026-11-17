@@ -84,15 +84,11 @@ class TestLocalDestination:
         assert oct(stat.st_mode)[-3:] == "640"
         assert stat.st_mtime == 1_000_000
 
-    def test_write_keep_local_cree_fichier_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_write_keep_local_cree_fichier_absent(self, tmp_path: Path) -> None:
         """Un fichier absent est créé, kept reste False."""
         dest_path = tmp_path / "secrets.env"
 
-        outcome = LocalDestination().write(
-            dest_path, "A=\n", 0o600, if_exists="keep"
-        )
+        outcome = LocalDestination().write(dest_path, "A=\n", 0o600, if_exists="keep")
 
         assert outcome == WriteOutcome(True)
         assert dest_path.read_text(encoding="utf-8") == "A=\n"
@@ -105,16 +101,12 @@ class TestLocalDestination:
         lien = tmp_path / "lien"
         lien.symlink_to(tmp_path / "rien")
 
-        outcome = LocalDestination().write(
-            lien, "A=\n", 0o600, if_exists="keep"
-        )
+        outcome = LocalDestination().write(lien, "A=\n", 0o600, if_exists="keep")
 
         assert outcome.kept is True
         assert not (tmp_path / "rien").exists()
 
-    def test_write_replace_local_comportement_inchange(
-        self, tmp_path: Path
-    ) -> None:
+    def test_write_replace_local_comportement_inchange(self, tmp_path: Path) -> None:
         """Non-régression : replace écrase un fichier existant."""
         dest_path = tmp_path / "f.txt"
         dest_path.write_text("ancien", encoding="utf-8")
@@ -213,9 +205,7 @@ class TestRemoteDestination:
         # Arrange
         dest_path = Path("/etc/app/config.toml")
         executor = MagicMock(spec=CommandExecutor)
-        executor.run.return_value = _result(
-            success=False, stderr="Permission denied"
-        )
+        executor.run.return_value = _result(success=False, stderr="Permission denied")
         destination = RemoteDestination(executor)
 
         # Act

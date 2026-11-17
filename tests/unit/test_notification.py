@@ -23,9 +23,7 @@ class TestNotificationConfig:
     def test_creation_with_required_fields(self) -> None:
         """Vérifie la création avec les champs requis."""
         config = NotificationConfig(
-            title="Test",
-            message_success="Succès",
-            message_failure="Échec"
+            title="Test", message_success="Succès", message_failure="Échec"
         )
         assert config.title == "Test"
         assert config.message_success == "Succès"
@@ -43,7 +41,7 @@ class TestNotificationConfig:
             message_success="OK",
             message_failure="KO",
             icon_success="emblem-ok",
-            icon_failure="emblem-error"
+            icon_failure="emblem-error",
         )
         assert config.icon_success == "emblem-ok"
         assert config.icon_failure == "emblem-error"
@@ -51,35 +49,21 @@ class TestNotificationConfig:
     def test_raises_on_empty_title(self) -> None:
         """Vérifie que __post_init__ lève une erreur si title est vide."""
         with pytest.raises(ValueError, match="title est requis"):
-            NotificationConfig(
-                title="",
-                message_success="OK",
-                message_failure="KO"
-            )
+            NotificationConfig(title="", message_success="OK", message_failure="KO")
 
     def test_raises_on_empty_message_success(self) -> None:
         """Vérifie l'erreur si message_success est vide."""
         with pytest.raises(ValueError, match="message_success est requis"):
-            NotificationConfig(
-                title="Test",
-                message_success="",
-                message_failure="KO"
-            )
+            NotificationConfig(title="Test", message_success="", message_failure="KO")
 
     def test_raises_on_empty_message_failure(self) -> None:
         """Vérifie l'erreur si message_failure est vide."""
         with pytest.raises(ValueError, match="message_failure est requis"):
-            NotificationConfig(
-                title="Test",
-                message_success="OK",
-                message_failure=""
-            )
+            NotificationConfig(title="Test", message_success="OK", message_failure="")
 
     def test_is_frozen(self, notif: NotificationConfig) -> None:
         """Vérifie que la dataclass est immutable."""
-        with pytest.raises(
-            AttributeError, match="cannot assign to field"
-        ):
+        with pytest.raises(AttributeError, match="cannot assign to field"):
             # Test d'immutabilité intentionnel : l'erreur mypy confirme
             # le contrat testé (dataclass frozen).
             notif.title = "Nouveau titre"  # type: ignore[misc]
@@ -117,7 +101,7 @@ class TestNotificationConfigToBashCalls:
             title="Flatpak",
             message_success="Mise à jour OK",
             message_failure="Échec",
-            icon_success="emblem-ok"
+            icon_success="emblem-ok",
         )
         result = config.to_bash_call_success()
         assert "send_notification" in result
@@ -131,7 +115,7 @@ class TestNotificationConfigToBashCalls:
             title="Flatpak",
             message_success="OK",
             message_failure="Mise à jour échouée",
-            icon_failure="dialog-error"
+            icon_failure="dialog-error",
         )
         result = config.to_bash_call_failure()
         assert "send_notification" in result
@@ -225,7 +209,9 @@ class TestNotificationConfigAppName:
     def test_app_name_personnalise_dans_bash_function(self) -> None:
         """app_name personnalisé apparaît dans to_bash_function()."""
         config = NotificationConfig(
-            title="T", message_success="OK", message_failure="KO",
+            title="T",
+            message_success="OK",
+            message_failure="KO",
             app_name="MonApp",
         )
         result = config.to_bash_function()

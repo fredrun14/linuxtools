@@ -19,12 +19,8 @@ _SOLUTIONS_PAR_DEFAUT: dict[type[Exception], str] = {
     AppPermissionError: (
         "\n🔧 Solution : Exécutez avec sudo ou vérifiez les permissions."
     ),
-    ConfigurationError: (
-        "\n🔧 Solution : Vérifiez votre fichier de configuration."
-    ),
-    InstallationError: (
-        "\n🔧 Solution : Consultez les logs pour plus de détails."
-    ),
+    ConfigurationError: ("\n🔧 Solution : Vérifiez votre fichier de configuration."),
+    InstallationError: ("\n🔧 Solution : Consultez les logs pour plus de détails."),
 }
 
 

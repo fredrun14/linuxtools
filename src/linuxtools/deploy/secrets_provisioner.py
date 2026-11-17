@@ -40,9 +40,7 @@ class SecretsProvisioner:
 
     def __init__(
         self,
-        credential_manager_factory: (
-            Callable[[str], CredentialManager] | None
-        ) = None,
+        credential_manager_factory: (Callable[[str], CredentialManager] | None) = None,
         logger: Logger | None = None,
     ) -> None:
         """Initialise le provisionneur de secrets.
@@ -116,31 +114,23 @@ class SecretsProvisioner:
             try:
                 value = managers[service].require(key)
             except CredentialNotFoundError as exc:
-                self._log_error(
-                    f"Secret introuvable : {service}/{key} ({exc})"
-                )
+                self._log_error(f"Secret introuvable : {service}/{key} ({exc})")
                 return PhaseOutcome(False)
             if "\n" in value:
                 self._log_error(
-                    f"Valeur invalide pour {service}/{key} : "
-                    "retour à la ligne interdit"
+                    f"Valeur invalide pour {service}/{key} : retour à la ligne interdit"
                 )
                 return PhaseOutcome(False)
             resolved[key] = value
 
         content = (
-            "\n".join(f"{key}={value}" for key, value in resolved.items())
-            + "\n"
+            "\n".join(f"{key}={value}" for key, value in resolved.items()) + "\n"
             if resolved
             else ""
         )
 
-        sink = ContentSink(
-            destination_for(target, executor), logger=self._logger
-        )
-        return PhaseOutcome(
-            sink.write(spec.dest_path, content, mode=spec.mode)
-        )
+        sink = ContentSink(destination_for(target, executor), logger=self._logger)
+        return PhaseOutcome(sink.write(spec.dest_path, content, mode=spec.mode))
 
     def _provision_skeleton(
         self,

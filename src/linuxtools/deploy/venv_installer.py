@@ -81,22 +81,16 @@ class VenvInstaller:
 
         exists = self._executor.run(["test", "-d", str(venv_path)])
         if not exists.success:
-            self._log(
-                f"Aucun venv existant à {venv_path} : "
-                "pas de backup nécessaire."
-            )
+            self._log(f"Aucun venv existant à {venv_path} : pas de backup nécessaire.")
             return None
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         backup_path = venv_path.parent / (f"{venv_path.name}.bak-{timestamp}")
 
-        result = self._executor.run(
-            ["cp", "-a", str(venv_path), str(backup_path)]
-        )
+        result = self._executor.run(["cp", "-a", str(venv_path), str(backup_path)])
         if not result.success:
             self._log_error(
-                f"Échec du backup de {venv_path} vers "
-                f"{backup_path} : {result.stderr}"
+                f"Échec du backup de {venv_path} vers {backup_path} : {result.stderr}"
             )
             raise DeployError(
                 f"Backup du venv {venv_path} impossible : {result.stderr}"
@@ -131,26 +125,20 @@ class VenvInstaller:
         """
         if recreate:
             version_result = self._executor.run(["python3", "--version"])
-            version = (
-                version_result.stdout.strip() or version_result.stderr.strip()
-            )
+            version = version_result.stdout.strip() or version_result.stderr.strip()
             self._log(f"python3 de l'hôte : {version}")
 
             rm_result = self._executor.run(["rm", "-rf", str(venv_path)])
             if not rm_result.success:
                 self._log_error(
-                    f"Échec de suppression du venv {venv_path} : "
-                    f"{rm_result.stderr}"
+                    f"Échec de suppression du venv {venv_path} : {rm_result.stderr}"
                 )
                 return rm_result
 
-            venv_result = self._executor.run(
-                ["python3", "-m", "venv", str(venv_path)]
-            )
+            venv_result = self._executor.run(["python3", "-m", "venv", str(venv_path)])
             if not venv_result.success:
                 self._log_error(
-                    f"Échec de création du venv {venv_path} : "
-                    f"{venv_result.stderr}"
+                    f"Échec de création du venv {venv_path} : {venv_result.stderr}"
                 )
                 return venv_result
 
@@ -187,15 +175,11 @@ class VenvInstaller:
             True si la restauration a réussi, False sinon.
         """
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        guard_path = venv_path.parent / (
-            f"{venv_path.name}.rollback-tmp-{timestamp}"
-        )
+        guard_path = venv_path.parent / (f"{venv_path.name}.rollback-tmp-{timestamp}")
 
         exists = self._executor.run(["test", "-d", str(venv_path)])
         if exists.success:
-            mv_result = self._executor.run(
-                ["mv", str(venv_path), str(guard_path)]
-            )
+            mv_result = self._executor.run(["mv", str(venv_path), str(guard_path)])
             if not mv_result.success:
                 self._log_error(
                     f"Échec de la mise à l'écart de {venv_path} "
@@ -203,9 +187,7 @@ class VenvInstaller:
                 )
                 return False
 
-        cp_result = self._executor.run(
-            ["cp", "-a", str(backup_path), str(venv_path)]
-        )
+        cp_result = self._executor.run(["cp", "-a", str(backup_path), str(venv_path)])
         if not cp_result.success:
             self._log_error(
                 f"Échec de restauration du backup {backup_path} "

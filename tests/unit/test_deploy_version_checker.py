@@ -16,9 +16,7 @@ from linuxtools.deploy.version_checker import (
 from linuxtools.logging.base import Logger
 
 
-def _result(
-    success: bool = True, stdout: str = "", stderr: str = ""
-) -> CommandResult:
+def _result(success: bool = True, stdout: str = "", stderr: str = "") -> CommandResult:
     """Construit un CommandResult scripté pour les tests."""
     return CommandResult(
         command=(),
@@ -41,11 +39,7 @@ def _write_pyproject(
     version: str = "1.2.3",
 ) -> Path:
     """Écrit un pyproject.toml minimal dans tmp_path."""
-    content = (
-        "[project]\n"
-        f'name = "{name}"\n'
-        f'version = "{version}"\n'
-    )
+    content = f'[project]\nname = "{name}"\nversion = "{version}"\n'
     (tmp_path / "pyproject.toml").write_text(content, encoding="utf-8")
     return tmp_path
 
@@ -53,9 +47,7 @@ def _write_pyproject(
 class TestReadSourceVersion:
     """Tests pour read_source_version()."""
 
-    def test_retourne_nom_et_version_cas_nominal(
-        self, tmp_path: Path
-    ) -> None:
+    def test_retourne_nom_et_version_cas_nominal(self, tmp_path: Path) -> None:
         """Cas nominal : name et version lus depuis [project]."""
         _write_pyproject(tmp_path, name="mon-outil", version="1.2.3")
 
@@ -64,27 +56,19 @@ class TestReadSourceVersion:
         assert name == "mon-outil"
         assert version == "1.2.3"
 
-    def test_leve_deployerror_si_fichier_absent(
-        self, tmp_path: Path
-    ) -> None:
+    def test_leve_deployerror_si_fichier_absent(self, tmp_path: Path) -> None:
         """pyproject.toml absent -> DeployError."""
         with pytest.raises(DeployError, match="introuvable"):
             read_source_version(tmp_path)
 
-    def test_leve_deployerror_si_toml_malforme(
-        self, tmp_path: Path
-    ) -> None:
+    def test_leve_deployerror_si_toml_malforme(self, tmp_path: Path) -> None:
         """TOML malformé -> DeployError."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project\nname = ", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project\nname = ", encoding="utf-8")
 
         with pytest.raises(DeployError, match="illisible"):
             read_source_version(tmp_path)
 
-    def test_leve_deployerror_si_fichier_illisible(
-        self, tmp_path: Path
-    ) -> None:
+    def test_leve_deployerror_si_fichier_illisible(self, tmp_path: Path) -> None:
         """pyproject.toml illisible (OSError à l'ouverture) ->
         DeployError, pas PermissionError brute."""
         _write_pyproject(tmp_path)
@@ -97,9 +81,7 @@ class TestReadSourceVersion:
             with pytest.raises(DeployError, match="illisible"):
                 read_source_version(tmp_path)
 
-    def test_leve_deployerror_si_version_absente(
-        self, tmp_path: Path
-    ) -> None:
+    def test_leve_deployerror_si_version_absente(self, tmp_path: Path) -> None:
         """Clé project.version absente -> DeployError."""
         (tmp_path / "pyproject.toml").write_text(
             '[project]\nname = "mon-outil"\n', encoding="utf-8"
@@ -117,14 +99,10 @@ class TestVersionCheckerCheck:
     ) -> None:
         """Versions identiques -> up_to_date True."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout="1.2.3\n"
-        )
+        executor.probe.return_value = _result(success=True, stdout="1.2.3\n")
         checker = VersionChecker(executor)
 
-        result = checker.check(
-            Path("/opt/app/venv"), "mon-outil", "1.2.3"
-        )
+        result = checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
 
         assert result.up_to_date is True
         assert result.installed_version == "1.2.3"
@@ -136,14 +114,10 @@ class TestVersionCheckerCheck:
     ) -> None:
         """Versions différentes -> up_to_date False."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout="1.0.0\n"
-        )
+        executor.probe.return_value = _result(success=True, stdout="1.0.0\n")
         checker = VersionChecker(executor)
 
-        result = checker.check(
-            Path("/opt/app/venv"), "mon-outil", "1.2.3"
-        )
+        result = checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
 
         assert result.up_to_date is False
         assert result.installed_version == "1.0.0"
@@ -158,9 +132,7 @@ class TestVersionCheckerCheck:
         )
         checker = VersionChecker(executor)
 
-        result = checker.check(
-            Path("/opt/app/venv"), "mon-outil", "1.2.3"
-        )
+        result = checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
 
         assert result.installed_version is None
         assert result.up_to_date is False
@@ -170,14 +142,10 @@ class TestVersionCheckerCheck:
     ) -> None:
         """Sonde réussie mais stdout vide -> installed_version None."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout=""
-        )
+        executor.probe.return_value = _result(success=True, stdout="")
         checker = VersionChecker(executor)
 
-        result = checker.check(
-            Path("/opt/app/venv"), "mon-outil", "1.2.3"
-        )
+        result = checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
 
         assert result.installed_version is None
         assert result.up_to_date is False
@@ -185,9 +153,7 @@ class TestVersionCheckerCheck:
     def test_transmet_un_timeout_a_probe(self) -> None:
         """probe() est appelé avec un timeout non None."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout="1.2.3\n"
-        )
+        executor.probe.return_value = _result(success=True, stdout="1.2.3\n")
         checker = VersionChecker(executor)
 
         checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
@@ -198,9 +164,7 @@ class TestVersionCheckerCheck:
     def test_utilise_probe_pas_run(self) -> None:
         """La lecture de version cible passe par .probe(), pas .run()."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout="1.2.3\n"
-        )
+        executor.probe.return_value = _result(success=True, stdout="1.2.3\n")
         checker = VersionChecker(executor)
 
         checker.check(Path("/opt/app/venv"), "mon-outil", "1.2.3")
@@ -211,9 +175,7 @@ class TestVersionCheckerCheck:
     def test_logue_le_resultat_si_logger_fourni(self) -> None:
         """Le résultat est loggué en info quand un logger est injecté."""
         executor = _make_executor()
-        executor.probe.return_value = _result(
-            success=True, stdout="1.2.3\n"
-        )
+        executor.probe.return_value = _result(success=True, stdout="1.2.3\n")
         logger = MagicMock(spec=Logger)
         checker = VersionChecker(executor, logger=logger)
 
@@ -225,9 +187,7 @@ class TestVersionCheckerCheck:
 class TestCheckTargetVersion:
     """Tests pour la façade check_target_version()."""
 
-    def test_construit_executeur_local_si_target_none(
-        self, tmp_path: Path
-    ) -> None:
+    def test_construit_executeur_local_si_target_none(self, tmp_path: Path) -> None:
         """target=None -> exécuteur local (pas de SshCommandExecutor)."""
         _write_pyproject(tmp_path, name="mon-outil", version="1.2.3")
 
@@ -235,21 +195,15 @@ class TestCheckTargetVersion:
             "linuxtools.deploy.version_checker.LinuxCommandExecutor"
         ) as mock_local_cls:
             mock_local = MagicMock()
-            mock_local.probe.return_value = _result(
-                success=True, stdout="1.2.3\n"
-            )
+            mock_local.probe.return_value = _result(success=True, stdout="1.2.3\n")
             mock_local_cls.return_value = mock_local
 
-            result = check_target_version(
-                tmp_path, Path("/opt/app/venv")
-            )
+            result = check_target_version(tmp_path, Path("/opt/app/venv"))
 
         mock_local.probe.assert_called_once()
         assert result.up_to_date is True
 
-    def test_construit_ssh_executor_si_target_remote(
-        self, tmp_path: Path
-    ) -> None:
+    def test_construit_ssh_executor_si_target_remote(self, tmp_path: Path) -> None:
         """target distante -> SshCommandExecutor est utilisé."""
         _write_pyproject(tmp_path, name="mon-outil", version="1.2.3")
 
@@ -257,9 +211,7 @@ class TestCheckTargetVersion:
             "linuxtools.deploy.version_checker.SshCommandExecutor"
         ) as mock_ssh_cls:
             mock_ssh = MagicMock()
-            mock_ssh.probe.return_value = _result(
-                success=True, stdout="1.2.3\n"
-            )
+            mock_ssh.probe.return_value = _result(success=True, stdout="1.2.3\n")
             mock_ssh_cls.return_value = mock_ssh
 
             result = check_target_version(
@@ -272,9 +224,7 @@ class TestCheckTargetVersion:
         mock_ssh.probe.assert_called_once()
         assert result.up_to_date is True
 
-    def test_utilise_nom_pyproject_si_package_non_fourni(
-        self, tmp_path: Path
-    ) -> None:
+    def test_utilise_nom_pyproject_si_package_non_fourni(self, tmp_path: Path) -> None:
         """package=None -> déduit de [project].name du pyproject.toml.
 
         Nom de paquet hostile (apostrophe + point-virgule) : la liste
@@ -290,20 +240,15 @@ class TestCheckTargetVersion:
             "linuxtools.deploy.version_checker.LinuxCommandExecutor"
         ) as mock_local_cls:
             mock_local = MagicMock()
-            mock_local.probe.return_value = _result(
-                success=True, stdout="1.2.3\n"
-            )
+            mock_local.probe.return_value = _result(success=True, stdout="1.2.3\n")
             mock_local_cls.return_value = mock_local
 
-            result = check_target_version(
-                tmp_path, Path("/opt/app/venv")
-            )
+            result = check_target_version(tmp_path, Path("/opt/app/venv"))
 
         assert result.package == hostile_name
         command_args, command_kwargs = mock_local.probe.call_args
         expected_script = (
-            "from importlib.metadata import version; "
-            f"print(version({hostile_name!r}))"
+            f"from importlib.metadata import version; print(version({hostile_name!r}))"
         )
         assert command_args[0] == [
             str(Path("/opt/app/venv") / "bin" / "python"),

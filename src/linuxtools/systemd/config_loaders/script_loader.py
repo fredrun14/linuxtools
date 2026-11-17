@@ -88,9 +88,7 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
 
         exec_command = data.get("exec_command") or data.get("exec_start")
         if not exec_command:
-            raise KeyError(
-                f"Ni 'exec_command' ni 'exec_start' dans [{section_name}]"
-            )
+            raise KeyError(f"Ni 'exec_command' ni 'exec_start' dans [{section_name}]")
 
         notification = self._load_notification()
 
@@ -99,9 +97,7 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
             notification=notification,
         )
 
-    def load_without_notification(
-        self, section: str | None = None
-    ) -> BashScriptConfig:
+    def load_without_notification(self, section: str | None = None) -> BashScriptConfig:
         """Charge un BashScriptConfig sans notification.
 
         Utile quand on veut forcer la création d'un script simple
@@ -124,9 +120,7 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
 
         exec_command = data.get("exec_command") or data.get("exec_start")
         if not exec_command:
-            raise KeyError(
-                f"Ni 'exec_command' ni 'exec_start' dans [{section_name}]"
-            )
+            raise KeyError(f"Ni 'exec_command' ni 'exec_start' dans [{section_name}]")
 
         return BashScriptConfig(exec_command=exec_command)
 
@@ -149,12 +143,8 @@ class BashScriptConfigLoader(ConfigFileLoader[BashScriptConfig]):
             message_failure=notif_data.get(
                 "message_failure", self.DEFAULT_MESSAGE_FAILURE
             ),
-            icon_success=notif_data.get(
-                "icon_success", self.DEFAULT_ICON_SUCCESS
-            ),
-            icon_failure=notif_data.get(
-                "icon_failure", self.DEFAULT_ICON_FAILURE
-            ),
+            icon_success=notif_data.get("icon_success", self.DEFAULT_ICON_SUCCESS),
+            icon_failure=notif_data.get("icon_failure", self.DEFAULT_ICON_FAILURE),
         )
 
     def has_notification(self) -> bool:

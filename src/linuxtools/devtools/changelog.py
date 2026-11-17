@@ -39,11 +39,7 @@ def add_modified_entry(text: str, entry: str) -> str:
     if start is None:
         raise ValueError(f"section « {_UNRELEASED} » absente du CHANGELOG")
     end = next(
-        (
-            i
-            for i in range(start + 1, len(lines))
-            if lines[i].startswith("## ")
-        ),
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
         len(lines),
     )
     bullet = f"- {entry}{cr}"

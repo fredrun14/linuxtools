@@ -73,6 +73,7 @@ class TestCliCommand:
         self,
     ) -> None:
         """Vérifie que l'ABC rejette une sous-classe sans register()."""
+
         # Arrange
         class MissingRegister(CliCommand):
             @property
@@ -90,6 +91,7 @@ class TestCliCommand:
         self,
     ) -> None:
         """Vérifie que l'ABC rejette une sous-classe sans execute()."""
+
         # Arrange
         class MissingExecute(CliCommand):
             @property

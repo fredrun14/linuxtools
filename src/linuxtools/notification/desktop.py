@@ -172,9 +172,7 @@ class DesktopNotifier(Notifier):
             timeout=self._timeout,
         )
         if not result.success:
-            raise NotificationSendError(
-                f"loginctl a échoué : {result.stderr.strip()}"
-            )
+            raise NotificationSendError(f"loginctl a échoué : {result.stderr.strip()}")
         users: list[tuple[str, str]] = []
         for line in result.stdout.splitlines():
             parts = line.split()
