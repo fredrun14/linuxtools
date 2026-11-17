@@ -37,6 +37,11 @@
 
 - build(lint): `make lint` exécute d'abord `format-check`, et la CI et le hook
   pre-commit appellent la même cible (T21, T31/F22).
+- refactor(pyproject): outillage de développement en `[dependency-groups]`
+  (`dev`, `test`) au lieu des extras du même nom, qui ne sont plus publiés
+  dans le wheel ; `dev` ne recopie plus les dépendances d'exécution ; CI en
+  `uv sync --all-extras` ; `allowed-confusables` et convention Google de ruff
+  ajoutés. Base commune, étape 1/6.
 
 ### Corrigé
 

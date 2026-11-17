@@ -96,7 +96,7 @@ pip install -e .
 pip install -e ".[validation]"   # validation Pydantic
 pip install -e ".[credentials]"  # python-dotenv + keyring
 pip install -e ".[deploy]"       # platformdirs (ScriptPaths, CLI installer)
-pip install -e ".[dev]"          # tous les outils de développement
+pip install -e . --group dev        # outils de développement (pip >= 25.1) ; avec uv : uv sync
 ```
 
 ### Installation via pip

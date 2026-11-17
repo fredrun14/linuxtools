@@ -5,7 +5,7 @@
 # Cible par défaut
 help:
 	@echo "Commandes disponibles:"
-	@echo "  make install        Installer le projet et tous les extras (uv sync --all-extras)"
+	@echo "  make install        Installer le projet, tous les extras et le groupe dev (uv sync --all-extras)"
 	@echo "  make install-dev    Alias de install + activation des hooks Git"
 	@echo "  make uninstall      Retirer linuxtools du venv (uv pip uninstall)"
 	@echo "  make test           Lancer les tests"
@@ -23,11 +23,12 @@ help:
 
 # Installation
 # `--all-extras` est obligatoire : uv sync est « exact » et désinstallerait
-# les extras non demandés (ex. webapitools, requis par mypy).
+# les extras non demandés (ex. webapitools, requis par mypy). Le groupe `dev`
+# (outillage, PEP 735) est installé par défaut par `uv sync`.
 install:
 	uv sync --all-extras
 
-# Alias : les dépendances de dev sont des extras, déjà couverts par install.
+# Alias : l'outillage de dev est le groupe `dev`, installé par défaut par `install`.
 install-dev: install hooks
 
 # Hooks Git versionnés : pointe core.hooksPath vers .githooks/ et rend
