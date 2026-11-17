@@ -34,8 +34,8 @@ jobs:
           python-version: '3.12'
           enable-cache: true
 
-      - name: Synchroniser les dépendances (+ dev)
-        run: uv sync --extra dev
+      - name: Synchroniser les dépendances (+ groupe dev, tous les extras)
+        run: uv sync --all-extras
 
       - name: Ruff check
         run: uv run ruff check src/
@@ -83,12 +83,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      # --extra network requis : tests/unit/test_network_router.py et
-      # tests/unit/test_updates_checker.py importent webapitools (extra
+      # `network` est couvert par --all-extras : tests/unit/test_network_router.py
+      # et tests/unit/test_updates_checker.py importent webapitools (extra
       # optionnel depuis pyproject.toml v2.1.0, cf.
       # CDC-20260910-Casser-Cycle-Webapitools.md).
-      - name: Synchroniser les dépendances (+ dev, + network)
-        run: uv sync --extra dev --extra network
+      - name: Synchroniser les dépendances (+ groupe dev, tous les extras)
+        run: uv sync --all-extras
 
       - name: Type check (mypy strict)
         run: uv run mypy src/linuxtools/ tests/
@@ -121,8 +121,8 @@ jobs:
           python-version: '3.12'
           enable-cache: true
 
-      - name: Synchroniser les dépendances (+ dev)
-        run: uv sync --extra dev
+      - name: Synchroniser les dépendances (+ groupe dev, tous les extras)
+        run: uv sync --all-extras
 
       - name: Run integration tests
         run: uv run pytest tests/integration/ -v -m integration --no-cov
@@ -150,8 +150,8 @@ jobs:
           python-version: '3.12'
           enable-cache: true
 
-      - name: Synchroniser les dépendances (+ dev)
-        run: uv sync --extra dev
+      - name: Synchroniser les dépendances (+ groupe dev, tous les extras)
+        run: uv sync --all-extras
 
       - name: Audit des dépendances (pip-audit)
         run: uv run pip-audit
