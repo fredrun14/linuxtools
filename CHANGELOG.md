@@ -35,6 +35,8 @@
 
 ### Modifié
 
+- chore(git): `.git-blame-ignore-revs` (commit de reformatage à 88, base commune
+  2/6) ; fichier parasite `=2.0` retiré de la racine.
 - refactor(format): longueur de ligne ruff portée de 79 à 88 (base commune
   2/6) ; `src/` et `tests/` reformatés par `ruff format` seul (AST identique
   avant/après) ; le gate `make format-check` couvre désormais tout `src/` et
