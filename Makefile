@@ -17,7 +17,7 @@ help:
 	@echo "  make lint           Vérifier le style PEP8, ruff et le typage (mypy)"
 	@echo "  make clean          Nettoyer les fichiers générés"
 	@echo "  make build          Construire wheel + sdist (uv build)"
-	@echo "  make hooks          Activer les hooks Git versionnés (.githooks)"
+	@echo "  make hooks          Activer les hooks Git versionnés (.githooks) et l'ignore-revs de blame"
 	@echo "  make all            Lint + tests + build"
 	@echo "  make bump-consumers TAG=vX.Y.Z [ARGS=...]  Monter le pin des consommateurs"
 
@@ -32,11 +32,13 @@ install:
 install-dev: install hooks
 
 # Hooks Git versionnés : pointe core.hooksPath vers .githooks/ et rend
-# les hooks exécutables. À lancer une fois après un clone.
+# les hooks exécutables, et fait ignorer par `git blame` les commits listés
+# dans .git-blame-ignore-revs. À lancer une fois après un clone.
 hooks:
 	git config core.hooksPath .githooks
+	git config blame.ignoreRevsFile .git-blame-ignore-revs
 	chmod +x .githooks/*
-	@echo "Hooks Git activés (core.hooksPath -> .githooks)"
+	@echo "Hooks Git activés (core.hooksPath -> .githooks, blame.ignoreRevsFile)"
 
 # Effet temporaire : le prochain `uv run` (test, lint...) réinstalle le projet
 # dans le venv. Cible conservée pour un retrait ponctuel.
