@@ -73,13 +73,15 @@ class TestReadSourceVersion:
         DeployError, pas PermissionError brute."""
         _write_pyproject(tmp_path)
 
-        with patch.object(
-            Path,
-            "open",
-            side_effect=PermissionError("Permission denied"),
+        with (
+            patch.object(
+                Path,
+                "open",
+                side_effect=PermissionError("Permission denied"),
+            ),
+            pytest.raises(DeployError, match="illisible"),
         ):
-            with pytest.raises(DeployError, match="illisible"):
-                read_source_version(tmp_path)
+            read_source_version(tmp_path)
 
     def test_leve_deployerror_si_version_absente(self, tmp_path: Path) -> None:
         """Clé project.version absente -> DeployError."""
@@ -87,7 +89,9 @@ class TestReadSourceVersion:
             '[project]\nname = "mon-outil"\n', encoding="utf-8"
         )
 
-        with pytest.raises(DeployError, match="name.*version"):
+        with pytest.raises(
+            DeployError, match=r"'project\.name' et 'project\.version' requis"
+        ):
             read_source_version(tmp_path)
 
 

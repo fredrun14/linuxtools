@@ -119,9 +119,8 @@ class TestExecutionReportStep:
     def test_etape_en_echec_reraise(self) -> None:
         """Vérifie la propagation avec reraise=True."""
         report = ExecutionReport(script_name="demo")
-        with pytest.raises(RuntimeError):
-            with report.step("rsync", reraise=True):
-                raise RuntimeError("échec rsync")
+        with pytest.raises(RuntimeError), report.step("rsync", reraise=True):
+            raise RuntimeError("échec rsync")
         assert report.steps[0].success is False
 
 

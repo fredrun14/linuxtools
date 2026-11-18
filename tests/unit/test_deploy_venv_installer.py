@@ -1,9 +1,8 @@
 """Tests pour le module deploy.venv_installer."""
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import re
 
 import pytest
 

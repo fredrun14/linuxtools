@@ -1,6 +1,5 @@
 """Tests pour le module deploy.sinks."""
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -110,7 +109,7 @@ class TestContentSink:
         sink = ContentSink(LocalDestination())
 
         assert sink.write(dest_path, "contenu") is True
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "644"
 
     def test_content_sink_en_echec_ne_logue_jamais_le_contenu(self) -> None:
         """Sécurité A09, chemin échec : le contenu (potentiellement
@@ -163,7 +162,7 @@ class TestTomlSink:
 
         assert result is True
         assert dest_path.read_text(encoding="utf-8") == "port = 8080\n"
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "640"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "640"
 
     def test_toml_sink_utilise_le_mode_par_defaut_cas_limite(
         self, tmp_path: Path
@@ -171,7 +170,7 @@ class TestTomlSink:
         """Cas limite : mode non renseigné -> 0o644 (défaut)."""
         dest_path = tmp_path / "deployed.toml"
         assert TomlSink(LocalDestination()).write(dest_path, {"a": 1}) is True
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "644"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "644"
 
     def test_toml_sink_distant_rend_puis_depose_via_install(self) -> None:
         """Chemin distant : le TOML rendu transite par stdin d'`install`."""

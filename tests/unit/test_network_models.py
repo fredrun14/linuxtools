@@ -1,7 +1,7 @@
 """Tests pour le modele NetworkDevice."""
 
 import dataclasses
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -22,7 +22,7 @@ class TestNetworkDevice:
 
     def test_creation_complete(self) -> None:
         """Creation avec tous les champs."""
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         device = NetworkDevice(
             ip="192.168.1.1",
             mac="aa:bb:cc:dd:ee:ff",
@@ -52,12 +52,12 @@ class TestNetworkDevice:
 
     def test_ip_invalide(self) -> None:
         """IP invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : '999\.1\.1\.1'"):
             NetworkDevice(ip="999.1.1.1", mac="aa:bb:cc:dd:ee:ff")
 
     def test_mac_invalide(self) -> None:
         """MAC invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse MAC invalide : 'invalid'"):
             NetworkDevice(ip="192.168.1.1", mac="invalid")
 
     def test_mac_normalisee(self) -> None:
@@ -67,7 +67,7 @@ class TestNetworkDevice:
 
     def test_fixed_ip_invalide(self) -> None:
         """fixed_ip invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : '999\.1\.1\.1'"):
             NetworkDevice(
                 ip="192.168.1.1",
                 mac="aa:bb:cc:dd:ee:ff",
@@ -157,7 +157,7 @@ class TestNetworkDevice:
 
     def test_ip_invalide_leve_erreur(self) -> None:
         """IP non vide et invalide leve ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Adresse IPv4 invalide : '999\.1\.1\.1'"):
             NetworkDevice(ip="999.1.1.1", mac="aa:bb:cc:dd:ee:ff")
 
     def test_roundtrip_ip_vide(self) -> None:

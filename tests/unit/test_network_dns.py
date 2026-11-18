@@ -109,7 +109,9 @@ class TestLinuxHostsFileManager:
         mgr = LinuxHostsFileManager(_config())
         output = mgr.generate_hosts_entries([])
         assert "Reseau local" in output
-        lines = [l for l in output.strip().split("\n") if not l.startswith("#")]
+        lines = [
+            ligne for ligne in output.strip().split("\n") if not ligne.startswith("#")
+        ]
         assert lines == []
 
 

@@ -11,9 +11,9 @@ from linuxtools.commands.base import (
 )
 from linuxtools.network.config import NetworkConfig
 from linuxtools.network.scanner import (
-    _detect_interface,
     LinuxArpScanner,
     LinuxNmapScanner,
+    _detect_interface,
 )
 
 ARP_OUTPUT = (
@@ -200,7 +200,7 @@ class TestLinuxNmapScanner:
         """Host sans hostname a un hostname vide."""
         scanner, _ = self._make_scanner()
         devices = scanner._parse_xml_output(NMAP_XML)
-        apple = [d for d in devices if d.ip == "192.168.1.100"][0]
+        apple = next(d for d in devices if d.ip == "192.168.1.100")
         assert apple.hostname == ""
 
     def test_scan_echec_commande(self) -> None:

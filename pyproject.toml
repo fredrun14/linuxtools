@@ -207,12 +207,31 @@ line-length    = 88
 target-version = "py311"
 
 [tool.ruff.lint]
-select = [
-    "E", "W", "F", "I", "N", "UP", "B", "C4", "TC", "ANN",
-    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
-]
+# Base commune (décision du 2026-10-18) : toutes les règles moins le bruit mesuré.
+# ruff est épinglé `==` dans [dependency-groups] : une montée de version, qui peut
+# ajouter des règles, se fait dans un commit dédié (ruff check --statistics).
+select = ["ALL"]
 ignore = [
-    "B008",  # Ne pas appeler de fonctions dans les arguments par défaut
+    # Docstrings facultatives (style Google)
+    "D100",    # module
+    "D104",    # package (__init__.py)
+    "D105",    # méthodes magiques (__repr__...)
+    "D106",    # classe imbriquée publique (Meta, Config)
+    "D107",    # __init__ : documenté dans la docstring de la classe
+    # Conflits avec ruff format
+    "COM812",  # virgule finale imposée
+    "ISC001",  # concaténation implicite sur une ligne
+    # Hors sujet pour ces projets
+    "CPY001",  # en-tête de copyright
+    "FIX",     # présence de TODO/FIXME : le suivi est dans le vault
+    "TD",      # format des TODO
+    "PD",      # pandas (faux positifs sur .values hors pandas)
+    # Imports déplacés sous TYPE_CHECKING : casse les annotations lues à l'exécution
+    "TC001", "TC002", "TC003",
+    # Style des messages d'exception : bruit pur
+    "TRY003",  # message long passé à l'exception
+    "EM101",   # chaîne littérale dans raise
+    "EM102",   # f-string dans raise
 ]
 # Typographie française des commentaires et docstrings : pas des caractères ambigus
 allowed-confusables = ["–", "—", "’", "«", "»", "\u00a0", "\u202f"]
@@ -223,10 +242,32 @@ unfixable = []
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
+"src/**/*.py" = [
+    # DETTE de l'étape 4/6 « ruff ALL sur src/ » : retirer ce bloc entier.
+    "ARG002", "BLE001", "C901", "D205", "D212", "D301", "D412", "D418", "DTZ005",
+    "DTZ007", "FBT001", "FBT002", "FBT003", "FURB110", "FURB188", "PERF401",
+    "PIE790", "PIE810", "PLC0415", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    "PLR2004", "PLR5501", "PLW2901", "PTH101", "PTH105", "PTH107", "PTH108",
+    "PTH111", "PTH116", "PTH118", "PTH119", "PTH123", "RET504", "RET506", "RUF002",
+    "RUF005", "RUF012", "RUF022", "RUF100", "S101", "S103", "S104", "S310", "S314",
+    "S603", "SIM102", "SIM103", "SIM105", "SIM108", "SLF001", "T201", "TRY004",
+    "TRY300", "TRY301",
+]
 "tests/**/*.py" = [
-    "S101",  # assert autorisé dans les tests
-    "S106",  # Passwords hardcodés OK dans les tests
-    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    "S101",     # assert
+    "S105", "S106", "S108",  # faux secrets, chemins temporaires
+    "D",        # docstrings
+    "ANN",      # annotations : déjà imposées par mypy --strict (files inclut tests/)
+    "PLR2004",  # valeurs attendues en dur
+    "SLF001",   # accès aux membres privés du code testé
+    "ARG",      # arguments inutilisés (fixtures, faux objets, lambdas de mock)
+    "FBT",      # booléens positionnels (mocks, parametrize)
+    "INP001",   # tests/ sans __init__.py
+    "PLC0415",  # import local dans un test
+    "PLR0913",  # nombreuses fixtures
+    "N806",     # mocks nommes en majuscules (MockClient)
+    "DTZ001",   # datetimes fixes sans fuseau
+    "N802",     # noms de tests
 ]
 
 # =============================================================================

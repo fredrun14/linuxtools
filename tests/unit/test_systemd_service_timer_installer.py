@@ -46,7 +46,7 @@ class MockConfigLoader(ConfigLoader):
         self,
         config_path: str | Path,
         schema: type | None = None,
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         return self._config
 
 
@@ -98,7 +98,7 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
 
         result = self._install()
 
-        self.assertTrue(result)
+        assert result
         self.mock_service_manager.install_service_unit_with_name.assert_called_once_with(
             self.unit_name, self.service_config
         )
@@ -115,7 +115,7 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
 
         result = self._install()
 
-        self.assertFalse(result)
+        assert not result
         self.mock_timer_manager.install_timer_unit.assert_not_called()
         self.mock_logger.log_error.assert_called_once()
 
@@ -126,7 +126,7 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
 
         result = self._install()
 
-        self.assertFalse(result)
+        assert not result
         self.mock_timer_manager.enable_timer.assert_not_called()
 
     def test_install_returns_false_if_enable_fails(self) -> None:
@@ -136,7 +136,7 @@ class TestSystemdServiceTimerInstallerInstall(unittest.TestCase):
 
         result = self._install()
 
-        self.assertFalse(result)
+        assert not result
         self.mock_logger.log_error.assert_called_once()
 
 
@@ -184,12 +184,12 @@ class TestSystemdServiceTimerInstallerFromToml(unittest.TestCase):
             "backup", "/fake/path.toml", self.mock_config_loader
         )
 
-        self.assertTrue(result)
+        assert result
         service_config = (
             self.mock_service_manager.install_service_unit_with_name.call_args.args[1]
         )
-        self.assertTrue(service_config.no_new_privileges)
-        self.assertEqual(service_config.read_write_paths, ("/var/lib/backup",))
+        assert service_config.no_new_privileges
+        assert service_config.read_write_paths == ("/var/lib/backup",)
 
     def test_install_from_toml_uses_unit_name_for_timer_unit(
         self,
@@ -200,7 +200,7 @@ class TestSystemdServiceTimerInstallerFromToml(unittest.TestCase):
         )
 
         timer_config = self.mock_timer_manager.install_timer_unit.call_args.args[0]
-        self.assertEqual(timer_config.unit, "backup.service")
+        assert timer_config.unit == "backup.service"
 
 
 if __name__ == "__main__":

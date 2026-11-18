@@ -1,6 +1,5 @@
 """Tests pour le module systemd.service."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -133,7 +132,7 @@ class TestServiceConfigToUnitFile:
 
         assert "OnFailure=notify-failure@%N.service" in result
         # La ligne doit être dans [Unit], pas après [Service]
-        unit_section, _, rest = result.partition("[Service]")
+        unit_section, _, _rest = result.partition("[Service]")
         assert "OnFailure=" in unit_section
 
     def test_service_restart_no_omits_restart_lines(self) -> None:
@@ -375,11 +374,11 @@ class TestWriteUnitFileAntiSymlink:
             manager.SYSTEMD_UNIT_PATH = temp_dir
 
             # Créer un symlink
-            target = os.path.join(temp_dir, "target.txt")
-            with open(target, "w") as f:
+            target = str(Path(temp_dir, "target.txt"))
+            with Path(target).open("w") as f:
                 f.write("original")
-            link = os.path.join(temp_dir, "test.service")
-            os.symlink(target, link)
+            link = str(Path(temp_dir, "test.service"))
+            Path(link).symlink_to(target)
 
             result = manager._write_unit_file("test.service", "[Unit]\n")
 
@@ -403,10 +402,10 @@ class TestWriteUnitFileAntiSymlink:
             )
 
             assert result is True
-            path = os.path.join(temp_dir, "test.service")
-            mode = os.stat(path).st_mode & 0o777
+            path = str(Path(temp_dir, "test.service"))
+            mode = Path(path).stat().st_mode & 0o777
             assert mode == 0o644
-            with open(path) as f:
+            with Path(path).open() as f:
                 assert f.read() == "[Unit]\nDescription=Test\n"
         finally:
             shutil.rmtree(temp_dir)
@@ -729,8 +728,8 @@ class TestUnitManagerErrorPaths:
 
     def test_write_unit_generic_os_error(self, tmp_path: Path) -> None:
         """_write_unit_file retourne False sur OSError générique."""
-        from unittest.mock import patch
         import errno
+        from unittest.mock import patch
 
         logger = MagicMock()
         executor = MagicMock()
@@ -760,8 +759,8 @@ class TestUnitManagerErrorPaths:
 
     def test_remove_unit_generic_os_error(self, tmp_path: Path) -> None:
         """_remove_unit_file retourne False sur OSError générique."""
-        from unittest.mock import patch
         import errno
+        from unittest.mock import patch
 
         logger = MagicMock()
         executor = MagicMock()
@@ -861,7 +860,7 @@ class TestUnitFileWriteErrorPaths:
         assert result is False
 
     def test_user_install_with_name_write_echoue(self, tmp_path: Path) -> None:
-        """LinuxUserServiceUnitManager: install_with_name retourne False si ecriture echoue."""
+        """LinuxUserServiceUnitManager: install_with_name False si ecriture echoue."""
         from unittest.mock import patch
 
         manager, _, _ = self._make_user_manager(tmp_path)
@@ -1101,7 +1100,13 @@ class TestServiceConfigDependances:
     @pytest.mark.parametrize("unit", ["x y", "a/b.target", "a.sh"])
     def test_service_config_rejette_after_invalide(self, unit: str) -> None:
         """Refuse un nom d'unité invalide dans After."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Extension d'unité non autorisée|Nom d'unité invalide|Nom "
+                r"d'unité sans extension"
+            ),
+        ):
             ServiceConfig(description="T", exec_start="/bin/x", after=(unit,))
 
     @pytest.mark.parametrize(
@@ -1121,7 +1126,9 @@ class TestServiceConfigDependances:
         self, ident: str
     ) -> None:
         """Refuse un identifiant syslog invalide."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"Identifiant syslog invalide|Nom d'unité invalide"
+        ):
             ServiceConfig(description="T", exec_start="/bin/x", syslog_identifier=ident)
 
     def test_service_config_rend_requires_mounts_for(self) -> None:
@@ -1131,7 +1138,7 @@ class TestServiceConfigDependances:
             exec_start="/bin/x",
             requires_mounts_for=("/mnt/a", "/mnt/b"),
         )
-        unit, service = config.to_unit_file().split("[Service]")
+        unit, _service = config.to_unit_file().split("[Service]")
         assert "RequiresMountsFor=/mnt/a /mnt/b\n" in unit
 
     def test_service_config_rend_after(self) -> None:

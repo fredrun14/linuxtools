@@ -29,7 +29,9 @@ def test_load_lan_clients_non_liste_leve_valueerror() -> None:
 def test_load_lan_clients_entree_non_table_leve_valueerror() -> None:
     """Une entrée qui n'est pas une table est rejetée."""
     # Act / Assert
-    with pytest.raises(ValueError, match="entrée de client invalide : .aa:bb"):
+    with pytest.raises(
+        ValueError, match=r"entrée de client invalide : 'aa:bb:cc:dd:ee:ff'"
+    ):
         load_lan_clients(["aa:bb:cc:dd:ee:ff"])
 
 
@@ -46,7 +48,7 @@ def test_load_lan_clients_mac_absente_ou_mauvais_type(
 def test_load_lan_clients_mac_invalide_leve_valueerror() -> None:
     """Une MAC mal formée est rejetée par validate_mac."""
     # Act / Assert
-    with pytest.raises(ValueError, match="MAC invalide : .pas-une-mac"):
+    with pytest.raises(ValueError, match=r"Adresse MAC invalide : 'pas-une-mac'"):
         load_lan_clients([{"mac": "pas-une-mac"}])
 
 
@@ -287,7 +289,7 @@ def test_load_lan_clients_mac_validee_avant_les_validateurs() -> None:
         raise ValueError("nom refusé")
 
     # Act / Assert
-    with pytest.raises(ValueError, match="MAC invalide : .zz"):
+    with pytest.raises(ValueError, match=r"Adresse MAC invalide : 'zz'"):
         load_lan_clients([{"mac": "zz", "name": "x"}], name_validator=refuser)
 
 
@@ -345,7 +347,7 @@ def test_load_lan_clients_mac_doublon_prioritaire_sur_nom_doublon() -> None:
 def test_lan_client_construction_directe_mac_invalide() -> None:
     """LanClient valide aussi la MAC hors du loader."""
     # Act / Assert
-    with pytest.raises(ValueError, match="MAC invalide : .invalide"):
+    with pytest.raises(ValueError, match=r"Adresse MAC invalide : 'invalide'"):
         LanClient(mac="invalide")
 
 
@@ -439,7 +441,7 @@ def test_load_lan_clients_leve_valueerror_si_cle_inconnue(cle: str) -> None:
     entries = [{"mac": "aa:bb:cc:dd:ee:ff", cle: True}]
 
     # Act / Assert
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match=r"clé\(s\) inconnue\(s\)") as exc_info:
         load_lan_clients(entries)
     message = str(exc_info.value)
     assert repr(cle) in message

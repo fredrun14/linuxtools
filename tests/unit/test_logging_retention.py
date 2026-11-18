@@ -238,14 +238,18 @@ def test_purge_old_logs_keep_inexistant_ne_protege_rien(
 @pytest.mark.parametrize("motif", ["", "../x", "a/b", "/etc/*", "**/x"])
 def test_purge_old_logs_rejette_motif_invalide(tmp_path: Path, motif: str) -> None:
     """SEC : motif vide ou contenant un séparateur -> ValueError."""
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Motif invalide : non vide et sans séparateur de chemin"
+    ):
         purge_old_logs(tmp_path, motif)
 
 
 @pytest.mark.parametrize("duree", [0, -1])
 def test_purge_old_logs_rejette_duree_invalide(tmp_path: Path, duree: int) -> None:
     """Une durée inférieure à 1 jour -> ValueError."""
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"max_age_days doit être supérieur ou égal à 1"
+    ):
         purge_old_logs(tmp_path, "run_*.log", max_age_days=duree)
 
 

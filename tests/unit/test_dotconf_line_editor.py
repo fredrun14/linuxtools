@@ -4,7 +4,6 @@ from pathlib import Path
 
 from linuxtools.dotconf import SectionAwareEditor
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -428,7 +427,8 @@ class TestEnsureBlock:
         assert result is True
         raw = path.read_bytes()
         assert b"key = 2\r\n" in raw
-        assert b"\n" in raw and b"\r\n" in raw
+        assert b"\n" in raw
+        assert b"\r\n" in raw
         # Aucune ligne ne doit se retrouver avec seulement \n (mélange)
         assert raw.count(b"\r\n") == raw.count(b"\n")
 

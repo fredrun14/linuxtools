@@ -16,7 +16,7 @@ import pytest
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.credentials.exceptions import CredentialNotFoundError
 from linuxtools.credentials.manager import CredentialManager
-from linuxtools.deploy.models import DeployTarget, PhaseOutcome, SecretsSpec
+from linuxtools.deploy.models import DeployTarget, SecretsSpec
 from linuxtools.deploy.secrets_provisioner import SecretsProvisioner
 
 
@@ -84,7 +84,7 @@ class TestSecretsProvisionerProvisionLocal:
         assert dest_path.read_text(encoding="utf-8") == (
             "GOTIFY_TOKEN=tok-abc123\nAPI_KEY=key-xyz\n"
         )
-        assert oct(os.stat(dest_path).st_mode)[-3:] == "600"
+        assert oct(Path(dest_path).stat().st_mode)[-3:] == "600"
         assert credentials.require.call_args_list == [
             call("GOTIFY_TOKEN"),
             call("API_KEY"),
@@ -428,7 +428,7 @@ class TestSecretsProvisionerModeTarget:
             "TOKEN=",
             "PASS=",
         ]
-        assert oct(os.stat(dest).st_mode)[-3:] == "600"
+        assert oct(Path(dest).stat().st_mode)[-3:] == "600"
 
     def test_provision_target_fichier_existant_non_modifie(
         self, tmp_path: Path
@@ -436,7 +436,7 @@ class TestSecretsProvisionerModeTarget:
         """F-07 / A-06 : contenu, mode et mtime intacts."""
         dest = tmp_path / "secrets.env"
         dest.write_text("TOKEN=reel\n", encoding="utf-8")
-        os.chmod(dest, 0o640)
+        Path(dest).chmod(0o640)
         os.utime(dest, (1_000_000, 1_000_000))
         spec = SecretsSpec(keys=(("a", "TOKEN"),), dest_path=dest, values_from="target")
 
@@ -447,8 +447,8 @@ class TestSecretsProvisionerModeTarget:
         assert outcome.success is True
         assert "déjà présent" in outcome.messages[0]
         assert dest.read_text(encoding="utf-8") == "TOKEN=reel\n"
-        assert oct(os.stat(dest).st_mode)[-3:] == "640"
-        assert os.stat(dest).st_mtime == 1_000_000
+        assert oct(Path(dest).stat().st_mode)[-3:] == "640"
+        assert Path(dest).stat().st_mtime == 1_000_000
 
     def test_provision_target_message_liste_les_cles_sans_valeur(
         self, tmp_path: Path

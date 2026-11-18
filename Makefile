@@ -68,7 +68,7 @@ format-check:
 	uv run ruff format --check src/ tests/
 
 lint: format-check
-	uv run ruff check src/
+	uv run ruff check src/ tests/
 	uv run bandit -ll -r src/linuxtools/
 	uv run mypy src/linuxtools/ tests/
 

@@ -35,7 +35,6 @@ from linuxtools.credentials.providers.keyring import (
     KeyringCredentialProvider,
 )
 
-
 # ---------------------------------------------------------------------------
 # Tests CredentialKey et Credential
 # ---------------------------------------------------------------------------
@@ -566,7 +565,7 @@ class TestCredentialChain:
     def test_default_cree_chaine_sans_dotenv(self) -> None:
         """default() cree la chaine env -> keyring sans dotenv_path."""
         chain = CredentialChain.default()
-        assert len(chain._providers) == 2  # noqa: PLR2004
+        assert len(chain._providers) == 2
         assert chain._providers[0].source_name == "env"
         assert chain._providers[1].source_name == "keyring"
 
@@ -575,7 +574,7 @@ class TestCredentialChain:
         dotenv_path = tmp_path / ".env"
         dotenv_path.write_text("KEY=val\n")
         chain = CredentialChain.default(dotenv_path=dotenv_path)
-        assert len(chain._providers) == 3  # noqa: PLR2004
+        assert len(chain._providers) == 3
         assert chain._providers[0].source_name == "env"
         assert chain._providers[1].source_name == "dotenv"
         assert chain._providers[2].source_name == "keyring"

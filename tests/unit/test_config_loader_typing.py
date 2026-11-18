@@ -30,9 +30,8 @@ def _write_json(data: dict[str, object]) -> Path:
     Returns:
         Chemin du fichier temporaire créé.
     """
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-    json.dump(data, f)
-    f.close()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(data, f)
     return Path(f.name)
 
 
@@ -47,7 +46,7 @@ class TestFileConfigLoaderTyping(unittest.TestCase):
         result = loader.load(path)
 
         assert_type(result, dict[str, Any])
-        self.assertIsInstance(result, dict)
+        assert isinstance(result, dict)
 
     def test_load_with_schema_returns_schema_type(self) -> None:
         """Avec schema, mypy doit voir un retour du type du schema."""
@@ -57,7 +56,7 @@ class TestFileConfigLoaderTyping(unittest.TestCase):
         result = loader.load(path, SampleConfig)
 
         assert_type(result, SampleConfig)
-        self.assertIsInstance(result, SampleConfig)
+        assert isinstance(result, SampleConfig)
 
 
 if __name__ == "__main__":

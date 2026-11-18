@@ -1,12 +1,12 @@
 """Tests pour le module commands."""
 
-import os
 import signal
 import subprocess
 import sys
 import threading
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from types import FrameType
 from unittest.mock import MagicMock, patch
 
@@ -226,12 +226,12 @@ class TestCommandBuilder:
 
     def test_programme_vide_leve_erreur(self) -> None:
         """Test qu'un programme vide lève ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Le programme est requis\."):
             CommandBuilder("")
 
     def test_programme_espaces_leve_erreur(self) -> None:
         """Test qu'un programme d'espaces lève ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Le programme est requis\."):
             CommandBuilder("   ")
 
 
@@ -1541,7 +1541,7 @@ class TestRunStreamingProcessusReel:
         self, shell: str, garde_fou_alarme: None
     ) -> None:
         """Avec dash/busybox (fork de sleep, comme en CI), le délai tient."""
-        if not os.path.exists(shell):
+        if not Path(shell).exists():
             pytest.skip(f"{shell} absent")
         cmd = [shell, "sh"] if shell.endswith("busybox") else [shell]
         executor = LinuxCommandExecutor()

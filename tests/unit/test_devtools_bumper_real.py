@@ -73,7 +73,7 @@ class _Run:
         return any(a[: len(prefix)] == prefix for a in self.argvs())
 
 
-def _scenario(
+def _scenario(  # noqa: C901, PLR0915 - fabrique de scénario à options, linéaire
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -151,7 +151,8 @@ def _scenario(
             )
 
     def uv_lock(call: Call) -> None:
-        assert run.wt is not None and lock is not None
+        assert run.wt is not None
+        assert lock is not None
         (run.wt / "uv.lock").write_text(lock[1])
 
     def commit(call: Call) -> None:
@@ -241,7 +242,8 @@ def test_chemin_nominal_pousse_apres_checks_verts(
     ) in run.argvs()
     assert "linuxtools.git@v2.11.1" in run.committed_pyproject
     assert "v2.10.0" not in run.committed_pyproject
-    assert run.tmp is not None and not run.tmp.exists()
+    assert run.tmp is not None
+    assert not run.tmp.exists()
     assert not run.has("git", "branch", "-D")
 
 
@@ -317,7 +319,8 @@ def test_check_en_echec_annule_et_supprime_la_branche(
     assert not run.has("git", "push")
     assert ("git", "branch", "-D", _BRANCHE) in run.argvs()
     assert run.has("git", "worktree", "remove", "--force")
-    assert run.tmp is not None and not run.tmp.exists()
+    assert run.tmp is not None
+    assert not run.tmp.exists()
 
 
 def test_lock_hors_fermeture_echoue(
@@ -390,7 +393,7 @@ def test_changement_d_en_tete_du_lock_journalise_un_warning(
     outcome = run.outcome()
 
     assert outcome.status is Status.POUSSE
-    logger = run.bumper._logger  # noqa: SLF001
+    logger = run.bumper._logger
     assert isinstance(logger, MagicMock)
     assert "revision" in logger.log_warning.call_args[0][0]
 
@@ -451,7 +454,8 @@ def test_push_non_verifie_donne_push_echoue_et_garde_la_branche(
     assert outcome.status is Status.PUSH_ECHOUE
     assert not run.has("git", "branch", "-D")
     assert run.has("git", "worktree", "remove", "--force")
-    assert run.tmp is not None and not run.tmp.exists()
+    assert run.tmp is not None
+    assert not run.tmp.exists()
 
 
 def test_no_push_donne_commite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -612,7 +616,8 @@ def test_nettoyage_worktree_meme_en_exception(
     assert "disque plein" in outcome.detail
     assert run.has("git", "worktree", "remove", "--force")
     assert ("git", "branch", "-D", _BRANCHE) in run.argvs()
-    assert run.tmp is not None and not run.tmp.exists()
+    assert run.tmp is not None
+    assert not run.tmp.exists()
 
 
 def test_echec_de_worktree_list_journalise_et_n_elague_pas(

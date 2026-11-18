@@ -272,12 +272,14 @@ class TestLinuxUserManagerEchecCommande:
         executor.run.return_value = _result_fail(1)
 
         # Act / Assert
-        with patch(
-            "linuxtools.identity.user.pwd.getpwnam",
-            return_value=mock_pwd,
+        with (
+            patch(
+                "linuxtools.identity.user.pwd.getpwnam",
+                return_value=mock_pwd,
+            ),
+            pytest.raises(CommandExecutionError, match="usermod"),
         ):
-            with pytest.raises(CommandExecutionError, match="usermod"):
-                manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
+            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
 
     def test_ensure_user_useradd_echec_leve_exception(
         self,
@@ -289,12 +291,14 @@ class TestLinuxUserManagerEchecCommande:
         executor.run.return_value = _result_fail(9)
 
         # Act / Assert
-        with patch(
-            "linuxtools.identity.user.pwd.getpwnam",
-            side_effect=KeyError("frederic"),
+        with (
+            patch(
+                "linuxtools.identity.user.pwd.getpwnam",
+                side_effect=KeyError("frederic"),
+            ),
+            pytest.raises(CommandExecutionError, match="useradd"),
         ):
-            with pytest.raises(CommandExecutionError, match="useradd"):
-                manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
+            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
 
     def test_ensure_user_groups_usermod_echec_leve_exception(
         self,
@@ -308,9 +312,11 @@ class TestLinuxUserManagerEchecCommande:
         executor.run.return_value = _result_fail(1)
 
         # Act / Assert
-        with patch(
-            "linuxtools.identity.user.grp.getgrnam",
-            return_value=mock_grp,
+        with (
+            patch(
+                "linuxtools.identity.user.grp.getgrnam",
+                return_value=mock_grp,
+            ),
+            pytest.raises(CommandExecutionError, match="usermod"),
         ):
-            with pytest.raises(CommandExecutionError, match="usermod"):
-                manager.ensure_user_groups("frederic", ["audio"])
+            manager.ensure_user_groups("frederic", ["audio"])

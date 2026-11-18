@@ -1,10 +1,10 @@
 """Tests unitaires pour le module dotconf."""
 
 import configparser
-import os
 import tempfile
 from collections.abc import Iterator
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -18,7 +18,6 @@ from linuxtools.dotconf import (
 )
 from linuxtools.dotconf.base import IniConfig, IniSection
 from linuxtools.logging import FileLogger
-
 
 # Fixtures
 
@@ -424,14 +423,14 @@ class TestLinuxIniConfigManagerChmod:
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
         mgr.write_section(path, CommandsSectionFixture(upgrade_type="default"))
-        assert oct(os.stat(path).st_mode & 0o777) == oct(0o644)
+        assert oct(Path(path).stat().st_mode & 0o777) == oct(0o644)
 
     def test_update_section_cree_fichier_en_0644(self, tmp_path: Path) -> None:
         """update_section() positionne les permissions à 0o644."""
         mgr = LinuxIniConfigManager(MagicMock())
         path = tmp_path / "out.conf"
         mgr.update_section(path, CommandsSectionFixture(upgrade_type="default"))
-        assert oct(os.stat(path).st_mode & 0o777) == oct(0o644)
+        assert oct(Path(path).stat().st_mode & 0o777) == oct(0o644)
 
 
 class TestValidatedSectionEdgeCases:
@@ -486,7 +485,7 @@ class TestIsSectionConfigured:
         conf = tmp_path / "test.conf"
         parser = configparser.ConfigParser()
         parser["autre_section"] = {"key": "value"}
-        with open(conf, "w") as f:
+        with Path(conf).open("w") as f:
             parser.write(f)
 
         result = manager.is_section_configured(conf, CommandsSectionFixture())
@@ -501,7 +500,7 @@ class TestIsSectionConfigured:
         conf = tmp_path / "test.conf"
         parser = configparser.ConfigParser()
         parser[section.section_name()] = section.to_dict()
-        with open(conf, "w") as f:
+        with Path(conf).open("w") as f:
             parser.write(f)
 
         result = manager.is_section_configured(conf, section)
@@ -518,7 +517,7 @@ class TestIsSectionConfigured:
         values["apply_updates"] = "no"
         parser = configparser.ConfigParser()
         parser[section.section_name()] = values
-        with open(conf, "w") as f:
+        with Path(conf).open("w") as f:
             parser.write(f)
 
         result = manager.is_section_configured(conf, section)

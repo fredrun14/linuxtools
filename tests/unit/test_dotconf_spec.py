@@ -39,7 +39,7 @@ class TestConfigBlock:
         assert block.section == "main"
 
     @pytest.mark.parametrize(
-        "content,comment,section",
+        ("content", "comment", "section"),
         [
             ("-f best", "", None),
             ("key=val", "# note", None),

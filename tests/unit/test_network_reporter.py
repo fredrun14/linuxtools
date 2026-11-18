@@ -46,8 +46,10 @@ class TestConsoleTableReporter:
         ]
         output = reporter.report(devices)
         lines = output.split("\n")
-        data_lines = [l for l in lines if "192.168.1." in l and "---" not in l]
-        ips = [l.split()[0] for l in data_lines]
+        data_lines = [
+            ligne for ligne in lines if "192.168.1." in ligne and "---" not in ligne
+        ]
+        ips = [ligne.split()[0] for ligne in data_lines]
         assert ips == [
             "192.168.1.1",
             "192.168.1.2",
@@ -95,7 +97,9 @@ class TestConsoleTableReporter:
         ]
         output = reporter.report(devices)
         lines = [
-            l for l in output.split("\n") if "192.168.1." in l or "(hors ligne)" in l
+            ligne
+            for ligne in output.split("\n")
+            if "192.168.1." in ligne or "(hors ligne)" in ligne
         ]
         # Les deux appareils avec IP doivent preceder l'offline
         assert "(hors ligne)" in lines[-1]

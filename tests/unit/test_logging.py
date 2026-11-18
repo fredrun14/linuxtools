@@ -2,7 +2,6 @@
 
 import io
 import json
-import os
 import stat
 import sys
 from pathlib import Path
@@ -13,12 +12,12 @@ import pytest
 
 from linuxtools.logging import (
     AnsiColors,
-    build_logger,
     ConsoleLogger,
     FileLogger,
     Logger,
     RotatingFileLogger,
     TeeStream,
+    build_logger,
 )
 from linuxtools.logging.file_logger import _BaseFileLogger
 from linuxtools.logging.security_logger import (
@@ -41,7 +40,7 @@ class _ConfigANotationPointee:
         """Stocke les valeurs simulées, indexées par clé pointée."""
         self._valeurs = valeurs
 
-    def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
+    def get(self, key_path: str, default: Any = None) -> Any:
         """Retourne la valeur associée à ``key_path``, ou ``default``."""
         return self._valeurs.get(key_path, default)
 
@@ -159,16 +158,18 @@ class TestFileLogger:
         log_file = tmp_path / "secure.log"
         FileLogger(str(log_file))
 
-        mode = stat.S_IMODE(os.stat(str(log_file)).st_mode)
+        mode = stat.S_IMODE(Path(log_file).stat().st_mode)
         assert mode == 0o600
 
     def test_log_refuse_symlink(self, tmp_path: Path) -> None:
         """FileLogger lève OSError si le chemin est un symlink (O_NOFOLLOW)."""
         target = tmp_path / "real.log"
         link = tmp_path / "link.log"
-        os.symlink(str(target), str(link))
+        Path(link).symlink_to(target)
 
-        with pytest.raises(OSError):
+        with pytest.raises(
+            OSError, match=r"\[Errno 40\] Too many levels of symbolic links"
+        ):
             FileLogger(str(link))
 
     def test_log_level_invalide_leve_valueerror(self, tmp_path: Path) -> None:
@@ -179,7 +180,7 @@ class TestFileLogger:
         class ConfigDotNotation:
             """Config avec notation pointée (simule ConfigurationManager)."""
 
-            def get(self, key: str, default: Any = None) -> Any:  # noqa: ANN401
+            def get(self, key: str, default: Any = None) -> Any:
                 return {"logging.level": "VERBOSE"}.get(key, default)
 
         with pytest.raises(ValueError, match="VERBOSE"):
@@ -256,7 +257,7 @@ class TestFileLoggerConsole:
         """Crée deux FileLogger sur le même fichier : handler réutilisé."""
         log_file = str(tmp_path / "shared.log")
         # Premier logger : crée les handlers dans le registre logging
-        _logger1 = FileLogger(log_file)  # noqa: F841
+        _logger1 = FileLogger(log_file)
         # Deuxième logger sur le même fichier : doit réutiliser
         logger2 = FileLogger(log_file)
         # Le handler est récupéré depuis les handlers existants
@@ -270,7 +271,7 @@ class TestFileLoggerConsole:
         class ConfigTypeError:
             """Config dont get() lève TypeError pour les clés pointées."""
 
-            def get(self, key: str, default: Any = None) -> Any:  # noqa: ANN401
+            def get(self, key: str, default: Any = None) -> Any:
                 # Simule un objet qui ne gère pas les clés en notation pointée
                 if "." in key:
                     raise TypeError("Clé pointée non supportée")
@@ -290,8 +291,6 @@ class TestFileLoggerConsole:
 
         class ConfigSansGet:
             """Config sans methode get()."""
-
-            pass
 
         # Passage volontaire d'un objet ne respectant ni dict ni
         # _SupportsGet : vérifie le repli défensif (hasattr) de
@@ -597,7 +596,7 @@ class TestTeeStream:
         sys.stdout = TeeStream(original_stdout, log_fh)
 
         try:
-            print("ligne capturée")
+            print("ligne capturée")  # noqa: T201 - print : sortie capturée par le test
         finally:
             sys.stdout = original_stdout
             log_fh.close()
@@ -624,7 +623,7 @@ class TestTeeStream:
         sys.stderr = TeeStream(original_stderr, log_fh)
 
         try:
-            print("erreur capturée", file=sys.stderr)
+            print("erreur capturée", file=sys.stderr)  # noqa: T201 - print : sortie capturée par le test
         finally:
             sys.stderr = original_stderr
             log_fh.close()
@@ -703,7 +702,7 @@ class TestRotatingFileLogger:
         log_file = tmp_path / "run.log"
         logger = RotatingFileLogger(log_file)
         logger.log_info("test permissions")
-        mode = stat.S_IMODE(os.stat(str(log_file)).st_mode)
+        mode = stat.S_IMODE(Path(log_file).stat().st_mode)
         assert mode == 0o600
 
     def test_cree_repertoire_parent(self, tmp_path: Path) -> None:

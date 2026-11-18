@@ -46,7 +46,7 @@ def _build_bare_venv(path: Path) -> None:
         path: Emplacement définitif du venv (un venv n'est pas
             relocalisable : shebangs absolus).
     """
-    subprocess.run(
+    subprocess.run(  # noqa: S603 - args fixes, sans entrée externe
         [sys.executable, "-m", "venv", "--without-pip", str(path)],
         check=True,
         capture_output=True,
@@ -135,7 +135,7 @@ class TestVenvReleaserActivateFilesystemReel:
 
         # sys.prefix résout vers venv_path (le lien), pas vers
         # version1 : Python repère pyvenv.cfg sans résoudre le lien.
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 - args fixes, sans entrée externe
             [
                 str(venv_path / "bin" / "python"),
                 "-c",
@@ -179,9 +179,7 @@ class TestVenvReleaserActivateFilesystemReel:
         releaser.activate(venv_path, version2)
         releaser.activate(venv_path, version3)
 
-        messages = releaser._prune(  # noqa: SLF001 - test d'intégration ciblé
-            venv_path, version3, version2, keep_versions=2
-        )
+        messages = releaser._prune(venv_path, version3, version2, keep_versions=2)
 
         assert messages == ()
         assert not version1.exists()
@@ -339,7 +337,7 @@ class TestMigrateScriptCompensation:
         # avec FileNotFoundError (sous-classe d'OSError).
         tmp = tmp_path / "does-not-exist"
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 - args fixes, sans entrée externe
             [
                 sys.executable,
                 "-I",
@@ -351,6 +349,7 @@ class TestMigrateScriptCompensation:
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         assert result.returncode != 0
