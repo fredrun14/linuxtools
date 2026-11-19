@@ -84,6 +84,7 @@ class CommandBuilder:
         self,
         key: str,
         value: str | None,
+        *,
         condition: bool = True,
     ) -> "CommandBuilder":
         """Ajoute une option seulement si la condition est vraie.

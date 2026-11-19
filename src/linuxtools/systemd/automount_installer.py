@@ -47,6 +47,7 @@ class AutomountInstaller(ABC):
     def install(
         self,
         config: MountConfig,
+        *,
         with_automount: bool = False,
         automount_timeout_sec: int = 0,
     ) -> bool:
@@ -121,6 +122,7 @@ class SystemdAutomountInstaller(AutomountInstaller):
     def install(
         self,
         config: MountConfig,
+        *,
         with_automount: bool = False,
         automount_timeout_sec: int = 0,
     ) -> bool:

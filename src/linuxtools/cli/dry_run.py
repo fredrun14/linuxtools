@@ -27,7 +27,7 @@ class DryRunContext:
         key=value
     """
 
-    def __init__(self, dry_run: bool = False) -> None:
+    def __init__(self, *, dry_run: bool = False) -> None:
         """Initialise le contexte dry-run.
 
         Args:

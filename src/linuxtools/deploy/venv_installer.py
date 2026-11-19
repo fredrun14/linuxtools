@@ -103,6 +103,7 @@ class VenvInstaller:
         self,
         venv_path: Path,
         source_dir: Path,
+        *,
         recreate: bool = False,
     ) -> CommandResult:
         """(Ré)installe le source dans le venv cible.

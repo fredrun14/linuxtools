@@ -58,7 +58,7 @@ def _base(root: Path, pyproject: str | None = None) -> ScriptedExecutor:
 def _commande(ex: CommandExecutor, tmp_path: Path) -> BumpConsumersCommand:
     """Commande dont l'exécuteur est injecté."""
 
-    def factory(logger: Logger, dry_run: bool) -> CommandExecutor:
+    def factory(logger: Logger, *, dry_run: bool) -> CommandExecutor:
         return ex
 
     return BumpConsumersCommand(executor_factory=factory)
@@ -443,7 +443,7 @@ def test_nom_de_la_commande() -> None:
 def test_executeur_par_defaut_est_un_linuxcommandexecutor() -> None:
     commande = BumpConsumersCommand()
 
-    executor = commande.make_executor(ConsoleLogger(), True)
+    executor = commande.make_executor(ConsoleLogger(), dry_run=True)
 
     assert isinstance(executor, LinuxCommandExecutor)
 

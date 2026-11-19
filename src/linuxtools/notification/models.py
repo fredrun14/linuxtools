@@ -144,6 +144,7 @@ class ExecutionReport:
     def add_step(
         self,
         name: str,
+        *,
         success: bool,
         duration: float = 0.0,
         message: str = "",
@@ -174,7 +175,7 @@ class ExecutionReport:
         self.errors.append(message)
 
     @contextmanager
-    def step(self, name: str, reraise: bool = False) -> Iterator[None]:
+    def step(self, name: str, *, reraise: bool = False) -> Iterator[None]:
         """Chronomètre une étape et enregistre son résultat.
 
         Toute exception levée dans le bloc marque l'étape en échec

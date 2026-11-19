@@ -59,7 +59,9 @@ class TestLinuxUserManagerEnsureUser:
             "linuxtools.identity.user.pwd.getpwnam",
             return_value=mock_pwd,
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
+            manager.ensure_user(
+                "frederic", 1000, "/bin/zsh", "Frédéric", create_home=True
+            )
 
         # Assert
         executor.run.assert_not_called()
@@ -79,7 +81,9 @@ class TestLinuxUserManagerEnsureUser:
             "linuxtools.identity.user.pwd.getpwnam",
             return_value=mock_pwd,
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
+            manager.ensure_user(
+                "frederic", 1000, "/bin/zsh", "Frédéric", create_home=True
+            )
 
         # Assert
         executor.run.assert_called_once()
@@ -100,7 +104,9 @@ class TestLinuxUserManagerEnsureUser:
             "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", False)
+            manager.ensure_user(
+                "frederic", 1000, "/bin/zsh", "Frédéric", create_home=False
+            )
 
         # Assert
         executor.run.assert_called_once()
@@ -125,7 +131,9 @@ class TestLinuxUserManagerEnsureUser:
             "linuxtools.identity.user.pwd.getpwnam",
             side_effect=KeyError("frederic"),
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "Frédéric", True)
+            manager.ensure_user(
+                "frederic", 1000, "/bin/zsh", "Frédéric", create_home=True
+            )
 
         # Assert
         cmd = executor.run.call_args[0][0]
@@ -228,7 +236,7 @@ class TestLinuxUserManagerValidation:
     ) -> None:
         """ensure_user lève ValueError si le nom commence par '-'."""
         with pytest.raises(ValueError, match="Nom Unix invalide"):
-            manager.ensure_user("-malicieux", 1000, "/bin/bash", "X", False)
+            manager.ensure_user("-malicieux", 1000, "/bin/bash", "X", create_home=False)
 
     def test_ensure_user_nom_majuscule_leve_valueerror(
         self,
@@ -236,7 +244,7 @@ class TestLinuxUserManagerValidation:
     ) -> None:
         """ensure_user lève ValueError si le nom contient des majuscules."""
         with pytest.raises(ValueError, match="Nom Unix invalide"):
-            manager.ensure_user("Majuscule", 1000, "/bin/bash", "X", False)
+            manager.ensure_user("Majuscule", 1000, "/bin/bash", "X", create_home=False)
 
     def test_ensure_user_groups_username_invalide_leve_valueerror(
         self,
@@ -279,7 +287,7 @@ class TestLinuxUserManagerEchecCommande:
             ),
             pytest.raises(CommandExecutionError, match="usermod"),
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
+            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", create_home=False)
 
     def test_ensure_user_useradd_echec_leve_exception(
         self,
@@ -298,7 +306,7 @@ class TestLinuxUserManagerEchecCommande:
             ),
             pytest.raises(CommandExecutionError, match="useradd"),
         ):
-            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", False)
+            manager.ensure_user("frederic", 1000, "/bin/zsh", "X", create_home=False)
 
     def test_ensure_user_groups_usermod_echec_leve_exception(
         self,

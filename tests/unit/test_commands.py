@@ -1291,7 +1291,9 @@ class TestLinuxCommandExecutorConsoleFormatter:
         executor = LinuxCommandExecutor(console_formatter=mock_formatter)
         executor.run(["ls"])
 
-        mock_formatter.format_start.assert_called_once_with(["ls"], executor._is_root)
+        mock_formatter.format_start.assert_called_once_with(
+            ["ls"], is_root=executor._is_root
+        )
 
     def test_console_formatter_format_dry_run_appele(self) -> None:
         """Vérifie que format_dry_run est appelé en mode dry_run."""
@@ -1302,7 +1304,7 @@ class TestLinuxCommandExecutorConsoleFormatter:
         executor.run(["echo"])
 
         mock_formatter.format_dry_run.assert_called_once_with(
-            ["echo"], executor._is_root
+            ["echo"], is_root=executor._is_root
         )
 
     @patch("linuxtools.commands.runner.subprocess.Popen")
@@ -1319,7 +1321,7 @@ class TestLinuxCommandExecutorConsoleFormatter:
         executor.run_streaming(["cmd"])
 
         mock_formatter.format_start_streaming.assert_called_once_with(
-            ["cmd"], executor._is_root
+            ["cmd"], is_root=executor._is_root
         )
 
     @patch("linuxtools.commands.runner.subprocess.Popen")

@@ -40,6 +40,7 @@ class DesktopNotifier(Notifier):
     def __init__(
         self,
         app_name: str,
+        *,
         all_users: bool = False,
         timeout: int = 10,
         executor: CommandExecutor | None = None,

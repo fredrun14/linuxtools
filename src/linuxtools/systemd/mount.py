@@ -65,6 +65,7 @@ class LinuxMountUnitManager(MountUnitManager):
     def install_mount_unit(
         self,
         config: MountConfig,
+        *,
         with_automount: bool = False,
         automount_timeout: int = 0,
     ) -> bool:
@@ -109,7 +110,7 @@ class LinuxMountUnitManager(MountUnitManager):
         self.logger.log_info(f"Unité de montage installée pour {config.where}")
         return True
 
-    def enable_mount(self, mount_path: str, with_automount: bool = False) -> bool:
+    def enable_mount(self, mount_path: str, *, with_automount: bool = False) -> bool:
         """
         Active une unité .mount (ou .automount si spécifié).
 

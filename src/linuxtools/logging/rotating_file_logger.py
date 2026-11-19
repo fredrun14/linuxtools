@@ -60,6 +60,7 @@ class RotatingFileLogger(_BaseFileLogger):
         max_bytes: int = 10_485_760,
         backup_count: int = 5,
         config: dict[str, Any] | _SupportsGet | None = None,
+        *,
         console_output: bool = False,
         colored_console: bool = False,
     ) -> None:

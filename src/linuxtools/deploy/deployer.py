@@ -64,6 +64,7 @@ class Deployer:
         installer: VenvInstaller,
         verifier: InstallVerifier,
         logger: Logger | None = None,
+        *,
         dry_run: bool = False,
         config_deployer: ConfigDeployer | None = None,
         secrets_provisioner: SecretsProvisioner | None = None,
@@ -270,7 +271,7 @@ class Deployer:
 
     @staticmethod
     def _rollback_failure_messages(
-        backup_path: Path | None, rolled_back: bool
+        backup_path: Path | None, *, rolled_back: bool
     ) -> tuple[str, ...]:
         """Message d'alerte si un rollback attendu a échoué.
 
@@ -617,7 +618,7 @@ class Deployer:
         install_result = self._installer.install(
             config.venv_path,
             config.remote_source_dir,
-            config.recreate_venv,
+            recreate=config.recreate_venv,
         )
         if not install_result.success:
             rolled_back = self._rollback_if_possible(config, backup_path)
@@ -629,7 +630,7 @@ class Deployer:
                 backup_path=backup_path,
                 messages=messages
                 + (f"Installation échouée : {install_result.stderr}",)
-                + self._rollback_failure_messages(backup_path, rolled_back),
+                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
             )
 
         checks = tuple(
@@ -646,7 +647,7 @@ class Deployer:
                 backup_path=backup_path,
                 messages=messages
                 + ("Vérification post-install échouée",)
-                + self._rollback_failure_messages(backup_path, rolled_back),
+                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
             )
 
         result = self._run_post_install_phases(config, checks, messages)
@@ -669,6 +670,7 @@ class Deployer:
         cls,
         target: DeployTarget,
         logger: Logger | None = None,
+        *,
         dry_run: bool = False,
         credential_manager_factory: (Callable[[str], CredentialManager] | None) = None,
         rsync_options: tuple[str, ...] | None = None,
@@ -725,10 +727,10 @@ class Deployer:
             installer,
             verifier,
             logger,
-            dry_run,
-            config_deployer,
-            secrets_provisioner,
-            timer_deployer,
-            target_exec,
-            releaser,
+            dry_run=dry_run,
+            config_deployer=config_deployer,
+            secrets_provisioner=secrets_provisioner,
+            timer_deployer=timer_deployer,
+            target_executor=target_exec,
+            releaser=releaser,
         )

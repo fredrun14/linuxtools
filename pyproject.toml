@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linuxtools"
-version = "2.11.1"
+version = "3.0.0"
 description = "Bibliothèque utilitaire Python pour systèmes Linux"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -245,7 +245,7 @@ convention = "google"
 "src/**/*.py" = [
     # DETTE de l'étape 4/6 « ruff ALL sur src/ » : retirer ce bloc entier.
     "ARG002", "BLE001", "C901", "D205", "D212", "D301", "D412", "D418", "DTZ005",
-    "DTZ007", "FBT001", "FBT002", "FBT003", "FURB110", "FURB188", "PERF401",
+    "DTZ007", "FURB110", "FURB188", "PERF401",
     "PIE790", "PIE810", "PLC0415", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
     "PLR2004", "PLR5501", "PLW2901", "PTH101", "PTH105", "PTH107", "PTH108",
     "PTH111", "PTH116", "PTH118", "PTH119", "PTH123", "RET504", "RET506", "RUF002",

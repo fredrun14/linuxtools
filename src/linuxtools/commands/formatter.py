@@ -48,7 +48,7 @@ class CommandFormatter(ABC):
     _ROOT_PREFIX = "[ROOT]"
     _USER_PREFIX = "[user]"
 
-    def _prefix(self, is_root: bool) -> str:
+    def _prefix(self, *, is_root: bool) -> str:
         """Retourne le préfixe textuel selon le contexte.
 
         Args:
@@ -60,7 +60,7 @@ class CommandFormatter(ABC):
         return self._ROOT_PREFIX if is_root else self._USER_PREFIX
 
     @abstractmethod
-    def _decorate(self, text: str, is_root: bool, *, dry: bool = False) -> str:
+    def _decorate(self, text: str, *, is_root: bool, dry: bool = False) -> str:
         """Applique le style visuel au texte construit.
 
         Args:
@@ -73,7 +73,7 @@ class CommandFormatter(ABC):
         """
         pass
 
-    def format_start(self, command: list[str], is_root: bool) -> str:
+    def format_start(self, command: list[str], *, is_root: bool) -> str:
         """Formate le message de début d'exécution.
 
         Args:
@@ -85,11 +85,11 @@ class CommandFormatter(ABC):
         """
         cmd_str = shlex.join(command)
         return self._decorate(
-            f"{self._prefix(is_root)} Exécution : {cmd_str}",
-            is_root,
+            f"{self._prefix(is_root=is_root)} Exécution : {cmd_str}",
+            is_root=is_root,
         )
 
-    def format_start_streaming(self, command: list[str], is_root: bool) -> str:
+    def format_start_streaming(self, command: list[str], *, is_root: bool) -> str:
         """Formate le message de début d'exécution en streaming.
 
         Args:
@@ -101,11 +101,11 @@ class CommandFormatter(ABC):
         """
         cmd_str = shlex.join(command)
         return self._decorate(
-            f"{self._prefix(is_root)} Exécution (streaming) : {cmd_str}",
-            is_root,
+            f"{self._prefix(is_root=is_root)} Exécution (streaming) : {cmd_str}",
+            is_root=is_root,
         )
 
-    def format_dry_run(self, command: list[str], is_root: bool) -> str:
+    def format_dry_run(self, command: list[str], *, is_root: bool) -> str:
         """Formate le message de simulation (mode dry-run).
 
         Args:
@@ -117,12 +117,12 @@ class CommandFormatter(ABC):
         """
         cmd_str = shlex.join(command)
         return self._decorate(
-            f"{self._prefix(is_root)} [dry-run] {cmd_str}",
-            is_root,
+            f"{self._prefix(is_root=is_root)} [dry-run] {cmd_str}",
+            is_root=is_root,
             dry=True,
         )
 
-    def format_line(self, line: str, is_root: bool) -> str:
+    def format_line(self, line: str, *, is_root: bool) -> str:
         """Formate une ligne de sortie en mode streaming.
 
         Args:
@@ -151,7 +151,7 @@ class PlainCommandFormatter(CommandFormatter):
             [user] Exécution : rsync -av /src /dst
     """
 
-    def _decorate(self, text: str, is_root: bool, *, dry: bool = False) -> str:
+    def _decorate(self, text: str, *, is_root: bool, dry: bool = False) -> str:
         """Retourne le texte sans modification (identité)."""
         return text
 
@@ -194,7 +194,7 @@ class AnsiCommandFormatter(CommandFormatter):
         """
         return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
-    def _decorate(self, text: str, is_root: bool, *, dry: bool = False) -> str:
+    def _decorate(self, text: str, *, is_root: bool, dry: bool = False) -> str:
         """Applique le style ANSI ROOT/USER/DRY si on est dans un TTY.
 
         Args:

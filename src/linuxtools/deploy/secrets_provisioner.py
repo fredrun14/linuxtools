@@ -72,9 +72,9 @@ class SecretsProvisioner:
             executor: Exécuteur de commandes ciblant `target`.
 
         Returns:
-            `PhaseOutcome(True)` si le provisioning a réussi (mode
+            `PhaseOutcome(success=True)` si le provisioning a réussi (mode
             ``"target"`` : avec un message de rapport sur le fichier créé
-            ou déjà présent), `PhaseOutcome(False)` si une clé est
+            ou déjà présent), `PhaseOutcome(success=False)` si une clé est
             introuvable ou si le dépôt échoue.
         """
         if spec.values_from == "target":
@@ -95,8 +95,8 @@ class SecretsProvisioner:
             executor: Exécuteur ciblant `target`.
 
         Returns:
-            `PhaseOutcome(True)` si le dépôt a réussi, sinon
-            `PhaseOutcome(False)`.
+            `PhaseOutcome(success=True)` si le dépôt a réussi, sinon
+            `PhaseOutcome(success=False)`.
         """
         factory = self._credential_manager_factory
         if factory is None:
@@ -105,7 +105,7 @@ class SecretsProvisioner:
                 "requise en mode 'source'."
             )
             self._log_error(message)
-            return PhaseOutcome(False, (message,))
+            return PhaseOutcome(success=False, messages=(message,))
         managers: dict[str, CredentialManager] = {}
         resolved: dict[str, str] = {}
         for service, key in spec.keys:
@@ -115,12 +115,12 @@ class SecretsProvisioner:
                 value = managers[service].require(key)
             except CredentialNotFoundError as exc:
                 self._log_error(f"Secret introuvable : {service}/{key} ({exc})")
-                return PhaseOutcome(False)
+                return PhaseOutcome(success=False)
             if "\n" in value:
                 self._log_error(
                     f"Valeur invalide pour {service}/{key} : retour à la ligne interdit"
                 )
-                return PhaseOutcome(False)
+                return PhaseOutcome(success=False)
             resolved[key] = value
 
         content = (
@@ -150,8 +150,8 @@ class SecretsProvisioner:
             executor: Exécuteur ciblant `target`.
 
         Returns:
-            `PhaseOutcome(True, (message,))` (créé ou déjà présent), ou
-            `PhaseOutcome(False, ...)` si l'écriture échoue.
+            `PhaseOutcome(success=True, messages=(message,))` (créé ou déjà présent), ou
+            `PhaseOutcome(success=False, ...)` si l'écriture échoue.
         """
         keys = tuple(dict.fromkeys(key for _service, key in spec.keys))
         content = _SKELETON_HEADER + "".join(f"{key}=\n" for key in keys)
@@ -160,19 +160,21 @@ class SecretsProvisioner:
         )
         if not outcome.success:
             self._log_error(outcome.detail)
-            return PhaseOutcome(False, ("Provisioning des secrets échoué.",))
+            return PhaseOutcome(
+                success=False, messages=("Provisioning des secrets échoué.",)
+            )
         names = ", ".join(keys)
         if outcome.kept:
             return PhaseOutcome(
-                True,
-                (
+                success=True,
+                messages=(
                     f"Fichier de secrets déjà présent, non modifié : "
                     f"{spec.dest_path} (clés attendues : {names})",
                 ),
             )
         return PhaseOutcome(
-            True,
-            (
+            success=True,
+            messages=(
                 f"Fichier de secrets créé ({spec.mode:04o}) : "
                 f"{spec.dest_path} — valeurs à renseigner sur ce poste : "
                 f"{names}",

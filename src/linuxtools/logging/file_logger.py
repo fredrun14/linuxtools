@@ -184,6 +184,7 @@ class FileLogger(_BaseFileLogger):
         self,
         log_file: str | Path,
         config: dict[str, Any] | _SupportsGet | None = None,
+        *,
         console_output: bool = False,
         colored_console: bool = False,
     ) -> None:
@@ -217,7 +218,9 @@ class FileLogger(_BaseFileLogger):
             self.logger.addHandler(self.handler)
             if console_output:
                 self.logger.addHandler(
-                    self._make_console_handler(log_level, log_format, colored_console)
+                    self._make_console_handler(
+                        log_level, log_format, colored=colored_console
+                    )
                 )
         else:
             self.handler = self.logger.handlers[0]  # type: ignore[assignment]
@@ -261,6 +264,7 @@ class FileLogger(_BaseFileLogger):
     def _make_console_handler(
         log_level: int,
         log_format: str,
+        *,
         colored: bool,
     ) -> logging.StreamHandler[TextIO]:
         """Crée le handler console optionnel.

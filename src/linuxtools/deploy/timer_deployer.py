@@ -64,14 +64,14 @@ class TimerDeployer:
         de l'issue (lecture seule : `enable-linger` n'est jamais lancé).
 
         Returns:
-            `PhaseOutcome(True, messages)` si l'installation et
-            l'activation ont réussi, `PhaseOutcome(False)` sinon.
+            `PhaseOutcome(success=True, messages=...)` si l'installation et
+            l'activation ont réussi, `PhaseOutcome(success=False)` sinon.
         """
         logger = self._logger or ConsoleLogger()
         if spec.scope == "user":
             if not self._deploy_user(spec, target, executor, logger):
-                return PhaseOutcome(False)
-            return PhaseOutcome(True, (self._probe_linger(executor),))
+                return PhaseOutcome(success=False)
+            return PhaseOutcome(success=True, messages=(self._probe_linger(executor),))
         return PhaseOutcome(self._deploy_system(spec, target, executor, logger))
 
     def _probe_linger(self, executor: CommandExecutor) -> str:

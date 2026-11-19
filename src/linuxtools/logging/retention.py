@@ -71,7 +71,9 @@ def purge_old_logs(
         except OSError:
             # Listage impossible : rien n'a été traité
             return []
-        return _purge_names(fd, log_dir, names, pattern, max_age_days, keep, dry_run)
+        return _purge_names(
+            fd, log_dir, names, pattern, max_age_days, keep, dry_run=dry_run
+        )
     finally:
         os.close(fd)
 
@@ -83,6 +85,7 @@ def _purge_names(
     pattern: str,
     max_age_days: int,
     keep: Path | None,
+    *,
     dry_run: bool,
 ) -> list[Path]:
     """Supprime, relativement au descripteur ``fd``, les noms éligibles.

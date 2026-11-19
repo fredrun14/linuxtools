@@ -82,6 +82,7 @@ class SystemdUnitExporter:
     def export(
         self,
         unit_path: Path,
+        *,
         enabled: bool = False,
         requires_exec: str = "",
     ) -> str | None:
@@ -107,7 +108,9 @@ class SystemdUnitExporter:
             self._logger.log_error(f"{unit_path.name} — type non supporté : {suffix!r}")
             return None
         unit_type = suffix[1:]
-        return self.to_toml(data, unit_type, enabled, requires_exec)
+        return self.to_toml(
+            data, unit_type, enabled=enabled, requires_exec=requires_exec
+        )
 
     @staticmethod
     def parse_ini(
@@ -148,6 +151,7 @@ class SystemdUnitExporter:
     def to_toml(
         data: dict[str, dict[str, list[str]]],
         unit_type: str,
+        *,
         enabled: bool = False,
         requires_exec: str = "",
     ) -> str:
@@ -229,6 +233,7 @@ class SystemdUnitRestorer:
         self,
         toml_path: Path,
         dest_dir: Path,
+        *,
         dry_run: bool = False,
         user: bool = False,
     ) -> tuple[bool, str]:
@@ -405,7 +410,7 @@ class SystemdUnitRestorer:
         cmd.extend(args)
         subprocess.run(cmd, check=False)  # nosec B603
 
-    def _enable(self, unit_name: str, user: bool = False) -> None:
+    def _enable(self, unit_name: str, *, user: bool = False) -> None:
         """Active une unit via l'exécuteur injecté ou subprocess.
 
         Args:
@@ -417,7 +422,7 @@ class SystemdUnitRestorer:
         else:
             self._run_systemctl_fallback("enable", unit_name, user=user)
 
-    def _daemon_reload(self, user: bool = False) -> None:
+    def _daemon_reload(self, *, user: bool = False) -> None:
         """Recharge le daemon systemd via l'exécuteur ou subprocess.
 
         Args:

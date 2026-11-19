@@ -125,6 +125,7 @@ class XdgAppConfig:
         self,
         template: str,
         filename: str = "global.toml",
+        *,
         force: bool = False,
     ) -> Path:
         """Crée le fichier de configuration avec le template fourni.
