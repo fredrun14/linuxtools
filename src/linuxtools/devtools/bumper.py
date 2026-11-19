@@ -283,7 +283,7 @@ class ConsumerBumper:
             drop = drop and stop.status is not Status.PUSH_ECHOUE
             raise
         finally:
-            self._cleanup(cwd, space, plan.branch, worktree, drop)
+            self._cleanup(cwd, space, plan.branch, worktree=worktree, drop_branch=drop)
 
     def _add_worktree(self, cwd: str, plan: _Plan, space: _Workspace) -> None:
         """Crée la branche et son worktree.
@@ -324,6 +324,7 @@ class ConsumerBumper:
         cwd: str,
         space: _Workspace,
         branch: str,
+        *,
         worktree: bool,
         drop_branch: bool,
     ) -> None:

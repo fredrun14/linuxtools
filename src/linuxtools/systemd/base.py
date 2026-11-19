@@ -224,7 +224,7 @@ class _ServiceOperationsHost(Protocol):
 
     def enable(self, unit_name: str) -> bool: ...
 
-    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
 
     def get_status(self, unit_name: str) -> "str": ...
 
@@ -252,7 +252,7 @@ class _ServiceOperationsMixin:
 
         def enable(self, unit_name: str) -> bool: ...
 
-        def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
+        def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
 
         def get_status(self, unit_name: str) -> "str": ...
 
@@ -463,7 +463,7 @@ class _TimerOperationsHost(Protocol):
 
     def enable(self, unit_name: str) -> bool: ...
 
-    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
 
     def get_status(self, unit_name: str) -> "str": ...
 
@@ -491,7 +491,7 @@ class _TimerOperationsMixin:
 
         def enable(self, unit_name: str) -> bool: ...
 
-        def disable(self, unit_name: str, ignore_errors: bool = False) -> bool: ...
+        def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
 
         def get_status(self, unit_name: str) -> "str": ...
 
@@ -683,6 +683,7 @@ class _BaseUnitManagerMixin:
         self,
         logger: "Logger",
         executor: "SystemdExecutor",
+        *,
         remote_write: bool = False,
     ) -> None:
         """Initialise le gestionnaire avec logger et executor.
@@ -721,7 +722,7 @@ class _BaseUnitManagerMixin:
         """
         return self.executor.enable_unit(unit_name)
 
-    def disable(self, unit_name: str, ignore_errors: bool = False) -> bool:
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
         """
         Désactive une unité systemd.
 
@@ -837,6 +838,7 @@ class MountUnitManager(ABC, UnitManager):
     def install_mount_unit(
         self,
         config: MountConfig,
+        *,
         with_automount: bool = False,
         automount_timeout: int = 0,
     ) -> bool:
@@ -854,7 +856,7 @@ class MountUnitManager(ABC, UnitManager):
         ...
 
     @abstractmethod
-    def enable_mount(self, mount_path: str, with_automount: bool = False) -> bool:
+    def enable_mount(self, mount_path: str, *, with_automount: bool = False) -> bool:
         """
         Active une unité .mount (ou .automount si spécifié).
 
@@ -1194,6 +1196,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         self,
         logger: "Logger",
         executor: "UserSystemdExecutor",
+        *,
         remote_write: bool = False,
     ) -> None:
         """
@@ -1212,7 +1215,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
             RuntimeError: Si le dossier personnel est introuvable
                 (``platformdirs``, voir ``_resolve_user_unit_path``).
         """
-        super().__init__(logger, executor, remote_write)
+        super().__init__(logger, executor, remote_write=remote_write)
         self._unit_path = _resolve_user_unit_path(self.SYSTEMD_USER_UNIT_PATH)
 
     @property

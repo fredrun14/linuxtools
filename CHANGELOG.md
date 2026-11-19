@@ -2,6 +2,8 @@
 
 ## [Non publié]
 
+## [3.0.0] - 2026-11-19
+
 ### Ajouté
 
 - feat(devtools): commande `bump-consumers vX.Y.Z` (package
@@ -35,6 +37,42 @@
 
 ### Modifié
 
+- **BREAKING** refactor(lint): ruff `FBT` sur `src/` : tout paramètre booléen
+  devient **mot-clé seul** (`*,` avant lui). Les paramètres à défaut qui
+  suivent le booléen deviennent eux aussi mot-clé seul (ex. `stdin` de `run`,
+  `timeout` et `logger` des notifiers). Un appel positionnel lève `TypeError`.
+  Touchés, par module :
+  - `commands` : `CommandExecutor` / `LinuxCommandExecutor` (`__init__`, `run`,
+    `run_streaming`), `CommandBuilder.with_option_if`, `CommandFormatter` et
+    ses sous-classes (`format_start`, `format_start_streaming`,
+    `format_dry_run`, `format_line` : `is_root` mot-clé seul) ;
+  - `cli` : `DryRunContext.__init__` (`dry_run`) ;
+  - `config` : `XdgAppConfig.init_config_file` ;
+  - `deploy` : `Deployer.__init__` et `Deployer.for_target`,
+    `SshCommandExecutor.run` / `run_streaming`, `VenvInstaller.install`,
+    `UsbExporter` (`has_lpu`), `RemoteDestination` / `LocalDestination`
+    (`WriteOutcome`), `TimerDeployer` ;
+  - `identity` : `UserManagerBase.ensure_user`, `LinuxUserManager.ensure_user` ;
+  - `logging` : `FileLogger.__init__`, `RotatingFileLogger.__init__`,
+    `purge_old_logs` ;
+  - `notification` : `DesktopNotifier`, `SmtpEmailNotifier`, `TelegramNotifier`
+    (`__init__`), `ExecutionReport.add_step` et `ExecutionReport.step`
+    (`reraise`) ;
+  - `scripts` : `CliInstaller.install`, `LinuxCliInstaller.install` ;
+  - `systemd` : `install_mount_unit`, `enable_mount` (`with_automount`),
+    `disable` (`ignore_errors`), `SystemdExecutor.enable_unit` (`now`) /
+    `disable_unit`, `AutomountInstaller.install`, `SystemdUnitExporter.export`,
+    `SystemdUnitRestorer.restore`, `__init__` des gestionnaires d'unités
+    (service, timer, mount, user_service, user_timer).
+  - `WriteOutcome` et `PhaseOutcome` se construisent avec `success=` ;
+  - `devtools.cli.ExecutorFactory` devient un `Protocol`
+    (`__call__(logger, *, dry_run)`).
+
+  Migration : repérer les appels positionnels avec
+  `ruff check --select FBT` sur le code consommateur, puis nommer l'argument.
+  Ex. `Deployer(a, b, True)` -> `Deployer(a, b, dry_run=True)` ;
+  `executor.run(cmd, True)` -> `executor.run(cmd, check=True)` ;
+  `WriteOutcome(True)` -> `WriteOutcome(success=True)`.
 - refactor(lint): ruff `ALL` (base commune 3/6) : règles de la base commune
   activées, `tests/` entièrement corrigé (445 alertes) et désormais contrôlé
   par `ruff check src/ tests/` (Makefile, hook, CI) ; les règles encore en

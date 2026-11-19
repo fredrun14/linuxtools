@@ -87,6 +87,7 @@ class LinuxCommandExecutor(CommandExecutor):
         logger: Logger | None = None,
         default_env: dict[str, str] | None = None,
         default_timeout: int | None = None,
+        *,
         dry_run: bool = False,
         console_formatter: CommandFormatter | None = None,
     ) -> None:
@@ -179,11 +180,11 @@ class LinuxCommandExecutor(CommandExecutor):
             method: Nom de la méthode du formatter à invoquer.
             command: Commande concernée.
         """
-        plain = getattr(self._plain, method)(command, self._is_root)
+        plain = getattr(self._plain, method)(command, is_root=self._is_root)
         self._log(plain)
         if self._console_formatter:
             self._print(
-                getattr(self._console_formatter, method)(command, self._is_root)
+                getattr(self._console_formatter, method)(command, is_root=self._is_root)
             )
 
     def _log_timeout(self, command: list[str], timeout: int | None) -> None:
@@ -249,6 +250,7 @@ class LinuxCommandExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        *,
         probe: bool = False,
         stdin: str | None = None,
     ) -> CommandResult:
@@ -363,6 +365,7 @@ class LinuxCommandExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        *,
         merge_stderr: bool = False,
     ) -> CommandResult:
         """Exécute avec sortie en temps réel vers le logger.
@@ -448,11 +451,13 @@ class LinuxCommandExecutor(CommandExecutor):
                     for line in proc.stdout:
                         stripped = line.rstrip("\n")
                         stdout_lines.append(stripped)
-                        self._log(self._plain.format_line(stripped, self._is_root))
+                        self._log(
+                            self._plain.format_line(stripped, is_root=self._is_root)
+                        )
                         if self._console_formatter:
                             self._print(
                                 self._console_formatter.format_line(
-                                    stripped, self._is_root
+                                    stripped, is_root=self._is_root
                                 )
                             )
                     # stdout est fermé : le processus est terminé ou tué.

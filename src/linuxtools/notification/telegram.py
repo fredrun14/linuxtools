@@ -166,6 +166,7 @@ class TelegramNotifier(Notifier):
         token: str,
         recipients: Mapping[str, int],
         timeout: float = 10.0,
+        *,
         include_message: bool = False,
         opener: Callable[..., Any] | None = None,
         logger: Logger | None = None,

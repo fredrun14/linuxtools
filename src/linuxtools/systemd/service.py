@@ -24,6 +24,7 @@ class LinuxServiceUnitManager(_ServiceOperationsMixin, ServiceUnitManager):
         self,
         logger: Logger,
         executor: SystemdExecutor,
+        *,
         remote_write: bool = False,
     ) -> None:
         """
@@ -35,4 +36,4 @@ class LinuxServiceUnitManager(_ServiceOperationsMixin, ServiceUnitManager):
             remote_write: Si True, écrit les fichiers d'unité via l'executor
                 (cible distante) au lieu de l'écriture locale TOCTOU-safe.
         """
-        super().__init__(logger, executor, remote_write)
+        super().__init__(logger, executor, remote_write=remote_write)

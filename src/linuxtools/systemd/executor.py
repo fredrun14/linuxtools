@@ -86,7 +86,7 @@ class SystemdExecutor:
         self.logger.log_info(f"Systemd{self._label} rechargé avec succès.")
         return True
 
-    def enable_unit(self, unit_name: str, now: bool = True) -> bool:
+    def enable_unit(self, unit_name: str, *, now: bool = True) -> bool:
         """
         Active une unité systemd.
 
@@ -117,6 +117,7 @@ class SystemdExecutor:
     def disable_unit(
         self,
         unit_name: str,
+        *,
         now: bool = True,
         ignore_errors: bool = False,
     ) -> bool:

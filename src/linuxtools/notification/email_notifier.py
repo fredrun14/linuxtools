@@ -59,6 +59,7 @@ class SmtpEmailNotifier(Notifier):
         port: int = 587,
         username: str = "",
         password: str = "",
+        *,
         use_tls: bool = True,
         timeout: int = 30,
         smtp_factory: SmtpFactory | None = None,

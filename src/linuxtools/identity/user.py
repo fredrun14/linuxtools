@@ -38,6 +38,7 @@ class LinuxUserManager(UserManagerBase):
         uid: int,
         shell: str,
         comment: str,
+        *,
         create_home: bool,
     ) -> None:
         """Crée ou corrige l'utilisateur Unix avec l'UID donné.

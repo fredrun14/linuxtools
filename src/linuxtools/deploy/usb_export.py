@@ -256,7 +256,7 @@ class UsbExporter:
                 warnings.append(uv_missing_warning)
             copied.append(
                 self._write_install_script(
-                    config.target_dir, proj.name, lpu is not None
+                    config.target_dir, proj.name, has_lpu=lpu is not None
                 )
             )
         else:
@@ -525,7 +525,7 @@ class UsbExporter:
         return warning
 
     def _write_install_script(
-        self, target_dir: Path, proj_name: str, has_lpu: bool
+        self, target_dir: Path, proj_name: str, *, has_lpu: bool
     ) -> str:
         """Génère install.sh pour le mode sources.
 

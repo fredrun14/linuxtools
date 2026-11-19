@@ -250,6 +250,7 @@ class CliInstaller(ABC):
     def install(
         self,
         config: PythonCliConfig,
+        *,
         confirm_wrapper: bool = True,
     ) -> InstallReport:
         """Installe un script Python CLI selon la configuration.
@@ -395,6 +396,7 @@ class LinuxCliInstaller(CliInstaller):
         total: int,
         install_cmd: str,
         warnings: list[str],
+        *,
         confirm_wrapper: bool,
     ) -> InstallReport | None:
         """Gère la génération conditionnelle du wrapper bash.
@@ -461,6 +463,7 @@ class LinuxCliInstaller(CliInstaller):
     def install(
         self,
         config: PythonCliConfig,
+        *,
         confirm_wrapper: bool = True,
     ) -> InstallReport:
         """Installe un script Python CLI selon la configuration.
@@ -500,7 +503,7 @@ class LinuxCliInstaller(CliInstaller):
             total,
             install_cmd,
             warnings,
-            confirm_wrapper,
+            confirm_wrapper=confirm_wrapper,
         )
         if failure is not None:
             return failure

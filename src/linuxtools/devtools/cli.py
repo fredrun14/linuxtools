@@ -12,12 +12,11 @@ import re
 import shutil
 import sys
 import tempfile
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 # Any est inévitable : argparse._SubParsersAction est une API privée
-from typing import Any
+from typing import Any, Protocol
 
 # local
 from linuxtools.cli.base import CliApplication, CliCommand
@@ -52,7 +51,13 @@ FORBIDDEN_ENV = (
 _MIN_GIT = (2, 32)
 _GIT_VERSION_RE = re.compile(r"git version (\d+)\.(\d+)")
 
-ExecutorFactory = Callable[[Logger, bool], CommandExecutor]
+
+class ExecutorFactory(Protocol):
+    """Fabrique d'exécuteur : ``(logger, *, dry_run) -> executor``."""
+
+    def __call__(self, logger: Logger, *, dry_run: bool) -> CommandExecutor:
+        """Construit l'exécuteur de commandes."""
+        ...
 
 
 class _UsageError(Exception):
@@ -66,7 +71,7 @@ class BumpConsumersCommand(CliCommand):
         """Initialise la commande.
 
         Args:
-            executor_factory: Fabrique ``(logger, dry_run) -> executor``
+            executor_factory: Fabrique ``(logger, *, dry_run) -> executor``
                 (défaut : ``LinuxCommandExecutor``).
         """
         self._executor_factory = executor_factory or self.make_executor
@@ -77,7 +82,7 @@ class BumpConsumersCommand(CliCommand):
         return "bump-consumers"
 
     @staticmethod
-    def make_executor(logger: Logger, dry_run: bool) -> CommandExecutor:
+    def make_executor(logger: Logger, *, dry_run: bool) -> CommandExecutor:
         """Construit l'exécuteur réel (double barrière en dry-run)."""
         return LinuxCommandExecutor(logger=logger, dry_run=dry_run)
 
@@ -147,7 +152,7 @@ class BumpConsumersCommand(CliCommand):
         """Contrôles d'entrée puis boucle sur les consommateurs."""
         self._check_arguments(args)
         logger: Logger = ConsoleLogger() if args.dry_run else self._file_logger()
-        executor = self._executor_factory(logger, args.dry_run)
+        executor = self._executor_factory(logger, dry_run=args.dry_run)
         self._check_tools(executor)
         self._check_tag_exists(executor, args.tag)
         try:

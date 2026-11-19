@@ -106,12 +106,13 @@ class _ForgejoView(LinuxCommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        *,
         probe: bool = False,
         stdin: str | None = None,
     ) -> CommandResult:
         if command[:3] == ["git", "remote", "get-url"]:
             return CommandResult(tuple(command), 0, _FORGEJO + "\n", "", True, 0.0)
-        return super().run(command, env, cwd, timeout, probe, stdin)
+        return super().run(command, env, cwd, timeout, probe=probe, stdin=stdin)
 
 
 def _git(cwd: Path, *args: str) -> str:

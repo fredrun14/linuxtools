@@ -106,7 +106,7 @@ class LocalDestination:
                 exclusive : un fichier existant reste intact).
 
         Returns:
-            `WriteOutcome(True)` ; `WriteOutcome(True, kept=True)` si
+            `WriteOutcome(success=True)` ; `WriteOutcome(success=True, kept=True)` si
             ``keep`` et que le fichier existe déjà. Les autres erreurs
             d'écriture locale (ex. symlink détecté) propagent l'`OSError`
             de `write_text_secure`, comme avant cette extraction.
@@ -115,10 +115,10 @@ class LocalDestination:
             try:
                 write_text_secure(path, content, mode=mode, exclusive=True)
             except FileExistsError:
-                return WriteOutcome(True, kept=True)
-            return WriteOutcome(True)
+                return WriteOutcome(success=True, kept=True)
+            return WriteOutcome(success=True)
         write_text_secure(path, content, mode=mode)
-        return WriteOutcome(True)
+        return WriteOutcome(success=True)
 
 
 @dataclass(frozen=True)
@@ -163,8 +163,8 @@ class RemoteDestination:
                 existant n'est jamais modifié (``kept=True``).
 
         Returns:
-            `WriteOutcome(True)` si `mkdir -p` et `install` réussissent,
-            `WriteOutcome(False, detail=...)` si l'un des deux échoue
+            `WriteOutcome(success=True)` si `mkdir -p` et `install` réussissent,
+            `WriteOutcome(success=False, detail=...)` si l'un des deux échoue
             (`install` n'est pas tenté si `mkdir -p` échoue).
         """
         dest = str(path)
@@ -174,8 +174,8 @@ class RemoteDestination:
         mkdir_result = self.executor.run(["mkdir", "-p", "--", parent])
         if not mkdir_result.success:
             return WriteOutcome(
-                False,
-                f"Échec de la création du répertoire distant {parent} : "
+                success=False,
+                detail=f"Échec de la création du répertoire distant {parent} : "
                 f"{mkdir_result.stderr}",
             )
         write_result = self.executor.run(
@@ -184,10 +184,10 @@ class RemoteDestination:
         )
         if not write_result.success:
             return WriteOutcome(
-                False,
-                f"Échec du dépôt distant de {dest} : {write_result.stderr}",
+                success=False,
+                detail=f"Échec du dépôt distant de {dest} : {write_result.stderr}",
             )
-        return WriteOutcome(True)
+        return WriteOutcome(success=True)
 
     def _write_exclusive(self, dest: str, content: str, mode: int) -> WriteOutcome:
         """Crée `dest` seulement s'il n'existe pas (sonde, tmp, ``ln``).
@@ -204,28 +204,31 @@ class RemoteDestination:
             mode: Permissions POSIX du fichier.
 
         Returns:
-            `WriteOutcome(True, kept=True)` si présent, `WriteOutcome(True)`
-            si créé, `WriteOutcome(False, detail=...)` sinon.
+            `WriteOutcome(success=True, kept=True)` si présent,
+            `WriteOutcome(success=True)` si créé,
+            `WriteOutcome(success=False, detail=...)` sinon.
         """
         probe = self.executor.run(build_remote_exists_command(dest))
         if probe.return_code == 0:
             if self.executor.run(build_remote_is_dir_command(dest)).success:
                 return WriteOutcome(
-                    False,
-                    f"{dest} est un dossier : fichier de secrets attendu",
+                    success=False,
+                    detail=f"{dest} est un dossier : fichier de secrets attendu",
                 )
-            return WriteOutcome(True, kept=True)
+            return WriteOutcome(success=True, kept=True)
         if probe.return_code != 1:
             return WriteOutcome(
-                False,
-                f"Sonde d'existence ambiguë pour {dest} : code {probe.return_code}",
+                success=False,
+                detail=(
+                    f"Sonde d'existence ambiguë pour {dest} : code {probe.return_code}"
+                ),
             )
         parent = str(PurePosixPath(dest).parent)
         mkdir_result = self.executor.run(["mkdir", "-p", "--", parent])
         if not mkdir_result.success:
             return WriteOutcome(
-                False,
-                f"Échec de la création du répertoire distant {parent} : "
+                success=False,
+                detail=f"Échec de la création du répertoire distant {parent} : "
                 f"{mkdir_result.stderr}",
             )
         tmp = f"{dest}.{secrets.token_hex(8)}.tmp"
@@ -235,14 +238,14 @@ class RemoteDestination:
             )
             if not write_result.success:
                 return WriteOutcome(
-                    False,
-                    f"Échec du dépôt distant de {tmp} : {write_result.stderr}",
+                    success=False,
+                    detail=f"Échec du dépôt distant de {tmp} : {write_result.stderr}",
                 )
             link_result = self.executor.run(build_remote_link_command(tmp, dest))
             if not link_result.success:
                 return WriteOutcome(
-                    False,
-                    f"Création de {dest} impossible (existe déjà ?) : "
+                    success=False,
+                    detail=f"Création de {dest} impossible (existe déjà ?) : "
                     f"{link_result.stderr}",
                 )
         finally:
@@ -252,7 +255,7 @@ class RemoteDestination:
                     f"Fichier temporaire distant non supprimé : {tmp} "
                     f"({rm_result.stderr})"
                 )
-        return WriteOutcome(True)
+        return WriteOutcome(success=True)
 
 
 def destination_for(
