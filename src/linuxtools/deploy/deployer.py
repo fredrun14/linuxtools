@@ -224,7 +224,7 @@ class Deployer:
         return DeployReport(
             success=True,
             phase_reached=DeployPhase.DONE,
-            messages=messages + ("Dry-run : aucune action réelle.",),
+            messages=(*messages, "Dry-run : aucune action réelle."),
         )
 
     @staticmethod
@@ -318,8 +318,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
@@ -329,8 +329,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "ConfigDeployer non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
@@ -345,7 +345,7 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages + ("Dépôt de la config échoué.",),
+                messages=(*messages, "Dépôt de la config échoué."),
             )
         return None
 
@@ -372,8 +372,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
@@ -383,8 +383,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "SecretsProvisioner non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
@@ -403,7 +403,7 @@ class Deployer:
                 + (outcome.messages or ("Provisioning des secrets échoué.",)),
             )
         if config.secrets.values_from == "source":
-            return outcome.messages + ("Secrets provisionnés.",)
+            return (*outcome.messages, "Secrets provisionnés.")
         return outcome.messages
 
     def _run_timer_phase(
@@ -429,8 +429,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
@@ -440,8 +440,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "TimerDeployer non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
@@ -456,9 +456,9 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages + ("Installation du service+timer échouée.",),
+                messages=(*messages, "Installation du service+timer échouée."),
             )
-        return ("Service+timer installés.",) + outcome.messages
+        return ("Service+timer installés.", *outcome.messages)
 
     def _run_post_install_phases(
         self,
@@ -486,7 +486,7 @@ class Deployer:
             report = self._run_config_phase(config, checks, messages)
             if report is not None:
                 return report
-            messages = messages + ("Config déployée.",)
+            messages = (*messages, "Config déployée.")
 
         if config.secrets is not None:
             secrets_result = self._run_secrets_phase(config, checks, messages)
@@ -520,10 +520,11 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.INSTALL,
-                messages=messages + ("VenvReleaser requis pour atomic_swap.",),
+                messages=(*messages, "VenvReleaser requis pour atomic_swap."),
             )
         if config.recreate_venv:
-            messages = messages + (
+            messages = (
+                *messages,
                 "recreate_venv ignoré en mode atomic_swap "
                 "(chaque version est neuve par construction).",
             )
@@ -592,7 +593,7 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.BACKUP,
-                messages=messages + (str(exc),),
+                messages=(*messages, str(exc)),
             )
 
         install_result = self._installer.install(
@@ -608,9 +609,13 @@ class Deployer:
                 phase_reached=phase,
                 rolled_back=rolled_back,
                 backup_path=backup_path,
-                messages=messages
-                + (f"Installation échouée : {install_result.stderr}",)
-                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
+                messages=(
+                    *messages,
+                    f"Installation échouée : {install_result.stderr}",
+                    *self._rollback_failure_messages(
+                        backup_path, rolled_back=rolled_back
+                    ),
+                ),
             )
 
         checks = tuple(
@@ -625,9 +630,13 @@ class Deployer:
                 checks=checks,
                 rolled_back=rolled_back,
                 backup_path=backup_path,
-                messages=messages
-                + ("Vérification post-install échouée",)
-                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
+                messages=(
+                    *messages,
+                    "Vérification post-install échouée",
+                    *self._rollback_failure_messages(
+                        backup_path, rolled_back=rolled_back
+                    ),
+                ),
             )
 
         result = self._run_post_install_phases(config, checks, messages)
@@ -675,7 +684,7 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TRANSPORT,
-                messages=messages + (f"Transport échoué : {transport_result.stderr}",),
+                messages=(*messages, f"Transport échoué : {transport_result.stderr}"),
             )
 
         if config.atomic_swap:

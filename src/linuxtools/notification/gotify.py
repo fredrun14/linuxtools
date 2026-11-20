@@ -21,6 +21,7 @@ import json
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from http import HTTPStatus
 from typing import Any
 
 from linuxtools.logging.base import Logger
@@ -113,7 +114,7 @@ class GotifyNotifier(Notifier):
             ) from exc
         except (urllib.error.URLError, OSError) as exc:
             raise NotificationSendError(f"Serveur Gotify injoignable : {exc}") from exc
-        if status != 200:
+        if status != HTTPStatus.OK:
             raise NotificationSendError(f"Réponse Gotify inattendue (HTTP {status})")
         if self._logger:
             self._logger.log_info(f"Notification Gotify envoyée : {notification.title}")

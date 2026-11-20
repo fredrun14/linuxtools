@@ -119,7 +119,9 @@ class _ForgejoView(LinuxCommandExecutor):
 
 def _git(cwd: Path, *args: str) -> str:
     """Lance git (environnement du test) et retourne stdout."""
+    # args construits par le test, sans entrée externe
     done = subprocess.run(  # noqa: S603
+        # git résolu par le PATH : le test s'exécute dans l'environnement de dev
         ["git", *args],  # noqa: S607
         cwd=cwd,
         check=True,

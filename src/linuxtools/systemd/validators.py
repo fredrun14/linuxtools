@@ -2,6 +2,9 @@
 
 import re
 
+# Code ASCII du premier caractère imprimable (en dessous : contrôle).
+_PREMIER_CARACTERE_IMPRIMABLE = 32
+
 # Nom d'unité systemd : lettres, chiffres, points, tirets, underscores, ':'
 # et séquences d'échappement ``\xNN`` (``systemd-escape``, hex minuscule,
 # ``\x00``-``\x1f`` et ``\x7f`` exclus : caractères de contrôle).
@@ -63,7 +66,7 @@ def reject_control_chars(value: str, champ: str) -> str:
     Raises:
         ValueError: Si value contient un caractère de contrôle.
     """
-    if any(ord(c) < 32 for c in value):
+    if any(ord(c) < _PREMIER_CARACTERE_IMPRIMABLE for c in value):
         raise ValueError(f"Caractère de contrôle interdit dans le champ '{champ}'.")
     return value
 

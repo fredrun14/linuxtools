@@ -34,9 +34,8 @@ def _render_toml(data: dict[str, Any]) -> str:
     Returns:
         Texte TOML avec saut de ligne final.
     """
-    from linuxtools.dotconf.conf_toml_exporter import (
-        ConfTomlExporter,
-    )
+    # Import local : cycle d'import config ⇄ dotconf
+    from linuxtools.dotconf.conf_toml_exporter import ConfTomlExporter  # noqa: PLC0415
 
     return ConfTomlExporter().export_mapping(data) + "\n"
 
@@ -133,8 +132,8 @@ class ConfigurationManager(ConfigManager):
 
     def _find_config_file(self) -> Path | None:
         """Cherche le fichier de config dans les emplacements définis."""
-        for path in self.search_paths:
-            path = Path(path).expanduser()
+        for raw_path in self.search_paths:
+            path = Path(raw_path).expanduser()
             if path.exists():
                 return path
         return None

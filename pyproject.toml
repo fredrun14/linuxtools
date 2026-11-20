@@ -243,17 +243,6 @@ unfixable = []
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"src/**/*.py" = [
-    # DETTE de l'étape 4/6 « ruff ALL sur src/ » : retirer ce bloc entier.
-    "ARG002", "BLE001", "C901", "D205", "D212", "D301", "D412", "D418", "DTZ005",
-    "DTZ007", "FURB110", "FURB188", "PERF401",
-    "PIE790", "PIE810", "PLC0415", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
-    "PLR2004", "PLR5501", "PLW2901", "PTH101", "PTH105", "PTH107", "PTH108",
-    "PTH111", "PTH116", "PTH118", "PTH119", "PTH123", "RET504", "RET506", "RUF002",
-    "RUF005", "RUF012", "RUF022", "RUF100", "S101", "S103", "S104", "S310", "S314",
-    "S603", "SIM102", "SIM103", "SIM105", "SIM108", "SLF001", "T201", "TRY004",
-    "TRY300", "TRY301",
-]
 # T201 (print) : modules dont le métier est la sortie console (sortie
 # utilisateur, pas de journalisation) ; un Logger y changerait l'API publique.
 "src/linuxtools/cli/dry_run.py" = ["T201"]            # annonces --dry-run sur stdout

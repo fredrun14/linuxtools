@@ -115,16 +115,16 @@ class InstallReport:
         elif self.total_deps > 0:
             satisfied = self.total_deps - len(self.missing_deps)
             lines.append(f"  Dépendances : {satisfied}/{self.total_deps} satisfaites")
-            for dep in self.installed_deps:
-                lines.append(f"    ✓ {dep.package}  ({dep.location})")
-            for missing in self.missing_deps:
-                lines.append(
-                    f"    ✗ {missing.package} {missing.required} ({missing.reason})"
-                )
+            lines.extend(
+                f"    ✓ {dep.package}  ({dep.location})" for dep in self.installed_deps
+            )
+            lines.extend(
+                f"    ✗ {missing.package} {missing.required} ({missing.reason})"
+                for missing in self.missing_deps
+            )
             if self.install_command:
                 lines.append(f"  Commande : {self.install_command}")
 
-        for warning in self.warnings:
-            lines.append(f"  ⚠ {warning}")
+        lines.extend(f"  ⚠ {warning}" for warning in self.warnings)
 
         return "\n".join(lines)

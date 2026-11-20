@@ -33,6 +33,9 @@ if TYPE_CHECKING:
         UserSystemdExecutor,
     )
 
+# Sortie texte de `list-timers` : au moins 2 champs exploitables.
+_CHAMPS_TIMER_MIN = 2
+
 # Re-exports pour compatibilité des imports existants
 __all__ = [
     "AutomountConfig",
@@ -611,7 +614,8 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        result = self.executor._run_systemctl(
+        # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
+        result = self.executor._run_systemctl(  # noqa: SLF001
             ["list-timers", "--no-pager", "--output=json"]
         )
 
@@ -628,19 +632,17 @@ class _TimerOperationsMixin:
         except json.JSONDecodeError:
             return self._list_timers_text_fallback()
 
-        timers = []
-        for entry in data:
-            timers.append(
-                {
-                    "unit": entry.get("unit", ""),
-                    "activates": entry.get("activates", ""),
-                    "next": entry.get("next", ""),
-                    "left": entry.get("left", ""),
-                    "last": entry.get("last", ""),
-                    "passed": entry.get("passed", ""),
-                }
-            )
-        return timers
+        return [
+            {
+                "unit": entry.get("unit", ""),
+                "activates": entry.get("activates", ""),
+                "next": entry.get("next", ""),
+                "left": entry.get("left", ""),
+                "last": entry.get("last", ""),
+                "passed": entry.get("passed", ""),
+            }
+            for entry in data
+        ]
 
     def _list_timers_text_fallback(self) -> "list[dict[str, str]]":
         """Fallback texte pour list_timers sur vieux systemd.
@@ -651,7 +653,10 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        result = self.executor._run_systemctl(["list-timers", "--no-pager", "--plain"])
+        # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
+        result = self.executor._run_systemctl(  # noqa: SLF001
+            ["list-timers", "--no-pager", "--plain"]
+        )
 
         if result.return_code != 0:
             raise RuntimeError(f"Erreur systemctl list-timers : {result.stderr}")
@@ -662,7 +667,7 @@ class _TimerOperationsMixin:
             if not line.strip() or line.startswith(" "):
                 continue
             parts = line.split()
-            if len(parts) >= 2:
+            if len(parts) >= _CHAMPS_TIMER_MIN:
                 timers.append(
                     {
                         "unit": parts[-2],

@@ -334,7 +334,6 @@ class DeployReport:
         if self.fallback_version is not None:
             lines.append(f"  Version de repli : {self.fallback_version}")
 
-        for message in self.messages:
-            lines.append(f"  {message}")
+        lines.extend(f"  {message}" for message in self.messages)
 
         return "\n".join(lines)

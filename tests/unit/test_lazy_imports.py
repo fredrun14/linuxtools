@@ -103,6 +103,7 @@ def test_attribut_inconnu_leve_attribute_error() -> None:
 
     # Act / Assert
     with pytest.raises(AttributeError, match="n_existe_pas"):
+        # l'accès seul doit lever AttributeError, sa valeur est sans objet
         linuxtools.n_existe_pas  # noqa: B018
     assert not hasattr(linuxtools, "n_existe_pas")
 

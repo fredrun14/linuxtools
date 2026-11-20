@@ -60,7 +60,8 @@ class KeyringCredentialProvider(CredentialStore):
             True si keyring est installé.
         """
         try:
-            import keyring  # noqa: F401
+            # dépendance optionnelle
+            import keyring  # noqa: F401, PLC0415
         except ImportError:
             return False
         else:
@@ -82,7 +83,8 @@ class KeyringCredentialProvider(CredentialStore):
         if self._backend is not None:
             return self._backend
         try:
-            import keyring
+            # dépendance optionnelle
+            import keyring  # noqa: PLC0415
         except ImportError:
             raise CredentialProviderUnavailableError(
                 "Le module 'keyring' n'est pas installé. "

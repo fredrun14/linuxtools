@@ -47,6 +47,7 @@ import re
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
+from http import HTTPStatus
 from itertools import accumulate
 from typing import Any
 
@@ -253,7 +254,7 @@ class TelegramNotifier(Notifier):
             return "réponse invalide"
         except OSError as exc:
             return f"erreur réseau ({type(exc).__name__})"
-        if status != 200:
+        if status != HTTPStatus.OK:
             return f"réponse inattendue (HTTP {status})"
         return None
 

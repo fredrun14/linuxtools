@@ -1,5 +1,6 @@
 """Contexte d'erreur avec rollback ordonné (LIFO)."""
 
+import contextlib
 from collections.abc import Callable
 
 from linuxtools.errors.exceptions import RollbackError
@@ -79,10 +80,9 @@ class ErrorContext:
             self._logger.log_error(f"Erreur nécessitant rollback: {error}")
 
         if self._rollback_actions:
-            try:
+            # Déjà loggé dans execute_rollback
+            with contextlib.suppress(RollbackError):
                 self.execute_rollback()
-            except RollbackError:
-                pass  # Déjà loggé dans execute_rollback
         elif self._logger:
             self._logger.log_info("Aucune action de rollback nécessaire.")
 

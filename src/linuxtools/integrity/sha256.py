@@ -160,9 +160,8 @@ class SHA256IntegrityChecker(IntegrityChecker):
             ok, count = self._verify_tree(source_path, dest)
             if not ok:
                 return False
-            if count == 0:
-                if self._logger:
-                    self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
+            if count == 0 and self._logger:
+                self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
             if self._logger:
                 self._logger.log_info(
                     f"Vérification terminée : {count} fichier(s) vérifié(s)."

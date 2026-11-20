@@ -14,6 +14,10 @@ from linuxtools.systemd.validators import (
     validate_unit_name,
 )
 
+# Plage valide de la priorité `Nice=` systemd.
+_NICE_MIN = -20
+_NICE_MAX = 19
+
 # Chemin absolu sans espace, '%', '$', '\\' ni caractère de contrôle
 _MOUNT_PATH_RE = re.compile(r"^/[^\s%$\\\x00-\x1f]*$")
 
@@ -99,12 +103,11 @@ class MountConfig(BaseSystemdConfig):
                     f"Format CIFS invalide pour 'what' : {self.what!r}"
                     " (attendu : //host/share)"
                 )
-        elif fs_type in self._DEVICE_FS:
-            if not self.what.startswith("/dev/"):
-                raise ValueError(
-                    f"'what' doit être un device pour {fs_type} : "
-                    f"{self.what!r} (attendu : /dev/...)"
-                )
+        elif fs_type in self._DEVICE_FS and not self.what.startswith("/dev/"):
+            raise ValueError(
+                f"'what' doit être un device pour {fs_type} : "
+                f"{self.what!r} (attendu : /dev/...)"
+            )
 
     @property
     def unit_name(self) -> str:
@@ -438,7 +441,9 @@ class ServiceConfig(BaseSystemdConfig):
         # Vu comme ``object`` : le typage ne protège pas à l'exécution.
         nice: object = self.nice
         if nice is not None and (
-            not isinstance(nice, int) or isinstance(nice, bool) or not -20 <= nice <= 19
+            not isinstance(nice, int)
+            or isinstance(nice, bool)
+            or not _NICE_MIN <= nice <= _NICE_MAX
         ):
             raise ValueError(f"nice invalide : {self.nice!r} (entier de -20 à 19)")
         if self.io_scheduling_class not in self._VALID_IO_CLASSES:

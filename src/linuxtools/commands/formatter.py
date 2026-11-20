@@ -132,6 +132,7 @@ class CommandFormatter(ABC):
         Returns:
             Ligne formatée prête à l'affichage.
         """
+        del is_root  # contrat de l'ABC, non utilisé ici
         return line
 
 
@@ -152,6 +153,7 @@ class PlainCommandFormatter(CommandFormatter):
 
     def _decorate(self, text: str, *, is_root: bool, dry: bool = False) -> str:
         """Retourne le texte sans modification (identité)."""
+        del is_root, dry  # contrat de l'ABC, non utilisés ici
         return text
 
 

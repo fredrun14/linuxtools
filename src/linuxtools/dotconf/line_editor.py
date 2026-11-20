@@ -517,7 +517,6 @@ class SectionAwareEditor:
         result: list[str] = []
         if comment:
             result.append(comment + "\n")
-        for line in content.splitlines():
-            result.append(line + "\n")
+        result.extend(line + "\n" for line in content.splitlines())
         result.append("\n")
         return result

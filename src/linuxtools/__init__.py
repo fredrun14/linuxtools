@@ -262,12 +262,12 @@ from linuxtools.validation import (
 
 if TYPE_CHECKING:
     from linuxtools.network import (
-        AsusRouterClient,  # noqa: F401
-        AsusRouterDhcpManager,  # noqa: F401
-        AsusRouterMacFilterManager,  # noqa: F401
-        AsusRouterScanner,  # noqa: F401
-        RouterAuthError,  # noqa: F401
-        RouterConfig,  # noqa: F401
+        AsusRouterClient,
+        AsusRouterDhcpManager,
+        AsusRouterMacFilterManager,
+        AsusRouterScanner,
+        RouterAuthError,
+        RouterConfig,
     )
     from linuxtools.updates import (
         UpdateCheckResult,

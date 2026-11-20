@@ -234,8 +234,7 @@ class ExecutionReport:
             if step.message:
                 line += f" — {step.message}"
             lines.append(line)
-        for error in self.errors:
-            lines.append(f"    ! {error}")
+        lines.extend(f"    ! {error}" for error in self.errors)
         return "\n".join(lines)
 
     def to_notification(

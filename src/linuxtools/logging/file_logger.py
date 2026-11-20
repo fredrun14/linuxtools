@@ -6,7 +6,7 @@ import os
 from datetime import UTC, datetime
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Protocol, TextIO
+from typing import Any, Protocol, TextIO, cast
 
 # local
 from linuxtools.logging.ansi_colors import AnsiColors
@@ -223,7 +223,10 @@ class FileLogger(_BaseFileLogger):
                     )
                 )
         else:
-            self.handler = self.logger.handlers[0]  # type: ignore[assignment]
+            # Le logger nommé ne porte que des StreamHandler posés par cette classe :
+            # `handlers[0]` est le handler fichier, posé en premier
+            # (logger.handlers est typé list[Handler] : le cast nomme l'invariant).
+            self.handler = cast("logging.StreamHandler[Any]", self.logger.handlers[0])
 
         self.logger.propagate = False
 

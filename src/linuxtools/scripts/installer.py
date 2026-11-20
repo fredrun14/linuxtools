@@ -54,6 +54,9 @@ from linuxtools.scripts.report import (
     MissingDependency,
 )
 
+# /etc/passwd : le répertoire personnel est le champ d'index 5.
+_INDEX_HOME_PASSWD = 5
+
 
 def _fail(message: str) -> NoReturn:
     """Lève une ``OSError`` (extrait le ``raise`` des blocs ``try``).
@@ -516,9 +519,8 @@ class LinuxCliInstaller(CliInstaller):
         if missing:
             warnings.append(f"{len(missing)}/{total} dépendances manquantes")
 
-        if config.venv_path:
-            if not self._checker.check_venv(config.venv_path):
-                warnings.append(f"Venv inaccessible : {config.venv_path}")
+        if config.venv_path and not self._checker.check_venv(config.venv_path):
+            warnings.append(f"Venv inaccessible : {config.venv_path}")
 
         failure = self._handle_wrapper(
             config,
@@ -575,6 +577,7 @@ class LinuxCliInstaller(CliInstaller):
         Returns:
             Contenu complet du script bash.
         """
+        del paths  # signature conservée, non utilisé ici
         template = _WRAPPER_SYSTEM if config.deploy_type == "system" else _WRAPPER_USER
         content = template.format(name=config.name)
         if config.venv_path is None:
@@ -686,8 +689,8 @@ class LinuxCliInstaller(CliInstaller):
             passwd_result = self._executor.probe(["getent", "passwd", sudo_user])
             if passwd_result.success:
                 fields = passwd_result.stdout.strip().split(":")
-                if len(fields) >= 6:
-                    homes.append(fields[5])
+                if len(fields) > _INDEX_HOME_PASSWD:
+                    homes.append(fields[_INDEX_HOME_PASSWD])
 
         return homes
 

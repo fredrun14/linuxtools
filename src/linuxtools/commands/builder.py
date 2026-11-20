@@ -122,4 +122,4 @@ class CommandBuilder:
         Returns:
             Liste de chaînes représentant la commande complète.
         """
-        return [self._program] + self._options + self._args
+        return [self._program, *self._options, *self._args]

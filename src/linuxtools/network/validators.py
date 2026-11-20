@@ -8,6 +8,9 @@ import ipaddress
 import re
 from typing import Literal
 
+_MASQUE_CIDR_MAX = 32
+_LONGUEUR_NOM_HOTE_MAX = 63
+
 
 def validate_ipv4(ip: str) -> str:
     """Valide et retourne une adresse IPv4.
@@ -70,7 +73,7 @@ def validate_cidr(cidr: str) -> str:
     ip_part = match.group(1)
     mask = int(match.group(2))
     validate_ipv4(ip_part)
-    if not 0 <= mask <= 32:
+    if not 0 <= mask <= _MASQUE_CIDR_MAX:
         raise ValueError(f"Masque CIDR hors plage (0-32) : {mask}")
     return cidr
 
@@ -89,7 +92,7 @@ def validate_hostname(hostname: str) -> str:
     """
     if not hostname:
         raise ValueError("Le nom d'hote ne peut pas etre vide")
-    if len(hostname) > 63:
+    if len(hostname) > _LONGUEUR_NOM_HOTE_MAX:
         raise ValueError(f"Nom d'hote trop long ({len(hostname)} > 63) : {hostname!r}")
     pattern = r"[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
     if not re.fullmatch(pattern, hostname):

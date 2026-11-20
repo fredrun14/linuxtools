@@ -48,8 +48,7 @@ class SystemCommandValidator(Validator):
         if not missing:
             return
         lines = ["Commandes système manquantes :"]
-        for cmd in missing:
-            lines.append(f"  - {self._requirements[cmd]}")
+        lines.extend(f"  - {self._requirements[cmd]}" for cmd in missing)
         raise MissingDependencyError("\n".join(lines))
 
     def missing_commands(self) -> list[str]:

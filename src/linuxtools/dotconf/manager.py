@@ -137,6 +137,7 @@ class LinuxIniConfigManager(IniConfigManager):
         Returns:
             True si des modifications ont été effectuées, False sinon.
         """
+        del validators  # contrat de l'ABC, non utilisé ici
         parser = self._load_parser(path)
         section_name = section.section_name()
         new_values = section.to_dict()

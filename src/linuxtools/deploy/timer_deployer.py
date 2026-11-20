@@ -98,12 +98,11 @@ class TimerDeployer:
         if state == "yes":
             return f"Linger actif pour {user}."
         if state == "no":
-            message = (
+            return (
                 f"Linger inactif pour {user} : le timer ne tournera pas "
                 f"hors session. À lancer : sudo loginctl enable-linger "
                 f"{user}"
             )
-            return message
         return f"Linger indéterminé pour {user}."
 
     def _deploy_system(

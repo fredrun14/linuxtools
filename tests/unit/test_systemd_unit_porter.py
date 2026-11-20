@@ -614,16 +614,20 @@ class TestImportDepuisRacine:
 
     def test_import_exporter_depuis_systemd(self) -> None:
         """SystemdUnitExporter est importable depuis linuxtools.systemd."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools.systemd import SystemdUnitExporter  # noqa: F401
 
     def test_import_restorer_depuis_systemd(self) -> None:
         """SystemdUnitRestorer est importable depuis linuxtools.systemd."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools.systemd import SystemdUnitRestorer  # noqa: F401
 
     def test_import_exporter_depuis_racine(self) -> None:
         """SystemdUnitExporter est importable depuis linuxtools."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools import SystemdUnitExporter  # noqa: F401
 
     def test_import_restorer_depuis_racine(self) -> None:
         """SystemdUnitRestorer est importable depuis linuxtools."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools import SystemdUnitRestorer  # noqa: F401

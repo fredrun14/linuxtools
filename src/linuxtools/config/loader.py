@@ -87,7 +87,7 @@ class ConfigLoader(ABC):
     @abstractmethod
     def load(
         self, config_path: str | Path, schema: type | None = None
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         """Charge un fichier de configuration.
 
         Args:
@@ -135,7 +135,8 @@ class ConfigLoader(ABC):
             TypeError: Si schema n'est pas un BaseModel.
         """
         try:
-            from pydantic import BaseModel
+            # dépendance optionnelle
+            from pydantic import BaseModel  # noqa: PLC0415
         except ImportError as err:
             raise ImportError(
                 "pydantic est requis pour la validation "
@@ -178,7 +179,7 @@ class FileConfigLoader(ConfigLoader):
     # (le retour dépend de `schema`), signature imposée par le contrat.
     def load(
         self, config_path: str | Path, schema: type | None = None
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         """Charge un fichier de configuration TOML ou JSON.
 
         Le format est détecté automatiquement par l'extension

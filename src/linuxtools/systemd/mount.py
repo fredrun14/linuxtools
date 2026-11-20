@@ -120,10 +120,7 @@ class LinuxMountUnitManager(MountUnitManager):
         """
         unit_name = self.path_to_unit_name(mount_path)
 
-        if with_automount:
-            unit = f"{unit_name}.automount"
-        else:
-            unit = f"{unit_name}.mount"
+        unit = f"{unit_name}.automount" if with_automount else f"{unit_name}.mount"
 
         return self.enable(unit)
 
