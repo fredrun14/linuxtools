@@ -287,22 +287,18 @@ def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
 
 
 def _normalize_ip(ip: str) -> str:
-    """Normalise une IP pour la comparer (espaces, forme canonique).
+    """Normalise une IP pour la comparer (forme canonique).
 
     Args:
-        ip: IP sous forme de chaîne.
+        ip: IP déjà validée par ``NetworkDevice`` (IPv4 lisible).
 
     Returns:
-        La forme canonique si l'IP est lisible, sinon la chaîne
-        débarrassée de ses espaces.
+        La forme canonique de l'IP.
     """
-    try:
-        return str(ip_address(ip.strip()))
-    except ValueError:
-        return ip.strip()
+    return str(ip_address(ip))
 
 
-def _check_no_duplicate_ip(active: Sequence[NetworkDevice]) -> None:
+def _check_no_duplicate_ip(active: Sequence[tuple[str, str]]) -> None:
     """Refuse deux réservations actives portant la même IP épinglée.
 
     Seules les réservations actives sont contrôlées : un client
@@ -313,18 +309,15 @@ def _check_no_duplicate_ip(active: Sequence[NetworkDevice]) -> None:
     collision.
 
     Args:
-        active: Réservations actives.
+        active: Couples (IP épinglée, nom) des réservations actives.
 
     Raises:
         ValueError: Si une IP est portée deux fois (message : l'IP et
             les deux noms, jamais de MAC).
     """
     seen: dict[str, str] = {}
-    for device in active:
-        if device.fixed_ip is None:
-            continue
-        ip = _normalize_ip(device.fixed_ip)
-        name = device.hostname
+    for raw_ip, name in active:
+        ip = _normalize_ip(raw_ip)
         if ip in seen:
             raise ValueError(
                 f"IP {ip} en double : {seen[ip] or '(sans nom)'} et "
@@ -410,7 +403,7 @@ class DhcpIntent:
                     fixed_ip=pinned,
                 )
             )
-        _check_no_duplicate_ip(active)
+        _check_no_duplicate_ip([(d.ip, d.hostname) for d in active])
         return cls(
             active=tuple(active),
             disabled=tuple(disabled),
