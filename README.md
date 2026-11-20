@@ -1053,16 +1053,16 @@ cmd = (
   │  executed_as_root: bool                                  │
   └──────────────────────────────────────────────────────────┘
 
-  ┌───────────────────────────────┐
-  │      CommandBuilder           │
-  │  - _program: str              │
-  │  + with_options(dict)         │  ← Builder Pattern (fluent API)
-  │  + with_flag(flag, cond)      │
-  │  + with_option(key, value)    │
-  │  + with_option_if(k, v, cond) │
-  │  + with_args(args)            │
-  │  + build() → list[str]        │
-  └───────────────────────────────┘
+  ┌───────────────────────────────────────┐
+  │      CommandBuilder                   │
+  │  - _program: str                      │
+  │  + with_options(list[str])            │  ← Builder Pattern (fluent API)
+  │  + with_flag(flag)                    │
+  │  + with_option(key, value)            │
+  │  + with_option_if(k, v, *, condition) │
+  │  + with_args(args)                    │
+  │  + build() → list[str]                │
+  └───────────────────────────────────────┘
 
   ┌───────────────────────────────┐    ┌─────────────────────────────────┐
   │    CommandFormatter (ABC)     │    │      CommandExecutor (ABC)      │
@@ -1685,25 +1685,25 @@ LinuxMountUnitMgr  LinuxTimerUnitMgr  LinuxServiceUnitMgr  LinuxUserTimerUnitMgr
   │  1. script  →  2. service  →  3. timer  →  4. enable_timer        │
   └──────────────────────────────────────────────────────────────────┘
 
-  ┌──────────────────────────────────────────────────────────────┐
-  │  Export / Restauration génériques (unit_porter.py)           │
-  │                                                              │
-  │  SystemdUnitExporter                                         │
-  │  - logger: Logger (optionnel — défaut : ConsoleLogger)       │
-  │  + export(unit_path, enabled, requires_exec) → str | None   │
-  │  + parse_ini(path) → dict[section → dict[clé → list[str]]]  │  ← @staticmethod
-  │  + to_toml(data, unit_type, enabled, requires_exec) → str   │  ← @staticmethod
-  │                                                              │
-  │  SystemdUnitRestorer                                         │
-  │  - executor: SystemdExecutor | None                          │
-  │  - logger: Logger (optionnel — défaut : ConsoleLogger)       │
-  │  + restore(toml_path, dest_dir, dry_run, user)              │
-  │    → tuple[bool, str]  (succès, nom_unit)                   │
-  │  + to_ini(data, unit_type) → str                            │  ← @staticmethod
-  │                                                              │
-  │  Convention de nommage TOML :                                │
-  │  thermal-monitor.service → thermal-monitor-service.toml      │
-  └──────────────────────────────────────────────────────────────┘
+  ┌────────────────────────────────────────────────────────────────┐
+  │  Export / Restauration génériques (unit_porter.py)             │
+  │                                                                │
+  │  SystemdUnitExporter                                           │
+  │  - logger: Logger (optionnel — défaut : ConsoleLogger)         │
+  │  + export(unit_path, *, enabled, requires_exec) → str | None   │
+  │  + parse_ini(path) → dict[section → dict[clé → list[str]]]     │  ← @staticmethod
+  │  + to_toml(data, unit_type, *, enabled, requires_exec) → str   │  ← @staticmethod
+  │                                                                │
+  │  SystemdUnitRestorer                                           │
+  │  - executor: SystemdExecutor | None                            │
+  │  - logger: Logger (optionnel — défaut : ConsoleLogger)         │
+  │  + restore(toml_path, dest_dir, *, dry_run, user)              │
+  │    → tuple[bool, str]  (succès, nom_unit)                      │
+  │  + to_ini(data, unit_type) → str                               │  ← @staticmethod
+  │                                                                │
+  │  Convention de nommage TOML :                                  │
+  │  thermal-monitor.service → thermal-monitor-service.toml        │
+  └────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────────────────────────────────┐
   │  config_loaders/ — TOML/JSON → dataclass (ConfigFileLoader[T])│
@@ -1997,7 +1997,7 @@ mon-outil check-version --host pve --user root \
 
 - **Unités** : `ServiceConfig` accepte `after`, `requires_mounts_for`, `nice`, `io_scheduling_class` et `syslog_identifier` ; `validate_dependency_unit_name` valide les dépendances (`network-online.target` compris).
 - **Secrets en mode cible** : `SecretsSpec(values_from="target")` écrit `CLE=` sans valeur dans le fichier d'environnement du poste cible, ne lit aucun secret et n'appelle jamais la factory ; un fichier déjà présent est conservé (`WriteOutcome.kept`). Le mode `"source"` reste le défaut.
-- **Retour de phase** : `SecretsProvisioner.provision` et `TimerDeployer.deploy` retournent `PhaseOutcome(success=..., messages=...)` (construction par mots-clés, depuis la v3.0.0), toujours vrai en test booléen : lire `.success`.
+- **Retour de phase** : `SecretsProvisioner.provision` et `TimerDeployer.deploy` retournent `PhaseOutcome(success=..., messages=...)` (`success=` recommandé pour la lisibilité ; les champs restent positionnels), toujours vrai en test booléen : lire `.success`.
 - **Linger** : sonde en lecture seule pour les unités utilisateur, jamais d'`enable-linger`.
 - **Journal** : `open_deploy_journal(app_name, label, dry_run=False)` retourne un `DeployJournal(logger, path)` (console + fichier 0600, dossier 0700, aucun fichier en dry-run). À l'ouverture, il supprime les `deploy_*.log` du dossier `deploy/` de plus de 90 jours (`retention_days=90` ; `retention_days=None` désactive la purge ; jamais en dry-run ; le nouveau journal n'est jamais supprimé).
 
@@ -2383,7 +2383,7 @@ user_mgr.ensure_user_groups(
   ┌─────────────────────────────────────────────────┐
   │           UserManagerBase (ABC)                 │
   │  + ensure_user(name, uid, shell,                │
-  │      comment, *, create_home) [abstract]           │
+  │      comment, *, create_home) [abstract]        │
   │  + ensure_user_groups(name, groups) [abstract]  │
   └────────────────────┬────────────────────────────┘
                        │ hérite

@@ -66,7 +66,7 @@ class MockSystemdManager(SystemdExecutor):
         self.reload_called = True
         return True
 
-    def enable_unit(self, unit_name: str, now: bool = True) -> bool:
+    def enable_unit(self, unit_name: str, *, now: bool = True) -> bool:
         """Simule l'activation d'une unité."""
         self.enabled_units.append(unit_name)
         return True
@@ -74,6 +74,7 @@ class MockSystemdManager(SystemdExecutor):
     def disable_unit(
         self,
         unit_name: str,
+        *,
         now: bool = True,
         ignore_errors: bool = False,
     ) -> bool:

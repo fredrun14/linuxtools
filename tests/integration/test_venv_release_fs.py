@@ -66,6 +66,7 @@ class _BareVenvInstaller(VenvInstaller):
         self,
         venv_path: Path,
         source_dir: Path,
+        *,
         recreate: bool = False,
     ) -> CommandResult:
         """Construit un venv nu à `venv_path` (ignore `source_dir`)."""
