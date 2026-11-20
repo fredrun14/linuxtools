@@ -7,6 +7,7 @@ pour generer des rapports en console, CSV, JSON et diff.
 import csv
 import io
 import json
+from typing import ClassVar
 
 from linuxtools.logging.base import Logger
 from linuxtools.network.base import DeviceReporter
@@ -80,7 +81,7 @@ class ConsoleTableReporter(DeviceReporter):
             lines.append("Aucun peripherique")
         else:
             for d in _sort_by_ip(devices):
-                ip_display = d.ip if d.ip else "(hors ligne)"
+                ip_display = d.ip or "(hors ligne)"
                 line = (
                     ip_display.ljust(16)
                     + d.mac.ljust(18)
@@ -108,7 +109,7 @@ class CsvReporter(DeviceReporter):
         _logger: Logger optionnel.
     """
 
-    FIELDNAMES = [
+    FIELDNAMES: ClassVar[list[str]] = [
         "ip",
         "mac",
         "hostname",
@@ -202,7 +203,7 @@ def _format_device_line(d: "NetworkDevice", prefix: str) -> str:
     Returns:
         Ligne formatee.
     """
-    ip_str = d.ip if d.ip else "(hors ligne)"
+    ip_str = d.ip or "(hors ligne)"
     label = d.hostname or d.vendor
     return f"  {prefix} {ip_str:<16} {d.mac:<18} {label}"
 
@@ -259,8 +260,7 @@ class DiffReporter(DeviceReporter):
         ip_changed = [d for d in devices if d.fixed_ip and d.ip != d.fixed_ip]
         if ip_changed:
             lines.append("=== IP changee ===")
-            for d in ip_changed:
-                lines.append(f"  ~ {d.mac:<18} {d.fixed_ip} -> {d.ip}")
+            lines.extend(f"  ~ {d.mac:<18} {d.fixed_ip} -> {d.ip}" for d in ip_changed)
             lines.append("")
 
         if not lines:

@@ -56,7 +56,8 @@ class ErrorHandlerChain:
         for handler in self._handlers:
             try:
                 handler.handle(error)
-            except Exception as handler_exc:
+            # un handler défaillant ne doit pas bloquer les suivants
+            except Exception as handler_exc:  # noqa: BLE001
                 sys.stderr.write(
                     f"[ErrorHandlerChain] {type(handler).__name__}"
                     f" a échoué : {handler_exc}\n"

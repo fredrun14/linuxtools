@@ -74,17 +74,17 @@ from linuxtools.logging.security_logger import (
 from linuxtools.logging.tee_stream import TeeStream
 
 __all__ = [
-    "AnsiColors",
-    "build_logger",
-    "ConsoleLogger",
-    "default_log_dir",
     "DEFAULT_RETENTION_DAYS",
+    "AnsiColors",
+    "ConsoleLogger",
     "FileLogger",
     "Logger",
-    "purge_old_logs",
     "RotatingFileLogger",
     "SecurityEvent",
     "SecurityEventType",
     "SecurityLogger",
     "TeeStream",
+    "build_logger",
+    "default_log_dir",
+    "purge_old_logs",
 ]

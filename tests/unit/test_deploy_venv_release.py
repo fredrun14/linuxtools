@@ -914,6 +914,7 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == ("/opt/app/venvs est un lien : refus avant build.",)
         verify.assert_not_called()
 
     def test_etat_lien_sans_cible_refuse_sans_lever(self) -> None:
@@ -930,6 +931,10 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == (
+            "état incohérent : lien détecté sans cible pour /opt/app/venv "
+            "— refus avant build.",
+        )
         verify.assert_not_called()
 
     def test_venv_path_lien_non_gere_refuse_avant_build(self) -> None:
@@ -948,6 +953,9 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == (
+            "venv_path pointe vers un lien non géré : /usr — refus avant build.",
+        )
         verify.assert_not_called()
         assert executor.run.call_count == 1
 
@@ -1001,6 +1009,7 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == ("venv_path doit être absolu : venv",)
         verify.assert_not_called()
 
     def test_venv_path_est_un_fichier_refuse_avant_build(self) -> None:
@@ -1021,6 +1030,10 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == (
+            "venv_path existe mais n'est ni un lien ni un répertoire "
+            "— refus avant build.",
+        )
         verify.assert_not_called()
 
     def test_echec_mkdir_versions_dir_outcome_install(self) -> None:
@@ -1044,6 +1057,9 @@ class TestVenvReleaserRelease:
 
         assert outcome.success is False
         assert outcome.phase_reached == DeployPhase.INSTALL
+        assert outcome.messages == (
+            "Échec de création de /opt/app/venvs : mkdir error",
+        )
         verify.assert_not_called()
 
     def test_echec_activate_discard_et_outcome_activate(self) -> None:

@@ -134,7 +134,7 @@ class SystemdUnitExporter:
         current_section = ""
         for line in path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
-            if not stripped or stripped.startswith("#") or stripped.startswith(";"):
+            if not stripped or stripped.startswith(("#", ";")):
                 continue
             if stripped.startswith("[") and stripped.endswith("]"):
                 current_section = stripped[1:-1]
@@ -370,13 +370,14 @@ class SystemdUnitRestorer:
             lines.append(f"[{section}]")
             # `data` vient de tomllib : ses valeurs sont des `object`, or
             # une section INI est toujours une table TOML, donc un dict.
-            # Le cast nomme cet invariant là où traînait un `type: ignore`
-            # nu qui, lui, taisait aussi bien une vraie erreur.
+            # Le cast nomme cet invariant là où traînait une suppression
+            # nue qui, elle, taisait aussi bien une vraie erreur.
             section_data = cast("dict[str, object]", data[section])
             for key, value in section_data.items():
                 if isinstance(value, list):
-                    for v in value:
-                        lines.append(f"{key}={reject_control_chars(str(v), key)}")
+                    lines.extend(
+                        f"{key}={reject_control_chars(str(v), key)}" for v in value
+                    )
                 else:
                     lines.append(f"{key}={reject_control_chars(str(value), key)}")
             lines.append("")
@@ -408,7 +409,8 @@ class SystemdUnitRestorer:
         if user:
             cmd.append("--user")
         cmd.extend(args)
-        subprocess.run(cmd, check=False)  # nosec B603
+        # commande systemctl en liste, sans shell
+        subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
 
     def _enable(self, unit_name: str, *, user: bool = False) -> None:
         """Active une unit via l'exécuteur injecté ou subprocess.

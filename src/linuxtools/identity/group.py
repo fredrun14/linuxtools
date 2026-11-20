@@ -65,12 +65,10 @@ class LinuxGroupManager(GroupManagerBase):
                     cmd,
                     f"{self._prefix} groupmod '{name}' a échoué",
                 )
-            else:
-                if self._logger:
-                    self._logger.log_info(
-                        f"{self._prefix} Groupe '{name}' "
-                        f"(GID {gid}) déjà présent — skip"
-                    )
+            elif self._logger:
+                self._logger.log_info(
+                    f"{self._prefix} Groupe '{name}' (GID {gid}) déjà présent — skip"
+                )
         except KeyError:
             if self._logger:
                 self._logger.log_info(

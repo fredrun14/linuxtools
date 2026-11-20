@@ -77,12 +77,11 @@ class LinuxUserManager(UserManagerBase):
                     cmd,
                     f"{self._prefix} usermod '{name}' a échoué",
                 )
-            else:
-                if self._logger:
-                    self._logger.log_info(
-                        f"{self._prefix} Utilisateur '{name}' "
-                        f"(UID {uid}) déjà présent — skip"
-                    )
+            elif self._logger:
+                self._logger.log_info(
+                    f"{self._prefix} Utilisateur '{name}' "
+                    f"(UID {uid}) déjà présent — skip"
+                )
         except KeyError:
             if self._logger:
                 self._logger.log_info(

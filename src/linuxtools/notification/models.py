@@ -211,7 +211,8 @@ class ExecutionReport:
 
     def finish(self) -> None:
         """Clôture le rapport en renseignant finished_at."""
-        self.finished_at = datetime.now()
+        # naïf comme started_at (soustraction)
+        self.finished_at = datetime.now()  # noqa: DTZ005
 
     def format_summary(self) -> str:
         """Retourne un résumé textuel lisible du rapport.
@@ -233,8 +234,7 @@ class ExecutionReport:
             if step.message:
                 line += f" — {step.message}"
             lines.append(line)
-        for error in self.errors:
-            lines.append(f"    ! {error}")
+        lines.extend(f"    ! {error}" for error in self.errors)
         return "\n".join(lines)
 
     def to_notification(

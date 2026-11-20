@@ -9,8 +9,7 @@ class FileManager(ABC):
 
     @abstractmethod
     def create_file(self, file_path: str | Path, content: str) -> bool:
-        """
-        Crée un fichier avec le contenu spécifié.
+        """Crée un fichier avec le contenu spécifié.
 
         Args:
             file_path: Chemin du fichier à créer

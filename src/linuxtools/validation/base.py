@@ -9,8 +9,7 @@ class Validator(ABC):
 
     @abstractmethod
     def validate(self) -> None:
-        """
-        Exécute la validation.
+        """Exécute la validation.
 
         Raises:
             ValueError: Si une valeur est invalide

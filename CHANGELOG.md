@@ -2,6 +2,19 @@
 
 ## [Non publié]
 
+### Modifié
+
+- refactor(lint): ruff ALL appliqué à src/ (base commune 4b/6) : le bloc temporaire de
+  per-file-ignores est retiré ; aucun changement d'API publique ni de comportement
+  nominal, sauf `BashScriptInstaller.__init__` qui lève désormais
+  `TypeError("file_manager est requis")` si `file_manager` est None, au lieu d'un
+  `AttributeError` différé au premier appel. Cas limites : les `assert` d'invariant
+  deviennent des `RuntimeError("invariant rompu …")` (actifs aussi sous `-O`) ; un
+  chemin vide `""` lève `IsADirectoryError` au lieu de `FileNotFoundError` (toujours
+  un `OSError`). Les `# noqa` restants portent leur raison
+  (imports locaux contre les cycles d'import ou les dépendances optionnelles,
+  `subprocess` sur commandes construites, `print` des modules de sortie console).
+
 ### Corrigé
 
 - fix(devtools): `bump-consumers` n'expose plus `UV_NO_SOURCES` au `git commit` du

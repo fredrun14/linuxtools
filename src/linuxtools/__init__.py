@@ -1,5 +1,4 @@
-"""
-Linux Python Utils - Bibliothèque utilitaire pour systèmes Linux.
+"""Linux Python Utils - Bibliothèque utilitaire pour systèmes Linux.
 
 Modules disponibles:
 - logging: Gestion des logs (Logger, FileLogger)
@@ -263,12 +262,12 @@ from linuxtools.validation import (
 
 if TYPE_CHECKING:
     from linuxtools.network import (
-        AsusRouterClient,  # noqa: F401
-        AsusRouterDhcpManager,  # noqa: F401
-        AsusRouterMacFilterManager,  # noqa: F401
-        AsusRouterScanner,  # noqa: F401
-        RouterAuthError,  # noqa: F401
-        RouterConfig,  # noqa: F401
+        AsusRouterClient,
+        AsusRouterDhcpManager,
+        AsusRouterMacFilterManager,
+        AsusRouterScanner,
+        RouterAuthError,
+        RouterConfig,
     )
     from linuxtools.updates import (
         UpdateCheckResult,
@@ -300,7 +299,7 @@ __getattr__ = make_lazy_getattr(
     },
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     # Logging
     "Logger",
     "ConsoleLogger",

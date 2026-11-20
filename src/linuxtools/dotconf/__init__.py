@@ -77,10 +77,10 @@ from linuxtools.dotconf.spec import ConfigBlock, ConfigSpec
 from linuxtools.dotconf.toml_spec_loader import TomlSpecLoader
 
 __all__ = [
+    "ConfTomlExporter",
     "ConfigApplier",
     "ConfigBlock",
     "ConfigSpec",
-    "ConfTomlExporter",
     "IniConfig",
     "IniConfigManager",
     "IniSection",

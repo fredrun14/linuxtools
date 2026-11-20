@@ -173,8 +173,7 @@ class AsusRouterDhcpManager(RouterDhcpManager):
         )
 
     def _build_nvram_strings(self, devices: list[NetworkDevice]) -> tuple[str, str]:
-        """Construit les chaines NVRAM dhcp_staticlist et
-        dhcp_hostnames.
+        """Construit les chaînes NVRAM dhcp_staticlist et dhcp_hostnames.
 
         Args:
             devices: Peripheriques avec fixed_ip.

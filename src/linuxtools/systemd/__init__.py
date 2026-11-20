@@ -136,7 +136,7 @@ from linuxtools.systemd.user_service import LinuxUserServiceUnitManager
 # Implémentations Linux utilisateur
 from linuxtools.systemd.user_timer import LinuxUserTimerUnitManager
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     # Classes abstraites système
     "UnitManager",
     "MountUnitManager",

@@ -19,8 +19,10 @@ def ensure_shared_group_directory(
     executor: CommandExecutor | None = None,
     logger: Logger | None = None,
 ) -> None:
-    """Garantit qu'un répertoire partagé appartient au groupe donné,
-    porte le bit setgid et une ACL par défaut donnant rwx au groupe.
+    """Garantit qu'un répertoire partagé est propre au groupe donné.
+
+    Le répertoire appartient au groupe, porte le bit setgid et une ACL par
+    défaut donnant rwx au groupe.
 
     Idempotent : ne change rien si le répertoire est déjà conforme.
 

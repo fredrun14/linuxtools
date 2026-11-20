@@ -23,6 +23,10 @@ from linuxtools.network.vendors import (
     _infer_type_from_vendor,
 )
 
+# Sortie de scan : champs IP, MAC puis fabricant optionnel.
+_CHAMPS_IP_MAC = 2
+_INDEX_FABRICANT = 2
+
 _SKIP_PREFIXES: tuple[str, ...] = (
     "lo",
     "docker",
@@ -156,11 +160,13 @@ class LinuxArpScanner(NetworkScanner):
             if any(mot in line.lower() for mot in ["packets", "ending", "interface:"]):
                 continue
             parts = line.split("\t")
-            if len(parts) < 2:
+            if len(parts) < _CHAMPS_IP_MAC:
                 continue
             ip = parts[0].strip()
             mac = parts[1].strip()
-            vendor = parts[2].strip() if len(parts) > 2 else ""
+            vendor = (
+                parts[_INDEX_FABRICANT].strip() if len(parts) > _INDEX_FABRICANT else ""
+            )
             try:
                 devices.append(
                     NetworkDevice(
@@ -264,7 +270,8 @@ class LinuxNmapScanner(NetworkScanner):
         """
         devices: list[NetworkDevice] = []
         try:
-            root = ET.fromstring(stdout)  # nosec B314
+            # XML produit par notre appel nmap local
+            root = ET.fromstring(stdout)  # noqa: S314  # nosec B314
         except ET.ParseError as exc:
             if self._logger:
                 self._logger.log_warning(f"Sortie nmap invalide : {exc}")

@@ -49,12 +49,11 @@ class DotEnvCredentialProvider(CredentialProvider):
     def _check_permissions(self) -> None:
         """Avertit si le .env est lisible par groupe ou autres utilisateurs."""
         mode = self._dotenv_path.stat().st_mode
-        if mode & (stat.S_IRWXG | stat.S_IRWXO):
-            if self._logger:
-                self._logger.log_warning(
-                    f"{self._dotenv_path} accessible par d'autres "
-                    f"utilisateurs (permissions trop larges)."
-                )
+        if mode & (stat.S_IRWXG | stat.S_IRWXO) and self._logger:
+            self._logger.log_warning(
+                f"{self._dotenv_path} accessible par d'autres "
+                f"utilisateurs (permissions trop larges)."
+            )
 
     def load(self) -> bool:
         """Charge le fichier .env dans le dict interne.
@@ -65,7 +64,8 @@ class DotEnvCredentialProvider(CredentialProvider):
             True si le fichier a été chargé avec succès.
         """
         try:
-            from dotenv import dotenv_values
+            # dépendance optionnelle
+            from dotenv import dotenv_values  # noqa: PLC0415
         except ImportError:
             return False
         if not self._dotenv_path.exists():
@@ -96,10 +96,11 @@ class DotEnvCredentialProvider(CredentialProvider):
         Returns:
             Valeur de la variable ou None si absente ou vide.
         """
+        del service  # contrat de l'ABC, non utilisé ici
         if not self._loaded:
             self.load()
         value = self._values.get(key.upper())
-        return value if value else None
+        return value or None
 
     def is_available(self) -> bool:
         """Indique si ce provider est opérationnel.
@@ -108,7 +109,8 @@ class DotEnvCredentialProvider(CredentialProvider):
             True si python-dotenv est installé et le fichier existe.
         """
         try:
-            import dotenv  # noqa: F401
+            # dépendance optionnelle
+            import dotenv  # noqa: F401, PLC0415
         except ImportError:
             return False
         return self._dotenv_path.exists()

@@ -49,10 +49,10 @@ from linuxtools.validation.system import SystemCommandValidator
 
 __all__ = [
     "PathChecker",
+    "PathCheckerGroupAccess",
     "PathCheckerMountPoint",
     "PathCheckerPermission",
     "PathCheckerWorldWritable",
-    "PathCheckerGroupAccess",
     "SystemCommandValidator",
     "Validator",
 ]

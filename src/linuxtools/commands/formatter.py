@@ -71,7 +71,6 @@ class CommandFormatter(ABC):
         Returns:
             Texte stylisé prêt à l'affichage.
         """
-        pass
 
     def format_start(self, command: list[str], *, is_root: bool) -> str:
         """Formate le message de début d'exécution.
@@ -133,6 +132,7 @@ class CommandFormatter(ABC):
         Returns:
             Ligne formatée prête à l'affichage.
         """
+        del is_root  # contrat de l'ABC, non utilisé ici
         return line
 
 
@@ -153,11 +153,12 @@ class PlainCommandFormatter(CommandFormatter):
 
     def _decorate(self, text: str, *, is_root: bool, dry: bool = False) -> str:
         """Retourne le texte sans modification (identité)."""
+        del is_root, dry  # contrat de l'ABC, non utilisés ici
         return text
 
 
 class AnsiCommandFormatter(CommandFormatter):
-    """Formateur ANSI coloré pour la sortie console.
+    r"""Formateur ANSI coloré pour la sortie console.
 
     Distingue visuellement les exécutions root (jaune-or gras)
     des exécutions utilisateur standard (vert). Les lignes de
@@ -168,10 +169,10 @@ class AnsiCommandFormatter(CommandFormatter):
     évitant ainsi de polluer les pipes ou les redirections.
 
     Styles ANSI :
-        ROOT    → \\033[1;33m (jaune-or gras) — distinct des erreurs rouges
-        user    → \\033[0;32m (vert normal)
-        dry-run → \\033[0;90m (gris discret)
-        reset   → \\033[0m
+        ROOT    → \033[1;33m (jaune-or gras) — distinct des erreurs rouges
+        user    → \033[0;32m (vert normal)
+        dry-run → \033[0;90m (gris discret)
+        reset   → \033[0m
 
     Example :
         Sortie console pour une commande root :

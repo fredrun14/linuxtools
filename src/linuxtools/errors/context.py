@@ -1,5 +1,6 @@
 """Contexte d'erreur avec rollback ordonné (LIFO)."""
 
+import contextlib
 from collections.abc import Callable
 
 from linuxtools.errors.exceptions import RollbackError
@@ -48,7 +49,8 @@ class ErrorContext:
                 action()
                 if self._logger:
                     self._logger.log_info(f"Rollback réussi: {label}")
-            except Exception as e:
+            # le rollback continue malgré l'échec d'une action
+            except Exception as e:  # noqa: BLE001
                 rollback_errors.append(str(e))
                 if self._logger:
                     self._logger.log_error(f"Échec du rollback ({label}): {e}")
@@ -62,9 +64,8 @@ class ErrorContext:
             raise RollbackError(
                 f"Rollback partiel : {len(rollback_errors)} action(s) en échec"
             )
-        else:
-            if self._logger:
-                self._logger.log_info("Rollback terminé avec succès.")
+        if self._logger:
+            self._logger.log_info("Rollback terminé avec succès.")
 
     def handle_error_with_rollback(self, error: Exception) -> None:
         """Gère une erreur et exécute le rollback.
@@ -79,13 +80,11 @@ class ErrorContext:
             self._logger.log_error(f"Erreur nécessitant rollback: {error}")
 
         if self._rollback_actions:
-            try:
+            # Déjà loggé dans execute_rollback
+            with contextlib.suppress(RollbackError):
                 self.execute_rollback()
-            except RollbackError:
-                pass  # Déjà loggé dans execute_rollback
-        else:
-            if self._logger:
-                self._logger.log_info("Aucune action de rollback nécessaire.")
+        elif self._logger:
+            self._logger.log_info("Aucune action de rollback nécessaire.")
 
     def clear_rollback_actions(self) -> None:
         """Efface toutes les actions de rollback enregistrées."""

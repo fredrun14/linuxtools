@@ -27,6 +27,9 @@ from linuxtools.devtools.manifest import (
 from linuxtools.devtools.report import BumpOutcome, Status, mask_userinfo
 from linuxtools.logging.base import Logger
 
+# `git rev-list --parents -n1` : sha + un seul parent = commit non-merge.
+_CHAMPS_COMMIT_NON_MERGE = 2
+
 FORGEJO_HOST = "git.ricfasohel.fr"
 TAG_RE = re.compile(r"^v\d+\.\d+\.\d+\Z")
 _TAG_PARTS_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)\Z")
@@ -142,7 +145,7 @@ class ConsumerBumper:
     chemin réel écrit, commit et pousse.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — outil interne devtools, options keyword-only
         self,
         executor: CommandExecutor,
         logger: Logger,
@@ -207,7 +210,8 @@ class ConsumerBumper:
                 checks=stop.checks,
                 detail=detail,
             )
-        except Exception as exc:  # frontière : tout devient un statut
+        # Frontière : toute exception devient un statut.
+        except Exception as exc:  # noqa: BLE001
             self._logger.log_error(mask_userinfo(f"{consumer.name} : {exc!r}"))
             return BumpOutcome(
                 consumer.name,
@@ -277,11 +281,12 @@ class ConsumerBumper:
             worktree = drop = True
             checks = self._prepare_and_check(plan, space)
             outcome = self._commit_and_push(consumer, plan, space, checks)
-            drop = False
-            return outcome
         except _AbortError as stop:
             drop = drop and stop.status is not Status.PUSH_ECHOUE
             raise
+        else:
+            drop = False
+            return outcome
         finally:
             self._cleanup(cwd, space, plan.branch, worktree=worktree, drop_branch=drop)
 
@@ -504,8 +509,15 @@ class ConsumerBumper:
         )
         touched = _split_nul(
             self._step(
-                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r"]
-                + ["-z", "HEAD"],
+                [
+                    "git",
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    "-z",
+                    "HEAD",
+                ],
                 cwd,
             ).stdout
         )
@@ -673,7 +685,7 @@ class ConsumerBumper:
                 "à examiner ou supprimer",
             )
         parents = self._git(["rev-list", "--parents", "-n1", sha], cwd)
-        if len(parents.stdout.split()) != 2:
+        if len(parents.stdout.split()) != _CHAMPS_COMMIT_NON_MERGE:
             raise _AbortError(
                 Status.REFUSE,
                 f"{name} existe sur origin mais son sommet n'est pas un "
@@ -681,8 +693,13 @@ class ConsumerBumper:
             )
         touched = _split_nul(
             self._git(
-                ["diff", "--no-renames", "--name-only", "-z"]
-                + [f"origin/{default}...{sha}"],
+                [
+                    "diff",
+                    "--no-renames",
+                    "--name-only",
+                    "-z",
+                    f"origin/{default}...{sha}",
+                ],
                 cwd,
             ).stdout
         )

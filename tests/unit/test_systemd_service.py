@@ -39,6 +39,44 @@ class TestServiceConfig:
 class TestServiceConfigToUnitFile:
     """Tests pour ServiceConfig.to_unit_file()."""
 
+    def test_rendu_complet_fixe_l_ordre_des_directives(self) -> None:
+        """Fixe le rendu exact (ordre des directives) avec tous les champs."""
+        config = ServiceConfig(
+            description="T",
+            exec_start="/bin/x",
+            type="notify",
+            user="u",
+            group="g",
+            working_directory="/w",
+            environment={"A": "1", "B": "2"},
+            environment_file="/etc/e",
+            restart="on-failure",
+            restart_sec=5,
+            wanted_by="default.target",
+            on_failure="f.service",
+            no_new_privileges=True,
+            protect_system="strict",
+            protect_home=True,
+            private_tmp=True,
+            read_write_paths=("/var/a", "/var/b"),
+            nice=5,
+            io_scheduling_class="idle",
+            syslog_identifier="s",
+        )
+
+        result = config.to_unit_file()
+
+        assert result == (
+            "[Unit]\nDescription=T\nOnFailure=f.service\n\n"
+            "[Service]\nType=notify\nExecStart=/bin/x\nUser=u\nGroup=g\n"
+            "WorkingDirectory=/w\nEnvironmentFile=/etc/e\n"
+            "Environment=A=1\nEnvironment=B=2\n"
+            "Restart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n"
+            "ProtectSystem=strict\nProtectHome=true\nPrivateTmp=true\n"
+            "ReadWritePaths=/var/a /var/b\nNice=5\nIOSchedulingClass=idle\n"
+            "SyslogIdentifier=s\n\n[Install]\nWantedBy=default.target\n"
+        )
+
     def test_basic_service_contains_required_sections(self) -> None:
         """Vérifie que le fichier .service contient toutes les sections."""
         config = ServiceConfig(
@@ -750,7 +788,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("Permission refusée"),
         ):
             result = manager._remove_unit_file("test.service")
@@ -767,7 +805,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
-        with patch("linuxtools.systemd.base.os.remove", side_effect=err):
+        with patch("linuxtools.systemd.base.os.unlink", side_effect=err):
             result = manager._remove_unit_file("test.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -833,7 +871,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "my-service.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("my-service")
@@ -881,7 +919,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "user-svc.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("user-svc")

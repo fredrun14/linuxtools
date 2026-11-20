@@ -9,7 +9,7 @@ from platformdirs import site_config_dir, user_config_path
 
 
 class XdgAppConfig:
-    """Gestion du répertoire de configuration XDG pour une application.
+    r"""Gestion du répertoire de configuration XDG pour une application.
 
     Encapsule la convention XDG Base Directory Specification :
     le répertoire de configuration utilisateur par défaut est
@@ -29,7 +29,7 @@ class XdgAppConfig:
         >>> cfg = XdgAppConfig("fedora-post-install")
         >>> cfg.config_dir
         PosixPath('/home/user/.config/fedora-post-install')
-        >>> cfg.init_config_file("[log]\\nlevel = 'INFO'\\n")
+        >>> cfg.init_config_file("[log]\nlevel = 'INFO'\n")
         PosixPath('/home/user/.config/fedora-post-install/global.toml')
     """
 

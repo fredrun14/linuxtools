@@ -195,6 +195,7 @@ def _is_str_list(value: object) -> bool:
     return isinstance(value, list) and all(isinstance(v, str) for v in value)
 
 
+# valeur TOML arbitraire (dict, list, str…) parcourue récursivement
 def _substitute(value: Any, new_tag: str) -> Any:  # noqa: ANN401
     """Remplace le tag du pin dans toute valeur TOML (récursif)."""
     if isinstance(value, str):

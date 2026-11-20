@@ -8,6 +8,14 @@ from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.validators import validate_full_unit_name
 
+# Sortie texte de `list-units` : 4 champs obligatoires puis la description.
+_CHAMPS_UNITE_MIN = 4
+_INDEX_DESCRIPTION = 4
+
+# Sortie texte de `list-unit-files` : unité, état, puis preset optionnel.
+_CHAMPS_FICHIER_UNITE_MIN = 2
+_INDEX_PRESET = 2
+
 
 class SystemdExecutor:
     """Exécuteur de commandes systemctl.
@@ -71,8 +79,7 @@ class SystemdExecutor:
         return self._executor.run(command, stdin=stdin)
 
     def reload_systemd(self) -> bool:
-        """
-        Recharge la configuration systemd (daemon-reload).
+        """Recharge la configuration systemd (daemon-reload).
 
         Returns:
             True si succès, False sinon
@@ -87,8 +94,7 @@ class SystemdExecutor:
         return True
 
     def enable_unit(self, unit_name: str, *, now: bool = True) -> bool:
-        """
-        Active une unité systemd.
+        """Active une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -121,8 +127,7 @@ class SystemdExecutor:
         now: bool = True,
         ignore_errors: bool = False,
     ) -> bool:
-        """
-        Désactive une unité systemd.
+        """Désactive une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -177,8 +182,7 @@ class SystemdExecutor:
         return True
 
     def start_unit(self, unit_name: str) -> bool:
-        """
-        Démarre une unité systemd.
+        """Démarre une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -195,8 +199,7 @@ class SystemdExecutor:
         )
 
     def stop_unit(self, unit_name: str) -> bool:
-        """
-        Arrête une unité systemd.
+        """Arrête une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -213,8 +216,7 @@ class SystemdExecutor:
         )
 
     def restart_unit(self, unit_name: str) -> bool:
-        """
-        Redémarre une unité systemd.
+        """Redémarre une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -231,8 +233,7 @@ class SystemdExecutor:
         )
 
     def get_status(self, unit_name: str) -> str:
-        """
-        Récupère le statut d'une unité systemd.
+        """Récupère le statut d'une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -248,8 +249,7 @@ class SystemdExecutor:
         return result.stdout.strip()
 
     def is_active(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité systemd est active.
+        """Vérifie si une unité systemd est active.
 
         Args:
             unit_name: Nom de l'unité
@@ -260,8 +260,7 @@ class SystemdExecutor:
         return self.get_status(unit_name) == "active"
 
     def is_enabled(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité systemd est activée au démarrage.
+        """Vérifie si une unité systemd est activée au démarrage.
 
         Args:
             unit_name: Nom de l'unité
@@ -321,18 +320,16 @@ class SystemdExecutor:
         except json.JSONDecodeError:
             return self._list_units_text_fallback()
 
-        units = []
-        for entry in data:
-            units.append(
-                {
-                    "unit": entry.get("unit", ""),
-                    "load": entry.get("load", ""),
-                    "active": entry.get("active", ""),
-                    "sub": entry.get("sub", ""),
-                    "description": entry.get("description", ""),
-                }
-            )
-        return units
+        return [
+            {
+                "unit": entry.get("unit", ""),
+                "load": entry.get("load", ""),
+                "active": entry.get("active", ""),
+                "sub": entry.get("sub", ""),
+                "description": entry.get("description", ""),
+            }
+            for entry in data
+        ]
 
     def _list_units_text_fallback(self) -> list[dict[str, str]]:
         """Fallback texte pour list_units sur vieux systemd.
@@ -355,7 +352,7 @@ class SystemdExecutor:
             if not line.strip():
                 continue
             parts = line.split(maxsplit=4)
-            if len(parts) < 4:
+            if len(parts) < _CHAMPS_UNITE_MIN:
                 continue
             units.append(
                 {
@@ -363,7 +360,9 @@ class SystemdExecutor:
                     "load": parts[1],
                     "active": parts[2],
                     "sub": parts[3],
-                    "description": parts[4] if len(parts) > 4 else "",
+                    "description": parts[_INDEX_DESCRIPTION]
+                    if len(parts) > _INDEX_DESCRIPTION
+                    else "",
                 }
             )
         return units
@@ -416,16 +415,14 @@ class SystemdExecutor:
         except json.JSONDecodeError:
             return self._list_unit_files_text_fallback(unit_type, state)
 
-        files = []
-        for entry in data:
-            files.append(
-                {
-                    "unit_file": entry.get("unit_file", ""),
-                    "state": entry.get("state", ""),
-                    "preset": entry.get("preset", ""),
-                }
-            )
-        return files
+        return [
+            {
+                "unit_file": entry.get("unit_file", ""),
+                "state": entry.get("state", ""),
+                "preset": entry.get("preset", ""),
+            }
+            for entry in data
+        ]
 
     def _list_unit_files_text_fallback(
         self,
@@ -460,13 +457,15 @@ class SystemdExecutor:
             if not line.strip():
                 continue
             parts = line.split()
-            if len(parts) < 2:
+            if len(parts) < _CHAMPS_FICHIER_UNITE_MIN:
                 continue
             files.append(
                 {
                     "unit_file": parts[0],
                     "state": parts[1],
-                    "preset": parts[2] if len(parts) > 2 else "",
+                    "preset": parts[_INDEX_PRESET]
+                    if len(parts) > _INDEX_PRESET
+                    else "",
                 }
             )
         return files
@@ -526,8 +525,7 @@ class UserSystemdExecutor(SystemdExecutor):
     _label = " utilisateur"
 
     def _run_systemctl(self, args: list[str]) -> CommandResult:
-        """
-        Exécute une commande systemctl --user via l'executor injecté.
+        """Exécute une commande systemctl --user via l'executor injecté.
 
         Args:
             args: Arguments de la commande systemctl.

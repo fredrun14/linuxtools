@@ -94,7 +94,10 @@ class ConfigApplier:
             return None
 
         was_commented = editor.is_block_commented(block.content, block.section)
-        was_replaceable = editor._is_key_replaceable(block.content, block.section)
+        # accès intra-package voulu : l'applier pilote l'éditeur de son package
+        was_replaceable = editor._is_key_replaceable(  # noqa: SLF001
+            block.content, block.section
+        )
         editor.ensure_block(block.content, block.section, block.comment)
 
         # Le remplacement de clé est prioritaire sur le décommentage

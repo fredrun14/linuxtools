@@ -22,6 +22,7 @@ for nom in ("bumper", "changelog", "cli", "discovery", "lockfile",
 
 def test_devtools_importable_sans_extra_network() -> None:
     """Tous les modules devtools s'importent sans `webapitools`."""
+    # args fixes, sans entrée externe
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-c", _SCRIPT],
         capture_output=True,

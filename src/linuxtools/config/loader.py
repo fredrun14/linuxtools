@@ -31,7 +31,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
     Returns:
         Dictionnaire de configuration.
     """
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         return tomllib.load(f)
 
 
@@ -44,7 +44,7 @@ def _load_json(path: Path) -> dict[str, Any]:
     Returns:
         Dictionnaire de configuration.
     """
-    with open(path, encoding="utf-8") as f:
+    with path.open(encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
         return data
 
@@ -56,8 +56,7 @@ _LOADERS: dict[str, Callable[[Path], dict[str, Any]]] = {
 
 
 class ConfigLoader(ABC):
-    """
-    Interface abstraite pour le chargement de configuration.
+    """Interface abstraite pour le chargement de configuration.
 
     Permet l'injection de dépendance et facilite les tests
     en permettant de substituer l'implémentation réelle par un mock.
@@ -69,8 +68,7 @@ class ConfigLoader(ABC):
         self,
         config_path: str | Path,
         schema: None = None,
-    ) -> dict[str, Any]:
-        """Charge un fichier de configuration en dict brut (sans schema)."""
+    ) -> dict[str, Any]: ...
 
     @overload
     @abstractmethod
@@ -78,8 +76,7 @@ class ConfigLoader(ABC):
         self,
         config_path: str | Path,
         schema: type[_TSchema],
-    ) -> _TSchema:
-        """Charge un fichier de configuration et le valide via schema."""
+    ) -> _TSchema: ...
 
     # ANN401 assumé : signature "réelle" recouvrant les deux overloads
     # ci-dessus — c'est elle que Python retient comme attribut de
@@ -90,7 +87,7 @@ class ConfigLoader(ABC):
     @abstractmethod
     def load(
         self, config_path: str | Path, schema: type | None = None
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         """Charge un fichier de configuration.
 
         Args:
@@ -138,7 +135,8 @@ class ConfigLoader(ABC):
             TypeError: Si schema n'est pas un BaseModel.
         """
         try:
-            from pydantic import BaseModel
+            # dépendance optionnelle
+            from pydantic import BaseModel  # noqa: PLC0415
         except ImportError as err:
             raise ImportError(
                 "pydantic est requis pour la validation "
@@ -156,8 +154,7 @@ class ConfigLoader(ABC):
 
 
 class FileConfigLoader(ConfigLoader):
-    """
-    Implémentation du chargeur de configuration depuis fichiers.
+    """Implémentation du chargeur de configuration depuis fichiers.
 
     Supporte les formats TOML et JSON, détectés automatiquement
     par l'extension du fichier. Supporte optionnellement la
@@ -169,22 +166,20 @@ class FileConfigLoader(ConfigLoader):
         self,
         config_path: str | Path,
         schema: None = None,
-    ) -> dict[str, Any]:
-        """Charge un fichier de configuration en dict brut (sans schema)."""
+    ) -> dict[str, Any]: ...
 
     @overload
     def load(
         self,
         config_path: str | Path,
         schema: type[_TSchema],
-    ) -> _TSchema:
-        """Charge un fichier de configuration et le valide via schema."""
+    ) -> _TSchema: ...
 
     # ANN401 assumé : même raison que dans `ConfigLoader.load` ci-dessus
     # (le retour dépend de `schema`), signature imposée par le contrat.
     def load(
         self, config_path: str | Path, schema: type | None = None
-    ) -> dict[str, Any] | Any:  # noqa: ANN401
+    ) -> dict[str, Any] | Any:
         """Charge un fichier de configuration TOML ou JSON.
 
         Le format est détecté automatiquement par l'extension

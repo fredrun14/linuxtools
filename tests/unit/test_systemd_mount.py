@@ -683,7 +683,7 @@ class TestMountUnitManagerErrorPaths:
         mount_file = tmp_path / "mnt-test.mount"
         mount_file.write_text("[Unit]\n")
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_mount_unit("/mnt/test")

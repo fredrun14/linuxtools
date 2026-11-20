@@ -21,6 +21,7 @@ def make_lazy_getattr(
         Une fonction `__getattr__(name)` à affecter au module hôte.
     """
 
+    # valeur de retour arbitraire : n'importe quel symbole du module cible
     def _getattr_paresseux(name: str) -> Any:  # noqa: ANN401
         if name not in targets:
             raise AttributeError(f"module {package!r} has no attribute {name!r}")

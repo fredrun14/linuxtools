@@ -58,7 +58,7 @@ class Deployer:
             les 3 phases ci-dessus.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         transport: Transport,
         installer: VenvInstaller,
@@ -224,7 +224,7 @@ class Deployer:
         return DeployReport(
             success=True,
             phase_reached=DeployPhase.DONE,
-            messages=messages + ("Dry-run : aucune action réelle.",),
+            messages=(*messages, "Dry-run : aucune action réelle."),
         )
 
     @staticmethod
@@ -318,8 +318,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
@@ -329,13 +329,14 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "ConfigDeployer non configuré alors que "
                     "config.config_deploy est renseigné.",
                 ),
             )
-        assert config.config_deploy is not None
+        if config.config_deploy is None:
+            raise RuntimeError("invariant rompu : config.config_deploy absent")
         ok = self._config_deployer.deploy(
             config.config_deploy, config.target, self._target_executor
         )
@@ -344,7 +345,7 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.CONFIG,
                 checks=checks,
-                messages=messages + ("Dépôt de la config échoué.",),
+                messages=(*messages, "Dépôt de la config échoué."),
             )
         return None
 
@@ -371,8 +372,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
@@ -382,13 +383,14 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.SECRETS,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "SecretsProvisioner non configuré alors que "
                     "config.secrets est renseigné.",
                 ),
             )
-        assert config.secrets is not None
+        if config.secrets is None:
+            raise RuntimeError("invariant rompu : config.secrets absent")
         outcome = self._secrets_provisioner.provision(
             config.secrets, config.target, self._target_executor
         )
@@ -401,7 +403,7 @@ class Deployer:
                 + (outcome.messages or ("Provisioning des secrets échoué.",)),
             )
         if config.secrets.values_from == "source":
-            return outcome.messages + ("Secrets provisionnés.",)
+            return (*outcome.messages, "Secrets provisionnés.")
         return outcome.messages
 
     def _run_timer_phase(
@@ -427,8 +429,8 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "target_executor non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
@@ -438,13 +440,14 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages
-                + (
+                messages=(
+                    *messages,
                     "TimerDeployer non configuré alors que "
                     "config.timer_deploy est renseigné.",
                 ),
             )
-        assert config.timer_deploy is not None
+        if config.timer_deploy is None:
+            raise RuntimeError("invariant rompu : config.timer_deploy absent")
         outcome = self._timer_deployer.deploy(
             config.timer_deploy, config.target, self._target_executor
         )
@@ -453,9 +456,9 @@ class Deployer:
                 success=False,
                 phase_reached=DeployPhase.TIMER,
                 checks=checks,
-                messages=messages + ("Installation du service+timer échouée.",),
+                messages=(*messages, "Installation du service+timer échouée."),
             )
-        return ("Service+timer installés.",) + outcome.messages
+        return ("Service+timer installés.", *outcome.messages)
 
     def _run_post_install_phases(
         self,
@@ -483,7 +486,7 @@ class Deployer:
             report = self._run_config_phase(config, checks, messages)
             if report is not None:
                 return report
-            messages = messages + ("Config déployée.",)
+            messages = (*messages, "Config déployée.")
 
         if config.secrets is not None:
             secrets_result = self._run_secrets_phase(config, checks, messages)
@@ -517,10 +520,11 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.INSTALL,
-                messages=messages + ("VenvReleaser requis pour atomic_swap.",),
+                messages=(*messages, "VenvReleaser requis pour atomic_swap."),
             )
         if config.recreate_venv:
-            messages = messages + (
+            messages = (
+                *messages,
                 "recreate_venv ignoré en mode atomic_swap "
                 "(chaque version est neuve par construction).",
             )
@@ -570,6 +574,86 @@ class Deployer:
             messages=messages,
         )
 
+    def _deploy_in_place(
+        self, config: DeployConfig, messages: tuple[str, ...]
+    ) -> DeployReport:
+        """Installe dans le venv en place (sauvegarde, vérif, rollback).
+
+        Args:
+            config: Configuration du déploiement/màj.
+            messages: Messages déjà accumulés (résolution de la source).
+
+        Returns:
+            Compte rendu, avec rollback si l'installation ou la
+            vérification échoue et qu'un backup était disponible.
+        """
+        try:
+            backup_path = self._installer.backup_venv(config.venv_path)
+        except DeployError as exc:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.BACKUP,
+                messages=(*messages, str(exc)),
+            )
+
+        install_result = self._installer.install(
+            config.venv_path,
+            config.remote_source_dir,
+            recreate=config.recreate_venv,
+        )
+        if not install_result.success:
+            rolled_back = self._rollback_if_possible(config, backup_path)
+            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.INSTALL
+            return DeployReport(
+                success=False,
+                phase_reached=phase,
+                rolled_back=rolled_back,
+                backup_path=backup_path,
+                messages=(
+                    *messages,
+                    f"Installation échouée : {install_result.stderr}",
+                    *self._rollback_failure_messages(
+                        backup_path, rolled_back=rolled_back
+                    ),
+                ),
+            )
+
+        checks = tuple(
+            self._verifier.verify(config.venv_path, config.verification, config.cli_bin)
+        )
+        if not all(check.ok for check in checks):
+            rolled_back = self._rollback_if_possible(config, backup_path)
+            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.VERIFY
+            return DeployReport(
+                success=False,
+                phase_reached=phase,
+                checks=checks,
+                rolled_back=rolled_back,
+                backup_path=backup_path,
+                messages=(
+                    *messages,
+                    "Vérification post-install échouée",
+                    *self._rollback_failure_messages(
+                        backup_path, rolled_back=rolled_back
+                    ),
+                ),
+            )
+
+        result = self._run_post_install_phases(config, checks, messages)
+        if isinstance(result, DeployReport):
+            return result
+        messages = result
+
+        if backup_path is not None:
+            self._installer.prune_backup(backup_path)
+
+        return DeployReport(
+            success=True,
+            phase_reached=DeployPhase.DONE,
+            checks=checks,
+            messages=messages,
+        )
+
     def deploy(self, config: DeployConfig) -> DeployReport:
         """Exécute le déploiement complet selon config.
 
@@ -600,70 +684,13 @@ class Deployer:
             return DeployReport(
                 success=False,
                 phase_reached=DeployPhase.TRANSPORT,
-                messages=messages + (f"Transport échoué : {transport_result.stderr}",),
+                messages=(*messages, f"Transport échoué : {transport_result.stderr}"),
             )
 
         if config.atomic_swap:
             return self._deploy_atomic(config, messages)
 
-        try:
-            backup_path = self._installer.backup_venv(config.venv_path)
-        except DeployError as exc:
-            return DeployReport(
-                success=False,
-                phase_reached=DeployPhase.BACKUP,
-                messages=messages + (str(exc),),
-            )
-
-        install_result = self._installer.install(
-            config.venv_path,
-            config.remote_source_dir,
-            recreate=config.recreate_venv,
-        )
-        if not install_result.success:
-            rolled_back = self._rollback_if_possible(config, backup_path)
-            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.INSTALL
-            return DeployReport(
-                success=False,
-                phase_reached=phase,
-                rolled_back=rolled_back,
-                backup_path=backup_path,
-                messages=messages
-                + (f"Installation échouée : {install_result.stderr}",)
-                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
-            )
-
-        checks = tuple(
-            self._verifier.verify(config.venv_path, config.verification, config.cli_bin)
-        )
-        if not all(check.ok for check in checks):
-            rolled_back = self._rollback_if_possible(config, backup_path)
-            phase = DeployPhase.ROLLBACK if rolled_back else DeployPhase.VERIFY
-            return DeployReport(
-                success=False,
-                phase_reached=phase,
-                checks=checks,
-                rolled_back=rolled_back,
-                backup_path=backup_path,
-                messages=messages
-                + ("Vérification post-install échouée",)
-                + self._rollback_failure_messages(backup_path, rolled_back=rolled_back),
-            )
-
-        result = self._run_post_install_phases(config, checks, messages)
-        if isinstance(result, DeployReport):
-            return result
-        messages = result
-
-        if backup_path is not None:
-            self._installer.prune_backup(backup_path)
-
-        return DeployReport(
-            success=True,
-            phase_reached=DeployPhase.DONE,
-            checks=checks,
-            messages=messages,
-        )
+        return self._deploy_in_place(config, messages)
 
     @classmethod
     def for_target(

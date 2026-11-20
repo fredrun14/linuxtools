@@ -21,6 +21,9 @@ from linuxtools.network.vendors import (
     _infer_type_from_vendor,
 )
 
+# Longueur d'une adresse MAC textuelle (aa:bb:cc:dd:ee:ff).
+_LONGUEUR_MAC = 17
+
 
 def _resolve_ip(
     client: dict[str, Any],
@@ -40,7 +43,8 @@ def _resolve_ip(
         Adresse IP ou chaine vide.
     """
     ip: str = client.get("ip", "")
-    if not ip or ip == "0.0.0.0":  # nosec B104
+    # comparaison de valeur, aucun bind
+    if not ip or ip == "0.0.0.0":  # noqa: S104  # nosec B104
         ip = leases.get(mac, "")
     if not ip:
         fixed_ip_fallback, _ = reservations.get(mac, (None, None))
@@ -131,6 +135,7 @@ class AsusRouterScanner(NetworkScanner):
             RouterAuthError: Si l'authentification echoue.
             RuntimeError: Si la requete echoue.
         """
+        del config  # contrat de l'ABC, non utilisé ici
         try:
             self._client.login()
         except AuthError as exc:
@@ -240,7 +245,7 @@ class AsusRouterScanner(NetworkScanner):
         devices: list[NetworkDevice] = []
         for client in raw:
             mac = client.get("mac", "").lower()
-            if len(mac) != 17:
+            if len(mac) != _LONGUEUR_MAC:
                 continue
             ip = _resolve_ip(client, mac, leases, reservations)
             hostname = _resolve_hostname(client)

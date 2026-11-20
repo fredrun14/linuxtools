@@ -8,7 +8,6 @@ via le module credentials (CredentialChain) ou une variable
 d'environnement.
 
 Example:
-
     from linuxtools.notification import GotifyNotifier, Notification
 
     notifier = GotifyNotifier(
@@ -22,6 +21,7 @@ import json
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from http import HTTPStatus
 from typing import Any
 
 from linuxtools.logging.base import Logger
@@ -95,7 +95,8 @@ class GotifyNotifier(Notifier):
                 "priority": _GOTIFY_PRIORITIES[notification.urgency],
             }
         ).encode("utf-8")
-        request = urllib.request.Request(
+        # base_url validée http(s) au constructeur
+        request = urllib.request.Request(  # noqa: S310
             url=f"{self._base_url}/message",
             data=payload,
             headers={
@@ -113,7 +114,7 @@ class GotifyNotifier(Notifier):
             ) from exc
         except (urllib.error.URLError, OSError) as exc:
             raise NotificationSendError(f"Serveur Gotify injoignable : {exc}") from exc
-        if status != 200:
+        if status != HTTPStatus.OK:
             raise NotificationSendError(f"Réponse Gotify inattendue (HTTP {status})")
         if self._logger:
             self._logger.log_info(f"Notification Gotify envoyée : {notification.title}")

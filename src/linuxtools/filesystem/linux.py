@@ -78,20 +78,18 @@ def write_text_secure(
             # Fichier créé par cet appel et resté partiel : on le retire,
             # sinon un déploiement suivant le croirait « déjà présent ».
             with contextlib.suppress(OSError):
-                os.unlink(path)
+                Path(path).unlink()
         raise
 
 
 class LinuxFileManager(FileManager):
-    """
-    Implémentation Linux de la gestion des fichiers.
+    """Implémentation Linux de la gestion des fichiers.
 
     Toutes les opérations sont loggées via l'instance Logger.
     """
 
     def __init__(self, logger: Logger | None = None) -> None:
-        """
-        Initialise le gestionnaire de fichiers.
+        """Initialise le gestionnaire de fichiers.
 
         Args:
             logger: Instance de Logger pour le logging.
@@ -99,8 +97,7 @@ class LinuxFileManager(FileManager):
         self._logger = logger
 
     def create_file(self, file_path: str | Path, content: str) -> bool:
-        """
-        Crée un fichier avec le contenu spécifié.
+        """Crée un fichier avec le contenu spécifié.
 
         Args:
             file_path: Chemin du fichier à créer
@@ -113,17 +110,17 @@ class LinuxFileManager(FileManager):
             write_text_secure(file_path, content)
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} créé avec succès.")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la création du fichier {file_path}: {exc}"
                 )
             return False
+        else:
+            return True
 
     def file_exists(self, file_path: str | Path) -> bool:
-        """
-        Vérifie si un fichier existe.
+        """Vérifie si un fichier existe.
 
         Args:
             file_path: Chemin du fichier
@@ -134,8 +131,7 @@ class LinuxFileManager(FileManager):
         return Path(file_path).exists()
 
     def read_file(self, file_path: str | Path) -> str:
-        """
-        Lit le contenu d'un fichier.
+        """Lit le contenu d'un fichier.
 
         Args:
             file_path: Chemin du fichier
@@ -151,21 +147,21 @@ class LinuxFileManager(FileManager):
             Lecture seule — risque TOCTOU limité et accepté.
         """
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with Path(file_path).open(encoding="utf-8") as f:
                 content = f.read()
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} lu avec succès.")
-            return content
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la lecture du fichier {file_path}: {exc}"
                 )
             raise
+        else:
+            return content
 
     def delete_file(self, file_path: str | Path) -> bool:
-        """
-        Supprime un fichier.
+        """Supprime un fichier.
 
         Args:
             file_path: Chemin du fichier
@@ -177,10 +173,11 @@ class LinuxFileManager(FileManager):
             Path(file_path).unlink()
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} supprimé avec succès.")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la suppression du fichier {file_path}: {exc}"
                 )
             return False
+        else:
+            return True

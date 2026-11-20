@@ -7,14 +7,19 @@ envoyées via notify-send sur les systèmes Linux.
 import shlex
 from dataclasses import dataclass
 
+# Code ASCII du premier caractère imprimable (en dessous : contrôle).
+# Dupliqué de systemd/validators.py : les messages d'erreur diffèrent et
+# notification ne doit pas dépendre de systemd.
+_PREMIER_CARACTERE_IMPRIMABLE = 32
+
 
 @dataclass(frozen=True)
 class NotificationConfig:
-    """Configuration pour les notifications desktop Linux.
+    r"""Configuration pour les notifications desktop Linux.
 
     Génère du code bash via ``to_bash_function()`` et ``to_bash_call_*()``.
     Tous les champs texte ne doivent pas contenir de caractères de contrôle
-    (ord < 32 : ``\\n``, ``\\t``, ``\\x00``…) ni être vides.
+    (ord < 32 : ``\n``, ``\t``, ``\x00``…) ni être vides.
 
     Attributes:
         title: Titre de la notification.
@@ -49,7 +54,7 @@ class NotificationConfig:
         ):
             if not valeur:
                 raise ValueError(f"{champ} est requis")
-            if any(ord(c) < 32 for c in valeur):
+            if any(ord(c) < _PREMIER_CARACTERE_IMPRIMABLE for c in valeur):
                 raise ValueError(f"Caractère de contrôle interdit dans '{champ}'.")
 
     def to_bash_function(self) -> str:

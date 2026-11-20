@@ -281,6 +281,11 @@ class TestBashScriptInstaller:
         assert "#!/bin/bash" in content
         assert "echo 'test'" in content
 
+    def test_init_without_file_manager_raises_type_error(self) -> None:
+        """Vérifie que l'absence de file_manager lève TypeError dès la création."""
+        with pytest.raises(TypeError, match="file_manager est requis"):
+            BashScriptInstaller(self.mock_logger)
+
     def test_exists_delegates_to_file_manager(self) -> None:
         """Vérifie que exists() délègue au file_manager."""
         self.mock_file_manager.file_exists.return_value = True
@@ -2014,3 +2019,11 @@ class TestExecutorAbstractionRespectee:
             mock_cls.return_value = mock_paths
             report = installer.install(config, confirm_wrapper=False)
         assert report.success is True
+
+
+def test_script_avec_notification_sans_notification_leve_runtime_error() -> None:
+    """Le générateur avec notification refuse une notification absente."""
+    config = BashScriptConfig(exec_command="ls")
+
+    with pytest.raises(RuntimeError, match="notification absente"):
+        config._generate_script_with_notification()

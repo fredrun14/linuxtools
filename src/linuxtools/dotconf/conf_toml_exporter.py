@@ -93,7 +93,7 @@ class ConfTomlExporter:
                     current_section = m.group(1)
                     pending.clear()
                     continue
-            if stripped.startswith("#") or stripped.startswith(";"):
+            if stripped.startswith(("#", ";")):
                 pending.append(stripped)
                 continue
             comment = "\n".join(pending)

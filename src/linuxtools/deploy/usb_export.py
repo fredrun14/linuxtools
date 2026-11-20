@@ -224,24 +224,7 @@ class UsbExporter:
             )
 
         if config.dry_run:
-            # Une seule recherche de uv, partagée avec le rapport
-            uv_bin = self._find_uv()
-            if uv_bin is None and config.mode == "venv":
-                warnings.append(
-                    "uv introuvable — l'export réel (mode venv) échouera."
-                    + self._format_uv_rejections()
-                )
-            elif uv_bin is None:
-                # Mode sources : l'export réel n'échoue pas, il avertit
-                warnings.append(
-                    "uv introuvable — à copier manuellement sur la cible."
-                    + self._format_uv_rejections()
-                )
-            lines = self._dry_run_report(config, proj, lpu, uv_bin)
-            return UsbExportReport(
-                created_paths=tuple(lines),
-                warnings=tuple(warnings),
-            )
+            return self._export_dry_run(config, proj, lpu, warnings)
 
         copied: list[str] = []
 
@@ -273,6 +256,43 @@ class UsbExporter:
 
         return UsbExportReport(
             created_paths=tuple(copied),
+            warnings=tuple(warnings),
+        )
+
+    def _export_dry_run(
+        self,
+        config: UsbExportConfig,
+        proj: Path,
+        lpu: Path | None,
+        warnings: list[str],
+    ) -> UsbExportReport:
+        """Construit le rapport de simulation de `export` (aucune écriture).
+
+        Args:
+            config: Paramètres de l'export.
+            proj: Répertoire source du projet.
+            lpu: Source éditable de linuxtools, ou None.
+            warnings: Avertissements déjà collectés (complétés ici).
+
+        Returns:
+            Rapport listant les actions simulées et avertissements.
+        """
+        # Une seule recherche de uv, partagée avec le rapport
+        uv_bin = self._find_uv()
+        if uv_bin is None and config.mode == "venv":
+            warnings.append(
+                "uv introuvable — l'export réel (mode venv) échouera."
+                + self._format_uv_rejections()
+            )
+        elif uv_bin is None:
+            # Mode sources : l'export réel n'échoue pas, il avertit
+            warnings.append(
+                "uv introuvable — à copier manuellement sur la cible."
+                + self._format_uv_rejections()
+            )
+        lines = self._dry_run_report(config, proj, lpu, uv_bin)
+        return UsbExportReport(
+            created_paths=tuple(lines),
             warnings=tuple(warnings),
         )
 
@@ -334,7 +354,7 @@ class UsbExporter:
         return None
 
     @staticmethod
-    def _check_uv_candidate(
+    def _check_uv_candidate(  # noqa: PLR0911 — chaîne de gardes : un refus par raison
         candidate: Path, owner_uid: int
     ) -> tuple[Path | None, str | None]:
         """Contrôle un candidat uv avant de l'exécuter en root.

@@ -5,7 +5,6 @@ pour la lecture, l'écriture et la mise à jour de fichiers INI.
 """
 
 import configparser
-import os
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -47,6 +46,7 @@ class LinuxIniConfigManager(IniConfigManager):
     def _load_parser(path: Path) -> configparser.ConfigParser:
         """Crée un ConfigParser et charge le fichier si existant."""
         parser = configparser.ConfigParser()
+        path = Path(path)
         if path.exists():
             parser.read(path, encoding="utf-8")
         return parser
@@ -54,9 +54,10 @@ class LinuxIniConfigManager(IniConfigManager):
     @staticmethod
     def _save_parser(parser: configparser.ConfigParser, path: Path) -> None:
         """Écrit le parser dans path et applique chmod 0o644."""
-        with open(path, "w", encoding="utf-8") as f:
+        path = Path(path)
+        with path.open("w", encoding="utf-8") as f:
             parser.write(f)
-        os.chmod(path, 0o644)
+        path.chmod(0o644)
 
     def read(self, path: Path) -> dict[str, dict[str, str]]:
         """Lit un fichier INI et retourne son contenu.
@@ -136,6 +137,7 @@ class LinuxIniConfigManager(IniConfigManager):
         Returns:
             True si des modifications ont été effectuées, False sinon.
         """
+        del validators  # contrat de l'ABC, non utilisé ici
         parser = self._load_parser(path)
         section_name = section.section_name()
         new_values = section.to_dict()
@@ -156,11 +158,10 @@ class LinuxIniConfigManager(IniConfigManager):
             self._save_parser(parser, path)
             if self._logger:
                 self._logger.log_info(f"Fichier {path} mis à jour.")
-        else:
-            if self._logger:
-                self._logger.log_info(
-                    f"Fichier {path} déjà configuré avec les valeurs cibles."
-                )
+        elif self._logger:
+            self._logger.log_info(
+                f"Fichier {path} déjà configuré avec les valeurs cibles."
+            )
 
         return updated
 

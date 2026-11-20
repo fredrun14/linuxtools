@@ -32,6 +32,7 @@ def _lancer(
         "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
     }
     assert _MAKE is not None
+    # args fixes, sans entrée externe
     result = subprocess.run(  # noqa: S603
         [_MAKE, "-C", str(_RACINE), "bump-consumers", *variables],
         env=env,
@@ -105,6 +106,7 @@ def test_sans_tag_affiche_l_usage_et_sort_en_2(tmp_path: Path) -> None:
 def _make_n(cible: str) -> str:
     """Commandes que ``make <cible>`` lancerait (``-n`` : rien n'est exécuté)."""
     assert _MAKE is not None
+    # args fixes, sans entrée externe
     result = subprocess.run(  # noqa: S603
         [_MAKE, "-n", "-C", str(_RACINE), cible],
         capture_output=True,

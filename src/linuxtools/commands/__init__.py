@@ -67,7 +67,7 @@ from linuxtools.commands.formatter import (
 )
 from linuxtools.commands.runner import LinuxCommandExecutor
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     # Construction
     "CommandBuilder",
     # Exécution

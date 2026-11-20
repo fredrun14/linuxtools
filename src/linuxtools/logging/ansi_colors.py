@@ -4,7 +4,7 @@ from enum import StrEnum
 
 
 class AnsiColors(StrEnum):
-    """Codes ANSI de colorisation terminale.
+    r"""Codes ANSI de colorisation terminale.
 
     Attributes:
         BLUE: Texte bleu — messages d'information.

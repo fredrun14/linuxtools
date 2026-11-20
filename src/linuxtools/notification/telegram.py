@@ -33,7 +33,7 @@ ce tiers qu'avec ``include_message=True``, et les messages d'un bot ne
 sont pas chiffrés de bout en bout.
 
 Comportement : les envois sont séquentiels (durée maximale d'un
-``send`` : N destinataires × ``timeout``, hors résolution DNS), sans
+``send`` : N destinataires multiplié par ``timeout``, hors résolution DNS), sans
 aucun nouvel essai (un 429 est signalé comme les autres échecs). Si au
 moins un destinataire échoue, les autres sont tout de même servis, puis
 une seule ``NotificationSendError`` agrégée est levée ; elle ne cite que
@@ -47,6 +47,7 @@ import re
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
+from http import HTTPStatus
 from itertools import accumulate
 from typing import Any
 
@@ -161,7 +162,7 @@ class TelegramNotifier(Notifier):
         ... )
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         token: str,
         recipients: Mapping[str, int],
@@ -205,7 +206,8 @@ class TelegramNotifier(Notifier):
         if not _is_valid_timeout(timeout):
             raise ValueError("timeout doit être dans ]0, 3600] secondes")
         if not isinstance(include_message, bool):
-            raise ValueError("include_message doit être un booléen")
+            # ValueError documenté (contrat public)
+            raise ValueError("include_message doit être un booléen")  # noqa: TRY004
         self._token = token
         self._recipients = dict(recipients)
         self._timeout = timeout
@@ -233,7 +235,8 @@ class TelegramNotifier(Notifier):
                 "link_preview_options": {"is_disabled": True},
             }
         ).encode("utf-8")
-        request = urllib.request.Request(
+        # URL https constante (_API_BASE)
+        request = urllib.request.Request(  # noqa: S310
             url=f"{_API_BASE}/bot{self._token}/sendMessage",
             data=payload,
             headers={"Content-Type": "application/json"},
@@ -251,7 +254,7 @@ class TelegramNotifier(Notifier):
             return "réponse invalide"
         except OSError as exc:
             return f"erreur réseau ({type(exc).__name__})"
-        if status != 200:
+        if status != HTTPStatus.OK:
             return f"réponse inattendue (HTTP {status})"
         return None
 

@@ -38,6 +38,30 @@ def _copy_secure(src: str | Path, dst: str | Path) -> None:
         os.close(src_fd)
 
 
+def _check_copytree_paths(src: Path, dst: Path, *, dirs_exist_ok: bool) -> None:
+    """Valide la source et la destination de `copytree_secure`.
+
+    Args:
+        src: Répertoire source.
+        dst: Répertoire destination.
+        dirs_exist_ok: Si True, une destination existante est acceptée.
+
+    Raises:
+        FileNotFoundError: Si src n'existe pas.
+        OSError: Si src est un symlink.
+        NotADirectoryError: Si src n'est pas un répertoire.
+        FileExistsError: Si dst existe et dirs_exist_ok=False.
+    """
+    if not src.exists():
+        raise FileNotFoundError(f"Source absente : {src}")
+    if src.is_symlink():
+        raise OSError(f"Source est un symlink : {src}")
+    if not src.is_dir():
+        raise NotADirectoryError(f"Source n'est pas un répertoire : {src}")
+    if dst.exists() and not dirs_exist_ok:
+        raise FileExistsError(f"Destination existe déjà : {dst}")
+
+
 def copytree_secure(
     src: str | Path,
     dst: str | Path,
@@ -80,19 +104,12 @@ def copytree_secure(
     src = Path(src)
     dst = Path(dst)
 
-    if not src.exists():
-        raise FileNotFoundError(f"Source absente : {src}")
-    if src.is_symlink():
-        raise OSError(f"Source est un symlink : {src}")
-    if not src.is_dir():
-        raise NotADirectoryError(f"Source n'est pas un répertoire : {src}")
-    if dst.exists() and not dirs_exist_ok:
-        raise FileExistsError(f"Destination existe déjà : {dst}")
+    _check_copytree_paths(src, dst, dirs_exist_ok=dirs_exist_ok)
 
     dst.mkdir(parents=True, exist_ok=dirs_exist_ok)
     # 0o755 (rwxr-xr-x) : permission standard d'un répertoire
     # traversable/listable, pas un 0o777 excessif.
-    os.chmod(dst, 0o755)  # nosec B103
+    os.chmod(dst, 0o755)  # noqa: PTH101, S103  # nosec B103
 
     entries = sorted(src.iterdir())
     names = [e.name for e in entries]
@@ -198,13 +215,14 @@ class LinuxFileBackup(FileBackup):
             _copy_secure(file_path, backup_path)
             if self._logger:
                 self._logger.log_info(f"Sauvegarde de {file_path} vers {backup_path}")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la sauvegarde de {file_path}: {exc}"
                 )
             raise
+        else:
+            return True
 
     def restore(self, file_path: str | Path, backup_path: str | Path) -> None:
         """Restaure un fichier depuis sa sauvegarde.

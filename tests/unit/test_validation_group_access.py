@@ -59,7 +59,7 @@ class TestPathCheckerGroupAccess:
         """validate() silencieux si groupe, rwx et setgid corrects."""
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
+            "pathlib.Path.stat",
             return_value=_make_stat(GID_FF_HOME, MODE_SETGID_RWX),
         ):
             checker.validate()
@@ -69,7 +69,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/inexistant", "ff_home")
         with (
             patch(
-                "linuxtools.validation.path_checker_group_access.os.stat",
+                "pathlib.Path.stat",
                 side_effect=FileNotFoundError,
             ),
             pytest.raises(FileNotFoundError, match="introuvable"),
@@ -91,7 +91,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with (
             patch(
-                "linuxtools.validation.path_checker_group_access.os.stat",
+                "pathlib.Path.stat",
                 return_value=_make_stat(9999, MODE_SETGID_RWX),
             ),
             pytest.raises(PermissionError, match="ff_home"),
@@ -105,7 +105,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         with (
             patch(
-                "linuxtools.validation.path_checker_group_access.os.stat",
+                "pathlib.Path.stat",
                 return_value=_make_stat(9999, MODE_SETGID_RWX),
             ),
             patch(
@@ -125,7 +125,7 @@ class TestPathCheckerGroupAccess:
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
         with (
             patch(
-                "linuxtools.validation.path_checker_group_access.os.stat",
+                "pathlib.Path.stat",
                 return_value=_make_stat(GID_FF_HOME, mode),
             ),
             pytest.raises(PermissionError, match="w"),
@@ -139,7 +139,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_ISGID | stat.S_IRGRP | stat.S_IXGRP  # sans W
         with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
+            "pathlib.Path.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
             with pytest.raises(PermissionError) as exc_info:
@@ -156,7 +156,7 @@ class TestPathCheckerGroupAccess:
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP  # sans setgid
         with (
             patch(
-                "linuxtools.validation.path_checker_group_access.os.stat",
+                "pathlib.Path.stat",
                 return_value=_make_stat(GID_FF_HOME, mode),
             ),
             pytest.raises(PermissionError, match="setgid"),
@@ -172,7 +172,7 @@ class TestPathCheckerGroupAccess:
         )
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP  # sans setgid
         with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
+            "pathlib.Path.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
             checker.validate()
@@ -184,7 +184,7 @@ class TestPathCheckerGroupAccess:
         checker = PathCheckerGroupAccess("/media/nas/keepass", "ff_home")
         mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
         with patch(
-            "linuxtools.validation.path_checker_group_access.os.stat",
+            "pathlib.Path.stat",
             return_value=_make_stat(GID_FF_HOME, mode),
         ):
             with pytest.raises(PermissionError) as exc_info:

@@ -58,7 +58,6 @@ class ScheduledTaskInstaller(ABC):
         Returns:
             True si l'installation a réussi, False sinon.
         """
-        pass
 
 
 class SystemdScheduledTaskInstaller(ScheduledTaskInstaller):

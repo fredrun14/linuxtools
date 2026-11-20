@@ -60,11 +60,12 @@ class KeyringCredentialProvider(CredentialStore):
             True si keyring est installé.
         """
         try:
-            import keyring  # noqa: F401
-
-            return True
+            # dépendance optionnelle
+            import keyring  # noqa: F401, PLC0415
         except ImportError:
             return False
+        else:
+            return True
 
     # ANN401 assumé : retourne le module `keyring` (non typé, extra
     # optionnel) ou le backend injecté. Même frontière que dans
@@ -82,14 +83,15 @@ class KeyringCredentialProvider(CredentialStore):
         if self._backend is not None:
             return self._backend
         try:
-            import keyring
-
-            return keyring
+            # dépendance optionnelle
+            import keyring  # noqa: PLC0415
         except ImportError:
             raise CredentialProviderUnavailableError(
                 "Le module 'keyring' n'est pas installé. "
                 "Installez-le avec : pip install keyring"
             ) from None
+        else:
+            return keyring
 
     def get(
         self,
@@ -110,13 +112,15 @@ class KeyringCredentialProvider(CredentialStore):
         try:
             kr = self._get_keyring()
             value = kr.get_password(service, key)
-            return value if value else None
-        except Exception as exc:
+        # backend keyring tiers : toute erreur dégrade en None
+        except Exception as exc:  # noqa: BLE001
             if self._logger:
                 self._logger.log_warning(
                     f"Erreur keyring get() : service={service!r}, key={key!r} : {exc}"
                 )
             return None
+        else:
+            return value or None
 
     def set(
         self,
@@ -172,7 +176,8 @@ class KeyringCredentialProvider(CredentialStore):
                 self._logger.log_info(
                     f"Credential supprime du keyring : service={service!r}, key={key!r}"
                 )
-        except Exception as exc:  # nosec B110 - dégradation volontaire
+        # backend tiers : dégradation volontaire
+        except Exception as exc:  # noqa: BLE001
             if self._logger:
                 self._logger.log_warning(f"Échec suppression {service}/{key} : {exc}")
 

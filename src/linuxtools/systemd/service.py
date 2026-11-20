@@ -27,8 +27,7 @@ class LinuxServiceUnitManager(_ServiceOperationsMixin, ServiceUnitManager):
         *,
         remote_write: bool = False,
     ) -> None:
-        """
-        Initialise le gestionnaire d'unités service.
+        """Initialise le gestionnaire d'unités service.
 
         Args:
             logger: Instance de Logger pour le logging

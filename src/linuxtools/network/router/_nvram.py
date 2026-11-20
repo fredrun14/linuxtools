@@ -2,6 +2,9 @@
 
 import re
 
+# Le nom DNS est dans le champ 4 du nvram (index 3).
+_INDEX_DNS_NVRAM = 3
+
 _NVRAM_KEY_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")
 
 
@@ -85,7 +88,9 @@ def _parse_nvram_reservations(
         fields = match.group(2).split(">")
         ip = fields[0].strip()
         # Le nom DNS peut etre dans le champ 4 (index 3)
-        dns_from_nvram = fields[3].strip() if len(fields) > 3 else ""
+        dns_from_nvram = (
+            fields[_INDEX_DNS_NVRAM].strip() if len(fields) > _INDEX_DNS_NVRAM else ""
+        )
         if ip:
             result[mac] = (
                 ip,

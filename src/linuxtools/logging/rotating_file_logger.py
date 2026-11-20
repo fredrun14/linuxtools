@@ -5,7 +5,7 @@ import logging.handlers
 import os
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 from linuxtools.logging.file_logger import (
     _NIVEAUX,
@@ -54,7 +54,7 @@ class RotatingFileLogger(_BaseFileLogger):
         # produit run.log, run.log.1, run.log.2, run.log.3
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         log_file: str | Path,
         max_bytes: int = 10_485_760,
@@ -112,6 +112,9 @@ class RotatingFileLogger(_BaseFileLogger):
                 )
                 self.logger.addHandler(console)
         else:
-            self.handler = self.logger.handlers[0]  # type: ignore[assignment]
+            # Le logger nommé ne porte que des StreamHandler posés par cette classe :
+            # `handlers[0]` est le handler fichier, posé en premier
+            # (logger.handlers est typé list[Handler] : le cast nomme l'invariant).
+            self.handler = cast("logging.StreamHandler[Any]", self.logger.handlers[0])
 
         self.logger.propagate = False

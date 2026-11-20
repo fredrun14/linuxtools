@@ -33,27 +33,30 @@ if TYPE_CHECKING:
         UserSystemdExecutor,
     )
 
+# Sortie texte de `list-timers` : au moins 2 champs exploitables.
+_CHAMPS_TIMER_MIN = 2
+
 # Re-exports pour compatibilité des imports existants
 __all__ = [
+    "AutomountConfig",
     "BaseSystemdConfig",
     "MountConfig",
-    "AutomountConfig",
-    "TimerConfig",
-    "ServiceConfig",
-    "_BaseUnitManagerMixin",
-    "UnitManager",
     "MountUnitManager",
-    "_TimerUnitContract",
-    "TimerUnitManager",
-    "_ServiceUnitContract",
+    "ServiceConfig",
     "ServiceUnitManager",
-    "UserUnitManager",
-    "UserTimerUnitManager",
+    "TimerConfig",
+    "TimerUnitManager",
+    "UnitManager",
     "UserServiceUnitManager",
+    "UserTimerUnitManager",
+    "UserUnitManager",
+    "_BaseUnitManagerMixin",
     "_ServiceOperationsHost",
     "_ServiceOperationsMixin",
+    "_ServiceUnitContract",
     "_TimerOperationsHost",
     "_TimerOperationsMixin",
+    "_TimerUnitContract",
 ]
 
 # Les dataclasses (BaseSystemdConfig, MountConfig, AutomountConfig,
@@ -64,6 +67,23 @@ __all__ = [
 # =============================================================================
 # Helpers d'écriture sécurisée (O_NOFOLLOW)
 # =============================================================================
+
+
+def _unit_file_path(base: str, name: str) -> str:
+    """Construit le chemin d'un fichier unit sous ``base``.
+
+    Garde ``os.path.join`` : il conserve le type ``str`` et la chaîne exacte
+    (``Path`` normaliserait « // », « ./ » et le « / » final, visibles dans
+    les logs et les commandes distantes).
+
+    Args:
+        base: Répertoire des fichiers unit.
+        name: Nom du fichier unit.
+
+    Returns:
+        Le chemin ``base/name`` sous forme de chaîne.
+    """
+    return os.path.join(base, name)  # noqa: PTH118
 
 
 def _write_unit_content(
@@ -129,7 +149,7 @@ def _remove_unit_content(
         True si succès ou fichier inexistant, False si erreur.
     """
     try:
-        os.remove(unit_path)
+        Path(unit_path).unlink()
         logger.log_info(f"Fichier unit{log_label} supprimé: {unit_path}")
     except FileNotFoundError:
         pass
@@ -272,7 +292,10 @@ class _ServiceOperationsMixin:
         Returns:
             Nom du service dérivé du binaire exec_start.
         """
-        return os.path.basename(shlex.split(config.exec_start)[0]).replace(".", "-")
+        # Path.name diffère de basename sur un chemin terminé par « / » ("" vs
+        # dernier composant) : on garde la sémantique exacte du nom dérivé.
+        binary = shlex.split(config.exec_start)[0]
+        return os.path.basename(binary).replace(".", "-")  # noqa: PTH119
 
     def _validated_service_file(self, service_name: str) -> "str | None":
         """Valide le nom de service et retourne le nom de fichier unit.
@@ -591,7 +614,8 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        result = self.executor._run_systemctl(
+        # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
+        result = self.executor._run_systemctl(  # noqa: SLF001
             ["list-timers", "--no-pager", "--output=json"]
         )
 
@@ -608,19 +632,17 @@ class _TimerOperationsMixin:
         except json.JSONDecodeError:
             return self._list_timers_text_fallback()
 
-        timers = []
-        for entry in data:
-            timers.append(
-                {
-                    "unit": entry.get("unit", ""),
-                    "activates": entry.get("activates", ""),
-                    "next": entry.get("next", ""),
-                    "left": entry.get("left", ""),
-                    "last": entry.get("last", ""),
-                    "passed": entry.get("passed", ""),
-                }
-            )
-        return timers
+        return [
+            {
+                "unit": entry.get("unit", ""),
+                "activates": entry.get("activates", ""),
+                "next": entry.get("next", ""),
+                "left": entry.get("left", ""),
+                "last": entry.get("last", ""),
+                "passed": entry.get("passed", ""),
+            }
+            for entry in data
+        ]
 
     def _list_timers_text_fallback(self) -> "list[dict[str, str]]":
         """Fallback texte pour list_timers sur vieux systemd.
@@ -631,7 +653,10 @@ class _TimerOperationsMixin:
         Raises:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
-        result = self.executor._run_systemctl(["list-timers", "--no-pager", "--plain"])
+        # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
+        result = self.executor._run_systemctl(  # noqa: SLF001
+            ["list-timers", "--no-pager", "--plain"]
+        )
 
         if result.return_code != 0:
             raise RuntimeError(f"Erreur systemctl list-timers : {result.stderr}")
@@ -642,7 +667,7 @@ class _TimerOperationsMixin:
             if not line.strip() or line.startswith(" "):
                 continue
             parts = line.split()
-            if len(parts) >= 2:
+            if len(parts) >= _CHAMPS_TIMER_MIN:
                 timers.append(
                     {
                         "unit": parts[-2],
@@ -702,8 +727,7 @@ class _BaseUnitManagerMixin:
         self._remote_write = remote_write
 
     def reload_systemd(self) -> bool:
-        """
-        Recharge la configuration systemd (daemon-reload).
+        """Recharge la configuration systemd (daemon-reload).
 
         Returns:
             True si succès, False sinon
@@ -711,8 +735,7 @@ class _BaseUnitManagerMixin:
         return self.executor.reload_systemd()
 
     def enable(self, unit_name: str) -> bool:
-        """
-        Active une unité systemd.
+        """Active une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "flatpak-update.timer")
@@ -723,8 +746,7 @@ class _BaseUnitManagerMixin:
         return self.executor.enable_unit(unit_name)
 
     def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
-        """
-        Désactive une unité systemd.
+        """Désactive une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -736,8 +758,7 @@ class _BaseUnitManagerMixin:
         return self.executor.disable_unit(unit_name, ignore_errors=ignore_errors)
 
     def get_status(self, unit_name: str) -> str:
-        """
-        Récupère le statut d'une unité.
+        """Récupère le statut d'une unité.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -748,8 +769,7 @@ class _BaseUnitManagerMixin:
         return self.executor.get_status(unit_name)
 
     def is_active(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité est active.
+        """Vérifie si une unité est active.
 
         Args:
             unit_name: Nom de l'unité
@@ -792,7 +812,7 @@ class UnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès, False sinon.
         """
-        unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        unit_path = _unit_file_path(self.SYSTEMD_UNIT_PATH, unit_name)
         if self._remote_write:
             return _write_unit_content_remote(
                 unit_path, content, self.executor, self.logger
@@ -811,7 +831,7 @@ class UnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès ou fichier inexistant, False si erreur.
         """
-        unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        unit_path = _unit_file_path(self.SYSTEMD_UNIT_PATH, unit_name)
         if self._remote_write:
             return _remove_unit_content_remote(unit_path, self.executor, self.logger)
         return _remove_unit_content(unit_path, self.logger)
@@ -842,8 +862,7 @@ class MountUnitManager(ABC, UnitManager):
         with_automount: bool = False,
         automount_timeout: int = 0,
     ) -> bool:
-        """
-        Installe une unité .mount (et optionnellement .automount).
+        """Installe une unité .mount (et optionnellement .automount).
 
         Args:
             config: Configuration du montage
@@ -857,8 +876,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def enable_mount(self, mount_path: str, *, with_automount: bool = False) -> bool:
-        """
-        Active une unité .mount (ou .automount si spécifié).
+        """Active une unité .mount (ou .automount si spécifié).
 
         Args:
             mount_path: Chemin du point de montage
@@ -871,8 +889,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def disable_mount(self, mount_path: str) -> bool:
-        """
-        Désactive et arrête les unités .mount et .automount.
+        """Désactive et arrête les unités .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -884,8 +901,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def remove_mount_unit(self, mount_path: str) -> bool:
-        """
-        Supprime les fichiers .mount et .automount.
+        """Supprime les fichiers .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -897,8 +913,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def get_mount_status(self, mount_path: str) -> str:
-        """
-        Récupère le statut d'une unité .mount.
+        """Récupère le statut d'une unité .mount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -910,8 +925,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def is_mounted(self, mount_path: str) -> bool:
-        """
-        Vérifie si un point de montage est actif.
+        """Vérifie si un point de montage est actif.
 
         Args:
             mount_path: Chemin du point de montage
@@ -931,8 +945,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def install_timer_unit(self, config: TimerConfig) -> bool:
-        """
-        Installe une unité .timer.
+        """Installe une unité .timer.
 
         Args:
             config: Configuration du timer
@@ -944,8 +957,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def enable_timer(self, timer_name: str) -> bool:
-        """
-        Active un timer systemd.
+        """Active un timer systemd.
 
         Args:
             timer_name: Nom du timer (sans extension .timer)
@@ -957,8 +969,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def disable_timer(self, timer_name: str) -> bool:
-        """
-        Désactive un timer systemd.
+        """Désactive un timer systemd.
 
         Args:
             timer_name: Nom du timer (sans extension .timer)
@@ -970,8 +981,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def remove_timer_unit(self, timer_name: str) -> bool:
-        """
-        Supprime un fichier .timer.
+        """Supprime un fichier .timer.
 
         Args:
             timer_name: Nom du timer (sans extension)
@@ -983,8 +993,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def get_timer_status(self, timer_name: str) -> str:
-        """
-        Récupère le statut d'un timer.
+        """Récupère le statut d'un timer.
 
         Args:
             timer_name: Nom du timer (sans extension)
@@ -996,8 +1005,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def list_timers(self) -> list[dict[str, str]]:
-        """
-        Liste tous les timers actifs.
+        """Liste tous les timers actifs.
 
         Returns:
             Liste de dictionnaires avec les infos des timers
@@ -1016,8 +1024,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def install_service_unit(self, config: ServiceConfig) -> bool:
-        """
-        Installe une unité .service.
+        """Installe une unité .service.
 
         Args:
             config: Configuration du service
@@ -1031,8 +1038,7 @@ class _ServiceUnitContract(ABC):
     def install_service_unit_with_name(
         self, service_name: str, config: ServiceConfig
     ) -> bool:
-        """
-        Installe une unité .service avec un nom spécifique.
+        """Installe une unité .service avec un nom spécifique.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1045,8 +1051,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def start_service(self, service_name: str) -> bool:
-        """
-        Démarre un service systemd.
+        """Démarre un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1058,8 +1063,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def stop_service(self, service_name: str) -> bool:
-        """
-        Arrête un service systemd.
+        """Arrête un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1071,8 +1075,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def restart_service(self, service_name: str) -> bool:
-        """
-        Redémarre un service systemd.
+        """Redémarre un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1084,8 +1087,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def enable_service(self, service_name: str) -> bool:
-        """
-        Active un service systemd.
+        """Active un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1097,8 +1099,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def disable_service(self, service_name: str) -> bool:
-        """
-        Désactive un service systemd.
+        """Désactive un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1110,8 +1111,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def remove_service_unit(self, service_name: str) -> bool:
-        """
-        Supprime un fichier .service.
+        """Supprime un fichier .service.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1123,8 +1123,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def get_service_status(self, service_name: str) -> str:
-        """
-        Récupère le statut d'un service.
+        """Récupère le statut d'un service.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1172,7 +1171,9 @@ def _resolve_user_unit_path(configured: str) -> str:
     """
     if configured == _DEFAULT_USER_UNIT_PATH:
         return str(user_config_path("systemd") / "user")
-    return os.path.expanduser(configured)
+    # Path.expanduser lève RuntimeError sans home résolu, là où os.path.expanduser
+    # rend le chemin inchangé : on garde ce comportement (et le retour str).
+    return os.path.expanduser(configured)  # noqa: PTH111
 
 
 class UserUnitManager(_BaseUnitManagerMixin):
@@ -1199,8 +1200,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         *,
         remote_write: bool = False,
     ) -> None:
-        """
-        Initialise le gestionnaire d'unités utilisateur.
+        """Initialise le gestionnaire d'unités utilisateur.
 
         Args:
             logger: Instance de Logger pour le logging
@@ -1231,12 +1231,13 @@ class UserUnitManager(_BaseUnitManagerMixin):
         """
         try:
             Path(self._unit_path).mkdir(parents=True, exist_ok=True)
-            return True
         except OSError as e:
             self.logger.log_error(
                 f"Erreur lors de la création du répertoire {self._unit_path}: {e}"
             )
             return False
+        else:
+            return True
 
     def _write_unit_file(self, unit_name: str, content: str) -> bool:
         """Écrit un fichier unit dans le répertoire utilisateur.
@@ -1251,7 +1252,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès, False sinon.
         """
-        unit_path = os.path.join(self._unit_path, unit_name)
+        unit_path = _unit_file_path(self._unit_path, unit_name)
         if self._remote_write:
             return _write_unit_content_remote(
                 unit_path, content, self.executor, self.logger
@@ -1274,7 +1275,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès ou fichier inexistant, False si erreur.
         """
-        unit_path = os.path.join(self._unit_path, unit_name)
+        unit_path = _unit_file_path(self._unit_path, unit_name)
         if self._remote_write:
             return _remove_unit_content_remote(unit_path, self.executor, self.logger)
         return _remove_unit_content(unit_path, self.logger, log_label=" utilisateur")

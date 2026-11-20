@@ -697,12 +697,14 @@ class TestConfigLoadersBaseImport:
 
     def test_import_service_loader(self) -> None:
         """ServiceConfigLoader est importable depuis config_loaders."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools.systemd.config_loaders import (  # noqa: F401
             ServiceConfigLoader,
         )
 
     def test_import_mount_loader(self) -> None:
         """MountConfigLoader est importable depuis config_loaders."""
+        # import pour vérifier l'exportation, jamais utilisé
         from linuxtools.systemd.config_loaders import (  # noqa: F401
             MountConfigLoader,
         )

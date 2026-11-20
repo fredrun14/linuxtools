@@ -14,6 +14,10 @@ from linuxtools.systemd.validators import (
     validate_unit_name,
 )
 
+# Plage valide de la priorité `Nice=` systemd.
+_NICE_MIN = -20
+_NICE_MAX = 19
+
 # Chemin absolu sans espace, '%', '$', '\\' ni caractère de contrôle
 _MOUNT_PATH_RE = re.compile(r"^/[^\s%$\\\x00-\x1f]*$")
 
@@ -99,12 +103,11 @@ class MountConfig(BaseSystemdConfig):
                     f"Format CIFS invalide pour 'what' : {self.what!r}"
                     " (attendu : //host/share)"
                 )
-        elif fs_type in self._DEVICE_FS:
-            if not self.what.startswith("/dev/"):
-                raise ValueError(
-                    f"'what' doit être un device pour {fs_type} : "
-                    f"{self.what!r} (attendu : /dev/...)"
-                )
+        elif fs_type in self._DEVICE_FS and not self.what.startswith("/dev/"):
+            raise ValueError(
+                f"'what' doit être un device pour {fs_type} : "
+                f"{self.what!r} (attendu : /dev/...)"
+            )
 
     @property
     def unit_name(self) -> str:
@@ -161,7 +164,6 @@ class AutomountConfig(BaseSystemdConfig):
     """Configuration pour une unité .automount systemd.
 
     Attributes:
-
         where: Chemin du point de montage local.
         timeout_idle_sec: Délai d'inactivité avant démontage automatique
             en secondes (0 = pas de démontage automatique).
@@ -439,7 +441,9 @@ class ServiceConfig(BaseSystemdConfig):
         # Vu comme ``object`` : le typage ne protège pas à l'exécution.
         nice: object = self.nice
         if nice is not None and (
-            not isinstance(nice, int) or isinstance(nice, bool) or not -20 <= nice <= 19
+            not isinstance(nice, int)
+            or isinstance(nice, bool)
+            or not _NICE_MIN <= nice <= _NICE_MAX
         ):
             raise ValueError(f"nice invalide : {self.nice!r} (entier de -20 à 19)")
         if self.io_scheduling_class not in self._VALID_IO_CLASSES:
@@ -471,6 +475,38 @@ class ServiceConfig(BaseSystemdConfig):
                     f"Valeur d'environnement invalide pour "
                     f"{key!r} : retour à la ligne interdit"
                 )
+
+    def _hardening_lines(self) -> list[str]:
+        """Rend les directives de durcissement et de priorité activées.
+
+        Returns:
+            Lignes ``[Service]`` (NoNewPrivileges, ProtectSystem,
+            ProtectHome, PrivateTmp, ReadWritePaths, Nice) dans l'ordre
+            de rendu ; vide si rien n'est activé.
+
+        Raises:
+            ValueError: Si un chemin de ``read_write_paths`` contient un
+                caractère de contrôle.
+        """
+        # Durcissement : ne rend que les directives activées
+        out: list[str] = []
+        if self.no_new_privileges:
+            out.append("NoNewPrivileges=true")
+        if self.protect_system:
+            out.append(f"ProtectSystem={self.protect_system}")
+        if self.protect_home:
+            out.append("ProtectHome=true")
+        if self.private_tmp:
+            out.append("PrivateTmp=true")
+        if self.read_write_paths:
+            joined = " ".join(
+                reject_control_chars(path, "read_write_paths")
+                for path in self.read_write_paths
+            )
+            out.append(f"ReadWritePaths={joined}")
+        if self.nice is not None:
+            out.append(f"Nice={self.nice}")
+        return out
 
     def to_unit_file(self) -> str:
         """Génère le contenu d'un fichier .service systemd.
@@ -536,23 +572,7 @@ class ServiceConfig(BaseSystemdConfig):
             if self.restart_sec > 0:
                 lines.append(f"RestartSec={self.restart_sec}")
 
-        # Durcissement : ne rend que les directives activées
-        if self.no_new_privileges:
-            lines.append("NoNewPrivileges=true")
-        if self.protect_system:
-            lines.append(f"ProtectSystem={self.protect_system}")
-        if self.protect_home:
-            lines.append("ProtectHome=true")
-        if self.private_tmp:
-            lines.append("PrivateTmp=true")
-        if self.read_write_paths:
-            joined = " ".join(
-                reject_control_chars(path, "read_write_paths")
-                for path in self.read_write_paths
-            )
-            lines.append(f"ReadWritePaths={joined}")
-        if self.nice is not None:
-            lines.append(f"Nice={self.nice}")
+        lines.extend(self._hardening_lines())
         for label, value, name in (
             (
                 "IOSchedulingClass",

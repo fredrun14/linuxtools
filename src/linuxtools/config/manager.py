@@ -21,7 +21,7 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
         path: Chemin de sortie.
         data: Données à sérialiser.
     """
-    with open(path, "w", encoding="utf-8") as f:
+    with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
@@ -34,9 +34,8 @@ def _render_toml(data: dict[str, Any]) -> str:
     Returns:
         Texte TOML avec saut de ligne final.
     """
-    from linuxtools.dotconf.conf_toml_exporter import (
-        ConfTomlExporter,
-    )
+    # Import local : cycle d'import config ⇄ dotconf
+    from linuxtools.dotconf.conf_toml_exporter import ConfTomlExporter  # noqa: PLC0415
 
     return ConfTomlExporter().export_mapping(data) + "\n"
 
@@ -58,8 +57,7 @@ _WRITERS: dict[str, Callable[[Path, dict[str, Any]], None]] = {
 
 
 class ConfigurationManager(ConfigManager):
-    """
-    Gestionnaire de configuration avec fonctionnalités avancées.
+    """Gestionnaire de configuration avec fonctionnalités avancées.
 
     Fonctionnalités:
     - Support TOML et JSON
@@ -72,7 +70,7 @@ class ConfigurationManager(ConfigManager):
     en injection de dépendance, facilitant les tests unitaires.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         config_path: str | Path | None = None,
         default_config: dict[str, Any] | None = None,
@@ -81,8 +79,7 @@ class ConfigurationManager(ConfigManager):
         logger: Logger | None = None,
         path_keys: Sequence[str] = _PATH_KEYS,
     ) -> None:
-        """
-        Initialise le gestionnaire de configuration.
+        """Initialise le gestionnaire de configuration.
 
         Args:
             config_path: Chemin vers le fichier de configuration
@@ -135,8 +132,8 @@ class ConfigurationManager(ConfigManager):
 
     def _find_config_file(self) -> Path | None:
         """Cherche le fichier de config dans les emplacements définis."""
-        for path in self.search_paths:
-            path = Path(path).expanduser()
+        for raw_path in self.search_paths:
+            path = Path(raw_path).expanduser()
             if path.exists():
                 return path
         return None
@@ -190,8 +187,7 @@ class ConfigurationManager(ConfigManager):
     # dynamique par chemin pointé. Justification complète dans
     # `linuxtools/config/base.py`.
     def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
-        """
-        Récupère une valeur par chemin pointé.
+        """Récupère une valeur par chemin pointé.
 
         Args:
             key_path: Chemin vers la clé (ex: "backup.rsync.options")
@@ -217,8 +213,7 @@ class ConfigurationManager(ConfigManager):
         return value
 
     def get_profile(self, profile_name: str) -> dict[str, Any]:
-        """
-        Récupère un profil de la configuration.
+        """Récupère un profil de la configuration.
 
         Args:
             profile_name: Nom du profil
@@ -274,8 +269,7 @@ class ConfigurationManager(ConfigManager):
         self,
         output_path: Path | None = None,
     ) -> None:
-        """
-        Crée un fichier de configuration par défaut.
+        """Crée un fichier de configuration par défaut.
 
         Args:
             output_path: Chemin de sortie (utilise config_path si non spécifié)

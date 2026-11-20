@@ -98,12 +98,11 @@ class TimerDeployer:
         if state == "yes":
             return f"Linger actif pour {user}."
         if state == "no":
-            message = (
+            return (
                 f"Linger inactif pour {user} : le timer ne tournera pas "
                 f"hors session. À lancer : sudo loginctl enable-linger "
                 f"{user}"
             )
-            return message
         return f"Linger indéterminé pour {user}."
 
     def _deploy_system(
@@ -113,8 +112,9 @@ class TimerDeployer:
         executor: CommandExecutor,
         logger: Logger,
     ) -> bool:
-        """Installe le service+timer en mode système (comportement
-        historique, inchangé).
+        """Installe le service+timer en mode système.
+
+        Comportement historique, inchangé.
 
         Args:
             spec: Spécification de l'unité.
@@ -142,8 +142,9 @@ class TimerDeployer:
         executor: CommandExecutor,
         logger: Logger,
     ) -> bool:
-        """Installe le service+timer en mode utilisateur (systemctl
-        --user), sans élévation de privilèges.
+        """Installe le service+timer en mode utilisateur (`systemctl --user`).
+
+        Sans élévation de privilèges.
 
         N'utilise volontairement pas `SystemdServiceTimerInstaller`
         (typé pour les ABCs système, incompatible mypy --strict avec

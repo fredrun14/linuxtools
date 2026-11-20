@@ -67,13 +67,12 @@ class SHA256IntegrityChecker(IntegrityChecker):
         try:
             source_checksum = self._calculate(source_file)
             dest_checksum = self._calculate(dest_file)
-            if source_checksum != dest_checksum:
-                return False
-            return True
         except OSError as e:
             if self._logger:
                 self._logger.log_error(f"Erreur de vérification: {e}")
             return False
+        else:
+            return source_checksum == dest_checksum
 
     def _resolve_dest(
         self,
@@ -161,20 +160,20 @@ class SHA256IntegrityChecker(IntegrityChecker):
             ok, count = self._verify_tree(source_path, dest)
             if not ok:
                 return False
-            if count == 0:
-                if self._logger:
-                    self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
+            if count == 0 and self._logger:
+                self._logger.log_warning("Aucun fichier vérifié (source vide ?).")
             if self._logger:
                 self._logger.log_info(
                     f"Vérification terminée : {count} fichier(s) vérifié(s)."
                 )
-            return True
         except (OSError, ValueError) as e:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la vérification d'intégrité: {e}"
                 )
             return False
+        else:
+            return True
 
     def verify_file_or_raise(
         self,
@@ -209,8 +208,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
         destination: str,
         dest_subdir: str | None = None,
     ) -> int:
-        """Vérifie l'intégrité d'une copie de répertoire ou lève
-        IntegrityError.
+        """Vérifie l'intégrité d'une copie de répertoire ou lève IntegrityError.
 
         Contrairement à verify, ne capture pas les exceptions — le premier
         fichier manquant ou checksum différent lève immédiatement

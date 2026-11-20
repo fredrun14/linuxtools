@@ -5,7 +5,6 @@ enregistrés en best-effort, sur le modèle d'ErrorHandlerChain :
 l'échec d'un canal n'empêche pas les suivants.
 
 Example:
-
     from linuxtools.notification import (
         DesktopNotifier,
         GotifyNotifier,
@@ -71,7 +70,8 @@ class NotifierChain:
                 delivered = True
                 if self._logger:
                     self._logger.log_info(f"Notification envoyée via {channel}")
-            except Exception as exc:
+            # un canal en échec ne bloque pas les suivants
+            except Exception as exc:  # noqa: BLE001
                 if self._logger:
                     self._logger.log_error(f"Échec de l'envoi via {channel} : {exc}")
         return delivered

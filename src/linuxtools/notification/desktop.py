@@ -9,7 +9,6 @@ Deux modes d'envoi :
       par NotificationConfig).
 
 Example:
-
     from linuxtools.notification import DesktopNotifier, Notification
 
     notifier = DesktopNotifier(app_name="backup-nas")
@@ -24,6 +23,9 @@ from linuxtools.logging.base import Logger
 from linuxtools.notification.base import Notifier
 from linuxtools.notification.exceptions import NotificationSendError
 from linuxtools.notification.models import Notification
+
+# Sortie `loginctl` : session, puis utilisateur (au moins 2 champs).
+_CHAMPS_SESSION_MIN = 2
 
 
 class DesktopNotifier(Notifier):
@@ -177,6 +179,6 @@ class DesktopNotifier(Notifier):
         users: list[tuple[str, str]] = []
         for line in result.stdout.splitlines():
             parts = line.split()
-            if len(parts) >= 2:
+            if len(parts) >= _CHAMPS_SESSION_MIN:
                 users.append((parts[0], parts[1]))
         return users
