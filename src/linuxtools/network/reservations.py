@@ -286,18 +286,6 @@ def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
         return False
 
 
-def _normalize_ip(ip: str) -> str:
-    """Normalise une IP pour la comparer (forme canonique).
-
-    Args:
-        ip: IP déjà validée par ``NetworkDevice`` (IPv4 lisible).
-
-    Returns:
-        La forme canonique de l'IP.
-    """
-    return str(ip_address(ip))
-
-
 def _check_no_duplicate_ip(active: Sequence[tuple[str, str]]) -> None:
     """Refuse deux réservations actives portant la même IP épinglée.
 
@@ -316,8 +304,7 @@ def _check_no_duplicate_ip(active: Sequence[tuple[str, str]]) -> None:
             les deux noms, jamais de MAC).
     """
     seen: dict[str, str] = {}
-    for raw_ip, name in active:
-        ip = _normalize_ip(raw_ip)
+    for ip, name in active:
         if ip in seen:
             raise ValueError(
                 f"IP {ip} en double : {seen[ip] or '(sans nom)'} et "
@@ -385,6 +372,7 @@ class DhcpIntent:
         """
         _check_no_duplicate_mac(clients)
         active: list[NetworkDevice] = []
+        pins: list[tuple[str, str]] = []
         disabled: list[LanClient] = []
         ignored: list[LanClient] = []
         for client in clients:
@@ -395,6 +383,7 @@ class DhcpIntent:
                 ignored.append(client)
                 continue
             pinned = client.pinned_ip.strip()
+            pins.append((pinned, client.name or ""))
             active.append(
                 NetworkDevice(
                     ip=pinned,
@@ -403,7 +392,7 @@ class DhcpIntent:
                     fixed_ip=pinned,
                 )
             )
-        _check_no_duplicate_ip([(d.ip, d.hostname) for d in active])
+        _check_no_duplicate_ip(pins)
         return cls(
             active=tuple(active),
             disabled=tuple(disabled),
@@ -443,15 +432,11 @@ class DhcpIntent:
             ValueError: Si l'une partage l'IP d'une réservation active
                 (message : l'IP et les deux noms, jamais de MAC).
         """
-        owners = {
-            _normalize_ip(d.fixed_ip): d.hostname
-            for d in self.active
-            if d.fixed_ip is not None
-        }
+        owners = {d.fixed_ip: d.hostname for d in self.active if d.fixed_ip is not None}
         for device in kept:
             if device.fixed_ip is None:
                 continue
-            ip = _normalize_ip(device.fixed_ip)
+            ip = device.fixed_ip
             if ip in owners:
                 raise ValueError(
                     f"IP {ip} en double : "

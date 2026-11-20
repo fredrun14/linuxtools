@@ -165,10 +165,19 @@ def test_application_de_reservations_sans_logger(
     gestionnaire = AsusRouterDhcpManager(reseau, routeur, client=client)
 
     gestionnaire.apply_reservations(
-        [NetworkDevice(ip="192.168.50.20", mac=MAC, fixed_ip="192.168.50.20")]
+        [
+            NetworkDevice(
+                ip="192.168.50.20",
+                mac=MAC,
+                hostname="nas",
+                fixed_ip="192.168.50.20",
+            )
+        ]
     )
 
-    client.set_static_reservations.assert_called_once()
+    client.set_static_reservations.assert_called_once_with(
+        "<AA:BB:CC:DD:EE:FF>192.168.50.20", "<AA:BB:CC:DD:EE:FF>nas", {}
+    )
     client.logout.assert_called_once_with()
 
 
