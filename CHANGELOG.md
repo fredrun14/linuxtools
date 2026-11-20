@@ -7,11 +7,13 @@
 - build: backend de build hatchling à la place de setuptools (base commune 6/6) ;
   contenu du wheel identique (`linuxtools/**` et `py.typed`, seul `dist-info` change :
   plus de `top_level.txt`). `allow-direct-references` activé pour l'extra `network`
-  (webapitools épinglé par URL git) ; sdist borné : il gagne `tests/`,
-  `examples/`, `CHANGELOG.md`, `Makefile`, `.githooks/` et `.forgejo/workflows/ci.yml`
-  (nécessaires aux tests du sdist) et perd `setup.cfg` et `*.egg-info`. Garde-fou ajouté :
-  aucune référence directe dans `[project].dependencies`. `make clean` ne vise plus
-  `build/` ni `*.egg-info/` à la racine mais `src/*.egg-info/` (anciens clones setuptools).
+  (webapitools épinglé par URL git) ; sdist borné : il gagne `tests/`, `examples/`,
+  `CHANGELOG.md`, `Makefile`, `.githooks/pre-commit`, `.forgejo/workflows/ci.yml`
+  (nécessaires aux tests du sdist) et `.gitignore` (ajouté d'office par hatchling), et
+  perd `setup.cfg` et `*.egg-info`. Garde-fou ajouté : aucune référence directe dans
+  `[project].dependencies` ni dans les extras, hors liste blanche `network`.
+  `make clean` garde `build/` (résidu setuptools des clones existants) et vise
+  `src/*.egg-info/` au lieu de `*.egg-info/` à la racine.
 - test(couverture): couverture portée à 100 % (lignes et branches), `fail_under` = 100
   (base commune 5/6). Code injoignable supprimé : `venv_release._prune`, `line_editor`
   (garde de section et boucle de `_uncomment_line`), `network` scanner et reservations

@@ -125,7 +125,7 @@ include = [
     "/CHANGELOG.md",
     # exigés par tests/unit/test_devtools_makefile.py : le sdist doit rester testable
     "/Makefile",
-    "/.githooks",
+    "/.githooks/pre-commit",
     "/.forgejo/workflows/ci.yml",
 ]
 

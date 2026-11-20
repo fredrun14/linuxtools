@@ -74,6 +74,7 @@ lint: format-check
 
 # Nettoyage
 clean:
+	rm -rf build/
 	rm -rf dist/
 	rm -rf src/*.egg-info/
 	rm -rf .pytest_cache/
