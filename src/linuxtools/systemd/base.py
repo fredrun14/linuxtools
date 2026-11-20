@@ -242,17 +242,23 @@ class _ServiceOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool: ...
+    def enable(self, unit_name: str) -> bool:
+        """Active l'unité."""
 
-    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
+        """Désactive l'unité."""
 
-    def get_status(self, unit_name: str) -> "str": ...
+    def get_status(self, unit_name: str) -> "str":
+        """Retourne l'état de l'unité."""
 
-    def reload_systemd(self) -> bool: ...
+    def reload_systemd(self) -> bool:
+        """Recharge la configuration systemd."""
 
-    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
+        """Écrit le fichier d'unité."""
 
-    def _remove_unit_file(self, unit_name: str) -> bool: ...
+    def _remove_unit_file(self, unit_name: str) -> bool:
+        """Supprime le fichier d'unité."""
 
 
 class _ServiceOperationsMixin:
@@ -484,17 +490,23 @@ class _TimerOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool: ...
+    def enable(self, unit_name: str) -> bool:
+        """Active l'unité."""
 
-    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
+        """Désactive l'unité."""
 
-    def get_status(self, unit_name: str) -> "str": ...
+    def get_status(self, unit_name: str) -> "str":
+        """Retourne l'état de l'unité."""
 
-    def reload_systemd(self) -> bool: ...
+    def reload_systemd(self) -> bool:
+        """Recharge la configuration systemd."""
 
-    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
+        """Écrit le fichier d'unité."""
 
-    def _remove_unit_file(self, unit_name: str) -> bool: ...
+    def _remove_unit_file(self, unit_name: str) -> bool:
+        """Supprime le fichier d'unité."""
 
 
 class _TimerOperationsMixin:
