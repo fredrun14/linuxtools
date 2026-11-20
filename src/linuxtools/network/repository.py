@@ -77,13 +77,7 @@ class JsonDeviceRepository(DeviceRepository):
         fd, tmp = tempfile.mkstemp(dir=str(self._file_path.parent), suffix=".tmp")
         tmp_path = Path(tmp)
         try:
-            try:
-                f = os.fdopen(fd, "w", encoding="utf-8")
-            except BaseException:
-                # sans fdopen, personne ne ferme le descripteur de mkstemp
-                os.close(fd)
-                raise
-            with f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(payload)
             tmp_path.chmod(0o644)
             tmp_path.replace(self._file_path)

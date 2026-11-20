@@ -129,3 +129,8 @@ def simule_uv_venv(
         return cmd_result()
 
     return _run
+
+
+def descripteurs_ouverts() -> set[str]:
+    """Liste les descripteurs de fichiers ouverts par le processus (Linux)."""
+    return {p.name for p in Path("/proc/self/fd").iterdir()}

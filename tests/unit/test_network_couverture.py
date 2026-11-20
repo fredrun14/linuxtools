@@ -5,7 +5,6 @@ Aucun accès réseau réel : routeur, ARP et nmap sont simulés.
 
 import os
 import socket
-import tempfile
 from datetime import datetime
 from ipaddress import IPv4Network
 from pathlib import Path
@@ -30,7 +29,7 @@ from linuxtools.network.router import (
     RouterConfig,
 )
 from linuxtools.network.scanner import LinuxArpScanner, LinuxNmapScanner
-from tests.unit.couverture_helpers import cmd_result
+from tests.unit.couverture_helpers import cmd_result, descripteurs_ouverts
 
 MAC = "aa:bb:cc:dd:ee:ff"
 
@@ -100,37 +99,24 @@ def test_save_en_echec_ne_laisse_aucun_fichier_temporaire(tmp_path: Path) -> Non
     assert sorted(p.name for p in tmp_path.iterdir()) == ["devices.json"]
 
 
-def test_save_ferme_le_descripteur_si_fdopen_echoue(
+def test_save_echec_tardif_de_fdopen_propage_l_erreur_d_origine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Si fdopen échoue après mkstemp, le fd est fermé et le temporaire supprimé."""
-    vrai_close = os.close
-    fermes: list[int] = []
-    vrai_mkstemp = tempfile.mkstemp
-    ouverts: list[int] = []
+    """Échec réel de fdopen après prise du fd : erreur d'origine, ni fuite ni résidu."""
+    vrai_fdopen = os.fdopen
 
-    def _mkstemp_espion(*args: Any, **kwargs: Any) -> tuple[int, str]:
-        fd, chemin = vrai_mkstemp(*args, **kwargs)
-        ouverts.append(fd)
-        return fd, chemin
+    def _fdopen_encodage_invalide(fd: int, mode: str, **_: Any) -> Any:
+        # io.open prend le fd puis échoue sur l'encodage, et ferme le fd lui-même
+        return vrai_fdopen(fd, mode, encoding="encodage-inexistant")
 
-    def _fdopen_en_echec(*args: Any, **kwargs: Any) -> None:
-        raise OSError(5, "simulé")
-
-    def _close_espion(fd: int) -> None:
-        fermes.append(fd)
-        vrai_close(fd)
-
-    monkeypatch.setattr(tempfile, "mkstemp", _mkstemp_espion)
-    monkeypatch.setattr(os, "fdopen", _fdopen_en_echec)
-    monkeypatch.setattr(os, "close", _close_espion)
+    monkeypatch.setattr(os, "fdopen", _fdopen_encodage_invalide)
     depot = JsonDeviceRepository(str(tmp_path / "devices.json"))
+    avant = descripteurs_ouverts()
 
-    with pytest.raises(OSError, match="simulé"):
+    with pytest.raises(LookupError, match="encodage-inexistant"):
         depot.save([NetworkDevice(ip="10.0.0.1", mac=MAC)])
 
-    assert ouverts
-    assert ouverts[0] in fermes
+    assert descripteurs_ouverts() == avant
     assert list(tmp_path.iterdir()) == []
 
 

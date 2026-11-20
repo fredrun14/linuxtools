@@ -51,12 +51,16 @@ class TestFileConfigLoaderWithSchema(unittest.TestCase):
 
     def setUp(self) -> None:
         self.loader = FileConfigLoader()
+        # dossier temporaire supprimé en fin de test (aucun résidu dans /tmp)
+        self._racine = tempfile.TemporaryDirectory()
+        self.addCleanup(self._racine.cleanup)
 
     def _write_json(self, data: dict[str, object]) -> str:
         """Ecrit un fichier JSON temporaire et retourne le chemin."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(data, f)
-        return f.name
+        dossier = Path(tempfile.mkdtemp(dir=self._racine.name))
+        fichier = dossier / "config.json"
+        fichier.write_text(json.dumps(data), encoding="utf-8")
+        return str(fichier)
 
     def test_load_without_schema_returns_dict(self) -> None:
         """Sans schema, load() retourne un dict brut."""
@@ -141,11 +145,15 @@ class TestFileConfigLoaderWithoutPydantic(unittest.TestCase):
 
     def setUp(self) -> None:
         self.loader = FileConfigLoader()
+        # dossier temporaire supprimé en fin de test (aucun résidu dans /tmp)
+        self._racine = tempfile.TemporaryDirectory()
+        self.addCleanup(self._racine.cleanup)
 
     def _write_json(self, data: dict[str, object]) -> str:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(data, f)
-        return f.name
+        dossier = Path(tempfile.mkdtemp(dir=self._racine.name))
+        fichier = dossier / "config.json"
+        fichier.write_text(json.dumps(data), encoding="utf-8")
+        return str(fichier)
 
     def test_load_without_schema_works_without_pydantic(self) -> None:
         """Sans schema, load() fonctionne meme sans pydantic."""

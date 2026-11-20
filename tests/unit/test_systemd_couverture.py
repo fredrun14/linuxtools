@@ -6,6 +6,7 @@ Aucune action systemd réelle : exécuteurs simulés, unités écrites sous tmp_
 import os
 import stat
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -25,7 +26,7 @@ from linuxtools.systemd.timer import LinuxTimerUnitManager
 from linuxtools.systemd.unit_porter import SystemdUnitExporter, SystemdUnitRestorer
 from linuxtools.systemd.user_service import LinuxUserServiceUnitManager
 from linuxtools.systemd.user_timer import LinuxUserTimerUnitManager
-from tests.unit.couverture_helpers import cmd_result
+from tests.unit.couverture_helpers import cmd_result, descripteurs_ouverts
 
 
 @pytest.fixture
@@ -325,4 +326,27 @@ def test_ecriture_d_unite_en_echec_apres_ouverture_est_signalee(
     assert message.startswith("Erreur lors de l'écriture de")
     assert "simulé" in message
     assert len(recus) == 1
-    assert recus[0] in fermes
+    assert fermes.count(recus[0]) == 1
+
+
+def test_ecriture_d_unite_echec_tardif_de_fdopen_propage_l_erreur_d_origine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logger: MagicMock
+) -> None:
+    """Échec réel de fdopen après prise du fd : erreur d'origine, aucun fd ne fuit."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    vrai_fdopen = os.fdopen
+
+    def _fdopen_encodage_invalide(fd: int, mode: str, **_: object) -> Any:
+        # io.open prend le fd puis échoue sur l'encodage, et ferme le fd lui-même
+        return vrai_fdopen(fd, mode, encoding="encodage-inexistant")
+
+    monkeypatch.setattr("linuxtools.systemd.base.os.fdopen", _fdopen_encodage_invalide)
+    gestionnaire = LinuxUserServiceUnitManager(logger, MagicMock())
+    config = ServiceConfig(description="T", exec_start="/usr/bin/t")
+    avant = descripteurs_ouverts()
+
+    with pytest.raises(LookupError, match="encodage-inexistant"):
+        gestionnaire.install_service_unit_with_name("outil", config)
+
+    assert descripteurs_ouverts() == avant
+    logger.log_error.assert_not_called()

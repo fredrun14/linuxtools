@@ -22,11 +22,9 @@
 
 ### Corrigé
 
-- fix(systemd): `_write_unit_content` ferme le descripteur de fichier si `fchmod` (ou
-  `fdopen`) échoue après l'`os.open` ; il restait ouvert (fuite de fd sur ce chemin
-  d'erreur). Le motif `os.open(O_NOFOLLOW)` + `os.fchmod` est inchangé.
-- fix(network): `JsonDeviceRepository.save` ferme le descripteur de `mkstemp` si
-  `os.fdopen` échoue (le temporaire était déjà supprimé, mais le fd fuyait).
+- fix(systemd): `_write_unit_content` ferme le descripteur de fichier si `fchmod` échoue
+  après l'`os.open` ; il restait ouvert (fuite de fd sur ce chemin d'erreur). Le motif
+  `os.open(O_NOFOLLOW)` + `os.fchmod` est inchangé.
 - fix(dotconf): le décommentage d'une ligne par `SectionAwareEditor.ensure_block`
   conserve désormais son indentation et sa fin de ligne d'origine (`\r\n` comme
   `\n`) ; il supprimait l'une et transformait l'autre (CRLF devenait LF).
