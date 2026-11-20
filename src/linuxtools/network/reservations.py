@@ -286,23 +286,7 @@ def _in_subnet(ip: str, subnet: IPv4Network) -> bool:
         return False
 
 
-def _normalize_ip(ip: str) -> str:
-    """Normalise une IP pour la comparer (espaces, forme canonique).
-
-    Args:
-        ip: IP sous forme de chaîne.
-
-    Returns:
-        La forme canonique si l'IP est lisible, sinon la chaîne
-        débarrassée de ses espaces.
-    """
-    try:
-        return str(ip_address(ip.strip()))
-    except ValueError:
-        return ip.strip()
-
-
-def _check_no_duplicate_ip(active: Sequence[NetworkDevice]) -> None:
+def _check_no_duplicate_ip(active: Sequence[tuple[str, str]]) -> None:
     """Refuse deux réservations actives portant la même IP épinglée.
 
     Seules les réservations actives sont contrôlées : un client
@@ -313,18 +297,14 @@ def _check_no_duplicate_ip(active: Sequence[NetworkDevice]) -> None:
     collision.
 
     Args:
-        active: Réservations actives.
+        active: Couples (IP épinglée, nom) des réservations actives.
 
     Raises:
         ValueError: Si une IP est portée deux fois (message : l'IP et
             les deux noms, jamais de MAC).
     """
     seen: dict[str, str] = {}
-    for device in active:
-        if device.fixed_ip is None:
-            continue
-        ip = _normalize_ip(device.fixed_ip)
-        name = device.hostname
+    for ip, name in active:
         if ip in seen:
             raise ValueError(
                 f"IP {ip} en double : {seen[ip] or '(sans nom)'} et "
@@ -392,6 +372,7 @@ class DhcpIntent:
         """
         _check_no_duplicate_mac(clients)
         active: list[NetworkDevice] = []
+        pins: list[tuple[str, str]] = []
         disabled: list[LanClient] = []
         ignored: list[LanClient] = []
         for client in clients:
@@ -402,6 +383,7 @@ class DhcpIntent:
                 ignored.append(client)
                 continue
             pinned = client.pinned_ip.strip()
+            pins.append((pinned, client.name or ""))
             active.append(
                 NetworkDevice(
                     ip=pinned,
@@ -410,7 +392,7 @@ class DhcpIntent:
                     fixed_ip=pinned,
                 )
             )
-        _check_no_duplicate_ip(active)
+        _check_no_duplicate_ip(pins)
         return cls(
             active=tuple(active),
             disabled=tuple(disabled),
@@ -450,15 +432,11 @@ class DhcpIntent:
             ValueError: Si l'une partage l'IP d'une réservation active
                 (message : l'IP et les deux noms, jamais de MAC).
         """
-        owners = {
-            _normalize_ip(d.fixed_ip): d.hostname
-            for d in self.active
-            if d.fixed_ip is not None
-        }
+        owners = {d.fixed_ip: d.hostname for d in self.active if d.fixed_ip is not None}
         for device in kept:
             if device.fixed_ip is None:
                 continue
-            ip = _normalize_ip(device.fixed_ip)
+            ip = device.fixed_ip
             if ip in owners:
                 raise ValueError(
                     f"IP {ip} en double : "

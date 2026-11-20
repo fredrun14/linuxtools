@@ -58,7 +58,6 @@ class ExecutorFactory(Protocol):
 
     def __call__(self, logger: Logger, *, dry_run: bool) -> CommandExecutor:
         """Construit l'exécuteur de commandes."""
-        ...
 
 
 class _UsageError(Exception):

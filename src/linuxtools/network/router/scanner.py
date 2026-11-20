@@ -223,7 +223,7 @@ class AsusRouterScanner(NetworkScanner):
         self,
         raw: list[dict[str, Any]],
         leases: dict[str, str],
-        reservations: dict[str, tuple[str, str]] | None = None,
+        reservations: dict[str, tuple[str, str]],
     ) -> list[NetworkDevice]:
         """Parse les clients bruts en NetworkDevice.
 
@@ -240,8 +240,6 @@ class AsusRouterScanner(NetworkScanner):
         Returns:
             Liste de NetworkDevice valides.
         """
-        if reservations is None:
-            reservations = {}
         devices: list[NetworkDevice] = []
         for client in raw:
             mac = client.get("mac", "").lower()

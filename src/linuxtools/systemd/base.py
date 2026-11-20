@@ -122,7 +122,16 @@ def _write_unit_content(
             logger.log_error(f"Erreur lors de l'écriture de {unit_path}: {e}")
         return False
     try:
-        os.fchmod(fd, 0o644)
+        try:
+            os.fchmod(fd, 0o644)
+        except BaseException:
+            # fchmod échoue avant que fdopen ne prenne possession du
+            # descripteur : on le ferme ici, personne d'autre ne le fera.
+            # fdopen n'est volontairement pas gardé : io.open ferme déjà le
+            # descripteur lui-même s'il échoue après l'avoir pris (le fermer
+            # une seconde fois lèverait EBADF et masquerait l'erreur d'origine).
+            os.close(fd)
+            raise
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(content)
     except OSError as e:
@@ -242,17 +251,23 @@ class _ServiceOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool: ...
+    def enable(self, unit_name: str) -> bool:
+        """Active l'unité."""
 
-    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
+        """Désactive l'unité."""
 
-    def get_status(self, unit_name: str) -> "str": ...
+    def get_status(self, unit_name: str) -> "str":
+        """Retourne l'état de l'unité."""
 
-    def reload_systemd(self) -> bool: ...
+    def reload_systemd(self) -> bool:
+        """Recharge la configuration systemd."""
 
-    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
+        """Écrit le fichier d'unité."""
 
-    def _remove_unit_file(self, unit_name: str) -> bool: ...
+    def _remove_unit_file(self, unit_name: str) -> bool:
+        """Supprime le fichier d'unité."""
 
 
 class _ServiceOperationsMixin:
@@ -484,17 +499,23 @@ class _TimerOperationsHost(Protocol):
     logger: "Logger"
     executor: "SystemdExecutor"
 
-    def enable(self, unit_name: str) -> bool: ...
+    def enable(self, unit_name: str) -> bool:
+        """Active l'unité."""
 
-    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool: ...
+    def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
+        """Désactive l'unité."""
 
-    def get_status(self, unit_name: str) -> "str": ...
+    def get_status(self, unit_name: str) -> "str":
+        """Retourne l'état de l'unité."""
 
-    def reload_systemd(self) -> bool: ...
+    def reload_systemd(self) -> bool:
+        """Recharge la configuration systemd."""
 
-    def _write_unit_file(self, unit_name: str, content: str) -> bool: ...
+    def _write_unit_file(self, unit_name: str, content: str) -> bool:
+        """Écrit le fichier d'unité."""
 
-    def _remove_unit_file(self, unit_name: str) -> bool: ...
+    def _remove_unit_file(self, unit_name: str) -> bool:
+        """Supprime le fichier d'unité."""
 
 
 class _TimerOperationsMixin:

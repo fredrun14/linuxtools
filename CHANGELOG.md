@@ -4,6 +4,11 @@
 
 ### Modifié
 
+- test(couverture): couverture portée à 100 % (lignes et branches), `fail_under` = 100
+  (base commune 5/6). Code injoignable supprimé : `venv_release._prune`, `line_editor`
+  (garde de section et boucle de `_uncomment_line`), `network` scanner et reservations
+  (gardes et `_normalize_ip`), stubs de Protocol réduits à leur docstring. Aucun
+  changement d'API publique.
 - refactor(lint): ruff ALL appliqué à src/ (base commune 4b/6) : le bloc temporaire de
   per-file-ignores est retiré ; aucun changement d'API publique ni de comportement
   nominal, sauf `BashScriptInstaller.__init__` qui lève désormais
@@ -17,6 +22,12 @@
 
 ### Corrigé
 
+- fix(systemd): `_write_unit_content` ferme le descripteur de fichier si `fchmod` échoue
+  après l'`os.open` ; il restait ouvert (fuite de fd sur ce chemin d'erreur). Le motif
+  `os.open(O_NOFOLLOW)` + `os.fchmod` est inchangé.
+- fix(dotconf): le décommentage d'une ligne par `SectionAwareEditor.ensure_block`
+  conserve désormais son indentation et sa fin de ligne d'origine (`\r\n` comme
+  `\n`) ; il supprimait l'une et transformait l'autre (CRLF devenait LF).
 - fix(devtools): `bump-consumers` n'expose plus `UV_NO_SOURCES` au `git commit` du
   consommateur : le verrou étant déjà régénéré sans sources, `UV_FROZEN=1` couvre
   `uv run` (avec ou sans `--frozen` / `--no-sync`). Un hook qui lance `uv run --frozen`

@@ -21,26 +21,33 @@ from linuxtools.config import FileConfigLoader
 from tests.unit.test_config_validation import SampleConfig
 
 
-def _write_json(data: dict[str, object]) -> Path:
-    """Écrit un fichier JSON temporaire et retourne son chemin.
+def _write_json(data: dict[str, object], dossier: Path) -> Path:
+    """Écrit un fichier JSON dans ``dossier`` et retourne son chemin.
 
     Args:
         data: Contenu à sérialiser en JSON.
+        dossier: Dossier de destination (nettoyé par l'appelant).
 
     Returns:
-        Chemin du fichier temporaire créé.
+        Chemin du fichier créé.
     """
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(data, f)
-    return Path(f.name)
+    fichier = dossier / "config.json"
+    fichier.write_text(json.dumps(data), encoding="utf-8")
+    return fichier
 
 
 class TestFileConfigLoaderTyping(unittest.TestCase):
     """Verrouille le type de retour de FileConfigLoader.load()."""
 
+    def setUp(self) -> None:
+        """Crée un dossier temporaire supprimé en fin de test."""
+        racine = tempfile.TemporaryDirectory()
+        self.addCleanup(racine.cleanup)
+        self._dossier = Path(racine.name)
+
     def test_load_without_schema_returns_dict_type(self) -> None:
         """Sans schema, mypy doit voir un retour dict[str, Any]."""
-        path = _write_json({"name": "test", "count": 42})
+        path = _write_json({"name": "test", "count": 42}, self._dossier)
         loader = FileConfigLoader()
 
         result = loader.load(path)
@@ -50,7 +57,7 @@ class TestFileConfigLoaderTyping(unittest.TestCase):
 
     def test_load_with_schema_returns_schema_type(self) -> None:
         """Avec schema, mypy doit voir un retour du type du schema."""
-        path = _write_json({"name": "test", "count": 42})
+        path = _write_json({"name": "test", "count": 42}, self._dossier)
         loader = FileConfigLoader()
 
         result = loader.load(path, SampleConfig)

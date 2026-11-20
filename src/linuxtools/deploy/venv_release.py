@@ -616,10 +616,9 @@ class VenvReleaser:
             ids, venv_path.name, version.name, previous_id, keep_versions
         )
         for version_id in to_prune:
-            try:
-                path = _managed_version_path(venv_path, version_id)
-            except DeployError:
-                continue
+            # ids déjà filtrés par select_versions_to_prune : le motif est
+            # forcément valide ici.
+            path = _managed_version_path(venv_path, version_id)
             result = self._executor.run(["rm", "-rf", "--", str(path)])
             if not result.success:
                 self._log_error(

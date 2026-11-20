@@ -24,7 +24,6 @@ from linuxtools.network.vendors import (
 )
 
 # Sortie de scan : champs IP, MAC puis fabricant optionnel.
-_CHAMPS_IP_MAC = 2
 _INDEX_FABRICANT = 2
 
 _SKIP_PREFIXES: tuple[str, ...] = (
@@ -160,8 +159,6 @@ class LinuxArpScanner(NetworkScanner):
             if any(mot in line.lower() for mot in ["packets", "ending", "interface:"]):
                 continue
             parts = line.split("\t")
-            if len(parts) < _CHAMPS_IP_MAC:
-                continue
             ip = parts[0].strip()
             mac = parts[1].strip()
             vendor = (
