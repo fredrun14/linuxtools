@@ -209,6 +209,9 @@ def test_prerequis_nomme_est_cherche_dans_le_path(
 
     assert ok is attendu
     assert nom == ("outil.service" if attendu else "")
+    if not attendu:
+        messages = [c.args[0] for c in logger.log_error.call_args_list]
+        assert any("prérequis manquant : mon-outil-xyz" in m for m in messages)
 
 
 # --- base.py : unités utilisateur et timers ---
@@ -296,14 +299,22 @@ def test_is_active_delegue_a_l_executeur(logger: MagicMock) -> None:
 def test_ecriture_d_unite_en_echec_apres_ouverture_est_signalee(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logger: MagicMock
 ) -> None:
-    """Si fchmod échoue après l'ouverture, l'écriture renvoie False, loggée."""
+    """Si fchmod échoue après l'ouverture, False, erreur loggée, fd fermé."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    vrai_close = os.close
+    fermes: list[int] = []
+    recus: list[int] = []
 
     def _fchmod_en_echec(fd: int, mode: int) -> None:
-        os.close(fd)  # évite de laisser le descripteur ouvert dans le test
-        raise OSError(5, "simulé")
+        recus.append(fd)
+        raise OSError(5, "simulé")  # ne ferme volontairement pas le fd
+
+    def _close_espion(fd: int) -> None:
+        fermes.append(fd)
+        vrai_close(fd)
 
     monkeypatch.setattr("linuxtools.systemd.base.os.fchmod", _fchmod_en_echec)
+    monkeypatch.setattr(os, "close", _close_espion)
     gestionnaire = LinuxUserServiceUnitManager(logger, MagicMock())
     config = ServiceConfig(description="T", exec_start="/usr/bin/t")
 
@@ -313,3 +324,5 @@ def test_ecriture_d_unite_en_echec_apres_ouverture_est_signalee(
     message = logger.log_error.call_args.args[0]
     assert message.startswith("Erreur lors de l'écriture de")
     assert "simulé" in message
+    assert len(recus) == 1
+    assert recus[0] in fermes

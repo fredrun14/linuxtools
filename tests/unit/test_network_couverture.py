@@ -3,7 +3,9 @@
 Aucun accès réseau réel : routeur, ARP et nmap sont simulés.
 """
 
+import os
 import socket
+import tempfile
 from datetime import datetime
 from ipaddress import IPv4Network
 from pathlib import Path
@@ -96,6 +98,40 @@ def test_save_en_echec_ne_laisse_aucun_fichier_temporaire(tmp_path: Path) -> Non
         depot.save([NetworkDevice(ip="10.0.0.1", mac=MAC)])
 
     assert sorted(p.name for p in tmp_path.iterdir()) == ["devices.json"]
+
+
+def test_save_ferme_le_descripteur_si_fdopen_echoue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si fdopen échoue après mkstemp, le fd est fermé et le temporaire supprimé."""
+    vrai_close = os.close
+    fermes: list[int] = []
+    vrai_mkstemp = tempfile.mkstemp
+    ouverts: list[int] = []
+
+    def _mkstemp_espion(*args: Any, **kwargs: Any) -> tuple[int, str]:
+        fd, chemin = vrai_mkstemp(*args, **kwargs)
+        ouverts.append(fd)
+        return fd, chemin
+
+    def _fdopen_en_echec(*args: Any, **kwargs: Any) -> None:
+        raise OSError(5, "simulé")
+
+    def _close_espion(fd: int) -> None:
+        fermes.append(fd)
+        vrai_close(fd)
+
+    monkeypatch.setattr(tempfile, "mkstemp", _mkstemp_espion)
+    monkeypatch.setattr(os, "fdopen", _fdopen_en_echec)
+    monkeypatch.setattr(os, "close", _close_espion)
+    depot = JsonDeviceRepository(str(tmp_path / "devices.json"))
+
+    with pytest.raises(OSError, match="simulé"):
+        depot.save([NetworkDevice(ip="10.0.0.1", mac=MAC)])
+
+    assert ouverts
+    assert ouverts[0] in fermes
+    assert list(tmp_path.iterdir()) == []
 
 
 # --- reservations ---

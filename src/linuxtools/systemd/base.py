@@ -122,8 +122,15 @@ def _write_unit_content(
             logger.log_error(f"Erreur lors de l'écriture de {unit_path}: {e}")
         return False
     try:
-        os.fchmod(fd, 0o644)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        try:
+            os.fchmod(fd, 0o644)
+            f = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            # tant que fdopen n'a pas pris possession du descripteur, rien
+            # d'autre ne le fermera : on le ferme ici avant de propager
+            os.close(fd)
+            raise
+        with f:
             f.write(content)
     except OSError as e:
         logger.log_error(f"Erreur lors de l'écriture de {unit_path}: {e}")
