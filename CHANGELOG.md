@@ -17,6 +17,9 @@
 
 ### Corrigé
 
+- fix(dotconf): le décommentage d'une ligne par `SectionAwareEditor.ensure_block`
+  conserve désormais son indentation et sa fin de ligne d'origine (`\r\n` comme
+  `\n`) ; il supprimait l'une et transformait l'autre (CRLF devenait LF).
 - fix(devtools): `bump-consumers` n'expose plus `UV_NO_SOURCES` au `git commit` du
   consommateur : le verrou étant déjà régénéré sans sources, `UV_FROZEN=1` couvre
   `uv run` (avec ou sans `--frozen` / `--no-sync`). Un hook qui lance `uv run --frozen`

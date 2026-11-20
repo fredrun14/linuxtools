@@ -488,17 +488,29 @@ class SectionAwareEditor:
     def _uncomment_line(self, line: str) -> str:
         r"""Supprime le préfixe de commentaire (#, ;) et l'espace suivant.
 
+        L'indentation et la fin de ligne d'origine (`\n`, `\r\n` ou
+        aucune) sont conservées.
+
+        Précondition : `line` est une ligne commentée, c'est-à-dire que
+        `_is_commented_line` a répondu True pour elle. Sur une ligne
+        qui n'est pas un commentaire, `StopIteration` est levée.
+
         Args:
             line: Ligne commentée (avec fin de ligne possible).
 
         Returns:
-            Ligne décommentée avec \n final préservé.
+            Ligne décommentée, indentation et fin de ligne préservées.
+
+        Raises:
+            StopIteration: Si la ligne n'est pas commentée (précondition
+                violée).
         """
-        ending = "\n" if line.endswith("\n") else ""
-        stripped = line.strip()
-        # appelée uniquement sur une ligne commentée (_is_commented_line)
+        body = line.rstrip("\r\n")
+        ending = line[len(body) :]
+        indent = body[: len(body) - len(body.lstrip())]
+        stripped = body.strip()
         prefix = next(p for p in self._COMMENT_PREFIXES if stripped.startswith(p))
-        return stripped[len(prefix) :].removeprefix(" ") + ending
+        return indent + stripped[len(prefix) :].removeprefix(" ") + ending
 
     def _format_block(self, content: str, comment: str) -> list[str]:
         r"""Formate un bloc de contenu avec commentaire optionnel.

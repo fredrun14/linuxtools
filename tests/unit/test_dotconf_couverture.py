@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from linuxtools.dotconf import ConfTomlExporter, LinuxIniConfigManager
 from linuxtools.dotconf.applier import ConfigApplier
 from linuxtools.dotconf.base import IniConfig, IniSection
@@ -103,10 +105,12 @@ def test_mise_a_jour_de_section_sans_logger_ni_changement_ne_modifie_rien(
     """Sans logger, des valeurs déjà conformes ne donnent aucune modification."""
     fichier = tmp_path / "a.ini"
     fichier.write_text("[main]\nk = v\n", encoding="utf-8")
+    avant = fichier.read_bytes()
 
     modifie = LinuxIniConfigManager().update_section(fichier, _Section({"k": "v"}))
 
     assert modifie is False
+    assert fichier.read_bytes() == avant
 
 
 # --- ConfigApplier ---
@@ -175,3 +179,24 @@ def test_decommentage_limite_a_la_section_demandee(tmp_path: Path) -> None:
     assert SectionAwareEditor(fichier).ensure_block("k = 1", section="b") is True
 
     assert fichier.read_text(encoding="utf-8") == "[a]\n# k = 1\n[b]\nk = 1\n"
+
+
+@pytest.mark.parametrize(
+    ("avant", "apres"),
+    [
+        (b"  # a\r\n", b"  a\r\n"),
+        (b"  ; a\r\n", b"  a\r\n"),
+        (b"\t# a\n", b"\ta\n"),
+        (b"# a", b"a"),
+    ],
+)
+def test_decommentage_conserve_indentation_et_fin_de_ligne(
+    tmp_path: Path, avant: bytes, apres: bytes
+) -> None:
+    """Réactiver une ligne garde son indentation et sa fin de ligne d'origine."""
+    fichier = tmp_path / "a.conf"
+    fichier.write_bytes(avant)
+
+    assert SectionAwareEditor(fichier).ensure_block("a") is True
+
+    assert fichier.read_bytes() == apres
