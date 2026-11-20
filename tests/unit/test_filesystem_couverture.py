@@ -1,5 +1,6 @@
 """Tests de comportement complémentaires pour le module filesystem."""
 
+import errno
 import os
 import socket
 from pathlib import Path
@@ -35,13 +36,18 @@ def test_acl_nfsv4_sans_logger_est_appliquee_apres_echec_posix(
     assert outils == ["setfacl", "nfs4_setfacl"]
 
 
-def test_copytree_ignore_les_entrees_ni_fichier_ni_dossier(tmp_path: Path) -> None:
+def test_copytree_ignore_les_entrees_ni_fichier_ni_dossier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Une socket dans la source n'est pas copiée, le reste l'est."""
     source = tmp_path / "src"
     source.mkdir()
     (source / "a.txt").write_text("a", encoding="utf-8")
+    # chemin relatif : la limite des chemins AF_UNIX (~107 octets) ne dépend
+    # plus de la longueur de TMPDIR
+    monkeypatch.chdir(source)
     with socket.socket(socket.AF_UNIX) as sock:
-        sock.bind(str(source / "sock"))
+        sock.bind("sock")
 
         copytree_secure(source, tmp_path / "dst")
 
@@ -68,8 +74,11 @@ def test_sauvegarde_vers_un_lien_symbolique_sans_logger_leve_oserror(
     cible = tmp_path / "lien"
     cible.symlink_to(tmp_path / "ailleurs")
 
-    with pytest.raises(OSError):  # noqa: PT011 — l'erreur exacte dépend de l'OS
+    with pytest.raises(OSError, match="lien") as exc:
         LinuxFileBackup().backup(source, cible)
+
+    assert exc.value.errno == errno.ELOOP
+    assert not (tmp_path / "ailleurs").exists()
 
 
 def test_restauration_sans_sauvegarde_sans_logger_leve_file_not_found(
@@ -89,8 +98,11 @@ def test_restauration_vers_un_lien_symbolique_sans_logger_leve_oserror(
     cible = tmp_path / "lien"
     cible.symlink_to(tmp_path / "ailleurs")
 
-    with pytest.raises(OSError):  # noqa: PT011 — l'erreur exacte dépend de l'OS
+    with pytest.raises(OSError, match="lien") as exc:
         LinuxFileBackup().restore(cible, sauvegarde)
+
+    assert exc.value.errno == errno.ELOOP
+    assert not (tmp_path / "ailleurs").exists()
 
 
 def test_gestionnaire_de_fichiers_sans_logger_cree_lit_supprime(

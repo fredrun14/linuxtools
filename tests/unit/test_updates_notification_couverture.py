@@ -52,6 +52,7 @@ def test_aucune_release_est_journalisee(version_installee: None) -> None:
     resultat = check_for_update("outil", "fred", "outil", client, logger=logger)
 
     assert resultat.checked is False
+    assert "aucune release" in resultat.detail
     logger.log_warning.assert_called_once_with(resultat.detail)
 
 
@@ -121,7 +122,8 @@ def test_desktop_refus_d_un_utilisateur_sans_logger_n_empeche_pas_la_diffusion(
 
     notifier.send(NOTIF)
 
-    assert executeur.run.call_count == 3
+    commandes = [c.args[0] for c in executeur.run.call_args_list]
+    assert [c[2] for c in commandes if c[0] == "runuser"] == ["fred", "alice"]
 
 
 def test_desktop_refus_d_un_utilisateur_est_journalise(
@@ -139,6 +141,8 @@ def test_desktop_refus_d_un_utilisateur_est_journalise(
 
     notifier.send(NOTIF)
 
+    commandes = [c.args[0] for c in executeur.run.call_args_list]
+    assert [c[2] for c in commandes if c[0] == "runuser"] == ["fred", "alice"]
     logger.log_warning.assert_called_once()
     message = logger.log_warning.call_args.args[0]
     assert "fred" in message

@@ -29,7 +29,7 @@ def test_groupe_au_mauvais_gid_est_corrige_sans_logger(executeur: MagicMock) -> 
     ):
         LinuxGroupManager(executor=executeur).ensure_group("equipe", 1042)
 
-    assert _commandes(executeur)[0][0] == "groupmod"
+    assert _commandes(executeur) == [["groupmod", "--gid", "1042", "equipe"]]
 
 
 def test_groupe_deja_conforme_ne_lance_rien_sans_logger(executeur: MagicMock) -> None:
@@ -47,7 +47,7 @@ def test_groupe_absent_est_cree_sans_logger(executeur: MagicMock) -> None:
     with patch("linuxtools.identity.group.grp.getgrnam", side_effect=KeyError):
         LinuxGroupManager(executor=executeur).ensure_group("equipe", 1042)
 
-    assert _commandes(executeur)[0][0] == "groupadd"
+    assert _commandes(executeur) == [["groupadd", "--gid", "1042", "equipe"]]
 
 
 # --- LinuxUserManager ---
@@ -62,7 +62,7 @@ def test_utilisateur_au_mauvais_uid_est_corrige_sans_logger(
             "svc", 1042, "/bin/false", "c", create_home=False
         )
 
-    assert _commandes(executeur)[0][0] == "usermod"
+    assert _commandes(executeur) == [["usermod", "--uid", "1042", "svc"]]
 
 
 def test_utilisateur_deja_conforme_ne_lance_rien_sans_logger(
@@ -86,7 +86,19 @@ def test_utilisateur_absent_est_cree_sans_logger(executeur: MagicMock) -> None:
             "svc", 1042, "/bin/false", "c", create_home=True
         )
 
-    assert _commandes(executeur)[0][0] == "useradd"
+    assert _commandes(executeur) == [
+        [
+            "useradd",
+            "--uid",
+            "1042",
+            "--shell",
+            "/bin/false",
+            "--comment",
+            "c",
+            "--create-home",
+            "svc",
+        ]
+    ]
 
 
 def test_groupes_secondaires_sans_logger_ajoute_les_manquants(
@@ -101,13 +113,12 @@ def test_groupes_secondaires_sans_logger_ajoute_les_manquants(
 
     with patch("linuxtools.identity.user.grp.getgrnam", side_effect=_groupe):
         LinuxUserManager(executor=executeur).ensure_user_groups(
-            "svc", ["deja", "inconnu", "neuf"]
+            "svc", ["inconnu", "deja", "neuf"]
         )
 
     commande = _commandes(executeur)[0]
     assert commande[0] == "usermod"
-    assert "neuf" in commande
-    assert "deja" not in commande
+    assert commande[commande.index("--groups") + 1] == "neuf"
 
 
 def test_groupes_secondaires_deja_membre_ne_lance_rien_sans_logger(
