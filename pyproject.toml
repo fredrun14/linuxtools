@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=77", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 # =============================================================================
 # MÉTADONNÉES DU PROJET — PEP 621
@@ -102,15 +102,28 @@ Changelog     = "https://git.ricfasohel.fr/fred/linuxtools/src/branch/master/CHA
 webapitools = { path = "../webapitools", editable = true }
 
 # =============================================================================
-# CONFIGURATION SETUPTOOLS — src-layout
+# CONFIGURATION HATCHLING — src-layout
 # =============================================================================
 
-[tool.setuptools.packages.find]
-where = ["src"]
-exclude = ["tests*", "docs*", "examples*"]
+# L'extra `network` épingle webapitools par URL git (référence directe, PEP 508) :
+# hatchling la refuse tant que ce réglage n'est pas explicite (setuptools l'admettait).
+[tool.hatch.metadata]
+allow-direct-references = true
 
-[tool.setuptools.package-data]
-"*" = ["py.typed", "*.toml", "*.yaml", "*.yml", "*.json"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/linuxtools"]
+
+# sdist borné : hatchling n'honore que le .gitignore du dépôt, pas les ignores
+# globaux (ex. `.claude/settings.local.json`), qui partiraient sinon dans l'archive.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/linuxtools",
+    "/tests",
+    "/examples",
+    "/LICENSE",
+    "/README.md",
+    "/CHANGELOG.md",
+]
 
 # =============================================================================
 # PYTEST — Configuration des tests

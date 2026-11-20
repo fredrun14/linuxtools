@@ -4,6 +4,11 @@
 
 ### Modifié
 
+- build: backend de build hatchling à la place de setuptools (base commune 6/6) ;
+  contenu du wheel identique (`linuxtools/**` et `py.typed`, seul `dist-info` change :
+  plus de `top_level.txt`). `allow-direct-references` activé pour l'extra `network`
+  (webapitools épinglé par URL git) ; sdist borné à `src/linuxtools`, `tests`,
+  `examples`, `LICENSE`, `README.md` et `CHANGELOG.md`.
 - test(couverture): couverture portée à 100 % (lignes et branches), `fail_under` = 100
   (base commune 5/6). Code injoignable supprimé : `venv_release._prune`, `line_editor`
   (garde de section et boucle de `_uncomment_line`), `network` scanner et reservations
