@@ -40,7 +40,8 @@ def _resolve_ip(
         Adresse IP ou chaine vide.
     """
     ip: str = client.get("ip", "")
-    if not ip or ip == "0.0.0.0":  # nosec B104
+    # comparaison de valeur, aucun bind
+    if not ip or ip == "0.0.0.0":  # noqa: S104  # nosec B104
         ip = leases.get(mac, "")
     if not ip:
         fixed_ip_fallback, _ = reservations.get(mac, (None, None))

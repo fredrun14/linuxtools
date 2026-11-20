@@ -408,7 +408,8 @@ class SystemdUnitRestorer:
         if user:
             cmd.append("--user")
         cmd.extend(args)
-        subprocess.run(cmd, check=False)  # nosec B603
+        # commande systemctl en liste, sans shell
+        subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
 
     def _enable(self, unit_name: str, *, user: bool = False) -> None:
         """Active une unit via l'exécuteur injecté ou subprocess.

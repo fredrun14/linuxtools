@@ -110,13 +110,14 @@ class LinuxFileManager(FileManager):
             write_text_secure(file_path, content)
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} créé avec succès.")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la création du fichier {file_path}: {exc}"
                 )
             return False
+        else:
+            return True
 
     def file_exists(self, file_path: str | Path) -> bool:
         """Vérifie si un fichier existe.
@@ -150,13 +151,14 @@ class LinuxFileManager(FileManager):
                 content = f.read()
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} lu avec succès.")
-            return content
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la lecture du fichier {file_path}: {exc}"
                 )
             raise
+        else:
+            return content
 
     def delete_file(self, file_path: str | Path) -> bool:
         """Supprime un fichier.
@@ -171,10 +173,11 @@ class LinuxFileManager(FileManager):
             Path(file_path).unlink()
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} supprimé avec succès.")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la suppression du fichier {file_path}: {exc}"
                 )
             return False
+        else:
+            return True

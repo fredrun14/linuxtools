@@ -264,7 +264,8 @@ class LinuxNmapScanner(NetworkScanner):
         """
         devices: list[NetworkDevice] = []
         try:
-            root = ET.fromstring(stdout)  # nosec B314
+            # XML produit par notre appel nmap local
+            root = ET.fromstring(stdout)  # noqa: S314  # nosec B314
         except ET.ParseError as exc:
             if self._logger:
                 self._logger.log_warning(f"Sortie nmap invalide : {exc}")

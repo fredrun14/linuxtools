@@ -2014,3 +2014,11 @@ class TestExecutorAbstractionRespectee:
             mock_cls.return_value = mock_paths
             report = installer.install(config, confirm_wrapper=False)
         assert report.success is True
+
+
+def test_script_avec_notification_sans_notification_leve_runtime_error() -> None:
+    """Le générateur avec notification refuse une notification absente."""
+    config = BashScriptConfig(exec_command="ls")
+
+    with pytest.raises(RuntimeError, match="notification absente"):
+        config._generate_script_with_notification()

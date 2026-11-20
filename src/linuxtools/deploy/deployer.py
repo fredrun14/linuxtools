@@ -335,7 +335,8 @@ class Deployer:
                     "config.config_deploy est renseigné.",
                 ),
             )
-        assert config.config_deploy is not None
+        if config.config_deploy is None:
+            raise RuntimeError("invariant rompu : config.config_deploy absent")
         ok = self._config_deployer.deploy(
             config.config_deploy, config.target, self._target_executor
         )
@@ -388,7 +389,8 @@ class Deployer:
                     "config.secrets est renseigné.",
                 ),
             )
-        assert config.secrets is not None
+        if config.secrets is None:
+            raise RuntimeError("invariant rompu : config.secrets absent")
         outcome = self._secrets_provisioner.provision(
             config.secrets, config.target, self._target_executor
         )
@@ -444,7 +446,8 @@ class Deployer:
                     "config.timer_deploy est renseigné.",
                 ),
             )
-        assert config.timer_deploy is not None
+        if config.timer_deploy is None:
+            raise RuntimeError("invariant rompu : config.timer_deploy absent")
         outcome = self._timer_deployer.deploy(
             config.timer_deploy, config.target, self._target_executor
         )

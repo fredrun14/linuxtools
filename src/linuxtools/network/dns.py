@@ -121,7 +121,7 @@ class LinuxHostsFileManager(_BaseDnsManager):
             Contenu formate pour /etc/hosts.
         """
         domain = self._config.dns.domain
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
         lines = [
             "# === Reseau local (genere par scanNetHome) ===",
             f"# Domaine : {domain}",

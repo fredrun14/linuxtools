@@ -205,7 +205,8 @@ class TelegramNotifier(Notifier):
         if not _is_valid_timeout(timeout):
             raise ValueError("timeout doit être dans ]0, 3600] secondes")
         if not isinstance(include_message, bool):
-            raise ValueError("include_message doit être un booléen")
+            # ValueError documenté (contrat public)
+            raise ValueError("include_message doit être un booléen")  # noqa: TRY004
         self._token = token
         self._recipients = dict(recipients)
         self._timeout = timeout
@@ -233,7 +234,8 @@ class TelegramNotifier(Notifier):
                 "link_preview_options": {"is_disabled": True},
             }
         ).encode("utf-8")
-        request = urllib.request.Request(
+        # URL https constante (_API_BASE)
+        request = urllib.request.Request(  # noqa: S310
             url=f"{_API_BASE}/bot{self._token}/sendMessage",
             data=payload,
             headers={"Content-Type": "application/json"},

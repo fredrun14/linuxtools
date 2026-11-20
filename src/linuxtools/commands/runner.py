@@ -171,7 +171,8 @@ class LinuxCommandExecutor(CommandExecutor):
 
     def _print(self, message: str) -> None:
         """Envoie un message déjà formaté vers stdout."""
-        print(message)
+        # Sortie du formatter ANSI : sur stdout par contrat, pas de journalisation.
+        print(message)  # noqa: T201
 
     def _emit(self, method: str, command: list[str]) -> None:
         """Logue et affiche un événement de commande (start/dry-run).
@@ -296,7 +297,8 @@ class LinuxCommandExecutor(CommandExecutor):
 
         start = time.monotonic()
         try:
-            with subprocess.Popen(  # nosec B603
+            # commande en liste, sans shell
+            with subprocess.Popen(  # noqa: S603  # nosec B603
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -407,7 +409,8 @@ class LinuxCommandExecutor(CommandExecutor):
         start = time.monotonic()
         stdout_lines: list[str] = []
         try:
-            with subprocess.Popen(  # nosec B603
+            # commande en liste, sans shell
+            with subprocess.Popen(  # noqa: S603  # nosec B603
                 command,
                 stdout=subprocess.PIPE,
                 stderr=stderr_target,
@@ -418,7 +421,8 @@ class LinuxCommandExecutor(CommandExecutor):
                 # ainsi tuer tout l'arbre, pas seulement le shell.
                 process_group=0,
             ) as proc:
-                assert proc.stdout is not None  # nosec
+                if proc.stdout is None:
+                    raise RuntimeError("invariant rompu : stdout non capturé")
 
                 # Fil de drainage : vide stderr en continu pour éviter
                 # le blocage du processus sur un pipe plein (> 64 Ko).

@@ -191,7 +191,7 @@ class BumpConsumersCommand(CliCommand):
     @staticmethod
     def _file_logger() -> FileLogger:
         """Journal fichier horodaté sous le dossier de logs par défaut."""
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
         path = default_log_dir(APP_NAME) / f"bump-consumers-{stamp}.log"
         return FileLogger(path)
 

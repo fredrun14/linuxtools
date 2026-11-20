@@ -254,6 +254,13 @@ convention = "google"
     "S603", "SIM102", "SIM103", "SIM105", "SIM108", "SLF001", "T201", "TRY004",
     "TRY300", "TRY301",
 ]
+# T201 (print) : modules dont le métier est la sortie console (sortie
+# utilisateur, pas de journalisation) ; un Logger y changerait l'API publique.
+"src/linuxtools/cli/dry_run.py" = ["T201"]            # annonces --dry-run sur stdout
+"src/linuxtools/deploy/cli.py" = ["T201"]             # CLI : rapports et erreurs
+"src/linuxtools/devtools/cli.py" = ["T201"]           # CLI : rapports et erreurs d'usage
+"src/linuxtools/errors/console_handler.py" = ["T201"] # gestionnaire d'erreurs console
+"src/linuxtools/logging/console_logger.py" = ["T201"] # ConsoleLogger : sortie console
 "tests/**/*.py" = [
     "S101",     # assert
     "S105", "S106", "S108",  # faux secrets, chemins temporaires

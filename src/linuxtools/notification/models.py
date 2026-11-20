@@ -211,7 +211,8 @@ class ExecutionReport:
 
     def finish(self) -> None:
         """Clôture le rapport en renseignant finished_at."""
-        self.finished_at = datetime.now()
+        # naïf comme started_at (soustraction)
+        self.finished_at = datetime.now()  # noqa: DTZ005
 
     def format_summary(self) -> str:
         """Retourne un résumé textuel lisible du rapport.

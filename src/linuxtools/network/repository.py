@@ -147,7 +147,8 @@ class JsonDeviceRepository(DeviceRepository):
                 updated = dataclasses.replace(
                     old,
                     ip=device.ip or old.ip,
-                    last_seen=datetime.now(),
+                    # datetime naïf, comme le default_factory du champ (ISO inchangé)
+                    last_seen=datetime.now(),  # noqa: DTZ005
                 )
                 merged.append(updated)
             else:

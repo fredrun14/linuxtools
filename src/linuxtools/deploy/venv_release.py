@@ -173,7 +173,7 @@ def _legacy_ts_before(venv_name: str, version_id: str) -> str:
         Horodatage formaté `_TS_FORMAT`, antérieur à celui de version_id.
     """
     ts_part = version_id[len(venv_name) + 1 :]
-    version_ts = datetime.strptime(ts_part, _TS_FORMAT)
+    version_ts = datetime.strptime(ts_part, _TS_FORMAT).replace(tzinfo=UTC)
     return (version_ts - timedelta(microseconds=1)).strftime(_TS_FORMAT)
 
 

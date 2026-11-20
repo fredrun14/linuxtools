@@ -104,7 +104,8 @@ class BashScriptConfig:
             Script bash complet avec fonction de notification et
             envoi conditionnel selon le code de retour.
         """
-        assert self.notification is not None
+        if self.notification is None:
+            raise RuntimeError("invariant rompu : notification absente")
         return f"""#!/bin/bash
 # Script généré automatiquement par linuxtools
 # Inclut la gestion des notifications KDE Plasma

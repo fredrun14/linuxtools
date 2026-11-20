@@ -1204,12 +1204,13 @@ class UserUnitManager(_BaseUnitManagerMixin):
         """
         try:
             Path(self._unit_path).mkdir(parents=True, exist_ok=True)
-            return True
         except OSError as e:
             self.logger.log_error(
                 f"Erreur lors de la création du répertoire {self._unit_path}: {e}"
             )
             return False
+        else:
+            return True
 
     def _write_unit_file(self, unit_name: str, content: str) -> bool:
         """Écrit un fichier unit dans le répertoire utilisateur.

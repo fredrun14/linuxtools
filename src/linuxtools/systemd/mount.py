@@ -47,7 +47,6 @@ class LinuxMountUnitManager(MountUnitManager):
             mount_path.mkdir(parents=True, exist_ok=True)
             if not already_exists:
                 self.logger.log_info(f"Point de montage créé: {path}")
-            return True
         except PermissionError:
             self.logger.log_error(
                 f"Permission refusée pour créer {path}. "
@@ -59,6 +58,8 @@ class LinuxMountUnitManager(MountUnitManager):
                 f"Erreur lors de la création du point de montage {path}: {e}"
             )
             return False
+        else:
+            return True
 
     def install_mount_unit(
         self,

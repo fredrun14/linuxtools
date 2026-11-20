@@ -80,7 +80,8 @@ def _read_enabled(raw: dict[object, object]) -> bool:
         return True
     value = raw["enabled"]
     if not isinstance(value, bool):
-        raise ValueError(
+        # ValueError documenté (contrat de `load_lan_clients`)
+        raise ValueError(  # noqa: TRY004
             f"enabled doit être un booléen : {value!r} (client {raw.get('mac')!r})"
         )
     return value
@@ -102,7 +103,8 @@ def _read_note(raw: dict[object, object]) -> str | None:
         return None
     value = raw["note"]
     if not isinstance(value, str):
-        raise ValueError(
+        # ValueError documenté (contrat de `load_lan_clients`)
+        raise ValueError(  # noqa: TRY004
             f"note doit être une chaîne : {value!r} (client {raw.get('mac')!r})"
         )
     return value
@@ -152,7 +154,10 @@ def load_lan_clients(
             MAC, nom, IP, ``enabled``, ``note``, puis doublons.
     """
     if not isinstance(entries, list):
-        raise ValueError(f"client doit être une liste de tables : {entries!r}")
+        # ValueError documenté (contrat de `load_lan_clients`)
+        raise ValueError(  # noqa: TRY004
+            f"client doit être une liste de tables : {entries!r}"
+        )
     if require_non_empty and not entries:
         raise ValueError("au moins un client requis")
 
@@ -161,7 +166,8 @@ def load_lan_clients(
     seen_names: set[str] = set()
     for raw in entries:
         if not isinstance(raw, dict):
-            raise ValueError(f"entrée de client invalide : {raw!r}")
+            # ValueError documenté (contrat de `load_lan_clients`)
+            raise ValueError(f"entrée de client invalide : {raw!r}")  # noqa: TRY004
         # Schéma fermé : une faute de frappe ne doit pas passer en silence.
         unknown = sorted(set(raw) - _ALLOWED_KEYS, key=repr)
         if unknown:
@@ -172,7 +178,8 @@ def load_lan_clients(
             )
         mac = raw.get("mac")
         if not isinstance(mac, str):
-            raise ValueError(f"MAC invalide : {mac!r}")
+            # ValueError documenté (contrat de `load_lan_clients`)
+            raise ValueError(f"MAC invalide : {mac!r}")  # noqa: TRY004
         # La MAC est validée avant les validateurs injectés (ordre des
         # erreurs historique) ; la normalisation finale reste assurée par
         # LanClient.__post_init__.

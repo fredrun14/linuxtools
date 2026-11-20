@@ -1,5 +1,6 @@
 """Tests pour le module deploy.deployer."""
 
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -1132,3 +1133,33 @@ class TestDeployerForTargetAtomicSwap:
         """for_target construit toujours un VenvReleaser, injecté."""
         deployer = Deployer.for_target(DeployTarget())
         assert deployer._releaser is not None
+
+
+class TestDeployerInvariantsDePhase:
+    """Les phases refusent une spec absente (invariant rompu)."""
+
+    @pytest.mark.parametrize(
+        ("methode", "attendu"),
+        [
+            ("_run_config_phase", "config.config_deploy"),
+            ("_run_secrets_phase", "config.secrets"),
+            ("_run_timer_phase", "config.timer_deploy"),
+        ],
+    )
+    def test_phase_sans_spec_leve_runtime_error(
+        self, methode: str, attendu: str
+    ) -> None:
+        """Collaborateurs présents mais spec absente : RuntimeError."""
+        transport, installer, verifier = _make_collaborators()
+        deployer = Deployer(
+            transport,
+            installer,
+            verifier,
+            config_deployer=MagicMock(spec=ConfigDeployer),
+            secrets_provisioner=MagicMock(spec=SecretsProvisioner),
+            timer_deployer=MagicMock(spec=TimerDeployer),
+            target_executor=MagicMock(spec=CommandExecutor),
+        )
+
+        with pytest.raises(RuntimeError, match=re.escape(attendu)):
+            getattr(deployer, methode)(_make_config(), (), ())

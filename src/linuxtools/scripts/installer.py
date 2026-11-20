@@ -38,6 +38,7 @@ import os
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import NoReturn
 
 from linuxtools.commands.base import CommandExecutor
 from linuxtools.filesystem import FileManager
@@ -51,6 +52,18 @@ from linuxtools.scripts.report import (
     InstallReport,
     MissingDependency,
 )
+
+
+def _fail(message: str) -> NoReturn:
+    """Lève une ``OSError`` (extrait le ``raise`` des blocs ``try``).
+
+    Args:
+        message: Message de l'erreur.
+
+    Raises:
+        OSError: Toujours.
+    """
+    raise OSError(message)
 
 
 class ScriptInstaller(ABC):
@@ -190,13 +203,14 @@ class BashScriptInstaller(ScriptInstaller):
                 os.fchmod(fd, self._default_mode)
             finally:
                 os.close(fd)
-            return True
         except OSError as e:
             if self._logger:
                 self._logger.log_error(
                     f"Impossible de rendre le script exécutable : {e}"
                 )
             return False
+        else:
+            return True
 
 
 _WRAPPER_SYSTEM = """\
@@ -424,7 +438,8 @@ class LinuxCliInstaller(CliInstaller):
             confirm_wrapper = False
 
         if confirm_wrapper:
-            print(
+            # Invite interactive o/N : doit aller sur stdout, sans passer par le Logger.
+            print(  # noqa: T201
                 "\nAucun [project.scripts] détecté.\n"
                 "Générer un wrapper bash"
                 f" → {paths.bin_path} ? [o/N] ",
@@ -617,19 +632,19 @@ class LinuxCliInstaller(CliInstaller):
         try:
             write_result = self._executor.run(["tee", tmp_path], stdin=content)
             if not write_result.success:
-                raise OSError(f"Échec écriture wrapper : {write_result.stderr.strip()}")
+                _fail(f"Échec écriture wrapper : {write_result.stderr.strip()}")
 
             chmod_result = self._executor.run(["chmod", "0755", tmp_path])
             if not chmod_result.success:
-                raise OSError(f"Échec chmod wrapper : {chmod_result.stderr.strip()}")
+                _fail(f"Échec chmod wrapper : {chmod_result.stderr.strip()}")
 
             symlink_check = self._executor.probe(["test", "-L", str(target_path)])
             if symlink_check.success:
-                raise OSError(f"{target_path} est un lien symbolique, refusé")
+                _fail(f"{target_path} est un lien symbolique, refusé")
 
             mv_result = self._executor.run(["mv", tmp_path, str(target_path)])
             if not mv_result.success:
-                raise OSError(f"Échec déplacement wrapper : {mv_result.stderr.strip()}")
+                _fail(f"Échec déplacement wrapper : {mv_result.stderr.strip()}")
         except OSError:
             self._executor.run(["rm", "-f", tmp_path])
             raise

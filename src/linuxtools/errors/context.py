@@ -48,7 +48,8 @@ class ErrorContext:
                 action()
                 if self._logger:
                     self._logger.log_info(f"Rollback réussi: {label}")
-            except Exception as e:
+            # le rollback continue malgré l'échec d'une action
+            except Exception as e:  # noqa: BLE001
                 rollback_errors.append(str(e))
                 if self._logger:
                     self._logger.log_error(f"Échec du rollback ({label}): {e}")

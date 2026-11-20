@@ -1558,3 +1558,17 @@ class TestRunStreamingProcessusReel:
 
         assert result.return_code == -1
         assert time.monotonic() - debut < 10
+
+
+@patch("linuxtools.commands.runner.subprocess.Popen")
+def test_streaming_stdout_non_capture_leve_runtime_error(
+    mock_popen: MagicMock,
+) -> None:
+    """Un process sans stdout capturé rompt l'invariant : RuntimeError."""
+    proc = _make_mock_proc([])
+    proc.stdout = None
+    mock_popen.return_value = proc
+    executor = LinuxCommandExecutor(logger=MagicMock(spec=Logger))
+
+    with pytest.raises(RuntimeError, match="stdout non capturé"):
+        executor.run_streaming(["cmd"])

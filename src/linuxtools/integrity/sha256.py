@@ -67,13 +67,12 @@ class SHA256IntegrityChecker(IntegrityChecker):
         try:
             source_checksum = self._calculate(source_file)
             dest_checksum = self._calculate(dest_file)
-            if source_checksum != dest_checksum:
-                return False
-            return True
         except OSError as e:
             if self._logger:
                 self._logger.log_error(f"Erreur de vérification: {e}")
             return False
+        else:
+            return source_checksum == dest_checksum
 
     def _resolve_dest(
         self,
@@ -168,13 +167,14 @@ class SHA256IntegrityChecker(IntegrityChecker):
                 self._logger.log_info(
                     f"Vérification terminée : {count} fichier(s) vérifié(s)."
                 )
-            return True
         except (OSError, ValueError) as e:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la vérification d'intégrité: {e}"
                 )
             return False
+        else:
+            return True
 
     def verify_file_or_raise(
         self,

@@ -92,7 +92,8 @@ def copytree_secure(
     dst.mkdir(parents=True, exist_ok=dirs_exist_ok)
     # 0o755 (rwxr-xr-x) : permission standard d'un répertoire
     # traversable/listable, pas un 0o777 excessif.
-    os.chmod(dst, 0o755)  # nosec B103
+    # répertoire traversable, pas de 0o777
+    os.chmod(dst, 0o755)  # noqa: S103  # nosec B103
 
     entries = sorted(src.iterdir())
     names = [e.name for e in entries]
@@ -198,13 +199,14 @@ class LinuxFileBackup(FileBackup):
             _copy_secure(file_path, backup_path)
             if self._logger:
                 self._logger.log_info(f"Sauvegarde de {file_path} vers {backup_path}")
-            return True
         except OSError as exc:
             if self._logger:
                 self._logger.log_error(
                     f"Erreur lors de la sauvegarde de {file_path}: {exc}"
                 )
             raise
+        else:
+            return True
 
     def restore(self, file_path: str | Path, backup_path: str | Path) -> None:
         """Restaure un fichier depuis sa sauvegarde.

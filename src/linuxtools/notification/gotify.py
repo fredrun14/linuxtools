@@ -94,7 +94,8 @@ class GotifyNotifier(Notifier):
                 "priority": _GOTIFY_PRIORITIES[notification.urgency],
             }
         ).encode("utf-8")
-        request = urllib.request.Request(
+        # base_url validée http(s) au constructeur
+        request = urllib.request.Request(  # noqa: S310
             url=f"{self._base_url}/message",
             data=payload,
             headers={

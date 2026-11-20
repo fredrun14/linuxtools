@@ -207,7 +207,7 @@ class ConsumerBumper:
                 checks=stop.checks,
                 detail=detail,
             )
-        except Exception as exc:  # frontière : tout devient un statut
+        except Exception as exc:  # noqa: BLE001 — frontière : tout devient un statut
             self._logger.log_error(mask_userinfo(f"{consumer.name} : {exc!r}"))
             return BumpOutcome(
                 consumer.name,
@@ -277,11 +277,12 @@ class ConsumerBumper:
             worktree = drop = True
             checks = self._prepare_and_check(plan, space)
             outcome = self._commit_and_push(consumer, plan, space, checks)
-            drop = False
-            return outcome
         except _AbortError as stop:
             drop = drop and stop.status is not Status.PUSH_ECHOUE
             raise
+        else:
+            drop = False
+            return outcome
         finally:
             self._cleanup(cwd, space, plan.branch, worktree=worktree, drop_branch=drop)
 

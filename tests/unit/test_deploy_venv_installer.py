@@ -1,7 +1,9 @@
 """Tests pour le module deploy.venv_installer."""
 
 import re
+from datetime import datetime, tzinfo
 from pathlib import Path
+from typing import Self
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +12,19 @@ from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.deploy.exceptions import DeployError
 from linuxtools.deploy.venv_installer import VenvInstaller
 from linuxtools.logging.base import Logger
+
+
+class _DatetimeFixe(datetime):
+    """datetime dont l'heure courante est figée (nom de backup déterministe)."""
+
+    @classmethod
+    def now(cls, tz: tzinfo | None = None) -> Self:
+        """Retourne toujours le 2026-07-19 16:55:00.123456."""
+        return cls(2026, 7, 19, 16, 55, 0, 123456, tzinfo=tz)
+
+    def astimezone(self, tz: tzinfo | None = None) -> Self:
+        """Garde l'heure telle quelle (indépendant du fuseau de la machine)."""
+        return self
 
 
 def _result(success: bool = True, stdout: str = "", stderr: str = "") -> CommandResult:
@@ -74,11 +89,10 @@ class TestVenvInstallerBackupVenv:
         logger = MagicMock(spec=Logger)
         installer = VenvInstaller(executor, logger=logger)
 
-        with patch("linuxtools.deploy.venv_installer.datetime") as mock_dt:
-            mock_dt.now.return_value.strftime.return_value = "20260719-165500"
+        with patch("linuxtools.deploy.venv_installer.datetime", _DatetimeFixe):
             backup = installer.backup_venv(Path("/opt/app/venv"))
 
-        assert backup == Path("/opt/app/venv.bak-20260719-165500")
+        assert backup == Path("/opt/app/venv.bak-20260719-165500-123456")
         logger.log_info.assert_called_once()
 
     def test_leve_deploy_error_si_cp_echoue(self) -> None:

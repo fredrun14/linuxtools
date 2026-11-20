@@ -84,7 +84,7 @@ class VenvInstaller:
             self._log(f"Aucun venv existant à {venv_path} : pas de backup nécessaire.")
             return None
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
         backup_path = venv_path.parent / (f"{venv_path.name}.bak-{timestamp}")
 
         result = self._executor.run(["cp", "-a", str(venv_path), str(backup_path)])
@@ -175,7 +175,7 @@ class VenvInstaller:
         Returns:
             True si la restauration a réussi, False sinon.
         """
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
         guard_path = venv_path.parent / (f"{venv_path.name}.rollback-tmp-{timestamp}")
 
         exists = self._executor.run(["test", "-d", str(venv_path)])
