@@ -22,6 +22,11 @@
 
 ### Corrigé
 
+- test(couverture): les tests de couverture ne dépendent plus de la machine : la
+  détection d'interface réseau (`_detect_interface`) est testée sur un faux arbre sysfs
+  (constante `_SYS_NET`, aucun changement de comportement), et l'échec de création d'un
+  point de montage est simulé au lieu de viser `/root` et `/etc` (le test écrivait hors de
+  `tmp_path` quand il tournait en root). La CI en conteneur root sans Wi-Fi passe à 100 %.
 - fix(systemd): `_write_unit_content` ferme le descripteur de fichier si `fchmod` échoue
   après l'`os.open` ; il restait ouvert (fuite de fd sur ce chemin d'erreur). Le motif
   `os.open(O_NOFOLLOW)` + `os.fchmod` est inchangé.

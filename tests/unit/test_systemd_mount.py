@@ -339,26 +339,39 @@ class TestInstallMountUnit:
         assert Path(mount_point).is_dir()
 
     def test_install_with_permission_error_logs_error(
-        self, mock_logger: MockLogger, mock_systemd: MockSystemdManager
+        self,
+        mock_logger: MockLogger,
+        mock_systemd: MockSystemdManager,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Vérifie que les erreurs de permission sont loggées."""
-        # Arrange
+        """Un mkdir refusé fait échouer l'installation, avec le message exact."""
+
+        # Arrange : mkdir refusé, quels que soient l'uid et les droits réels
+        def _mkdir_refuse(self: Path, *args: object, **kwargs: object) -> None:
+            raise PermissionError(13, "Permission denied", str(self))
+
+        monkeypatch.setattr(Path, "mkdir", _mkdir_refuse)
         manager = LinuxMountUnitManager(mock_logger, mock_systemd)
-        manager.SYSTEMD_UNIT_PATH = "/etc/systemd/system"
         config = MountConfig(
             description="Test",
             what="server:/share",
-            where="/root/restricted_mount",
+            where="/mnt/point-protege",
             type="nfs",
         )
 
         # Act
         result = manager.install_mount_unit(config)
 
-        # Assert - Le résultat dépend des permissions
-        error_messages = [m for level, m in mock_logger.messages if level == "ERROR"]
-        if result is False:
-            assert len(error_messages) > 0
+        # Assert
+        assert result is False
+        assert mock_logger.messages == [
+            (
+                "ERROR",
+                "Permission refusée pour créer /mnt/point-protege. "
+                "Exécution en tant que root requise.",
+            )
+        ]
+        assert mock_systemd.reload_called is False
 
 
 class TestEnableDisableMount:
