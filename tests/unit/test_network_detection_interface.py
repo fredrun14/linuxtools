@@ -46,7 +46,9 @@ def test_aucune_interface_donne_une_chaine_vide(sys_net: Path) -> None:
     assert _detect_interface() == ""
 
 
-@pytest.mark.parametrize("prefixe", ["lo", "docker0", "br-1", "veth1", "tun0", "tap0"])
+@pytest.mark.parametrize(
+    "prefixe", ["lo", "docker0", "br-1", "veth1", "tun0", "tap0", "virbr0"]
+)
 def test_interfaces_virtuelles_sont_ignorees(sys_net: Path, prefixe: str) -> None:
     """Les interfaces virtuelles actives ne sont jamais retenues."""
     _iface(sys_net, prefixe)
@@ -68,9 +70,10 @@ def test_operstate_illisible_est_ignore(sys_net: Path) -> None:
     assert _detect_interface() == ""
 
 
-def test_interface_down_est_ignoree(sys_net: Path) -> None:
-    """Une interface à l'état 'down' n'est pas retenue."""
-    _iface(sys_net, "eth0", etat="down")
+@pytest.mark.parametrize("etat", ["down", "unknown"])
+def test_interface_non_up_est_ignoree(sys_net: Path, etat: str) -> None:
+    """Une interface dont l'état n'est pas 'up' n'est pas retenue."""
+    _iface(sys_net, "eth0", etat=etat)
 
     assert _detect_interface() == ""
 
@@ -90,10 +93,11 @@ def test_wifi_seul_est_retenu(sys_net: Path, marqueur: str) -> None:
     assert _detect_interface() == "wlan0"
 
 
-def test_filaire_est_prioritaire_sur_le_wifi(sys_net: Path) -> None:
+@pytest.mark.parametrize("marqueur", ["wireless", "phy80211"])
+def test_filaire_est_prioritaire_sur_le_wifi(sys_net: Path, marqueur: str) -> None:
     """Filaire et Wi-Fi actifs : le filaire l'emporte, même listé après."""
     _iface(sys_net, "eth0")
-    _iface(sys_net, "aaa-wifi", wifi="wireless")
+    _iface(sys_net, "aaa-wifi", wifi=marqueur)
 
     assert _detect_interface() == "eth0"
 
