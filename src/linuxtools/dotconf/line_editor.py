@@ -357,9 +357,8 @@ class SectionAwareEditor:
         if section is None:
             start, end = 0, len(lines)
         else:
+            # la section existe : _block_matches l'a vérifié avant l'appel
             start, end = self._find_section_range(lines, section)
-            if start == -1:
-                return lines
 
         result = list(lines)
         for i in range(start, end):
@@ -497,12 +496,9 @@ class SectionAwareEditor:
         """
         ending = "\n" if line.endswith("\n") else ""
         stripped = line.strip()
-        for prefix in self._COMMENT_PREFIXES:
-            if stripped.startswith(prefix):
-                uncommented = stripped[len(prefix) :]
-                uncommented = uncommented.removeprefix(" ")
-                return uncommented + ending
-        return line
+        # appelée uniquement sur une ligne commentée (_is_commented_line)
+        prefix = next(p for p in self._COMMENT_PREFIXES if stripped.startswith(p))
+        return stripped[len(prefix) :].removeprefix(" ") + ending
 
     def _format_block(self, content: str, comment: str) -> list[str]:
         r"""Formate un bloc de contenu avec commentaire optionnel.
