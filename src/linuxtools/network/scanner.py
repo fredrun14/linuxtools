@@ -37,6 +37,10 @@ _SKIP_PREFIXES: tuple[str, ...] = (
 )
 
 
+# Répertoire sysfs des interfaces réseau (surchargeable par les tests).
+_SYS_NET = "/sys/class/net"
+
+
 def _detect_interface() -> str:
     """Detecte l'interface reseau active.
 
@@ -50,7 +54,7 @@ def _detect_interface() -> str:
     Returns:
         Nom de l'interface (ex: 'enp4s0', 'wlan0') ou ''.
     """
-    net_dir = Path("/sys/class/net")
+    net_dir = Path(_SYS_NET)
     if not net_dir.exists():
         return ""
 

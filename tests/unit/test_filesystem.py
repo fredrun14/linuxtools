@@ -1,5 +1,6 @@
 """Tests pour les modules filesystem.linux et filesystem.backup."""
 
+import re
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -32,11 +33,11 @@ class TestLinuxFileManager:
             assert f.read() == "contenu test"
         logger.log_info.assert_called_once()
 
-    def test_create_file_echec(self) -> None:
+    def test_create_file_echec(self, tmp_path: Path) -> None:
         """Retourne False si le répertoire parent n'existe pas."""
         manager, logger = self._make_manager()
         result = manager.create_file(
-            "/repertoire_inexistant_xyz/fichier.txt", "contenu"
+            str(tmp_path / "absent" / "fichier.txt"), "contenu"
         )
         assert result is False
         logger.log_error.assert_called_once()
@@ -62,17 +63,18 @@ class TestLinuxFileManager:
         assert content == "contenu test"
         logger.log_info.assert_called_once()
 
-    def test_read_file_echec_fichier_inexistant(self) -> None:
+    def test_read_file_echec_fichier_inexistant(self, tmp_path: Path) -> None:
         """Lève une exception si le fichier n'existe pas."""
         manager, logger = self._make_manager()
+        absent = tmp_path / "absent" / "fichier.txt"
         with pytest.raises(
             OSError,
             match=(
                 r"\[Errno 2\] No such file or directory: "
-                r"'/repertoire_inexistant_xyz/fichier\.txt'"
+                rf"'{re.escape(str(absent))}'"
             ),
         ):
-            manager.read_file("/repertoire_inexistant_xyz/fichier.txt")
+            manager.read_file(str(absent))
         logger.log_error.assert_called_once()
 
     def test_delete_file_succes(self, tmp_path: Path) -> None:
@@ -85,10 +87,10 @@ class TestLinuxFileManager:
         assert not Path(f).exists()
         logger.log_info.assert_called_once()
 
-    def test_delete_file_echec_inexistant(self) -> None:
+    def test_delete_file_echec_inexistant(self, tmp_path: Path) -> None:
         """Retourne False si le fichier n'existe pas."""
         manager, logger = self._make_manager()
-        result = manager.delete_file("/repertoire_inexistant_xyz/fichier.txt")
+        result = manager.delete_file(str(tmp_path / "absent" / "fichier.txt"))
         assert result is False
         logger.log_error.assert_called_once()
 
@@ -167,14 +169,15 @@ class TestLinuxFileBackup:
         source = tmp_path / "source.txt"
         source.write_text("x")
         backup, logger = self._make_backup()
+        destination = tmp_path / "absent" / "backup.txt"
         with pytest.raises(
             OSError,
             match=(
                 r"\[Errno 2\] No such file or directory: "
-                r"'/repertoire_inexistant_xyz/backup\.txt'"
+                rf"'{re.escape(str(destination))}'"
             ),
         ):
-            backup.backup(str(source), "/repertoire_inexistant_xyz/backup.txt")
+            backup.backup(str(source), str(destination))
         logger.log_error.assert_called_once()
 
     def test_restore_succes(self, tmp_path: Path) -> None:
