@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 # =============================================================================
@@ -123,6 +123,10 @@ include = [
     "/LICENSE",
     "/README.md",
     "/CHANGELOG.md",
+    # exigés par tests/unit/test_devtools_makefile.py : le sdist doit rester testable
+    "/Makefile",
+    "/.githooks",
+    "/.forgejo/workflows/ci.yml",
 ]
 
 # =============================================================================
