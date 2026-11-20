@@ -48,6 +48,7 @@ class FakeExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        *,
         probe: bool = False,
         stdin: str | None = None,
     ) -> CommandResult:
@@ -60,6 +61,7 @@ class FakeExecutor(CommandExecutor):
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: int | None = None,
+        *,
         merge_stderr: bool = False,
     ) -> CommandResult:
         """Simule l'exécution en streaming."""

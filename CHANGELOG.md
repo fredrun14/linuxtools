@@ -55,39 +55,58 @@
 - **BREAKING** refactor(lint): ruff `FBT` sur `src/` : tout paramètre booléen
   devient **mot-clé seul** (`*,` avant lui). Les paramètres à défaut qui
   suivent le booléen deviennent eux aussi mot-clé seul (ex. `stdin` de `run`,
-  `timeout` et `logger` des notifiers). Un appel positionnel lève `TypeError`.
+  `timeout` et `logger` des notifiers, sauf `timeout` de `TelegramNotifier`
+  qui reste positionnel). Un appel positionnel lève `TypeError`.
   Touchés, par module :
-  - `commands` : `CommandExecutor` / `LinuxCommandExecutor` (`__init__`, `run`,
-    `run_streaming`), `CommandBuilder.with_option_if`, `CommandFormatter` et
+  - `commands` : `CommandExecutor` (`run`, `run_streaming`, sans `__init__`),
+    `LinuxCommandExecutor` (`__init__`, `run`, `run_streaming`),
+    `CommandBuilder.with_option_if`, `CommandFormatter` et
     ses sous-classes (`format_start`, `format_start_streaming`,
     `format_dry_run`, `format_line` : `is_root` mot-clé seul) ;
   - `cli` : `DryRunContext.__init__` (`dry_run`) ;
   - `config` : `XdgAppConfig.init_config_file` ;
   - `deploy` : `Deployer.__init__` et `Deployer.for_target`,
-    `SshCommandExecutor.run` / `run_streaming`, `VenvInstaller.install`,
-    `UsbExporter` (`has_lpu`), `RemoteDestination` / `LocalDestination`
-    (`WriteOutcome`), `TimerDeployer` ;
+    `SshCommandExecutor.run` / `run_streaming`, `VenvInstaller.install` ;
   - `identity` : `UserManagerBase.ensure_user`, `LinuxUserManager.ensure_user` ;
-  - `logging` : `FileLogger.__init__`, `RotatingFileLogger.__init__`,
-    `purge_old_logs` ;
+  - `logging` : `FileLogger.__init__`, `RotatingFileLogger.__init__` ;
   - `notification` : `DesktopNotifier`, `SmtpEmailNotifier`, `TelegramNotifier`
     (`__init__`), `ExecutionReport.add_step` et `ExecutionReport.step`
     (`reraise`) ;
   - `scripts` : `CliInstaller.install`, `LinuxCliInstaller.install` ;
   - `systemd` : `install_mount_unit`, `enable_mount` (`with_automount`),
     `disable` (`ignore_errors`), `SystemdExecutor.enable_unit` (`now`) /
-    `disable_unit`, `AutomountInstaller.install`, `SystemdUnitExporter.export`,
+    `disable_unit`, `AutomountInstaller.install`, `SystemdUnitExporter.export`
+    et `SystemdUnitExporter.to_toml` (`enabled`, `requires_exec`),
     `SystemdUnitRestorer.restore`, `__init__` des gestionnaires d'unités
-    (service, timer, mount, user_service, user_timer).
-  - `WriteOutcome` et `PhaseOutcome` se construisent avec `success=` ;
-  - `devtools.cli.ExecutorFactory` devient un `Protocol`
+    (`remote_write` mot-clé seul) : celui de `UnitManager` (hérité par
+    `LinuxMountUnitManager` et les bases service/timer), celui de
+    `UserUnitManager`, et le propre `__init__` de
+    `Linux{Service,Timer,UserService,UserTimer}UnitManager`.
+    L'`__init__(logger, executor)` de `LinuxMountUnitManager` n'a pas
+    changé ;
+  - `devtools` : `BumpConsumersCommand.make_executor` (`dry_run`),
+    `ExecutorFactory` devient un `Protocol`
     (`__call__(logger, *, dry_run)`).
+  - Les dataclasses `WriteOutcome` et `PhaseOutcome` ne changent pas : leurs
+    champs restent positionnels (`WriteOutcome(True)` fonctionne toujours).
+    Écrire `success=` reste recommandé pour la lisibilité, sans être imposé.
+  - `CommandFormatter._prefix` (méthode privée, mais appelée par les
+    formatters tiers depuis leur `_decorate`) : `is_root` est mot-clé seul ;
+    un appel `self._prefix(is_root)` lève `TypeError`, écrire
+    `self._prefix(is_root=is_root)`.
 
-  Migration : repérer les appels positionnels avec
-  `ruff check --select FBT` sur le code consommateur, puis nommer l'argument.
-  Ex. `Deployer(a, b, True)` -> `Deployer(a, b, dry_run=True)` ;
-  `executor.run(cmd, True)` -> `executor.run(cmd, check=True)` ;
-  `WriteOutcome(True)` -> `WriteOutcome(success=True)`.
+  Migration : repérer les appels positionnels avec `mypy --strict` (au minimum
+  `--check-untyped-defs`) sur le code consommateur (« Too many positional
+  arguments »), puis nommer l'argument. Sans l'une de ces options, mypy ne
+  contrôle pas le corps des fonctions non annotées (`def main(args)`).
+  `ruff check --select FBT` n'est qu'un appoint : il ne signale que
+  les booléens littéraux (`DryRunContext(True)`) et pas
+  `DryRunContext(args.dry_run)`, et il signale aussi des appels qui ne cassent
+  pas (`WriteOutcome(True)`).
+  Ex. `Deployer(t, i, v, log, True)` ->
+  `Deployer(t, i, v, log, dry_run=True)` ;
+  `executor.run(cmd, None, None, None, True)` -> `executor.run(cmd, probe=True)` ;
+  `DryRunContext(args.dry_run)` -> `DryRunContext(dry_run=args.dry_run)`.
 - refactor(lint): ruff `ALL` (base commune 3/6) : règles de la base commune
   activées, `tests/` entièrement corrigé (445 alertes) et désormais contrôlé
   par `ruff check src/ tests/` (Makefile, hook, CI) ; les règles encore en
