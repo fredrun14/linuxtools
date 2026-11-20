@@ -1,11 +1,13 @@
 """Non-régression de l'interface : les booléens sont en mot-clé seul."""
 
+import dataclasses
 import importlib
 import inspect
 import pkgutil
+import types
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any
+from typing import Any, Union, get_args, get_origin
 
 import pytest
 
@@ -210,6 +212,120 @@ def test_executor_factory_dry_run_est_mot_cle_seul() -> None:
     """``ExecutorFactory.__call__`` reçoit ``dry_run`` en mot-clé seul."""
     # Act
     kind = inspect.signature(ExecutorFactory.__call__).parameters["dry_run"].kind
+
+    # Assert
+    assert kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def _est_annotation_booleenne(annotation: object) -> bool:
+    """Indique si l'annotation est exactement ``bool`` ou ``bool | None``.
+
+    Comparaison exacte, pas de sous-chaîne : ``Callable[..., bool]`` n'est pas
+    un booléen, c'est un appelable qui renvoie un booléen.
+    """
+    if annotation is bool:
+        return True
+    if isinstance(annotation, str):
+        morceaux = {m.strip() for m in annotation.split("|")}
+    elif get_origin(annotation) in (Union, types.UnionType):
+        morceaux = {
+            "bool" if a is bool else "None" if a is type(None) else "?"
+            for a in get_args(annotation)
+        }
+    else:
+        return False
+    return morceaux in ({"bool"}, {"bool", "None"})
+
+
+def _est_booleen_public(parametre: inspect.Parameter) -> bool:
+    """Indique si le paramètre est un booléen (annotation exacte ou défaut)."""
+    return _est_annotation_booleenne(parametre.annotation) or isinstance(
+        parametre.default, bool
+    )
+
+
+def _init_genere_par_dataclass(classe: type, init: Callable[..., Any]) -> bool:
+    """Indique si ``init`` est le ``__init__`` généré d'une dataclass.
+
+    Le code généré par ``dataclasses`` n'a pas de fichier source (``<string>``) ;
+    un ``__init__`` écrit à la main dans une dataclass reste donc contrôlé.
+    """
+    return dataclasses.is_dataclass(classe) and init.__code__.co_filename == "<string>"
+
+
+def _fonctions_publiques_de_classe(classe: type) -> list[Callable[..., Any]]:
+    """Liste ``__init__`` et les méthodes publiques définies dans ``linuxtools``.
+
+    Les bases du MRO définies dans ``linuxtools`` sont parcourues : une méthode
+    héritée d'une base non exportée reste ainsi contrôlée.
+    """
+    fonctions: list[Callable[..., Any]] = []
+    for base in classe.__mro__:
+        if not base.__module__.startswith("linuxtools"):
+            continue
+        for nom, attribut in vars(base).items():
+            if nom != "__init__" and nom.startswith("_"):
+                continue
+            if isinstance(attribut, staticmethod | classmethod):
+                attribut = attribut.__func__  # noqa: PLW2901
+            if not inspect.isfunction(attribut):
+                continue
+            if nom == "__init__" and _init_genere_par_dataclass(base, attribut):
+                continue
+            fonctions.append(attribut)
+    return fonctions
+
+
+def _booleens_de_fonction(fonction: Callable[..., Any]) -> list[tuple[str, str]]:
+    """Liste (identifiant, paramètre) des booléens de la signature."""
+    identifiant = f"{fonction.__module__}.{fonction.__qualname__}"
+    return [
+        (identifiant, p.name)
+        for p in inspect.signature(fonction).parameters.values()
+        if _est_booleen_public(p)
+    ]
+
+
+def _surface_publique() -> list[object]:
+    """Objets exportés par ``__all__`` de ``linuxtools`` et de ses sous-paquets."""
+    return [
+        getattr(module, nom)
+        for module in [linuxtools, *_modules_linuxtools()]
+        for nom in getattr(module, "__all__", ())
+    ]
+
+
+def _collecter_booleens_publics() -> dict[str, inspect.Parameter]:
+    """Associe ``module.qualname.parametre`` à son ``inspect.Parameter``."""
+    fonctions: dict[int, Callable[..., Any]] = {}
+    for objet in _surface_publique():
+        candidates: list[Callable[..., Any]]
+        if inspect.isfunction(objet):
+            candidates = [objet]
+        elif inspect.isclass(objet):
+            candidates = _fonctions_publiques_de_classe(objet)
+        else:
+            continue
+        fonctions.update({id(f): f for f in candidates})
+    booleens: dict[str, inspect.Parameter] = {}
+    for fonction in fonctions.values():
+        parametres = inspect.signature(fonction).parameters
+        for identifiant, nom in _booleens_de_fonction(fonction):
+            booleens[f"{identifiant}.{nom}"] = parametres[nom]
+    return booleens
+
+
+BOOLEENS_PUBLICS = _collecter_booleens_publics()
+
+
+@pytest.mark.parametrize(
+    "identifiant",
+    sorted(BOOLEENS_PUBLICS),
+)
+def test_booleens_publics_sont_mot_cle_seul(identifiant: str) -> None:
+    """Tout booléen d'API publique est KEYWORD_ONLY, sans dérogation tacite."""
+    # Arrange / Act
+    kind = BOOLEENS_PUBLICS[identifiant].kind
 
     # Assert
     assert kind is inspect.Parameter.KEYWORD_ONLY
