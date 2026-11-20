@@ -66,6 +66,8 @@ set -euo pipefail
 {
   echo "toplevel=$(git rev-parse --show-toplevel)"
   echo "hookdir=$(cd "$(dirname "$0")" && pwd -P)"
+  echo "no_sources=${UV_NO_SOURCES-absent}"
+  echo "frozen=${UV_FROZEN-absent}"
 } > "$HOOK_MARKER"
 """
 # Comme le vrai post-commit, mais synchrone : test déterministe.
@@ -142,6 +144,9 @@ class _Env:
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Env:
     """Origin nu + consommateur sur une feature branch sale + uv factice."""
     for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        monkeypatch.delenv(name, raising=False)
+    # Hermétique : aucune variable refusée par la CLI ne doit venir du lanceur.
+    for name in cli.FORBIDDEN_ENV:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
@@ -266,6 +271,24 @@ def test_hooks_versionnes_tournent_a_la_racine_du_worktree(
     assert "linuxtools-bump-" in lignes["toplevel"]
     assert lignes["hookdir"] == f"{lignes['toplevel']}/.githooks"
     assert str(env.app) not in lignes["hookdir"]
+
+
+def test_hook_de_commit_voit_uv_frozen_sans_uv_no_sources(env: _Env) -> None:
+    bumper = _bumper(dry_run=False, root=env.app.parent)
+
+    outcome = bumper.bump(Consumer("app", env.app))
+
+    assert outcome.status is Status.POUSSE, outcome.detail
+    lignes = dict(ligne.split("=", 1) for ligne in env.marker.read_text().splitlines())
+    assert lignes["no_sources"] == "absent"
+    assert lignes["frozen"] == "1"
+    # La résolution (sync) garde bien UV_NO_SOURCES=1.
+    ligne_sync = next(
+        ligne
+        for ligne in env.uv_log.read_text().splitlines()
+        if ligne.startswith("uv sync")
+    )
+    assert ligne_sync.endswith("NO_SOURCES=1")
 
 
 def test_uv_appele_sans_sources_et_checks_dans_le_venv(env: _Env) -> None:

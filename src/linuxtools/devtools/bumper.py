@@ -488,10 +488,18 @@ class ConsumerBumper:
             f"chore(deps): épingler linuxtools en {self._tag}\n\n"
             f"Co-Authored-By: {self._co_author}\n"
         )
+        # Le hook du consommateur peut lancer ``uv run --frozen``, incompatible
+        # avec ``UV_NO_SOURCES`` ; le verrou ayant déjà été régénéré sans
+        # sources, ``UV_FROZEN`` couvre ``uv run`` (avec ou sans ``--frozen`` /
+        # ``--no-sync``). Limite : un hook qui passe ``--locked`` explicite
+        # n'est pas couvert (uv ignore alors ``UV_FROZEN``) ; même effet attendu
+        # pour ``--no-frozen``.
+        commit_env = {k: v for k, v in space.env.items() if k != "UV_NO_SOURCES"}
+        commit_env["UV_FROZEN"] = "1"
         self._step(
             ["git", "commit", "-F", "-"],
             cwd,
-            env={**space.env, "UV_FROZEN": "1"},
+            env=commit_env,
             stdin=message,
         )
         touched = _split_nul(
