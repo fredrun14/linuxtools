@@ -76,7 +76,7 @@ lint: format-check
 clean:
 	rm -rf build/
 	rm -rf dist/
-	rm -rf *.egg-info/
+	rm -rf src/*.egg-info/
 	rm -rf .pytest_cache/
 	rm -rf .coverage
 	rm -rf htmlcov/
