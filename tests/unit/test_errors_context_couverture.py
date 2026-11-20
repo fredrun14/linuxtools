@@ -51,9 +51,14 @@ def test_gestion_d_erreur_sans_logger_lance_le_rollback() -> None:
     appel.assert_called_once_with()
 
 
-def test_gestion_d_erreur_sans_logger_ni_action_ne_fait_rien() -> None:
+def test_gestion_d_erreur_sans_logger_ni_action_ne_fait_rien(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Sans logger ni action enregistrée, la gestion d'erreur est silencieuse."""
     ErrorContext().handle_error_with_rollback(ValueError("x"))
+
+    sortie = capsys.readouterr()
+    assert (sortie.out, sortie.err) == ("", "")
 
 
 def test_gestion_d_erreur_avec_logger_sans_action_le_precise() -> None:

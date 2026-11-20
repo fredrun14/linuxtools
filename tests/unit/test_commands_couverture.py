@@ -2,7 +2,7 @@
 
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -22,20 +22,24 @@ class _FauxFlux:
         return self._tty
 
 
-def test_le_formateur_ansi_detecte_un_terminal_interactif(
+def test_le_formateur_ansi_colore_sur_un_terminal_interactif(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Le formateur ANSI se déclare TTY quand stdout en est un."""
     monkeypatch.setattr(sys, "stdout", _FauxFlux(tty=True))
-    assert AnsiCommandFormatter()._is_tty() is True
+    message = AnsiCommandFormatter().format_start(["ls"], is_root=False)
+    assert message.startswith(AnsiCommandFormatter.USER_STYLE)
+    assert message.endswith(AnsiCommandFormatter.RESET)
 
 
-def test_le_formateur_ansi_ne_detecte_pas_de_terminal_sur_une_redirection(
+def test_le_formateur_ansi_reste_en_texte_brut_sur_une_redirection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Le formateur ANSI ne se déclare pas TTY quand stdout est redirigé."""
     monkeypatch.setattr(sys, "stdout", _FauxFlux(tty=False))
-    assert AnsiCommandFormatter()._is_tty() is False
+    message = AnsiCommandFormatter().format_start(["ls"], is_root=False)
+    assert "\033[" not in message
+    assert "ls" in message
 
 
 @patch("linuxtools.commands.runner.subprocess.Popen")
@@ -54,8 +58,8 @@ def test_ctrl_c_tue_le_process_qui_ne_termine_pas_apres_terminate(
     with pytest.raises(KeyboardInterrupt):
         executor.run(["sleep", "100"])
 
-    proc.terminate.assert_called_once()
-    proc.kill.assert_called_once()
+    appels = [c for c in proc.mock_calls if c[0] in {"terminate", "wait", "kill"}]
+    assert appels == [call.terminate(), call.wait(timeout=5), call.kill()]
 
 
 @patch("linuxtools.commands.runner.subprocess.Popen")

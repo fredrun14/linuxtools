@@ -2,6 +2,7 @@
 
 import io
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -49,14 +50,29 @@ def test_build_logger_fichier_applique_le_format_demande(tmp_path: Path) -> None
     assert "MARQUE bonjour" in fichier.read_text(encoding="utf-8")
 
 
+@pytest.fixture
+def handlers_a_fermer() -> Iterator[list[RotatingFileLogger]]:
+    """Ferme et détache les handlers des loggers créés, même si le test échoue."""
+    loggers: list[RotatingFileLogger] = []
+    yield loggers
+    for rotating in loggers:
+        for handler in list(rotating.logger.handlers):
+            handler.close()
+            rotating.logger.removeHandler(handler)
+
+
 @pytest.mark.parametrize("coloree", [False, True])
 def test_rotating_logger_ecrit_aussi_sur_la_console(
-    tmp_path: Path, *, coloree: bool
+    tmp_path: Path,
+    handlers_a_fermer: list[RotatingFileLogger],
+    *,
+    coloree: bool,
 ) -> None:
     """Avec console_output, le message va au fichier et à la console."""
     fichier = tmp_path / f"rot-{coloree}.log"
     flux = io.StringIO()
     logger = RotatingFileLogger(fichier, console_output=True, colored_console=coloree)
+    handlers_a_fermer.append(logger)
     console = logger.logger.handlers[1]
     assert isinstance(console, logging.StreamHandler)
     console.setStream(flux)
@@ -65,7 +81,7 @@ def test_rotating_logger_ecrit_aussi_sur_la_console(
 
     assert "bonjour" in fichier.read_text(encoding="utf-8")
     assert "bonjour" in flux.getvalue()
-    logger.logger.handlers.clear()
+    assert ("\033[" in flux.getvalue()) is coloree
 
 
 def test_tee_close_ignore_un_fichier_deja_ferme(tmp_path: Path) -> None:
@@ -79,14 +95,15 @@ def test_tee_close_ignore_un_fichier_deja_ferme(tmp_path: Path) -> None:
 
 def test_rotating_logger_reutilise_le_handler_d_un_logger_existant(
     tmp_path: Path,
+    handlers_a_fermer: list[RotatingFileLogger],
 ) -> None:
     """Deux instances sur le même fichier partagent le même handler."""
     fichier = tmp_path / "partage.log"
     premier = RotatingFileLogger(fichier)
     second = RotatingFileLogger(fichier)
+    handlers_a_fermer.append(premier)
 
     second.log_info("bonjour")
 
     assert second.handler is premier.handler
     assert "bonjour" in fichier.read_text(encoding="utf-8")
-    premier.logger.handlers.clear()
