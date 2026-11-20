@@ -40,7 +40,6 @@ class _SupportsGet(Protocol):
     # exclurait des implémentations parfaitement valides.
     def get(self, key: str, default: Any = None, /) -> Any:  # noqa: ANN401
         """Retourne la valeur associée à la clé, ou ``default``."""
-        ...
 
 
 def _resolve_config(
