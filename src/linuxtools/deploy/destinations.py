@@ -231,6 +231,21 @@ class RemoteDestination:
                 detail=f"Échec de la création du répertoire distant {parent} : "
                 f"{mkdir_result.stderr}",
             )
+        return self._publish_via_tmp(dest, content, mode)
+
+    def _publish_via_tmp(self, dest: str, content: str, mode: int) -> WriteOutcome:
+        """Écrit un temporaire distant puis le publie par ``ln -T``.
+
+        Le temporaire est supprimé dans tous les cas (``rm -f``).
+
+        Args:
+            dest: Chemin de destination sur l'hôte distant.
+            content: Contenu à écrire (jamais en argv).
+            mode: Permissions POSIX du fichier.
+
+        Returns:
+            `WriteOutcome(success=True)` si créé, sinon un échec détaillé.
+        """
         tmp = f"{dest}.{secrets.token_hex(8)}.tmp"
         try:
             write_result = self.executor.run(

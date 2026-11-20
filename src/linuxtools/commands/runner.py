@@ -45,6 +45,7 @@ import subprocess  # nosec B404
 import threading
 import time
 from collections.abc import Iterable
+from typing import IO
 
 from linuxtools.commands.base import (
     CommandExecutor,
@@ -245,7 +246,7 @@ class LinuxCommandExecutor(CommandExecutor):
         self._emit("format_dry_run", command)
         return self._result(command, 0, "", "", 0.0)
 
-    def run(
+    def run(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         command: list[str],
         env: dict[str, str] | None = None,
@@ -361,6 +362,77 @@ class LinuxCommandExecutor(CommandExecutor):
         except (ProcessLookupError, PermissionError):
             proc.kill()
 
+    def _start_stderr_drain(
+        self,
+        proc: subprocess.Popen[str],
+        stderr_lines: list[str],
+        *,
+        merge_stderr: bool,
+    ) -> threading.Thread | None:
+        """Démarre le fil qui vide stderr, sauf si fusionné dans stdout.
+
+        Args:
+            proc: Processus en cours.
+            stderr_lines: Liste alimentée par le fil de drainage.
+            merge_stderr: True si stderr est fusionné dans stdout.
+
+        Returns:
+            Le fil démarré, ou None s'il n'y a rien à drainer.
+        """
+        if merge_stderr or proc.stderr is None:
+            return None
+        thread = threading.Thread(
+            target=self._drain,
+            args=(proc.stderr, stderr_lines),
+            daemon=True,
+        )
+        thread.start()
+        return thread
+
+    def _start_watchdog(
+        self,
+        proc: subprocess.Popen[str],
+        timeout: int | None,
+        timed_out: threading.Event,
+    ) -> threading.Timer | None:
+        """Démarre le chien de garde qui tue le groupe à l'échéance.
+
+        Args:
+            proc: Processus à surveiller.
+            timeout: Délai en secondes, ou None (pas de surveillance).
+            timed_out: Événement levé à l'expiration.
+
+        Returns:
+            Le minuteur démarré, ou None si aucun délai n'est fixé.
+        """
+        if timeout is None:
+            return None
+
+        def _expire() -> None:
+            timed_out.set()
+            self._kill_group(proc)
+
+        watchdog = threading.Timer(timeout, _expire)
+        watchdog.daemon = True
+        watchdog.start()
+        return watchdog
+
+    def _read_stdout(self, stdout: IO[str], stdout_lines: list[str]) -> None:
+        """Lit stdout ligne par ligne, journalise et affiche en continu.
+
+        Args:
+            stdout: Flux de sortie du processus.
+            stdout_lines: Liste accumulant les lignes lues (sans saut de ligne).
+        """
+        for line in stdout:
+            stripped = line.rstrip("\n")
+            stdout_lines.append(stripped)
+            self._log(self._plain.format_line(stripped, is_root=self._is_root))
+            if self._console_formatter:
+                self._print(
+                    self._console_formatter.format_line(stripped, is_root=self._is_root)
+                )
+
     def run_streaming(
         self,
         command: list[str],
@@ -424,46 +496,19 @@ class LinuxCommandExecutor(CommandExecutor):
                 if proc.stdout is None:
                     raise RuntimeError("invariant rompu : stdout non capturé")
 
-                # Fil de drainage : vide stderr en continu pour éviter
-                # le blocage du processus sur un pipe plein (> 64 Ko).
-                # Il n'accumule que, sans logger (pas de concurrence).
+                # Fil de drainage : vide stderr en continu (pipe plein).
                 stderr_lines: list[str] = []
-                stderr_thread: threading.Thread | None = None
-                if not merge_stderr and proc.stderr is not None:
-                    stderr_thread = threading.Thread(
-                        target=self._drain,
-                        args=(proc.stderr, stderr_lines),
-                        daemon=True,
-                    )
-                    stderr_thread.start()
+                stderr_thread = self._start_stderr_drain(
+                    proc, stderr_lines, merge_stderr=merge_stderr
+                )
 
                 # Chien de garde : tue le groupe à l'échéance, ce qui
                 # ferme stdout et termine la boucle de lecture ci-dessous.
                 timed_out = threading.Event()
-                watchdog: threading.Timer | None = None
-                if effective_timeout is not None:
-
-                    def _expire() -> None:
-                        timed_out.set()
-                        self._kill_group(proc)
-
-                    watchdog = threading.Timer(effective_timeout, _expire)
-                    watchdog.daemon = True
-                    watchdog.start()
+                watchdog = self._start_watchdog(proc, effective_timeout, timed_out)
 
                 try:
-                    for line in proc.stdout:
-                        stripped = line.rstrip("\n")
-                        stdout_lines.append(stripped)
-                        self._log(
-                            self._plain.format_line(stripped, is_root=self._is_root)
-                        )
-                        if self._console_formatter:
-                            self._print(
-                                self._console_formatter.format_line(
-                                    stripped, is_root=self._is_root
-                                )
-                            )
+                    self._read_stdout(proc.stdout, stdout_lines)
                     # stdout est fermé : le processus est terminé ou tué.
                     proc.wait()
                 except KeyboardInterrupt:

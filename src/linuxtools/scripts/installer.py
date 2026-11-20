@@ -37,6 +37,7 @@ Example:
 import os
 import sys
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import NoReturn
 
@@ -121,16 +122,22 @@ class BashScriptInstaller(ScriptInstaller):
     def __init__(
         self,
         logger: Logger | None = None,
-        file_manager: FileManager = None,  # type: ignore[assignment]
+        file_manager: FileManager | None = None,
         default_mode: int = 0o755,
     ) -> None:
         """Initialise l'installateur avec ses dépendances.
 
         Args:
             logger: Instance de Logger pour la journalisation.
-            file_manager: Gestionnaire de fichiers.
+            file_manager: Gestionnaire de fichiers (obligatoire en pratique).
             default_mode: Permissions par défaut pour les scripts.
+
+        Raises:
+            TypeError: Si `file_manager` est None.
         """
+        if file_manager is None:
+            msg = "file_manager est requis"
+            raise TypeError(msg)
         self._logger = logger
         self._file_manager: FileManager = file_manager
         self._default_mode: int = default_mode
@@ -280,6 +287,25 @@ class CliInstaller(ABC):
         ...
 
 
+@dataclass(frozen=True)
+class _ReportFields:
+    """Champs de rapport transmis à `_failure` lors d'un échec du wrapper.
+
+    Attributes:
+        missing: Dépendances manquantes.
+        installed: Dépendances installées.
+        total: Nombre total de dépendances.
+        install_cmd: Commande de remédiation.
+        warnings: Avertissements accumulés.
+    """
+
+    missing: list[MissingDependency] = field(default_factory=list)
+    installed: list[InstalledDependency] = field(default_factory=list)
+    total: int = 0
+    install_cmd: str = ""
+    warnings: list[str] = field(default_factory=list)
+
+
 class LinuxCliInstaller(CliInstaller):
     """Installateur de scripts Python CLI pour systèmes Linux.
 
@@ -334,37 +360,29 @@ class LinuxCliInstaller(CliInstaller):
         self,
         config: PythonCliConfig,
         install_path: Path,
-        *,
-        missing: list[MissingDependency] | None = None,
-        installed: list[InstalledDependency] | None = None,
-        total: int = 0,
-        install_cmd: str = "",
-        warnings: list[str] | None = None,
+        fields: _ReportFields | None = None,
     ) -> InstallReport:
         """Construit un InstallReport d'échec avec les champs communs.
 
         Args:
             config: Configuration du déploiement.
             install_path: Chemin d'installation cible.
-            missing: Dépendances manquantes.
-            installed: Dépendances installées.
-            total: Nombre total de dépendances.
-            install_cmd: Commande de remédiation.
-            warnings: Avertissements à inclure.
+            fields: Champs du rapport (dépendances, commande, avertissements).
 
         Returns:
             InstallReport avec success=False.
         """
+        fields = fields or _ReportFields()
         return InstallReport(
             success=False,
             app_name=config.name,
             deploy_type=config.deploy_type,
             install_path=install_path,
-            missing_deps=missing or [],
-            installed_deps=installed or [],
-            total_deps=total,
-            install_command=install_cmd,
-            warnings=warnings or [],
+            missing_deps=fields.missing,
+            installed_deps=fields.installed,
+            total_deps=fields.total,
+            install_command=fields.install_cmd,
+            warnings=fields.warnings,
             deps_managed_by_uv=config.venv_path is None,
         )
 
@@ -372,7 +390,7 @@ class LinuxCliInstaller(CliInstaller):
         self,
         config: PythonCliConfig,
         paths: ScriptPaths,
-    ) -> tuple[InstallReport | None, dict[str, object] | None]:
+    ) -> tuple[InstallReport | None, dict[str, object]]:
         """Vérifie python3 et lit pyproject.toml.
 
         Args:
@@ -381,14 +399,17 @@ class LinuxCliInstaller(CliInstaller):
 
         Returns:
             Tuple (échec, données) : si échec non nul, l'installation
-            doit s'arrêter ; sinon, données contient le pyproject.
+            doit s'arrêter ; sinon, données contient le pyproject (dict
+            vide en cas d'échec).
         """
         if not self._checker.check_python():
             return self._failure(
                 config,
                 paths.bin_path,
-                warnings=["python3 indisponible ou version insuffisante"],
-            ), None
+                _ReportFields(
+                    warnings=["python3 indisponible ou version insuffisante"]
+                ),
+            ), {}
 
         pyproject_path = config.source_dir / "pyproject.toml"
         try:
@@ -396,7 +417,9 @@ class LinuxCliInstaller(CliInstaller):
         except (FileNotFoundError, ValueError) as exc:
             if self._logger:
                 self._logger.log_error(str(exc))
-            return self._failure(config, paths.bin_path, warnings=[str(exc)]), None
+            return self._failure(
+                config, paths.bin_path, _ReportFields(warnings=[str(exc)])
+            ), {}
 
         return None, pyproject_data
 
@@ -405,11 +428,7 @@ class LinuxCliInstaller(CliInstaller):
         config: PythonCliConfig,
         paths: ScriptPaths,
         pyproject_data: dict[str, object],
-        missing: list[MissingDependency],
-        installed: list[InstalledDependency],
-        total: int,
-        install_cmd: str,
-        warnings: list[str],
+        report: _ReportFields,
         *,
         confirm_wrapper: bool,
     ) -> InstallReport | None:
@@ -419,11 +438,8 @@ class LinuxCliInstaller(CliInstaller):
             config: Configuration du déploiement.
             paths: Chemins FHS résolus.
             pyproject_data: Données lues depuis pyproject.toml.
-            missing: Dépendances manquantes.
-            installed: Dépendances installées.
-            total: Nombre total de dépendances.
-            install_cmd: Commande de remédiation.
-            warnings: Avertissements accumulés.
+            report: Champs de rapport (dépendances, commande, avertissements
+                accumulés) repris en cas d'échec.
             confirm_wrapper: Si True, demande confirmation interactive.
 
         Returns:
@@ -451,11 +467,7 @@ class LinuxCliInstaller(CliInstaller):
                 return self._failure(
                     config,
                     paths.bin_path,
-                    missing=missing,
-                    installed=installed,
-                    total=total,
-                    install_cmd=install_cmd,
-                    warnings=["Wrapper refusé par l'utilisateur"],
+                    replace(report, warnings=["Wrapper refusé par l'utilisateur"]),
                 )
 
         wrapper_content = self._generate_wrapper_content(config, paths)
@@ -467,11 +479,10 @@ class LinuxCliInstaller(CliInstaller):
             return self._failure(
                 config,
                 paths.bin_path,
-                missing=missing,
-                installed=installed,
-                total=total,
-                install_cmd=install_cmd,
-                warnings=warnings + [f"Wrapper non écrit : {exc}"],
+                replace(
+                    report,
+                    warnings=[*report.warnings, f"Wrapper non écrit : {exc}"],
+                ),
             )
         return None
 
@@ -512,12 +523,8 @@ class LinuxCliInstaller(CliInstaller):
         failure = self._handle_wrapper(
             config,
             paths,
-            pyproject_data,  # type: ignore[arg-type]
-            missing,
-            installed,
-            total,
-            install_cmd,
-            warnings,
+            pyproject_data,
+            _ReportFields(missing, installed, total, install_cmd, warnings),
             confirm_wrapper=confirm_wrapper,
         )
         if failure is not None:
@@ -527,11 +534,13 @@ class LinuxCliInstaller(CliInstaller):
             return self._failure(
                 config,
                 paths.bin_path,
-                missing=missing,
-                installed=installed,
-                total=total,
-                install_cmd=install_cmd,
-                warnings=warnings + ["Échec de uv tool install"],
+                _ReportFields(
+                    missing,
+                    installed,
+                    total,
+                    install_cmd,
+                    [*warnings, "Échec de uv tool install"],
+                ),
             )
 
         if self._logger:

@@ -40,7 +40,7 @@ class CommandExecutor(ABC):
     """Interface abstraite pour l'exécution de commandes système."""
 
     @abstractmethod
-    def run(
+    def run(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         command: list[str],
         env: dict[str, str] | None = None,

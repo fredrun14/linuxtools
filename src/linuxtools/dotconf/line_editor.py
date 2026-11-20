@@ -208,12 +208,30 @@ class SectionAwareEditor:
             self._write_lines(lines)
             return True
 
+        self._add_block(lines, content, section, comment)
+        self._write_lines(lines)
+        return True
+
+    def _add_block(
+        self,
+        lines: list[str],
+        content: str,
+        section: str | None,
+        comment: str,
+    ) -> None:
+        """Ajoute le bloc absent aux lignes (fin de fichier ou de section).
+
+        Args:
+            lines: Lignes du fichier, modifiées en place.
+            content: Contenu du bloc.
+            section: Section INI cible, None pour un fichier plat.
+            comment: Commentaire à insérer avant le bloc.
+        """
         formatted = self._format_block(content, comment)
 
         if section is None:
             lines.extend(formatted)
-            self._write_lines(lines)
-            return True
+            return
 
         start, end = self._find_section_range(lines, section)
         if start == -1:
@@ -224,9 +242,6 @@ class SectionAwareEditor:
         else:
             for item in reversed(formatted):
                 lines.insert(end, item)
-
-        self._write_lines(lines)
-        return True
 
     def list_sections(self) -> list[str]:
         """Retourne la liste des sections INI présentes dans le fichier.

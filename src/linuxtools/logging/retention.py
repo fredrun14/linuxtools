@@ -75,7 +75,59 @@ def purge_old_logs(
         os.close(fd)
 
 
-def _purge_names(
+def _keep_identity(keep: Path | None) -> tuple[int, int] | None:
+    """Retourne l'identité (dev, inode) du fichier à garder.
+
+    Args:
+        keep: Fichier à ne jamais supprimer (lien suivi), ou None.
+
+    Returns:
+        Couple (st_dev, st_ino), insensible à l'écriture du chemin ;
+        None si ``keep`` est absent ou illisible.
+    """
+    if keep is None:
+        return None
+    try:
+        keep_info = Path(keep).stat()
+    except OSError:
+        return None
+    return (keep_info.st_dev, keep_info.st_ino)
+
+
+def _is_purgeable(
+    fd: int,
+    name: str,
+    pattern: str,
+    cutoff: float,
+    keep_id: tuple[int, int] | None,
+) -> bool:
+    """Indique si l'entrée ``name`` doit être supprimée.
+
+    Args:
+        fd: Descripteur ouvert du dossier de logs.
+        name: Nom de l'entrée.
+        pattern: Motif ``fnmatch`` appliqué au nom.
+        cutoff: Date limite (epoch) : plus récent est conservé.
+        keep_id: Identité (dev, inode) du fichier à garder, ou None.
+
+    Returns:
+        True si c'est un fichier régulier conforme, ancien, non gardé.
+    """
+    if not fnmatch.fnmatchcase(name, pattern):
+        return False
+    try:
+        info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+    except OSError:
+        return False
+    # Fichiers réguliers seulement (ni lien, ni dossier)
+    if not stat.S_ISREG(info.st_mode):
+        return False
+    if keep_id == (info.st_dev, info.st_ino):
+        return False
+    return info.st_mtime < cutoff
+
+
+def _purge_names(  # noqa: PLR0913 — helper privé, 7 paramètres indépendants
     fd: int,
     log_dir: Path,
     names: list[str],
@@ -100,29 +152,11 @@ def _purge_names(
         Fichiers supprimés (ou qui le seraient en dry-run), triés.
     """
     cutoff = time.time() - max_age_days * _SECONDS_PER_DAY
-    # Identité du fichier à garder (lien suivi), insensible à l'écriture
-    keep_id: tuple[int, int] | None = None
-    if keep is not None:
-        try:
-            keep_info = Path(keep).stat()
-            keep_id = (keep_info.st_dev, keep_info.st_ino)
-        except OSError:
-            keep_id = None
+    keep_id = _keep_identity(keep)
 
     removed: list[Path] = []
     for name in names:
-        if not fnmatch.fnmatchcase(name, pattern):
-            continue
-        try:
-            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
-        except OSError:
-            continue
-        # Fichiers réguliers seulement (ni lien, ni dossier)
-        if not stat.S_ISREG(info.st_mode):
-            continue
-        if keep_id == (info.st_dev, info.st_ino):
-            continue
-        if info.st_mtime >= cutoff:
+        if not _is_purgeable(fd, name, pattern, cutoff, keep_id):
             continue
         if not dry_run:
             try:

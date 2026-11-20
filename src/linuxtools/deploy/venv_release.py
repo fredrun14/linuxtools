@@ -377,6 +377,43 @@ class VenvReleaser:
             return "other", None
         return "absent", None
 
+    def _check_activation_state(
+        self, venv_path: Path, version_path: Path, expected_dir: Path
+    ) -> tuple[VenvState, Path | None]:
+        """Lit l'état de venv_path et refuse les états non gérés.
+
+        Args:
+            venv_path: Chemin du venv cible.
+            version_path: Version que l'on s'apprête à activer.
+            expected_dir: Répertoire des versions gérées.
+
+        Returns:
+            Couple (état, cible du lien) tel que `_current_state`.
+
+        Raises:
+            DeployError: Fichier non géré, lien incohérent ou hors
+                `venvs/`, ou version legacy sur un répertoire réel.
+        """
+        state, target = self._current_state(venv_path)
+        if state == "other":
+            raise DeployError(
+                f"venv_path existe mais n'est ni un lien ni un répertoire : {venv_path}"
+            )
+        if state == "link":
+            if target is None:
+                raise DeployError(
+                    f"état incohérent : lien détecté sans cible pour {venv_path}"
+                )
+            _ensure_managed_link_target(venv_path, expected_dir, target)
+        elif state == "dir" and version_path.name.endswith(_LEGACY_SUFFIX):
+            raise DeployError(
+                f"activate() refuse une version déjà marquée legacy "
+                f"({version_path.name}) alors que {venv_path} est encore "
+                "un répertoire réel : la migration n'a pas encore eu lieu, "
+                "il n'y a pas de version antérieure à re-horodater"
+            )
+        return state, target
+
     def activate(self, venv_path: Path, version_path: Path) -> Path | None:
         """Bascule atomiquement venv_path vers version_path.
 
@@ -427,24 +464,9 @@ class VenvReleaser:
                 "cible absente)"
             )
 
-        state, target = self._current_state(venv_path)
-        if state == "other":
-            raise DeployError(
-                f"venv_path existe mais n'est ni un lien ni un répertoire : {venv_path}"
-            )
-        if state == "link":
-            if target is None:
-                raise DeployError(
-                    f"état incohérent : lien détecté sans cible pour {venv_path}"
-                )
-            _ensure_managed_link_target(venv_path, expected_dir, target)
-        elif state == "dir" and version_path.name.endswith(_LEGACY_SUFFIX):
-            raise DeployError(
-                f"activate() refuse une version déjà marquée legacy "
-                f"({version_path.name}) alors que {venv_path} est encore "
-                "un répertoire réel : la migration n'a pas encore eu lieu, "
-                "il n'y a pas de version antérieure à re-horodater"
-            )
+        state, target = self._check_activation_state(
+            venv_path, version_path, expected_dir
+        )
 
         tmp = venv_path.parent / f".{venv_path.name}.swap-{uuid4().hex[:8]}"
         ln_result = self._executor.run(
@@ -610,6 +632,69 @@ class VenvReleaser:
             )
         return ()
 
+    def _state_refusal(self, venv_path: Path, expected_dir: Path) -> str | None:
+        """Refuse un venv_path dans un état non géré (avant build).
+
+        Args:
+            venv_path: Chemin du venv cible.
+            expected_dir: Répertoire des versions gérées.
+
+        Returns:
+            Message de refus, ou None si l'état est acceptable.
+        """
+        try:
+            state, target = self._current_state(venv_path)
+        except DeployError as exc:
+            return str(exc)
+        if state == "other":
+            return (
+                "venv_path existe mais n'est ni un lien ni un "
+                "répertoire — refus avant build."
+            )
+        if state == "link":
+            if target is None:
+                # Ne devrait jamais se produire : _current_state garantit
+                # target is not None quand state == "link" — invariant
+                # vérifié explicitement plutôt que par un assert, qui
+                # disparaît sous python -O (F06).
+                return (
+                    f"état incohérent : lien détecté sans cible pour "
+                    f"{venv_path} — refus avant build."
+                )
+            try:
+                _ensure_managed_link_target(venv_path, expected_dir, target)
+            except DeployError as exc:
+                return f"{exc} — refus avant build."
+        return None
+
+    def _preflight_refusal(self, venv_path: Path) -> str | None:
+        """Contrôle les prérequis de `release` avant toute construction.
+
+        Args:
+            venv_path: Chemin du venv cible (lien symbolique actif).
+
+        Returns:
+            Message de refus (phase INSTALL), ou None si tout est valide.
+            Crée le répertoire des versions s'il manque.
+        """
+        try:
+            _validate_venv_path(venv_path)
+        except DeployError as exc:
+            return str(exc)
+
+        expected_dir = _versions_dir(venv_path)
+        state_refusal = self._state_refusal(venv_path, expected_dir)
+        if state_refusal is not None:
+            return state_refusal
+
+        if self._executor.run(["test", "-L", str(expected_dir)]).success:
+            return f"{expected_dir} est un lien : refus avant build."
+
+        mkdir_result = self._executor.run(["mkdir", "-p", "--", str(expected_dir)])
+        if not mkdir_result.success:
+            return f"Échec de création de {expected_dir} : {mkdir_result.stderr}"
+        return None
+
     def release(
         self,
         venv_path: Path,
@@ -636,72 +721,14 @@ class VenvReleaser:
         Returns:
             Compte rendu complet de la tentative de release.
         """
-        try:
-            _validate_venv_path(venv_path)
-        except DeployError as exc:
+        refusal = self._preflight_refusal(venv_path)
+        if refusal is not None:
             return ReleaseOutcome(
                 success=False,
                 phase_reached=DeployPhase.INSTALL,
-                messages=(str(exc),),
+                messages=(refusal,),
             )
-
         expected_dir = _versions_dir(venv_path)
-        try:
-            state, target = self._current_state(venv_path)
-        except DeployError as exc:
-            return ReleaseOutcome(
-                success=False,
-                phase_reached=DeployPhase.INSTALL,
-                messages=(str(exc),),
-            )
-        if state == "other":
-            return ReleaseOutcome(
-                success=False,
-                phase_reached=DeployPhase.INSTALL,
-                messages=(
-                    "venv_path existe mais n'est ni un lien ni un "
-                    "répertoire — refus avant build.",
-                ),
-            )
-        if state == "link":
-            if target is None:
-                # Ne devrait jamais se produire : _current_state garantit
-                # target is not None quand state == "link" — invariant
-                # vérifié explicitement plutôt que par un assert, qui
-                # disparaît sous python -O (F06).
-                return ReleaseOutcome(
-                    success=False,
-                    phase_reached=DeployPhase.INSTALL,
-                    messages=(
-                        f"état incohérent : lien détecté sans cible pour "
-                        f"{venv_path} — refus avant build.",
-                    ),
-                )
-            try:
-                _ensure_managed_link_target(venv_path, expected_dir, target)
-            except DeployError as exc:
-                return ReleaseOutcome(
-                    success=False,
-                    phase_reached=DeployPhase.INSTALL,
-                    messages=(f"{exc} — refus avant build.",),
-                )
-
-        if self._executor.run(["test", "-L", str(expected_dir)]).success:
-            return ReleaseOutcome(
-                success=False,
-                phase_reached=DeployPhase.INSTALL,
-                messages=(f"{expected_dir} est un lien : refus avant build.",),
-            )
-
-        mkdir_result = self._executor.run(["mkdir", "-p", "--", str(expected_dir)])
-        if not mkdir_result.success:
-            return ReleaseOutcome(
-                success=False,
-                phase_reached=DeployPhase.INSTALL,
-                messages=(
-                    f"Échec de création de {expected_dir} : {mkdir_result.stderr}",
-                ),
-            )
 
         version_id = _new_version_id(venv_path.name, self._clock())
         version = expected_dir / version_id

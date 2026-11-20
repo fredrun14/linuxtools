@@ -110,6 +110,64 @@ def _read_note(raw: dict[object, object]) -> str | None:
     return value
 
 
+def _build_client(
+    raw: object,
+    name_validator: Callable[[object], str | None] | None,
+    ip_validator: Callable[[object], str | None] | None,
+) -> LanClient:
+    """Valide une entrée brute et construit le `LanClient` correspondant.
+
+    Args:
+        raw: Entrée brute (doit être une table).
+        name_validator: Validateur de nom injecté, ou None.
+        ip_validator: Validateur d'IP épinglée injecté, ou None.
+
+    Returns:
+        Le client construit.
+
+    Raises:
+        ValueError: Entrée non-table, clé inconnue, MAC, nom, IP,
+            ``enabled`` ou ``note`` invalide (ordre documenté dans
+            `load_lan_clients`).
+    """
+    if not isinstance(raw, dict):
+        # ValueError documenté (contrat de `load_lan_clients`)
+        raise ValueError(f"entrée de client invalide : {raw!r}")  # noqa: TRY004
+    # Schéma fermé : une faute de frappe ne doit pas passer en silence.
+    unknown = sorted(set(raw) - _ALLOWED_KEYS, key=repr)
+    if unknown:
+        raise ValueError(
+            f"clé(s) inconnue(s) {', '.join(repr(k) for k in unknown)}"
+            f" — clés admises : {', '.join(sorted(_ALLOWED_KEYS))}"
+            f" (client {raw.get('mac')!r})"
+        )
+    mac = raw.get("mac")
+    if not isinstance(mac, str):
+        # ValueError documenté (contrat de `load_lan_clients`)
+        raise ValueError(f"MAC invalide : {mac!r}")  # noqa: TRY004
+    # La MAC est validée avant les validateurs injectés (ordre des
+    # erreurs historique) ; la normalisation finale reste assurée par
+    # LanClient.__post_init__.
+    mac = validate_mac(mac, case="upper")
+    # Les erreurs des validateurs injectés citent la MAC normalisée,
+    # comme les erreurs de schéma ; le message d'origine reste en tête.
+    try:
+        name = _resolve_optional(raw.get("name"), name_validator)
+    except ValueError as exc:
+        raise ValueError(f"{exc} (client {mac!r})") from exc
+    try:
+        pinned_ip = _resolve_optional(raw.get("ip"), ip_validator)
+    except ValueError as exc:
+        raise ValueError(f"{exc} (client {mac!r})") from exc
+    return LanClient(
+        mac=mac,
+        name=name,
+        pinned_ip=pinned_ip,
+        enabled=_read_enabled(raw),
+        note=_read_note(raw),
+    )
+
+
 def load_lan_clients(
     entries: object,
     *,
@@ -165,42 +223,7 @@ def load_lan_clients(
     seen_macs: set[str] = set()
     seen_names: set[str] = set()
     for raw in entries:
-        if not isinstance(raw, dict):
-            # ValueError documenté (contrat de `load_lan_clients`)
-            raise ValueError(f"entrée de client invalide : {raw!r}")  # noqa: TRY004
-        # Schéma fermé : une faute de frappe ne doit pas passer en silence.
-        unknown = sorted(set(raw) - _ALLOWED_KEYS, key=repr)
-        if unknown:
-            raise ValueError(
-                f"clé(s) inconnue(s) {', '.join(repr(k) for k in unknown)}"
-                f" — clés admises : {', '.join(sorted(_ALLOWED_KEYS))}"
-                f" (client {raw.get('mac')!r})"
-            )
-        mac = raw.get("mac")
-        if not isinstance(mac, str):
-            # ValueError documenté (contrat de `load_lan_clients`)
-            raise ValueError(f"MAC invalide : {mac!r}")  # noqa: TRY004
-        # La MAC est validée avant les validateurs injectés (ordre des
-        # erreurs historique) ; la normalisation finale reste assurée par
-        # LanClient.__post_init__.
-        mac = validate_mac(mac, case="upper")
-        # Les erreurs des validateurs injectés citent la MAC normalisée,
-        # comme les erreurs de schéma ; le message d'origine reste en tête.
-        try:
-            name = _resolve_optional(raw.get("name"), name_validator)
-        except ValueError as exc:
-            raise ValueError(f"{exc} (client {mac!r})") from exc
-        try:
-            pinned_ip = _resolve_optional(raw.get("ip"), ip_validator)
-        except ValueError as exc:
-            raise ValueError(f"{exc} (client {mac!r})") from exc
-        client = LanClient(
-            mac=mac,
-            name=name,
-            pinned_ip=pinned_ip,
-            enabled=_read_enabled(raw),
-            note=_read_note(raw),
-        )
+        client = _build_client(raw, name_validator, ip_validator)
         # Unicité de la MAC (normalisée), toujours active.
         if client.mac in seen_macs:
             raise ValueError(f"MAC en doublon : {client.mac}")

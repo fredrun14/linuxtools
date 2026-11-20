@@ -142,7 +142,7 @@ class ConsumerBumper:
     chemin réel écrit, commit et pousse.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — outil interne devtools, options keyword-only
         self,
         executor: CommandExecutor,
         logger: Logger,

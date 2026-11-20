@@ -471,6 +471,38 @@ class ServiceConfig(BaseSystemdConfig):
                     f"{key!r} : retour à la ligne interdit"
                 )
 
+    def _hardening_lines(self) -> list[str]:
+        """Rend les directives de durcissement et de priorité activées.
+
+        Returns:
+            Lignes ``[Service]`` (NoNewPrivileges, ProtectSystem,
+            ProtectHome, PrivateTmp, ReadWritePaths, Nice) dans l'ordre
+            de rendu ; vide si rien n'est activé.
+
+        Raises:
+            ValueError: Si un chemin de ``read_write_paths`` contient un
+                caractère de contrôle.
+        """
+        # Durcissement : ne rend que les directives activées
+        out: list[str] = []
+        if self.no_new_privileges:
+            out.append("NoNewPrivileges=true")
+        if self.protect_system:
+            out.append(f"ProtectSystem={self.protect_system}")
+        if self.protect_home:
+            out.append("ProtectHome=true")
+        if self.private_tmp:
+            out.append("PrivateTmp=true")
+        if self.read_write_paths:
+            joined = " ".join(
+                reject_control_chars(path, "read_write_paths")
+                for path in self.read_write_paths
+            )
+            out.append(f"ReadWritePaths={joined}")
+        if self.nice is not None:
+            out.append(f"Nice={self.nice}")
+        return out
+
     def to_unit_file(self) -> str:
         """Génère le contenu d'un fichier .service systemd.
 
@@ -535,23 +567,7 @@ class ServiceConfig(BaseSystemdConfig):
             if self.restart_sec > 0:
                 lines.append(f"RestartSec={self.restart_sec}")
 
-        # Durcissement : ne rend que les directives activées
-        if self.no_new_privileges:
-            lines.append("NoNewPrivileges=true")
-        if self.protect_system:
-            lines.append(f"ProtectSystem={self.protect_system}")
-        if self.protect_home:
-            lines.append("ProtectHome=true")
-        if self.private_tmp:
-            lines.append("PrivateTmp=true")
-        if self.read_write_paths:
-            joined = " ".join(
-                reject_control_chars(path, "read_write_paths")
-                for path in self.read_write_paths
-            )
-            lines.append(f"ReadWritePaths={joined}")
-        if self.nice is not None:
-            lines.append(f"Nice={self.nice}")
+        lines.extend(self._hardening_lines())
         for label, value, name in (
             (
                 "IOSchedulingClass",

@@ -58,7 +58,7 @@ class Deployer:
             les 3 phases ci-dessus.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         transport: Transport,
         installer: VenvInstaller,
@@ -573,42 +573,19 @@ class Deployer:
             messages=messages,
         )
 
-    def deploy(self, config: DeployConfig) -> DeployReport:
-        """Exécute le déploiement complet selon config.
+    def _deploy_in_place(
+        self, config: DeployConfig, messages: tuple[str, ...]
+    ) -> DeployReport:
+        """Installe dans le venv en place (sauvegarde, vérif, rollback).
 
         Args:
             config: Configuration du déploiement/màj.
+            messages: Messages déjà accumulés (résolution de la source).
 
         Returns:
-            Compte rendu complet, avec rollback automatique si
-            l'installation ou la vérification échoue et qu'un
-            backup était disponible.
+            Compte rendu, avec rollback si l'installation ou la
+            vérification échoue et qu'un backup était disponible.
         """
-        source_dir, source_message = self._resolve_source_dir(config)
-        if source_dir is None:
-            return DeployReport(
-                success=False,
-                phase_reached=DeployPhase.TRANSPORT,
-                messages=(source_message or "",),
-            )
-        messages: tuple[str, ...] = (source_message,) if source_message else ()
-
-        if self._dry_run:
-            return self._deploy_dry_run(config, source_dir, messages)
-
-        transport_result = self._transport.transfer(
-            source_dir, config.remote_source_dir, config.target
-        )
-        if not transport_result.success:
-            return DeployReport(
-                success=False,
-                phase_reached=DeployPhase.TRANSPORT,
-                messages=messages + (f"Transport échoué : {transport_result.stderr}",),
-            )
-
-        if config.atomic_swap:
-            return self._deploy_atomic(config, messages)
-
         try:
             backup_path = self._installer.backup_venv(config.venv_path)
         except DeployError as exc:
@@ -667,6 +644,44 @@ class Deployer:
             checks=checks,
             messages=messages,
         )
+
+    def deploy(self, config: DeployConfig) -> DeployReport:
+        """Exécute le déploiement complet selon config.
+
+        Args:
+            config: Configuration du déploiement/màj.
+
+        Returns:
+            Compte rendu complet, avec rollback automatique si
+            l'installation ou la vérification échoue et qu'un
+            backup était disponible.
+        """
+        source_dir, source_message = self._resolve_source_dir(config)
+        if source_dir is None:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.TRANSPORT,
+                messages=(source_message or "",),
+            )
+        messages: tuple[str, ...] = (source_message,) if source_message else ()
+
+        if self._dry_run:
+            return self._deploy_dry_run(config, source_dir, messages)
+
+        transport_result = self._transport.transfer(
+            source_dir, config.remote_source_dir, config.target
+        )
+        if not transport_result.success:
+            return DeployReport(
+                success=False,
+                phase_reached=DeployPhase.TRANSPORT,
+                messages=messages + (f"Transport échoué : {transport_result.stderr}",),
+            )
+
+        if config.atomic_swap:
+            return self._deploy_atomic(config, messages)
+
+        return self._deploy_in_place(config, messages)
 
     @classmethod
     def for_target(

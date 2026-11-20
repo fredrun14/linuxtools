@@ -50,7 +50,7 @@ class SmtpEmailNotifier(Notifier):
         _logger: Logger optionnel.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         host: str,
         sender: str,

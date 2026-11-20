@@ -54,7 +54,7 @@ class RotatingFileLogger(_BaseFileLogger):
         # produit run.log, run.log.1, run.log.2, run.log.3
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         log_file: str | Path,
         max_bytes: int = 10_485_760,

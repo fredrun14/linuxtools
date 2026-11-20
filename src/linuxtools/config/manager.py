@@ -71,7 +71,7 @@ class ConfigurationManager(ConfigManager):
     en injection de dépendance, facilitant les tests unitaires.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         config_path: str | Path | None = None,
         default_config: dict[str, Any] | None = None,

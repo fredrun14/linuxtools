@@ -176,6 +176,19 @@ class LinuxScriptChecker(ScriptChecker):
             return True
 
         version_str = result.stdout.strip() or result.stderr.strip()
+        return self._check_python_version(version_str, required_version)
+
+    def _check_python_version(self, version_str: str, required_version: str) -> bool:
+        """Compare la version python3 relevée à la version minimale.
+
+        Args:
+            version_str: Sortie de ``python3 --version``.
+            required_version: Version minimale requise (ex. '3.11').
+
+        Returns:
+            True si la version suffit ou est illisible (vérification
+            ignorée), False si elle est trop ancienne.
+        """
         try:
             parts = version_str.split()[1].split(".")
             current = tuple(int(p) for p in parts[:2])

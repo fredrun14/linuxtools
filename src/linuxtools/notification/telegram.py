@@ -161,7 +161,7 @@ class TelegramNotifier(Notifier):
         ... )
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — API publique (signature figée en 3.0.0)
         self,
         token: str,
         recipients: Mapping[str, int],
