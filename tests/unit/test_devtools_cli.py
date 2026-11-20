@@ -117,6 +117,7 @@ def test_refuse_root(
         "GIT_INDEX_FILE",
         "UV_FROZEN",
         "UV_LOCKED",
+        "UV_NO_SOURCES",
         "UV_NO_SYNC",
         "UV_PROJECT",
         "UV_PROJECT_ENVIRONMENT",

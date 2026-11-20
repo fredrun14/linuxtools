@@ -2,6 +2,21 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(devtools): `bump-consumers` n'expose plus `UV_NO_SOURCES` au `git commit` du
+  consommateur : le verrou étant déjà régénéré sans sources, `UV_FROZEN=1` couvre
+  `uv run` (avec ou sans `--frozen` / `--no-sync`). Un hook qui lance `uv run --frozen`
+  (`fedora_post_install`) ne fait plus échouer le commit (« the argument '--frozen'
+  cannot be used with '--no-sources' »). Limite : un hook qui passe `--locked`
+  explicite n'est pas couvert (uv ignore alors `UV_FROZEN` ; même effet attendu pour
+  `--no-frozen`), documentée dans le README.
+- fix(devtools)!: `UV_NO_SOURCES` rejoint les variables d'environnement refusées par
+  `bump-consumers` (avec `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `UV_FROZEN`,
+  `UV_LOCKED`, `UV_NO_SYNC`, `UV_PROJECT`, `UV_PROJECT_ENVIRONMENT`) : exportée par
+  l'opérateur, elle fuitait dans le hook de commit. La liste du [3.0.0] ci-dessous
+  est donc complétée de cette variable.
+
 ## [3.0.0] - 2026-11-19
 
 ### Ajouté

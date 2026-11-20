@@ -278,6 +278,22 @@ def test_message_de_commit_par_stdin_sans_no_verify(
     assert not any("--no-verify" in argv for argv in run.argvs())
 
 
+def test_commit_sans_uv_no_sources_compatible_hook_frozen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _scenario(tmp_path, monkeypatch)
+
+    run.outcome()
+
+    assert run.commit_env is not None
+    assert "UV_NO_SOURCES" not in run.commit_env
+    assert run.commit_env["UV_FROZEN"] == "1"
+    assert run.wt is not None
+    venv = str(run.wt.parent / "venv")
+    assert run.commit_env["UV_PROJECT_ENVIRONMENT"] == venv
+    assert run.commit_env["VIRTUAL_ENV"] == venv
+
+
 def test_checks_lances_dans_le_venv_jamais_uv_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

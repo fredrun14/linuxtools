@@ -3607,6 +3607,11 @@ checks = [["pytest"], ["mypy", "src/mon_projet/"]]
   `--group=NOM`).
 - `checks` (obligatoire, non vide) : liste d'argv, exécutés depuis le venv
   temporaire (le premier mot est un nom d'outil simple, pas un chemin).
+- Le hook `pre-commit` d'un consommateur ne doit pas utiliser `--locked` ni `--no-frozen` : le
+  commit tourne avec `UV_FROZEN=1` (sans `UV_NO_SOURCES`), ce qui couvre
+  `uv run` (avec ou sans `--frozen` / `--no-sync`), mais uv ignore `UV_FROZEN`
+  devant un `--locked` explicite (même effet attendu pour `--no-frozen`), relit alors `[tool.uv.sources]` et échoue sur
+  une source relative absente du worktree.
 
 **Statuts** : succès (code 0) = À JOUR, EN ATTENTE (branche de bump déjà poussée
 et vérifiée sur toute sa longueur), SIMULÉ, POUSSÉ, COMMITÉ ; échec (code 1) =
@@ -3623,7 +3628,7 @@ linuxtools), ÉCHEC (contrôle ou commande en erreur, montée annulée), PUSH
 - travail dans un worktree temporaire (`mkdtemp` 0700) basé sur
   `origin/<défaut>` : le checkout de l'utilisateur n'est jamais modifié ;
 - refus en root, et si `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`,
-  `UV_FROZEN`, `UV_LOCKED`, `UV_NO_SYNC`, `UV_PROJECT` ou
+  `UV_FROZEN`, `UV_LOCKED`, `UV_NO_SOURCES`, `UV_NO_SYNC`, `UV_PROJECT` ou
   `UV_PROJECT_ENVIRONMENT` est défini ;
 - le tag est vérifié par `git ls-remote` sur l'URL Forgejo de linuxtools,
   depuis un dossier neutre ; `git` >= 2.32 et `uv` requis ;
