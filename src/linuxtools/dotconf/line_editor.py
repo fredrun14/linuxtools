@@ -242,12 +242,12 @@ class SectionAwareEditor:
         ]
 
     def _read_lines(self) -> list[str]:
-        """Lit le fichier et retourne ses lignes avec fins de ligne.
+        r"""Lit le fichier et retourne ses lignes avec fins de ligne.
 
         Ouvre avec `newline=""` pour désactiver la traduction universal
-        newlines : les fins de ligne d'origine (`\\n`, `\\r\\n`) sont
-        préservées telles quelles, sans quoi une ligne `\\r\\n` serait
-        silencieusement convertie en `\\n` à la lecture (comportement
+        newlines : les fins de ligne d'origine (`\n`, `\r\n`) sont
+        préservées telles quelles, sans quoi une ligne `\r\n` serait
+        silencieusement convertie en `\n` à la lecture (comportement
         par défaut de Python en mode texte), et donc perdue avant même
         d'atteindre `_replace_line_preserving_format`.
 
@@ -419,17 +419,17 @@ class SectionAwareEditor:
         original: str,
         new_content: str,
     ) -> str:
-        """Remplace le contenu d'une ligne en conservant sa mise en forme.
+        r"""Remplace le contenu d'une ligne en conservant sa mise en forme.
 
         Args:
             original: Ligne existante (avec indentation et fin de ligne
-                d'origine, ex. `"    key = 1\\r\\n"`).
+                d'origine, ex. `"    key = 1\r\n"`).
             new_content: Nouveau contenu de la ligne (stripé, sans
                 indentation ni fin de ligne, ex. `"key = 2"`).
 
         Returns:
             La ligne reformée avec l'indentation d'origine de `original`
-            et sa fin de ligne d'origine (`\\r\\n`, `\\n` ou aucune).
+            et sa fin de ligne d'origine (`\r\n`, `\n` ou aucune).
         """
         if original.endswith("\r\n"):
             newline, body = "\r\n", original[:-2]
@@ -472,33 +472,32 @@ class SectionAwareEditor:
         return False
 
     def _uncomment_line(self, line: str) -> str:
-        """Supprime le préfixe de commentaire (#, ;) et l'espace suivant.
+        r"""Supprime le préfixe de commentaire (#, ;) et l'espace suivant.
 
         Args:
             line: Ligne commentée (avec fin de ligne possible).
 
         Returns:
-            Ligne décommentée avec \\n final préservé.
+            Ligne décommentée avec \n final préservé.
         """
         ending = "\n" if line.endswith("\n") else ""
         stripped = line.strip()
         for prefix in self._COMMENT_PREFIXES:
             if stripped.startswith(prefix):
                 uncommented = stripped[len(prefix) :]
-                if uncommented.startswith(" "):
-                    uncommented = uncommented[1:]
+                uncommented = uncommented.removeprefix(" ")
                 return uncommented + ending
         return line
 
     def _format_block(self, content: str, comment: str) -> list[str]:
-        """Formate un bloc de contenu avec commentaire optionnel.
+        r"""Formate un bloc de contenu avec commentaire optionnel.
 
         Args:
             content: Contenu du bloc (peut être multilignes).
             comment: Ligne de commentaire (vide si aucun).
 
         Returns:
-            Liste de lignes formatées prêtes à être insérées (avec \\n).
+            Liste de lignes formatées prêtes à être insérées (avec \n).
         """
         result: list[str] = []
         if comment:

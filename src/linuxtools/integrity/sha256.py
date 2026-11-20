@@ -209,8 +209,7 @@ class SHA256IntegrityChecker(IntegrityChecker):
         destination: str,
         dest_subdir: str | None = None,
     ) -> int:
-        """Vérifie l'intégrité d'une copie de répertoire ou lève
-        IntegrityError.
+        """Vérifie l'intégrité d'une copie de répertoire ou lève IntegrityError.
 
         Contrairement à verify, ne capture pas les exceptions — le premier
         fichier manquant ou checksum différent lève immédiatement

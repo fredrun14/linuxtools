@@ -5,7 +5,6 @@ enregistrés en best-effort, sur le modèle d'ErrorHandlerChain :
 l'échec d'un canal n'empêche pas les suivants.
 
 Example:
-
     from linuxtools.notification import (
         DesktopNotifier,
         GotifyNotifier,

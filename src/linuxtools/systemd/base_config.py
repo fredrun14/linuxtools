@@ -161,7 +161,6 @@ class AutomountConfig(BaseSystemdConfig):
     """Configuration pour une unité .automount systemd.
 
     Attributes:
-
         where: Chemin du point de montage local.
         timeout_idle_sec: Délai d'inactivité avant démontage automatique
             en secondes (0 = pas de démontage automatique).

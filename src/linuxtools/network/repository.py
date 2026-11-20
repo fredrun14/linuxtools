@@ -146,7 +146,7 @@ class JsonDeviceRepository(DeviceRepository):
                 old = existing_by_mac[device.mac]
                 updated = dataclasses.replace(
                     old,
-                    ip=device.ip if device.ip else old.ip,
+                    ip=device.ip or old.ip,
                     last_seen=datetime.now(),
                 )
                 merged.append(updated)

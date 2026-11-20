@@ -27,8 +27,7 @@ class LinuxTimerUnitManager(_TimerOperationsMixin, TimerUnitManager):
         *,
         remote_write: bool = False,
     ) -> None:
-        """
-        Initialise le gestionnaire d'unités timer.
+        """Initialise le gestionnaire d'unités timer.
 
         Args:
             logger: Instance de Logger pour le logging

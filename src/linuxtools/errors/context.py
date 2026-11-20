@@ -62,9 +62,8 @@ class ErrorContext:
             raise RollbackError(
                 f"Rollback partiel : {len(rollback_errors)} action(s) en échec"
             )
-        else:
-            if self._logger:
-                self._logger.log_info("Rollback terminé avec succès.")
+        if self._logger:
+            self._logger.log_info("Rollback terminé avec succès.")
 
     def handle_error_with_rollback(self, error: Exception) -> None:
         """Gère une erreur et exécute le rollback.
@@ -83,9 +82,8 @@ class ErrorContext:
                 self.execute_rollback()
             except RollbackError:
                 pass  # Déjà loggé dans execute_rollback
-        else:
-            if self._logger:
-                self._logger.log_info("Aucune action de rollback nécessaire.")
+        elif self._logger:
+            self._logger.log_info("Aucune action de rollback nécessaire.")
 
     def clear_rollback_actions(self) -> None:
         """Efface toutes les actions de rollback enregistrées."""

@@ -9,7 +9,6 @@ Deux modes d'envoi :
       par NotificationConfig).
 
 Example:
-
     from linuxtools.notification import DesktopNotifier, Notification
 
     notifier = DesktopNotifier(app_name="backup-nas")

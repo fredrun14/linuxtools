@@ -35,25 +35,25 @@ if TYPE_CHECKING:
 
 # Re-exports pour compatibilité des imports existants
 __all__ = [
+    "AutomountConfig",
     "BaseSystemdConfig",
     "MountConfig",
-    "AutomountConfig",
-    "TimerConfig",
-    "ServiceConfig",
-    "_BaseUnitManagerMixin",
-    "UnitManager",
     "MountUnitManager",
-    "_TimerUnitContract",
-    "TimerUnitManager",
-    "_ServiceUnitContract",
+    "ServiceConfig",
     "ServiceUnitManager",
-    "UserUnitManager",
-    "UserTimerUnitManager",
+    "TimerConfig",
+    "TimerUnitManager",
+    "UnitManager",
     "UserServiceUnitManager",
+    "UserTimerUnitManager",
+    "UserUnitManager",
+    "_BaseUnitManagerMixin",
     "_ServiceOperationsHost",
     "_ServiceOperationsMixin",
+    "_ServiceUnitContract",
     "_TimerOperationsHost",
     "_TimerOperationsMixin",
+    "_TimerUnitContract",
 ]
 
 # Les dataclasses (BaseSystemdConfig, MountConfig, AutomountConfig,
@@ -702,8 +702,7 @@ class _BaseUnitManagerMixin:
         self._remote_write = remote_write
 
     def reload_systemd(self) -> bool:
-        """
-        Recharge la configuration systemd (daemon-reload).
+        """Recharge la configuration systemd (daemon-reload).
 
         Returns:
             True si succès, False sinon
@@ -711,8 +710,7 @@ class _BaseUnitManagerMixin:
         return self.executor.reload_systemd()
 
     def enable(self, unit_name: str) -> bool:
-        """
-        Active une unité systemd.
+        """Active une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "flatpak-update.timer")
@@ -723,8 +721,7 @@ class _BaseUnitManagerMixin:
         return self.executor.enable_unit(unit_name)
 
     def disable(self, unit_name: str, *, ignore_errors: bool = False) -> bool:
-        """
-        Désactive une unité systemd.
+        """Désactive une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -736,8 +733,7 @@ class _BaseUnitManagerMixin:
         return self.executor.disable_unit(unit_name, ignore_errors=ignore_errors)
 
     def get_status(self, unit_name: str) -> str:
-        """
-        Récupère le statut d'une unité.
+        """Récupère le statut d'une unité.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -748,8 +744,7 @@ class _BaseUnitManagerMixin:
         return self.executor.get_status(unit_name)
 
     def is_active(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité est active.
+        """Vérifie si une unité est active.
 
         Args:
             unit_name: Nom de l'unité
@@ -842,8 +837,7 @@ class MountUnitManager(ABC, UnitManager):
         with_automount: bool = False,
         automount_timeout: int = 0,
     ) -> bool:
-        """
-        Installe une unité .mount (et optionnellement .automount).
+        """Installe une unité .mount (et optionnellement .automount).
 
         Args:
             config: Configuration du montage
@@ -857,8 +851,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def enable_mount(self, mount_path: str, *, with_automount: bool = False) -> bool:
-        """
-        Active une unité .mount (ou .automount si spécifié).
+        """Active une unité .mount (ou .automount si spécifié).
 
         Args:
             mount_path: Chemin du point de montage
@@ -871,8 +864,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def disable_mount(self, mount_path: str) -> bool:
-        """
-        Désactive et arrête les unités .mount et .automount.
+        """Désactive et arrête les unités .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -884,8 +876,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def remove_mount_unit(self, mount_path: str) -> bool:
-        """
-        Supprime les fichiers .mount et .automount.
+        """Supprime les fichiers .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -897,8 +888,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def get_mount_status(self, mount_path: str) -> str:
-        """
-        Récupère le statut d'une unité .mount.
+        """Récupère le statut d'une unité .mount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -910,8 +900,7 @@ class MountUnitManager(ABC, UnitManager):
 
     @abstractmethod
     def is_mounted(self, mount_path: str) -> bool:
-        """
-        Vérifie si un point de montage est actif.
+        """Vérifie si un point de montage est actif.
 
         Args:
             mount_path: Chemin du point de montage
@@ -931,8 +920,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def install_timer_unit(self, config: TimerConfig) -> bool:
-        """
-        Installe une unité .timer.
+        """Installe une unité .timer.
 
         Args:
             config: Configuration du timer
@@ -944,8 +932,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def enable_timer(self, timer_name: str) -> bool:
-        """
-        Active un timer systemd.
+        """Active un timer systemd.
 
         Args:
             timer_name: Nom du timer (sans extension .timer)
@@ -957,8 +944,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def disable_timer(self, timer_name: str) -> bool:
-        """
-        Désactive un timer systemd.
+        """Désactive un timer systemd.
 
         Args:
             timer_name: Nom du timer (sans extension .timer)
@@ -970,8 +956,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def remove_timer_unit(self, timer_name: str) -> bool:
-        """
-        Supprime un fichier .timer.
+        """Supprime un fichier .timer.
 
         Args:
             timer_name: Nom du timer (sans extension)
@@ -983,8 +968,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def get_timer_status(self, timer_name: str) -> str:
-        """
-        Récupère le statut d'un timer.
+        """Récupère le statut d'un timer.
 
         Args:
             timer_name: Nom du timer (sans extension)
@@ -996,8 +980,7 @@ class _TimerUnitContract(ABC):
 
     @abstractmethod
     def list_timers(self) -> list[dict[str, str]]:
-        """
-        Liste tous les timers actifs.
+        """Liste tous les timers actifs.
 
         Returns:
             Liste de dictionnaires avec les infos des timers
@@ -1016,8 +999,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def install_service_unit(self, config: ServiceConfig) -> bool:
-        """
-        Installe une unité .service.
+        """Installe une unité .service.
 
         Args:
             config: Configuration du service
@@ -1031,8 +1013,7 @@ class _ServiceUnitContract(ABC):
     def install_service_unit_with_name(
         self, service_name: str, config: ServiceConfig
     ) -> bool:
-        """
-        Installe une unité .service avec un nom spécifique.
+        """Installe une unité .service avec un nom spécifique.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1045,8 +1026,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def start_service(self, service_name: str) -> bool:
-        """
-        Démarre un service systemd.
+        """Démarre un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1058,8 +1038,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def stop_service(self, service_name: str) -> bool:
-        """
-        Arrête un service systemd.
+        """Arrête un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1071,8 +1050,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def restart_service(self, service_name: str) -> bool:
-        """
-        Redémarre un service systemd.
+        """Redémarre un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1084,8 +1062,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def enable_service(self, service_name: str) -> bool:
-        """
-        Active un service systemd.
+        """Active un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1097,8 +1074,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def disable_service(self, service_name: str) -> bool:
-        """
-        Désactive un service systemd.
+        """Désactive un service systemd.
 
         Args:
             service_name: Nom du service (sans extension .service)
@@ -1110,8 +1086,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def remove_service_unit(self, service_name: str) -> bool:
-        """
-        Supprime un fichier .service.
+        """Supprime un fichier .service.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1123,8 +1098,7 @@ class _ServiceUnitContract(ABC):
 
     @abstractmethod
     def get_service_status(self, service_name: str) -> str:
-        """
-        Récupère le statut d'un service.
+        """Récupère le statut d'un service.
 
         Args:
             service_name: Nom du service (sans extension)
@@ -1199,8 +1173,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         *,
         remote_write: bool = False,
     ) -> None:
-        """
-        Initialise le gestionnaire d'unités utilisateur.
+        """Initialise le gestionnaire d'unités utilisateur.
 
         Args:
             logger: Instance de Logger pour le logging

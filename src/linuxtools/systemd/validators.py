@@ -150,13 +150,13 @@ def path_to_unit_name(mount_path: str) -> str:
 
 
 def validate_unit_name(name: str) -> str:
-    """Valide un nom d'unité systemd.
+    r"""Valide un nom d'unité systemd.
 
     Accepte les caractères : lettres, chiffres, points, tirets,
     underscores et deux-points, ainsi que les séquences d'échappement
-    systemd ``\\xNN`` (``\\x`` suivi de deux chiffres hexadécimaux
-    minuscules, ex. ``\\x2d``, produites par ``systemd-escape --path``),
-    sauf ``\\x00``-``\\x1f`` et ``\\x7f`` (caractères de contrôle).
+    systemd ``\xNN`` (``\x`` suivi de deux chiffres hexadécimaux
+    minuscules, ex. ``\x2d``, produites par ``systemd-escape --path``),
+    sauf ``\x00``-``\x1f`` et ``\x7f`` (caractères de contrôle).
     Tout autre backslash est refusé. Le premier caractère doit être
     alphanumérique.
 

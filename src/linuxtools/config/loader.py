@@ -56,8 +56,7 @@ _LOADERS: dict[str, Callable[[Path], dict[str, Any]]] = {
 
 
 class ConfigLoader(ABC):
-    """
-    Interface abstraite pour le chargement de configuration.
+    """Interface abstraite pour le chargement de configuration.
 
     Permet l'injection de dépendance et facilite les tests
     en permettant de substituer l'implémentation réelle par un mock.
@@ -69,8 +68,7 @@ class ConfigLoader(ABC):
         self,
         config_path: str | Path,
         schema: None = None,
-    ) -> dict[str, Any]:
-        """Charge un fichier de configuration en dict brut (sans schema)."""
+    ) -> dict[str, Any]: ...
 
     @overload
     @abstractmethod
@@ -78,8 +76,7 @@ class ConfigLoader(ABC):
         self,
         config_path: str | Path,
         schema: type[_TSchema],
-    ) -> _TSchema:
-        """Charge un fichier de configuration et le valide via schema."""
+    ) -> _TSchema: ...
 
     # ANN401 assumé : signature "réelle" recouvrant les deux overloads
     # ci-dessus — c'est elle que Python retient comme attribut de
@@ -156,8 +153,7 @@ class ConfigLoader(ABC):
 
 
 class FileConfigLoader(ConfigLoader):
-    """
-    Implémentation du chargeur de configuration depuis fichiers.
+    """Implémentation du chargeur de configuration depuis fichiers.
 
     Supporte les formats TOML et JSON, détectés automatiquement
     par l'extension du fichier. Supporte optionnellement la
@@ -169,16 +165,14 @@ class FileConfigLoader(ConfigLoader):
         self,
         config_path: str | Path,
         schema: None = None,
-    ) -> dict[str, Any]:
-        """Charge un fichier de configuration en dict brut (sans schema)."""
+    ) -> dict[str, Any]: ...
 
     @overload
     def load(
         self,
         config_path: str | Path,
         schema: type[_TSchema],
-    ) -> _TSchema:
-        """Charge un fichier de configuration et le valide via schema."""
+    ) -> _TSchema: ...
 
     # ANN401 assumé : même raison que dans `ConfigLoader.load` ci-dessus
     # (le retour dépend de `schema`), signature imposée par le contrat.

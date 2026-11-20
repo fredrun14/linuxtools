@@ -24,8 +24,7 @@ class LinuxMountUnitManager(MountUnitManager):
     """
 
     def __init__(self, logger: Logger, executor: SystemdExecutor) -> None:
-        """
-        Initialise le gestionnaire d'unités mount.
+        """Initialise le gestionnaire d'unités mount.
 
         Args:
             logger: Instance de Logger pour le logging
@@ -34,8 +33,7 @@ class LinuxMountUnitManager(MountUnitManager):
         super().__init__(logger, executor)
 
     def _ensure_mount_point(self, path: str) -> bool:
-        """
-        Crée le point de montage s'il n'existe pas.
+        """Crée le point de montage s'il n'existe pas.
 
         Args:
             path: Chemin du point de montage
@@ -69,8 +67,7 @@ class LinuxMountUnitManager(MountUnitManager):
         with_automount: bool = False,
         automount_timeout: int = 0,
     ) -> bool:
-        """
-        Installe une unité .mount (et optionnellement .automount).
+        """Installe une unité .mount (et optionnellement .automount).
 
         Args:
             config: Configuration du montage
@@ -111,8 +108,7 @@ class LinuxMountUnitManager(MountUnitManager):
         return True
 
     def enable_mount(self, mount_path: str, *, with_automount: bool = False) -> bool:
-        """
-        Active une unité .mount (ou .automount si spécifié).
+        """Active une unité .mount (ou .automount si spécifié).
 
         Args:
             mount_path: Chemin du point de montage
@@ -131,8 +127,7 @@ class LinuxMountUnitManager(MountUnitManager):
         return self.enable(unit)
 
     def disable_mount(self, mount_path: str) -> bool:
-        """
-        Désactive et arrête les unités .mount et .automount.
+        """Désactive et arrête les unités .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -151,8 +146,7 @@ class LinuxMountUnitManager(MountUnitManager):
         return self.disable(mount_unit)
 
     def remove_mount_unit(self, mount_path: str) -> bool:
-        """
-        Supprime les fichiers .mount et .automount.
+        """Supprime les fichiers .mount et .automount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -185,8 +179,7 @@ class LinuxMountUnitManager(MountUnitManager):
         return success
 
     def get_mount_status(self, mount_path: str) -> str:
-        """
-        Récupère le statut d'une unité .mount.
+        """Récupère le statut d'une unité .mount.
 
         Args:
             mount_path: Chemin du point de montage
@@ -198,8 +191,7 @@ class LinuxMountUnitManager(MountUnitManager):
         return self.get_status(f"{unit_name}.mount")
 
     def is_mounted(self, mount_path: str) -> bool:
-        """
-        Vérifie si un point de montage est actif.
+        """Vérifie si un point de montage est actif.
 
         Args:
             mount_path: Chemin du point de montage

@@ -83,15 +83,13 @@ def write_text_secure(
 
 
 class LinuxFileManager(FileManager):
-    """
-    Implémentation Linux de la gestion des fichiers.
+    """Implémentation Linux de la gestion des fichiers.
 
     Toutes les opérations sont loggées via l'instance Logger.
     """
 
     def __init__(self, logger: Logger | None = None) -> None:
-        """
-        Initialise le gestionnaire de fichiers.
+        """Initialise le gestionnaire de fichiers.
 
         Args:
             logger: Instance de Logger pour le logging.
@@ -99,8 +97,7 @@ class LinuxFileManager(FileManager):
         self._logger = logger
 
     def create_file(self, file_path: str | Path, content: str) -> bool:
-        """
-        Crée un fichier avec le contenu spécifié.
+        """Crée un fichier avec le contenu spécifié.
 
         Args:
             file_path: Chemin du fichier à créer
@@ -122,8 +119,7 @@ class LinuxFileManager(FileManager):
             return False
 
     def file_exists(self, file_path: str | Path) -> bool:
-        """
-        Vérifie si un fichier existe.
+        """Vérifie si un fichier existe.
 
         Args:
             file_path: Chemin du fichier
@@ -134,8 +130,7 @@ class LinuxFileManager(FileManager):
         return Path(file_path).exists()
 
     def read_file(self, file_path: str | Path) -> str:
-        """
-        Lit le contenu d'un fichier.
+        """Lit le contenu d'un fichier.
 
         Args:
             file_path: Chemin du fichier
@@ -164,8 +159,7 @@ class LinuxFileManager(FileManager):
             raise
 
     def delete_file(self, file_path: str | Path) -> bool:
-        """
-        Supprime un fichier.
+        """Supprime un fichier.
 
         Args:
             file_path: Chemin du fichier

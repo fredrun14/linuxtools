@@ -8,7 +8,6 @@ via le module credentials (CredentialChain) ou une variable
 d'environnement.
 
 Example:
-
     from linuxtools.notification import GotifyNotifier, Notification
 
     notifier = GotifyNotifier(

@@ -6,7 +6,6 @@ le module credentials (CredentialChain) ou une variable
 d'environnement.
 
 Example:
-
     from linuxtools.notification import (
         Notification,
         SmtpEmailNotifier,

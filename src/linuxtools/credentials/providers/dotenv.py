@@ -99,7 +99,7 @@ class DotEnvCredentialProvider(CredentialProvider):
         if not self._loaded:
             self.load()
         value = self._values.get(key.upper())
-        return value if value else None
+        return value or None
 
     def is_available(self) -> bool:
         """Indique si ce provider est opérationnel.

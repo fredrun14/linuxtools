@@ -80,7 +80,7 @@ class ConsoleTableReporter(DeviceReporter):
             lines.append("Aucun peripherique")
         else:
             for d in _sort_by_ip(devices):
-                ip_display = d.ip if d.ip else "(hors ligne)"
+                ip_display = d.ip or "(hors ligne)"
                 line = (
                     ip_display.ljust(16)
                     + d.mac.ljust(18)
@@ -202,7 +202,7 @@ def _format_device_line(d: "NetworkDevice", prefix: str) -> str:
     Returns:
         Ligne formatee.
     """
-    ip_str = d.ip if d.ip else "(hors ligne)"
+    ip_str = d.ip or "(hors ligne)"
     label = d.hostname or d.vendor
     return f"  {prefix} {ip_str:<16} {d.mac:<18} {label}"
 

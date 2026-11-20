@@ -113,8 +113,9 @@ class TimerDeployer:
         executor: CommandExecutor,
         logger: Logger,
     ) -> bool:
-        """Installe le service+timer en mode système (comportement
-        historique, inchangé).
+        """Installe le service+timer en mode système.
+
+        Comportement historique, inchangé.
 
         Args:
             spec: Spécification de l'unité.
@@ -142,8 +143,9 @@ class TimerDeployer:
         executor: CommandExecutor,
         logger: Logger,
     ) -> bool:
-        """Installe le service+timer en mode utilisateur (systemctl
-        --user), sans élévation de privilèges.
+        """Installe le service+timer en mode utilisateur (`systemctl --user`).
+
+        Sans élévation de privilèges.
 
         N'utilise volontairement pas `SystemdServiceTimerInstaller`
         (typé pour les ABCs système, incompatible mypy --strict avec

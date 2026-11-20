@@ -1,4 +1,4 @@
-"""Module de gestion des fichiers, TOCTOU-safe.
+r"""Module de gestion des fichiers, TOCTOU-safe.
 
 Fournit la lecture/écriture/suppression de fichiers, la sauvegarde
 simple et la copie récursive, avec pour référence de sécurité le
@@ -33,7 +33,7 @@ Exemple d'utilisation:
     logger = FileLogger("/var/log/app.log")
     manager = LinuxFileManager(logger=logger)
     manager.create_file(
-        "/etc/mon-outil/config.toml", "[log]\\nlevel = 'INFO'\\n"
+        "/etc/mon-outil/config.toml", "[log]\nlevel = 'INFO'\n"
     )
 
     backup = LinuxFileBackup(logger=logger)
@@ -65,11 +65,11 @@ from linuxtools.filesystem.linux import (
 )
 
 __all__ = [
-    "FileManager",
-    "LinuxFileManager",
-    "write_text_secure",
     "FileBackup",
+    "FileManager",
     "LinuxFileBackup",
+    "LinuxFileManager",
     "copytree_secure",
     "ensure_shared_group_directory",
+    "write_text_secure",
 ]

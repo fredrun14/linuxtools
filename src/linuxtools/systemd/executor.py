@@ -71,8 +71,7 @@ class SystemdExecutor:
         return self._executor.run(command, stdin=stdin)
 
     def reload_systemd(self) -> bool:
-        """
-        Recharge la configuration systemd (daemon-reload).
+        """Recharge la configuration systemd (daemon-reload).
 
         Returns:
             True si succès, False sinon
@@ -87,8 +86,7 @@ class SystemdExecutor:
         return True
 
     def enable_unit(self, unit_name: str, *, now: bool = True) -> bool:
-        """
-        Active une unité systemd.
+        """Active une unité systemd.
 
         Args:
             unit_name: Nom de l'unité (ex: "media-nas.mount")
@@ -121,8 +119,7 @@ class SystemdExecutor:
         now: bool = True,
         ignore_errors: bool = False,
     ) -> bool:
-        """
-        Désactive une unité systemd.
+        """Désactive une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -177,8 +174,7 @@ class SystemdExecutor:
         return True
 
     def start_unit(self, unit_name: str) -> bool:
-        """
-        Démarre une unité systemd.
+        """Démarre une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -195,8 +191,7 @@ class SystemdExecutor:
         )
 
     def stop_unit(self, unit_name: str) -> bool:
-        """
-        Arrête une unité systemd.
+        """Arrête une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -213,8 +208,7 @@ class SystemdExecutor:
         )
 
     def restart_unit(self, unit_name: str) -> bool:
-        """
-        Redémarre une unité systemd.
+        """Redémarre une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -231,8 +225,7 @@ class SystemdExecutor:
         )
 
     def get_status(self, unit_name: str) -> str:
-        """
-        Récupère le statut d'une unité systemd.
+        """Récupère le statut d'une unité systemd.
 
         Args:
             unit_name: Nom de l'unité
@@ -248,8 +241,7 @@ class SystemdExecutor:
         return result.stdout.strip()
 
     def is_active(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité systemd est active.
+        """Vérifie si une unité systemd est active.
 
         Args:
             unit_name: Nom de l'unité
@@ -260,8 +252,7 @@ class SystemdExecutor:
         return self.get_status(unit_name) == "active"
 
     def is_enabled(self, unit_name: str) -> bool:
-        """
-        Vérifie si une unité systemd est activée au démarrage.
+        """Vérifie si une unité systemd est activée au démarrage.
 
         Args:
             unit_name: Nom de l'unité
@@ -526,8 +517,7 @@ class UserSystemdExecutor(SystemdExecutor):
     _label = " utilisateur"
 
     def _run_systemctl(self, args: list[str]) -> CommandResult:
-        """
-        Exécute une commande systemctl --user via l'executor injecté.
+        """Exécute une commande systemctl --user via l'executor injecté.
 
         Args:
             args: Arguments de la commande systemctl.

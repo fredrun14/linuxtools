@@ -41,10 +41,10 @@ from linuxtools.identity.group import LinuxGroupManager
 from linuxtools.identity.user import LinuxUserManager
 
 __all__ = [
-    "group_gid_drift",
     "GroupManagerBase",
     "LinuxGroupManager",
     "LinuxUserManager",
-    "user_uid_drift",
     "UserManagerBase",
+    "group_gid_drift",
+    "user_uid_drift",
 ]

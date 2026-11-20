@@ -58,8 +58,7 @@ _WRITERS: dict[str, Callable[[Path, dict[str, Any]], None]] = {
 
 
 class ConfigurationManager(ConfigManager):
-    """
-    Gestionnaire de configuration avec fonctionnalités avancées.
+    """Gestionnaire de configuration avec fonctionnalités avancées.
 
     Fonctionnalités:
     - Support TOML et JSON
@@ -81,8 +80,7 @@ class ConfigurationManager(ConfigManager):
         logger: Logger | None = None,
         path_keys: Sequence[str] = _PATH_KEYS,
     ) -> None:
-        """
-        Initialise le gestionnaire de configuration.
+        """Initialise le gestionnaire de configuration.
 
         Args:
             config_path: Chemin vers le fichier de configuration
@@ -190,8 +188,7 @@ class ConfigurationManager(ConfigManager):
     # dynamique par chemin pointé. Justification complète dans
     # `linuxtools/config/base.py`.
     def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
-        """
-        Récupère une valeur par chemin pointé.
+        """Récupère une valeur par chemin pointé.
 
         Args:
             key_path: Chemin vers la clé (ex: "backup.rsync.options")
@@ -217,8 +214,7 @@ class ConfigurationManager(ConfigManager):
         return value
 
     def get_profile(self, profile_name: str) -> dict[str, Any]:
-        """
-        Récupère un profil de la configuration.
+        """Récupère un profil de la configuration.
 
         Args:
             profile_name: Nom du profil
@@ -274,8 +270,7 @@ class ConfigurationManager(ConfigManager):
         self,
         output_path: Path | None = None,
     ) -> None:
-        """
-        Crée un fichier de configuration par défaut.
+        """Crée un fichier de configuration par défaut.
 
         Args:
             output_path: Chemin de sortie (utilise config_path si non spécifié)

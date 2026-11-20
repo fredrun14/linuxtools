@@ -1,5 +1,4 @@
-"""Interfaces abstraites et structures de données pour l'exécution
-de commandes système.
+"""Interfaces abstraites et structures de données d'exécution de commandes.
 
 Ce module définit :
     - CommandResult : Résultat immuable d'une exécution de commande.
@@ -73,7 +72,6 @@ class CommandExecutor(ABC):
         Returns:
             Résultat de l'exécution.
         """
-        pass
 
     def probe(
         self,
@@ -128,4 +126,3 @@ class CommandExecutor(ABC):
         Returns:
             Résultat de l'exécution.
         """
-        pass

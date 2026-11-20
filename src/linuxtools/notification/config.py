@@ -10,11 +10,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class NotificationConfig:
-    """Configuration pour les notifications desktop Linux.
+    r"""Configuration pour les notifications desktop Linux.
 
     Génère du code bash via ``to_bash_function()`` et ``to_bash_call_*()``.
     Tous les champs texte ne doivent pas contenir de caractères de contrôle
-    (ord < 32 : ``\\n``, ``\\t``, ``\\x00``…) ni être vides.
+    (ord < 32 : ``\n``, ``\t``, ``\x00``…) ni être vides.
 
     Attributes:
         title: Titre de la notification.

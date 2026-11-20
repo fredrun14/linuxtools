@@ -33,7 +33,7 @@ ce tiers qu'avec ``include_message=True``, et les messages d'un bot ne
 sont pas chiffrés de bout en bout.
 
 Comportement : les envois sont séquentiels (durée maximale d'un
-``send`` : N destinataires × ``timeout``, hors résolution DNS), sans
+``send`` : N destinataires multiplié par ``timeout``, hors résolution DNS), sans
 aucun nouvel essai (un 429 est signalé comme les autres échecs). Si au
 moins un destinataire échoue, les autres sont tout de même servis, puis
 une seule ``NotificationSendError`` agrégée est levée ; elle ne cite que

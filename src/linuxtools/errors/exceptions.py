@@ -1,5 +1,4 @@
-"""
-Module contenant les exceptions communes.
+"""Module contenant les exceptions communes.
 
 Ce module suit le principe SRP en isolant la gestion des exceptions.
 """

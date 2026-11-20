@@ -48,7 +48,7 @@ class EnvCredentialProvider(CredentialProvider):
             Valeur de la variable ou None.
         """
         value = os.environ.get(key.upper())
-        return value if value else None
+        return value or None
 
     def is_available(self) -> bool:
         """Indique si ce provider est operationnel.

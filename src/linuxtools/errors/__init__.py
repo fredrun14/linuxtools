@@ -88,8 +88,8 @@ __all__ = [
     "IntegrityError",
     "LoggerErrorHandler",
     "MissingDependencyError",
-    "require_root",
     "RollbackError",
     "SystemRequirementError",
     "ValidationError",
+    "require_root",
 ]

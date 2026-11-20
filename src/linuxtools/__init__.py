@@ -1,5 +1,4 @@
-"""
-Linux Python Utils - Bibliothèque utilitaire pour systèmes Linux.
+"""Linux Python Utils - Bibliothèque utilitaire pour systèmes Linux.
 
 Modules disponibles:
 - logging: Gestion des logs (Logger, FileLogger)
@@ -300,7 +299,7 @@ __getattr__ = make_lazy_getattr(
     },
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     # Logging
     "Logger",
     "ConsoleLogger",

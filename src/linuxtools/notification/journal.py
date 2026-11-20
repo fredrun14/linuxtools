@@ -8,7 +8,6 @@ ligne, taille little-endian 64 bits, données).
 Consultation : ``journalctl -t <app_name>``.
 
 Example:
-
     from linuxtools.notification import JournaldNotifier, Notification
 
     notifier = JournaldNotifier(app_name="backup-nas")
@@ -92,10 +91,10 @@ class JournaldNotifier(Notifier):
 
     @staticmethod
     def _encode_field(name: str, value: str) -> bytes:
-        """Sérialise un champ au format datagramme journald.
+        r"""Sérialise un champ au format datagramme journald.
 
         Les valeurs sans saut de ligne utilisent la forme simple
-        ``NAME=value\\n`` ; les valeurs multilignes utilisent la
+        ``NAME=value\n`` ; les valeurs multilignes utilisent la
         forme binaire avec taille little-endian 64 bits.
 
         Args:

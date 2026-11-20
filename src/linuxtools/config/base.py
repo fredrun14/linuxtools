@@ -6,8 +6,7 @@ from typing import Any
 
 
 class ConfigManager(ABC):
-    """
-    Interface abstraite pour la gestion de configuration.
+    """Interface abstraite pour la gestion de configuration.
 
     Définit le contrat pour les gestionnaires de configuration,
     permettant différentes implémentations (fichier, base de données,
@@ -21,8 +20,7 @@ class ConfigManager(ABC):
     # (`ConfigLoader.load(..., schema=...)`).
     @abstractmethod
     def get(self, key_path: str, default: Any = None) -> Any:  # noqa: ANN401
-        """
-        Récupère une valeur par chemin pointé.
+        """Récupère une valeur par chemin pointé.
 
         Args:
             key_path: Chemin vers la clé (ex: "backup.rsync.options")
@@ -34,8 +32,7 @@ class ConfigManager(ABC):
         ...
 
     def get_section(self, section: str) -> dict[str, Any]:
-        """
-        Récupère une section complète de la configuration.
+        """Récupère une section complète de la configuration.
 
         Implémentation par défaut dérivée de `get()` — une section est
         une clé de premier niveau, sans point. Redéfinissable si une
@@ -52,8 +49,7 @@ class ConfigManager(ABC):
 
     @abstractmethod
     def get_profile(self, profile_name: str) -> dict[str, Any]:
-        """
-        Récupère un profil de la configuration.
+        """Récupère un profil de la configuration.
 
         Args:
             profile_name: Nom du profil
@@ -67,8 +63,7 @@ class ConfigManager(ABC):
         ...
 
     def list_profiles(self) -> list[str]:
-        """
-        Liste tous les profils disponibles.
+        """Liste tous les profils disponibles.
 
         Implémentation par défaut dérivée de `get("profiles", {})`.
 
@@ -80,8 +75,7 @@ class ConfigManager(ABC):
 
     @abstractmethod
     def create_default_config(self, output_path: Path | None = None) -> None:
-        """
-        Crée un fichier de configuration par défaut.
+        """Crée un fichier de configuration par défaut.
 
         Args:
             output_path: Chemin de sortie

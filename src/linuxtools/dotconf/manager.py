@@ -156,11 +156,10 @@ class LinuxIniConfigManager(IniConfigManager):
             self._save_parser(parser, path)
             if self._logger:
                 self._logger.log_info(f"Fichier {path} mis à jour.")
-        else:
-            if self._logger:
-                self._logger.log_info(
-                    f"Fichier {path} déjà configuré avec les valeurs cibles."
-                )
+        elif self._logger:
+            self._logger.log_info(
+                f"Fichier {path} déjà configuré avec les valeurs cibles."
+            )
 
         return updated
 

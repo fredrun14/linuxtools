@@ -34,8 +34,7 @@ class LinuxUserServiceUnitManager(_ServiceOperationsMixin, UserServiceUnitManage
         *,
         remote_write: bool = False,
     ) -> None:
-        """
-        Initialise le gestionnaire d'unités service utilisateur.
+        """Initialise le gestionnaire d'unités service utilisateur.
 
         Args:
             logger: Instance de Logger pour le logging

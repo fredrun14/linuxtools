@@ -43,9 +43,9 @@ from linuxtools.systemd.config_loaders.timer_loader import (
 )
 
 __all__ = [
-    "ServiceConfigLoader",
-    "TimerConfigLoader",
-    "MountConfigLoader",
     "AutomountSettings",
     "BashScriptConfigLoader",
+    "MountConfigLoader",
+    "ServiceConfigLoader",
+    "TimerConfigLoader",
 ]

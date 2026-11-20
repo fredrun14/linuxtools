@@ -110,7 +110,7 @@ class KeyringCredentialProvider(CredentialStore):
         try:
             kr = self._get_keyring()
             value = kr.get_password(service, key)
-            return value if value else None
+            return value or None
         except Exception as exc:
             if self._logger:
                 self._logger.log_warning(

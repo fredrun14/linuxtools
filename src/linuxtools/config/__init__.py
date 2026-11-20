@@ -1,4 +1,4 @@
-"""Module de configuration typée et XDG.
+r"""Module de configuration typée et XDG.
 
 Fournit deux familles de chargeurs de configuration : un accès générique
 par chemin pointé (ConfigManager / ConfigurationManager) et un chargement
@@ -46,7 +46,7 @@ Exemple d'utilisation (répertoire XDG):
     from linuxtools.config import XdgAppConfig
 
     cfg = XdgAppConfig("mon-outil")
-    cfg.init_config_file("[log]\\nlevel = 'INFO'\\n")
+    cfg.init_config_file("[log]\nlevel = 'INFO'\n")
 """
 
 from linuxtools.config.base import ConfigManager
