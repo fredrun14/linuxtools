@@ -2,6 +2,15 @@
 
 ## [Non publié]
 
+### Ajouté
+
+- test(api): test global « tout booléen public est mot-clé seul » : un cas par
+  paramètre booléen (annotation `bool` ou `bool | None`, ou défaut `True`/`False`) de
+  chaque fonction, `__init__` et méthode publique exportée par `__all__` (60 cas).
+  Les champs de dataclass restent positionnels (décision 3.0.0) : seul le `__init__`
+  généré est exempté. Liste de dérogations `EXCEPTIONS` vide, sans entrée périmée.
+  Aucun changement de `src/`.
+
 ### Modifié
 
 - build: backend de build hatchling à la place de setuptools (base commune 6/6) ;
