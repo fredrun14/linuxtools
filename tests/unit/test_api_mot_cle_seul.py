@@ -317,6 +317,10 @@ def _collecter_booleens_publics() -> dict[str, inspect.Parameter]:
 
 BOOLEENS_PUBLICS = _collecter_booleens_publics()
 
+# Dérogations justifiées : identifiant ``module.qualname.parametre`` -> raison.
+# Vide : tout booléen public est mot-clé seul (champs de dataclass exemptés).
+EXCEPTIONS: dict[str, str] = {}
+
 
 @pytest.mark.parametrize(
     "identifiant",
@@ -328,4 +332,83 @@ def test_booleens_publics_sont_mot_cle_seul(identifiant: str) -> None:
     kind = BOOLEENS_PUBLICS[identifiant].kind
 
     # Assert
+    if identifiant in EXCEPTIONS:
+        pytest.skip(EXCEPTIONS[identifiant])
     assert kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_collecte_booleens_publics_n_est_pas_aveugle() -> None:
+    """Garde-fou : une collecte quasi vide rendrait le test global aveugle.
+
+    Mesure du 2026-11-20 : 60 booléens distincts (fonctions et méthodes
+    uniques, hors champs de dataclass) ; 135 en comptant chaque ré-export.
+    """
+    # Assert
+    assert len(BOOLEENS_PUBLICS) > 50
+
+
+def test_exceptions_vide() -> None:
+    """Aucune dérogation tacite : l'ajout d'une exception se voit en revue."""
+    # Assert
+    assert EXCEPTIONS == {}
+
+
+def test_exceptions_ne_sont_pas_perimees() -> None:
+    """Chaque exception désigne un booléen public qui existe encore."""
+    # Act
+    perimees = sorted(set(EXCEPTIONS) - set(BOOLEENS_PUBLICS))
+
+    # Assert
+    assert perimees == []
+
+
+@dataclasses.dataclass
+class _ExempleDataclass:
+    """Dataclass d'essai : booléen positionnel via le ``__init__`` généré."""
+
+    actif: bool = False
+
+
+@dataclasses.dataclass
+class _ExempleDataclassInitManuel:
+    """Dataclass d'essai : le ``__init__`` écrit à la main est contrôlé."""
+
+    def __init__(self, actif: bool = False) -> None:
+        self.actif = actif
+
+
+class _ExempleClasse:
+    """Classe d'essai : ``__init__`` ordinaire."""
+
+    def __init__(self, actif: bool = False) -> None:
+        self.actif = actif
+
+
+def test_init_genere_de_dataclass_est_exempte() -> None:
+    """Seul le ``__init__`` généré est exempté, pas un ``__init__`` manuel."""
+    # Act
+    generes = [
+        _init_genere_par_dataclass(c, c.__init__)
+        for c in (_ExempleDataclass, _ExempleDataclassInitManuel, _ExempleClasse)
+    ]
+
+    # Assert
+    assert generes == [True, False, False]
+
+
+def test_annotation_exacte_callable_vers_bool_n_est_pas_un_booleen() -> None:
+    """``Callable[..., bool]`` renvoie un booléen sans en être un."""
+
+    # Arrange
+    def fonction(
+        a: Callable[..., bool], b: bool, c: bool | None, d: "bool", e: "bool | None"
+    ) -> None:
+        pass
+
+    # Act
+    est_booleen = [
+        _est_booleen_public(p) for p in inspect.signature(fonction).parameters.values()
+    ]
+
+    # Assert
+    assert est_booleen == [False, True, True, True, True]
