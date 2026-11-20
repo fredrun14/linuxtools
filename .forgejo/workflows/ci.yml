@@ -101,9 +101,10 @@ jobs:
     needs: [test]
     # Bloquant depuis que tests/integration/ contient de vrais tests
     # (bascule atomique venv, F01/F14 + compensation _MIGRATE_SCRIPT).
-    # addopts embarque --cov=src/linuxtools --cov-fail-under=90 (global,
-    # pour le job test) : --no-cov ci-dessous neutralise uniquement cet
-    # effet de bord sur ce job, sans toucher à la couverture du job test.
+    # addopts embarque --cov=src/linuxtools, et [tool.coverage.report]
+    # fail_under = 100 (global, pour le job test) : --no-cov ci-dessous
+    # neutralise uniquement cet effet de bord sur ce job, sans toucher à la
+    # couverture du job test.
     steps:
       - uses: actions/checkout@v4
 
