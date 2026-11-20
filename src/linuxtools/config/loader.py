@@ -31,7 +31,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
     Returns:
         Dictionnaire de configuration.
     """
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         return tomllib.load(f)
 
 
@@ -44,7 +44,7 @@ def _load_json(path: Path) -> dict[str, Any]:
     Returns:
         Dictionnaire de configuration.
     """
-    with open(path, encoding="utf-8") as f:
+    with path.open(encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
         return data
 

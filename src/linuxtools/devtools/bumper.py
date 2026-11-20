@@ -207,7 +207,8 @@ class ConsumerBumper:
                 checks=stop.checks,
                 detail=detail,
             )
-        except Exception as exc:  # noqa: BLE001 — frontière : tout devient un statut
+        # Frontière : toute exception devient un statut.
+        except Exception as exc:  # noqa: BLE001
             self._logger.log_error(mask_userinfo(f"{consumer.name} : {exc!r}"))
             return BumpOutcome(
                 consumer.name,

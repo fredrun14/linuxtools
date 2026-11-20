@@ -5,7 +5,6 @@ pour la lecture, l'écriture et la mise à jour de fichiers INI.
 """
 
 import configparser
-import os
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -47,6 +46,7 @@ class LinuxIniConfigManager(IniConfigManager):
     def _load_parser(path: Path) -> configparser.ConfigParser:
         """Crée un ConfigParser et charge le fichier si existant."""
         parser = configparser.ConfigParser()
+        path = Path(path)
         if path.exists():
             parser.read(path, encoding="utf-8")
         return parser
@@ -54,9 +54,10 @@ class LinuxIniConfigManager(IniConfigManager):
     @staticmethod
     def _save_parser(parser: configparser.ConfigParser, path: Path) -> None:
         """Écrit le parser dans path et applique chmod 0o644."""
-        with open(path, "w", encoding="utf-8") as f:
+        path = Path(path)
+        with path.open("w", encoding="utf-8") as f:
             parser.write(f)
-        os.chmod(path, 0o644)
+        path.chmod(0o644)
 
     def read(self, path: Path) -> dict[str, dict[str, str]]:
         """Lit un fichier INI et retourne son contenu.

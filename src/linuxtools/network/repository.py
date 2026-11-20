@@ -75,13 +75,14 @@ class JsonDeviceRepository(DeviceRepository):
             ensure_ascii=False,
         )
         fd, tmp = tempfile.mkstemp(dir=str(self._file_path.parent), suffix=".tmp")
+        tmp_path = Path(tmp)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(payload)
-            os.chmod(tmp, 0o644)
-            os.replace(tmp, self._file_path)
+            tmp_path.chmod(0o644)
+            tmp_path.replace(self._file_path)
         except BaseException:
-            os.unlink(tmp)
+            tmp_path.unlink()
             raise
         if self._logger:
             self._logger.log_info(

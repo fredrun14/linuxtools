@@ -66,6 +66,23 @@ __all__ = [
 # =============================================================================
 
 
+def _unit_file_path(base: str, name: str) -> str:
+    """Construit le chemin d'un fichier unit sous ``base``.
+
+    Garde ``os.path.join`` : il conserve le type ``str`` et la chaîne exacte
+    (``Path`` normaliserait « // », « ./ » et le « / » final, visibles dans
+    les logs et les commandes distantes).
+
+    Args:
+        base: Répertoire des fichiers unit.
+        name: Nom du fichier unit.
+
+    Returns:
+        Le chemin ``base/name`` sous forme de chaîne.
+    """
+    return os.path.join(base, name)  # noqa: PTH118
+
+
 def _write_unit_content(
     unit_path: str,
     content: str,
@@ -129,7 +146,7 @@ def _remove_unit_content(
         True si succès ou fichier inexistant, False si erreur.
     """
     try:
-        os.remove(unit_path)
+        Path(unit_path).unlink()
         logger.log_info(f"Fichier unit{log_label} supprimé: {unit_path}")
     except FileNotFoundError:
         pass
@@ -272,7 +289,10 @@ class _ServiceOperationsMixin:
         Returns:
             Nom du service dérivé du binaire exec_start.
         """
-        return os.path.basename(shlex.split(config.exec_start)[0]).replace(".", "-")
+        # Path.name diffère de basename sur un chemin terminé par « / » ("" vs
+        # dernier composant) : on garde la sémantique exacte du nom dérivé.
+        binary = shlex.split(config.exec_start)[0]
+        return os.path.basename(binary).replace(".", "-")  # noqa: PTH119
 
     def _validated_service_file(self, service_name: str) -> "str | None":
         """Valide le nom de service et retourne le nom de fichier unit.
@@ -787,7 +807,7 @@ class UnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès, False sinon.
         """
-        unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        unit_path = _unit_file_path(self.SYSTEMD_UNIT_PATH, unit_name)
         if self._remote_write:
             return _write_unit_content_remote(
                 unit_path, content, self.executor, self.logger
@@ -806,7 +826,7 @@ class UnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès ou fichier inexistant, False si erreur.
         """
-        unit_path = os.path.join(self.SYSTEMD_UNIT_PATH, unit_name)
+        unit_path = _unit_file_path(self.SYSTEMD_UNIT_PATH, unit_name)
         if self._remote_write:
             return _remove_unit_content_remote(unit_path, self.executor, self.logger)
         return _remove_unit_content(unit_path, self.logger)
@@ -1146,7 +1166,9 @@ def _resolve_user_unit_path(configured: str) -> str:
     """
     if configured == _DEFAULT_USER_UNIT_PATH:
         return str(user_config_path("systemd") / "user")
-    return os.path.expanduser(configured)
+    # Path.expanduser lève RuntimeError sans home résolu, là où os.path.expanduser
+    # rend le chemin inchangé : on garde ce comportement (et le retour str).
+    return os.path.expanduser(configured)  # noqa: PTH111
 
 
 class UserUnitManager(_BaseUnitManagerMixin):
@@ -1225,7 +1247,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès, False sinon.
         """
-        unit_path = os.path.join(self._unit_path, unit_name)
+        unit_path = _unit_file_path(self._unit_path, unit_name)
         if self._remote_write:
             return _write_unit_content_remote(
                 unit_path, content, self.executor, self.logger
@@ -1248,7 +1270,7 @@ class UserUnitManager(_BaseUnitManagerMixin):
         Returns:
             True si succès ou fichier inexistant, False si erreur.
         """
-        unit_path = os.path.join(self._unit_path, unit_name)
+        unit_path = _unit_file_path(self._unit_path, unit_name)
         if self._remote_write:
             return _remove_unit_content_remote(unit_path, self.executor, self.logger)
         return _remove_unit_content(unit_path, self.logger, log_label=" utilisateur")

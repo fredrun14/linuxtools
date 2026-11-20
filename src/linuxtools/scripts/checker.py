@@ -284,7 +284,7 @@ class LinuxScriptChecker(ScriptChecker):
         if not pyproject_path.is_file():
             raise FileNotFoundError(f"pyproject.toml introuvable : {pyproject_path}")
 
-        with open(pyproject_path, "rb") as f:
+        with pyproject_path.open("rb") as f:
             data = tomllib.load(f)
 
         if "project" not in data:

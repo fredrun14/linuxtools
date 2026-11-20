@@ -1,7 +1,6 @@
 """Validateur d'accès groupe sur un répertoire."""
 
 import grp
-import os
 import stat
 from pathlib import Path
 
@@ -17,7 +16,7 @@ class PathCheckerGroupAccess(Validator):
     3. optionnellement, que le bit setgid est positionné
        (héritage de groupe pour les nouveaux fichiers).
 
-    Utilise ``os.stat`` (suit les liens symboliques) pour inspecter
+    Utilise ``Path.stat`` (suit les liens symboliques) pour inspecter
     la cible réelle — adapté aux points de montage NFS.
 
     Lève des exceptions standard (FileNotFoundError, PermissionError,
@@ -67,7 +66,7 @@ class PathCheckerGroupAccess(Validator):
         expected_gid = grp.getgrnam(self._group).gr_gid
 
         try:
-            st = os.stat(self._path)
+            st = self._path.stat()
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"Répertoire introuvable : {self._path}") from exc
 

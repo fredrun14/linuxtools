@@ -750,7 +750,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("Permission refusée"),
         ):
             result = manager._remove_unit_file("test.service")
@@ -767,7 +767,7 @@ class TestUnitManagerErrorPaths:
         manager = LinuxServiceUnitManager(logger, executor)
         manager.SYSTEMD_UNIT_PATH = str(tmp_path)
         err = OSError(errno.EIO, "IO error")
-        with patch("linuxtools.systemd.base.os.remove", side_effect=err):
+        with patch("linuxtools.systemd.base.os.unlink", side_effect=err):
             result = manager._remove_unit_file("test.service")
         assert result is False
         logger.log_error.assert_called_once()
@@ -833,7 +833,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "my-service.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("my-service")
@@ -881,7 +881,7 @@ class TestUnitFileWriteErrorPaths:
         service_file = tmp_path / "user-svc.service"
         service_file.write_text("[Unit]\n")
         with patch(
-            "linuxtools.systemd.base.os.remove",
+            "linuxtools.systemd.base.os.unlink",
             side_effect=PermissionError("no remove"),
         ):
             result = manager.remove_service_unit("user-svc")

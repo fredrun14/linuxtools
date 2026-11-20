@@ -7,7 +7,6 @@ des phases ne citent que des chemins et des noms de clés.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -100,7 +99,7 @@ def open_deploy_journal(
     existed = base.exists()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     if existed:
-        os.chmod(base, 0o700)
+        base.chmod(0o700)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%SZ")
     path = base / f"deploy_{label}_{stamp}.log"

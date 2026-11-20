@@ -78,7 +78,7 @@ def write_text_secure(
             # Fichier créé par cet appel et resté partiel : on le retire,
             # sinon un déploiement suivant le croirait « déjà présent ».
             with contextlib.suppress(OSError):
-                os.unlink(path)
+                Path(path).unlink()
         raise
 
 
@@ -147,7 +147,7 @@ class LinuxFileManager(FileManager):
             Lecture seule — risque TOCTOU limité et accepté.
         """
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with Path(file_path).open(encoding="utf-8") as f:
                 content = f.read()
             if self._logger:
                 self._logger.log_info(f"Fichier {file_path} lu avec succès.")

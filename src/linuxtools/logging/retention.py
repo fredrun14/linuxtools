@@ -6,10 +6,7 @@ import fnmatch
 import os
 import stat
 import time
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
 DEFAULT_RETENTION_DAYS = 90
 _SECONDS_PER_DAY = 86_400
@@ -107,7 +104,7 @@ def _purge_names(
     keep_id: tuple[int, int] | None = None
     if keep is not None:
         try:
-            keep_info = os.stat(keep)
+            keep_info = Path(keep).stat()
             keep_id = (keep_info.st_dev, keep_info.st_ino)
         except OSError:
             keep_id = None

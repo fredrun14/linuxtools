@@ -92,8 +92,7 @@ def copytree_secure(
     dst.mkdir(parents=True, exist_ok=dirs_exist_ok)
     # 0o755 (rwxr-xr-x) : permission standard d'un répertoire
     # traversable/listable, pas un 0o777 excessif.
-    # répertoire traversable, pas de 0o777
-    os.chmod(dst, 0o755)  # noqa: S103  # nosec B103
+    os.chmod(dst, 0o755)  # noqa: PTH101, S103  # nosec B103
 
     entries = sorted(src.iterdir())
     names = [e.name for e in entries]

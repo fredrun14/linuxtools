@@ -21,7 +21,7 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
         path: Chemin de sortie.
         data: Données à sérialiser.
     """
-    with open(path, "w", encoding="utf-8") as f:
+    with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
