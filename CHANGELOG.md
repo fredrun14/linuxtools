@@ -5,11 +5,17 @@
 ### Ajouté
 
 - test(api): test global « tout booléen public est mot-clé seul » : un cas par
-  paramètre booléen (annotation `bool` ou `bool | None`, ou défaut `True`/`False`) de
-  chaque fonction, `__init__` et méthode publique exportée par `__all__` (60 cas).
-  Les champs de dataclass restent positionnels (décision 3.0.0) : seul le `__init__`
-  généré est exempté. Liste de dérogations `EXCEPTIONS` vide, sans entrée périmée.
-  Aucun changement de `src/`.
+  paramètre booléen (annotation `bool` ou `bool | None` résolue, y compris
+  `Optional`, `Union`, `Annotated`, `Literal[True]`, alias et chaînes `__future__`,
+  ou défaut `True`/`False`) de chaque fonction, `__init__`, `__new__`, `__call__`,
+  méthode publique (bases non exportées et classes imbriquées comprises) exportée par
+  `__all__` ou définie dans un module de paquet sans `__all__` (`linuxtools.devtools`) :
+  64 cas. Les champs de dataclass (24) et de `NamedTuple` (`AutomountSettings`) restent
+  positionnels (décision 3.0.0) : seuls le `__init__` et le `__new__` générés sont
+  exemptés. Dérogations `EXCEPTIONS` (identifiant → raison) vide ; une raison vide,
+  une entrée périmée ou inutile fait échouer. Un module du paquet qui ne s'importe pas
+  fait échouer explicitement ; un extra optionnel absent est toléré. Aucun changement
+  de `src/`.
 
 ### Modifié
 
