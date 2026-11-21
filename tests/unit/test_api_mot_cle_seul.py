@@ -66,32 +66,42 @@ def test_booleens_sont_mot_cle_seul(
 _PAQUET = "linuxtools"
 
 
+# Extras optionnels dont l'absence est tolérée (noms d'import) : webapitools
+# (extra ``network``), pydantic (``validation``), dotenv et keyring
+# (``credentials``). Tout autre import tiers manquant est une faute, pas un extra.
+_EXTRAS_CONNUS = frozenset({"webapitools", "pydantic", "dotenv", "keyring"})
+
+
+def _est_extra_absent(exc: BaseException) -> bool:
+    """Indique si l'exception signale l'absence d'un extra optionnel connu."""
+    return (
+        isinstance(exc, ModuleNotFoundError)
+        and exc.name is not None
+        and exc.name.split(".")[0] in _EXTRAS_CONNUS
+    )
+
+
 def _importer_modules(
     chemin: Iterable[str], prefixe: str
 ) -> tuple[list[ModuleType], list[str]]:
     """Importe tous les modules d'un paquet et rapporte ceux qui sont cassés.
 
-    Retourne ``(modules importés, échecs)``. Un extra optionnel absent (un
-    ``ModuleNotFoundError`` dont le nom est hors du paquet) est toléré, sans
-    échec. Tout autre échec d'import (symbole manquant, import circulaire, module
-    du paquet introuvable) est consigné pour que ``test_modules_du_paquet_s_importent``
-    échoue avec un message clair, au lieu de masquer des API publiques.
+    Retourne ``(modules importés, échecs)``. Seule l'absence d'un extra optionnel
+    connu (``_EXTRAS_CONNUS``) est tolérée, sans échec. Tout autre échec d'import
+    (import tiers inconnu, symbole manquant, import circulaire, module du paquet
+    introuvable) est consigné, une fois par module, pour que
+    ``test_modules_du_paquet_s_importent`` échoue avec un message clair, au lieu de
+    masquer des API publiques.
     """
-    racine = prefixe.split(".", maxsplit=1)[0]
     modules: list[ModuleType] = []
-    echecs: list[str] = []
+    echecs: dict[str, str] = {}
 
     def noter(nom: str) -> None:
         exc = sys.exception()
-        if exc is None:
+        if exc is None or _est_extra_absent(exc):
             return
-        if (
-            isinstance(exc, ModuleNotFoundError)
-            and exc.name is not None
-            and exc.name.split(".")[0] != racine
-        ):
-            return
-        echecs.append(f"{nom} : {type(exc).__name__} : {exc}")
+        # ``walk_packages`` signale un sous-paquet cassé, puis il est réimporté.
+        echecs.setdefault(nom, f"{nom} : {type(exc).__name__} : {exc}")
 
     for info in pkgutil.walk_packages(chemin, prefixe, onerror=noter):
         # Un ``__main__`` s'exécuterait à l'import et fausserait ``runpy``.
@@ -101,7 +111,7 @@ def _importer_modules(
             modules.append(importlib.import_module(info.name))
         except ImportError:
             noter(info.name)
-    return modules, echecs
+    return modules, list(echecs.values())
 
 
 MODULES, ECHECS_IMPORT = _importer_modules(linuxtools.__path__, f"{_PAQUET}.")
@@ -112,12 +122,11 @@ MODULES, ECHECS_IMPORT = _importer_modules(linuxtools.__path__, f"{_PAQUET}.")
 
 # Formes textuelles reconnues quand l'annotation en chaîne ne se résout pas (nom
 # importé sous ``TYPE_CHECKING``) : comparaison exacte, jamais de sous-chaîne,
-# car ``Callable[..., bool]`` contient « bool » sans être un booléen.
+# car ``Callable[..., bool]`` contient « bool » sans être un booléen. Seules les
+# formes qui s'appuient sur ``typing`` figurent ici : ``bool``, ``bool | None`` et
+# ``None | bool`` n'emploient que des builtins, toujours résolus, donc jamais en repli.
 _FORMES_TEXTE_BOOLEENNES = frozenset(
     {
-        "bool",
-        "bool|None",
-        "None|bool",
         "Optional[bool]",
         "Union[bool,None]",
         "Union[None,bool]",
@@ -401,15 +410,13 @@ def _objets_publics_du_module(module: ModuleType) -> list[object]:
     ]
 
 
-def _surface_publique(
-    modules: Iterable[ModuleType], paquet: str = _PAQUET
-) -> list[object]:
+def _surface_publique(modules: Iterable[ModuleType]) -> list[object]:
     """Objets publics : ``__all__``, ou les objets définis dans un module sans.
 
     Un module sans ``__all__`` n'est exploré que si son paquet parent n'en a pas
     non plus (``linuxtools.devtools`` : ses modules sont l'API). Un extra
-    optionnel absent (``webapitools``) fait ignorer l'export concerné ; tout
-    autre ``ModuleNotFoundError`` du paquet remonte.
+    optionnel connu absent (``_EXTRAS_CONNUS``) fait ignorer l'export concerné ;
+    tout autre ``ModuleNotFoundError`` remonte.
     """
     objets: list[object] = []
     for module in modules:
@@ -418,7 +425,7 @@ def _surface_publique(
                 try:
                     objets.append(getattr(module, nom))
                 except ModuleNotFoundError as exc:
-                    if exc.name is None or exc.name.split(".")[0] == paquet:
+                    if not _est_extra_absent(exc):
                         raise
             continue
         parent_nom = module.__name__.rpartition(".")[0]
@@ -550,6 +557,7 @@ FORMES: list[tuple[object, bool]] = [
     (int, False),
     (Optional[int], False),  # noqa: UP045 -- idem
     (Literal[1], False),
+    (Literal[True, 1], False),  # tous les membres doivent être booléens
     (None, False),
 ]
 FORMES_EN_CHAINE: list[tuple[object, bool]] = [
@@ -594,9 +602,15 @@ def test_forme_d_annotation_reconnue_comme_booleen(
         ("bool | None", True),
         ("Optional[bool]", True),
         ("Union[bool, None]", True),
+        ("None | bool", True),
+        ("Union[None, bool]", True),
         ("Callable[..., bool]", False),  # contient « bool » : pas une sous-chaîne
         ("Rappel | bool", False),
         ("Optional[int]", False),
+        # annotations invalides : le repli remplace l'exception, jamais un échec
+        ("bool |", False),  # SyntaxError
+        ("bool | 3", False),  # TypeError
+        ("bool.fantome", False),  # AttributeError
     ],
 )
 def test_annotation_non_resoluble_compare_la_forme_textuelle_exacte(
@@ -675,6 +689,15 @@ def _classe_init_exec() -> type:
     return type("_ExempleInitExec", (), {"__init__": espace["__init__"]})
 
 
+def _classe_new_exec() -> type:
+    """Classe ordinaire (pas un NamedTuple) dont ``__new__`` vient de ``exec``."""
+    espace: dict[str, Any] = {}
+    exec(  # noqa: S102 -- produire du code sans fichier source
+        "def __new__(cls, actif=False):\n    return object.__new__(cls)", espace
+    )
+    return type("_ExempleNewExec", (), {"__new__": espace["__new__"]})
+
+
 class _ExempleClasse:
     """Classe d'essai : ``__init__`` ordinaire."""
 
@@ -691,13 +714,14 @@ def test_code_genere_est_exempte_et_le_code_manuel_non() -> None:
         (_ExempleNamedTupleNewManuel, "fabrique"),
         (_ExempleClasse, "__init__"),
         (_classe_init_exec(), "__init__"),
+        (_classe_new_exec(), "__new__"),
     ]
 
     # Act
     generes = [_methode_generee(c, n, getattr(c, n)) for c, n in cas]
 
     # Assert
-    assert generes == [True, False, True, False, False, False]
+    assert generes == [True, False, True, False, False, False, False]
 
 
 def test_champs_de_namedtuple_reel_exemptes_comme_les_dataclasses() -> None:
@@ -799,7 +823,7 @@ def test_sentinelle_de_chaque_categorie_est_collectee(identifiant: str) -> None:
 
 
 def test_collecte_booleens_publics_n_est_pas_aveugle() -> None:
-    """Garde-fou de volume : 60 booléens distincts mesurés, seuil à 50."""
+    """Garde-fou de volume : 64 booléens distincts mesurés, seuil à 50."""
     # Assert
     assert len(BOOLEENS_PUBLICS) > 50
 
@@ -871,12 +895,14 @@ def test_import_tolere_un_extra_absent_et_signale_un_module_casse(
         nom,
         {
             "bon": "X = 1\n",
-            "extra": "import extra_optionnel_inexistant\n",
+            "extra": "import keyring\n",
+            "tiers": "import tiers_inconnu_xyz\n",
             "casse": f"import {nom}.fantome\n",
             "circulaire": "from paquet_essai_booleens.bon import ABSENT\n",
         },
     )
     monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setitem(sys.modules, "keyring", None)  # extra connu « absent »
     try:
         # Act
         modules, echecs = _importer_modules([str(tmp_path / nom)], f"{nom}.")
@@ -889,7 +915,54 @@ def test_import_tolere_un_extra_absent_et_signale_un_module_casse(
     assert sorted(e.split(" : ")[0] for e in echecs) == [
         f"{nom}.casse",
         f"{nom}.circulaire",
+        f"{nom}.tiers",
     ]
+
+
+def test_import_signale_une_seule_fois_un_sous_paquet_casse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    nom = "paquet_essai_sous_paquet"
+    _creer_paquet(tmp_path, nom, {})
+    sous = tmp_path / nom / "sous"
+    sous.mkdir()
+    (sous / "__init__.py").write_text('raise ImportError("sous-paquet cassé")\n')
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        # Act
+        _, echecs = _importer_modules([str(tmp_path / nom)], f"{nom}.")
+    finally:
+        for cle in [c for c in sys.modules if c.startswith(nom)]:
+            del sys.modules[cle]
+
+    # Assert
+    assert echecs == [f"{nom}.sous : ImportError : sous-paquet cassé"]
+
+
+@pytest.mark.parametrize(
+    ("exception", "attendu"),
+    [
+        (ModuleNotFoundError(name="webapitools"), True),
+        (ModuleNotFoundError(name="pydantic"), True),
+        (ModuleNotFoundError(name="dotenv"), True),
+        (ModuleNotFoundError(name="keyring"), True),
+        (ModuleNotFoundError(name="keyring.backends"), True),
+        (ModuleNotFoundError(name="requests"), False),
+        (ModuleNotFoundError(name="linuxtools.fantome"), False),
+        (ModuleNotFoundError(), False),
+        (ImportError("symbole manquant", name="keyring"), False),
+    ],
+    ids=lambda v: getattr(v, "name", None) or str(v),
+)
+def test_seuls_les_extras_connus_sont_toleres(
+    exception: ImportError, attendu: bool
+) -> None:
+    # Act
+    resultat = _est_extra_absent(exception)
+
+    # Assert
+    assert resultat is attendu
 
 
 class _ModuleParesseux(ModuleType):
@@ -917,11 +990,10 @@ def test_export_d_un_extra_absent_est_ignore() -> None:
     assert objets == []
 
 
-def test_export_d_un_module_du_paquet_introuvable_remonte() -> None:
+@pytest.mark.parametrize("nom", ["linuxtools.fantome", "tiers_inconnu_xyz"])
+def test_export_d_un_module_introuvable_hors_extras_remonte(nom: str) -> None:
     # Arrange
-    module = _ModuleParesseux(
-        "linuxtools.fictif", ModuleNotFoundError(name="linuxtools.fantome")
-    )
+    module = _ModuleParesseux("linuxtools.fictif", ModuleNotFoundError(name=nom))
 
     # Act / Assert
     with pytest.raises(ModuleNotFoundError):
