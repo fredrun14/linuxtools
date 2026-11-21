@@ -73,11 +73,15 @@ _EXTRAS_CONNUS = frozenset({"webapitools", "pydantic", "dotenv", "keyring"})
 
 
 def _est_extra_absent(exc: BaseException) -> bool:
-    """Indique si l'exception signale l'absence d'un extra optionnel connu."""
+    """Indique si l'exception signale l'absence d'un extra optionnel connu.
+
+    Python nomme la racine quand un paquet est absent : un sous-module introuvable
+    (``keyring.backends``) signale un extra installé mais cassé, donc une faute.
+    """
     return (
         isinstance(exc, ModuleNotFoundError)
         and exc.name is not None
-        and exc.name.split(".")[0] in _EXTRAS_CONNUS
+        and exc.name in _EXTRAS_CONNUS
     )
 
 
@@ -616,7 +620,9 @@ def test_forme_d_annotation_reconnue_comme_booleen(
 def test_annotation_non_resoluble_compare_la_forme_textuelle_exacte(
     annotation: str, attendu: bool
 ) -> None:
-    # Arrange : globaux vides, ni ``Optional`` ni ``Callable`` ne se résolvent
+    # Arrange : globaux vides, ni ``Optional`` ni ``Callable`` ne se résolvent.
+    # ``bool``, ``bool | None`` et ``None | bool`` n'emploient que des builtins : ils
+    # passent par la résolution, pas par le repli textuel (hors de ce test).
     fonction, parametre = _parametre(annotation, globales={})
 
     # Act
@@ -947,7 +953,8 @@ def test_import_signale_une_seule_fois_un_sous_paquet_casse(
         (ModuleNotFoundError(name="pydantic"), True),
         (ModuleNotFoundError(name="dotenv"), True),
         (ModuleNotFoundError(name="keyring"), True),
-        (ModuleNotFoundError(name="keyring.backends"), True),
+        # sous-module introuvable d'un extra installé : faute, pas une absence d'extra
+        (ModuleNotFoundError(name="keyring.backends"), False),
         (ModuleNotFoundError(name="requests"), False),
         (ModuleNotFoundError(name="linuxtools.fantome"), False),
         (ModuleNotFoundError(), False),

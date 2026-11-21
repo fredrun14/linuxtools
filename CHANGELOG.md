@@ -7,9 +7,8 @@
 - test(api): test global « tout booléen public est mot-clé seul » : un cas par
   paramètre booléen (annotation `bool` ou `bool | None` résolue, y compris
   `Optional`, `Union`, `Annotated`, `Literal[True]`, alias (simple affectation
-  `Flag = bool` ; `NewType`, `TypeVar` et PEP 695 non reconnus, absents de `src/`) et
-  chaînes `__future__`,
-  ou défaut `True`/`False`) de chaque fonction, `__init__`, `__new__`, `__call__`,
+  `Flag = bool` ; `NewType`, `TypeVar` et PEP 695 non reconnus, aucun alias de `bool`
+  de ce type dans `src/`) et chaînes `__future__`, ou défaut `True`/`False`) de chaque fonction, `__init__`, `__new__`, `__call__`,
   méthode publique (bases non exportées et classes imbriquées comprises) exportée par
   `__all__` ou définie dans un module de paquet sans `__all__` (`linuxtools.devtools`) :
   64 cas. Les champs de dataclass (24) et de `NamedTuple` (`AutomountSettings`) restent
@@ -17,8 +16,8 @@
   exemptés. Dérogations `EXCEPTIONS` (identifiant → raison) vide ; une raison vide,
   une entrée périmée ou inutile fait échouer. Un module du paquet qui ne s'importe pas
   fait échouer explicitement ; seule l'absence d'un extra optionnel connu (`webapitools`,
-  `pydantic`, `dotenv`, `keyring`) est tolérée, tout autre import tiers manquant fait
-  échouer. Aucun changement de `src/`.
+  `pydantic`, `dotenv`, `keyring`) est tolérée, tout autre import tiers manquant, ou
+  sous-module introuvable d'un extra installé, fait échouer. Aucun changement de `src/`.
 
 ### Modifié
 
