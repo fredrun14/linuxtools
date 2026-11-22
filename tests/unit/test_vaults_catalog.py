@@ -1,9 +1,8 @@
 """Tests de ``VaultCatalog`` : emplacements, ``roles``, ``root``, ``role_of``."""
 
 import os
-import stat
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 from unittest.mock import MagicMock
@@ -604,25 +603,6 @@ def test_role_of_rend_le_premier_role_si_deux_roles_ont_le_meme_dossier(
     )
 
     assert VaultCatalog.load().role_of(dirs["perso"]) == "perso"
-
-
-@pytest.fixture
-def parent_ferme() -> Iterator[Callable[[Path], None]]:
-    """Retire tous les droits d'un dossier, restaurés en fin de test.
-
-    Saute le test si les droits sont sans effet (root).
-    """
-    fermes: list[tuple[Path, int]] = []
-
-    def fermer(dossier: Path) -> None:
-        if os.geteuid() == 0:
-            pytest.skip("root ignore les permissions POSIX")
-        fermes.append((dossier, dossier.stat().st_mode))
-        dossier.chmod(0)
-
-    yield fermer
-    for dossier, mode in fermes:
-        dossier.chmod(stat.S_IMODE(mode))
 
 
 def test_load_leve_si_le_dossier_de_la_configuration_est_inaccessible(

@@ -1,6 +1,6 @@
 """Tests du chargement et de la validation du TOML des vaults (T2)."""
 
-import os
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -231,16 +231,14 @@ def test_load_leve_si_toml_invalide(vaults_env: VaultsEnv) -> None:
     assert info.value.__cause__ is not None
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root lit tout fichier")
-def test_load_leve_si_toml_illisible(vaults_env: VaultsEnv) -> None:
+def test_load_leve_si_toml_illisible(
+    vaults_env: VaultsEnv, parent_ferme: Callable[[Path], None]
+) -> None:
     vaults_env.write_settings()
-    vaults_env.config_file.chmod(0o000)
+    parent_ferme(vaults_env.config_file.parent)
 
-    try:
-        with pytest.raises(VaultCatalogError) as info:
-            _load_settings(vaults_env.config_file)
-    finally:
-        vaults_env.config_file.chmod(0o600)
+    with pytest.raises(VaultCatalogError) as info:
+        _load_settings(vaults_env.config_file)
 
     assert "illisible" in str(info.value)
     assert isinstance(info.value.__cause__, OSError)
