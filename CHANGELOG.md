@@ -2,8 +2,21 @@
 
 ## [Non publié]
 
+## [3.1.0] - 2026-11-22
+
 ### Ajouté
 
+- feat(vaults): module `linuxtools.vaults` : `VaultCatalog` (`load`, `roles`, `root`,
+  `role_of`, `domaines`) et `VaultCatalogError` (sous-classe de `ConfigurationError`),
+  exportés depuis `linuxtools`. Catalogue des vaults par rôle, lu dans
+  `~/.config/vault-tools/vaults.toml` (XDG, sans cascade `/etc`) ; emplacements et
+  domaines lus dans les notes de conventions de l'utilisateur via un parseur privé de
+  tableaux Markdown (blocs de code CommonMark ignorés, segments vides refusés).
+  Échec fermé : toute anomalie (TOML ou UTF-8 invalide, chemin relatif, `~utilisateur`
+  inconnu, boucle de liens) lève `VaultCatalogError` nommant le fichier et, le cas
+  échéant, la clé. Exemple empaqueté `vaults.example.toml`. Aucun nom de vault dans `src/`, garde de test
+  associée ; test de contrat sur fixtures anonymisées et test sur la configuration
+  réelle du poste (sauté si absente).
 - test(api): test global « tout booléen public est mot-clé seul » : un cas par
   paramètre booléen (annotation `bool` ou `bool | None` résolue, y compris
   `Optional`, `Union`, `Annotated`, `Literal[True]`, alias (simple affectation
@@ -21,6 +34,7 @@
 
 ### Modifié
 
+- chore: version 3.1.0 (module `vaults`).
 - build: backend de build hatchling à la place de setuptools (base commune 6/6) ;
   contenu du wheel identique (`linuxtools/**` et `py.typed`, seul `dist-info` change :
   plus de `top_level.txt`). `allow-direct-references` activé pour l'extra `network`

@@ -27,6 +27,7 @@ Modules disponibles:
 - updates: Vérification de mise à jour disponible via les releases
   Forgejo (check_for_update, UpdateCheckResult,
   format_update_notice)
+- vaults: Catalogue des vaults par rôle (VaultCatalog, VaultCatalogError)
 """
 
 from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
@@ -259,6 +260,7 @@ from linuxtools.validation import (
     SystemCommandValidator,
     Validator,
 )
+from linuxtools.vaults import VaultCatalog, VaultCatalogError
 
 if TYPE_CHECKING:
     from linuxtools.network import (
@@ -522,4 +524,7 @@ __all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     "UpdateCheckResult",
     "check_for_update",
     "format_update_notice",
+    # Vaults - Catalogue des vaults par rôle
+    "VaultCatalog",
+    "VaultCatalogError",
 ]

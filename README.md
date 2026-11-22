@@ -35,6 +35,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - [Module credentials](#-module-credentials)
 - [Module validation](#-module-validation)
 - [Module notification](#-module-notification)
+- [Module vaults](#-module-vaults)
 - [Exemple Complet](#-exemple-complet)
 - [Tests](#-tests)
 - [Troubleshooting](#-troubleshooting)
@@ -394,10 +395,15 @@ linuxtools/
 │   │   ├── reporter.py          # ConsoleTableReporter, CsvReporter, etc.
 │   │   ├── router.py            # AsusRouterClient, AsusRouterScanner, etc.
 │   │   └── validators.py        # validate_ipv4, validate_mac, etc.
-│   └── cli/
+│   ├── cli/
+│   │   ├── __init__.py
+│   │   ├── base.py              # CliCommand (ABC), CliApplication
+│   │   └── dry_run.py           # DryRunContext, add_dry_run_argument
+│   └── vaults/
 │       ├── __init__.py
-│       ├── base.py              # CliCommand (ABC), CliApplication
-│       └── dry_run.py           # DryRunContext, add_dry_run_argument
+│       ├── catalog.py           # VaultCatalog, VaultCatalogError
+│       ├── _tables.py           # parseur privé de tableaux Markdown
+│       └── vaults.example.toml  # exemple de configuration empaqueté
 ├── tests/
 │   ├── __init__.py
 │   ├── test_logging.py
@@ -3288,6 +3294,73 @@ appel_echec = notif.to_bash_call_failure()    # appel en cas d'échec
 | `JournaldNotifier` | Écriture sur le socket natif journald (`journalctl -t <app_name>`) |
 | `NotificationError` / `NotificationSendError` | Exceptions, rattachées à `ApplicationError` |
 | `NotificationConfig` | Dataclass de configuration des notifications desktop, génère du code bash (`to_bash_function`/`to_bash_call_success`/`to_bash_call_failure`) |
+
+---
+
+## 🗄️ Module `vaults`
+
+Catalogue des vaults Obsidian par **rôle** (`perso`, `pro`, `foyer`…), commun aux
+outils qui manipulent plusieurs vaults. Aucun nom ni chemin de vault n'est écrit dans
+la bibliothèque : tout vient d'un fichier de configuration du poste, et les
+emplacements et domaines sont lus dans les notes de conventions de l'utilisateur.
+
+### Configuration
+
+Copier l'exemple empaqueté (`src/linuxtools/vaults/vaults.example.toml`) dans
+`~/.config/vault-tools/vaults.toml` (règle XDG, `XDG_CONFIG_HOME` respecté, aucune
+cascade `/etc` ni `XDG_CONFIG_DIRS`) :
+
+```toml
+[sources]
+emplacements = "~/.claude/CLAUDE.md"
+conventions  = "~/.claude/references/conventions-vault.md"
+
+[emplacements]
+section = "## Emplacements"
+roles = { perso = "vault perso", pro = "vault pro", foyer = "vault foyer" }
+
+[conventions]
+table_header = "| Vault | Valeurs |"
+```
+
+### Utilisation
+
+```python
+from pathlib import Path
+
+from linuxtools import VaultCatalog, VaultCatalogError
+
+try:
+    catalog = VaultCatalog.load()
+    catalog.roles                      # ('perso', 'pro', 'foyer')
+    catalog.root("pro")                # Path absolu d'un dossier existant
+    catalog.role_of(Path.cwd())        # rôle dont la racine est exactement ce chemin, ou None
+    catalog.domaines("pro")            # frozenset des domaines du rôle (lu à la demande)
+except VaultCatalogError as exc:
+    print(exc)                         # nomme le fichier et, le cas échéant, la clé
+```
+
+- **Échec fermé** : fichier absent, TOML ou UTF-8 invalide, clé manquante ou mal typée,
+  chemin relatif, `~utilisateur` inconnu, dossier introuvable, boucle de liens : toujours
+  une `VaultCatalogError` (sous-classe de `ConfigurationError`), jamais une exception
+  brute.
+- **Tableaux Markdown** : un tableau placé dans un bloc de code (clôtures ``` et `~~~`
+  selon CommonMark) est ignoré ; un segment vide entre backticks est refusé.
+- `load()` lit le TOML puis le fichier des emplacements ; le fichier des conventions
+  n'est lu qu'à la première demande de `domaines`, dont le résultat est mis en cache.
+- Si deux rôles pointent vers le même dossier, `role_of` rend le premier dans l'ordre
+  du TOML.
+
+### Documentation API
+
+| Élément | Rôle |
+|---|---|
+| `VaultCatalog.load(*, logger=None)` | Lit le TOML XDG et les sources d'emplacements |
+| `VaultCatalog.roles` | Rôles déclarés, dans l'ordre du TOML |
+| `VaultCatalog.root(role)` | Racine absolue et existante du rôle |
+| `VaultCatalog.role_of(path)` | Rôle dont la racine est exactement `path` (égalité stricte, un sous-dossier rend `None`), ou `None` |
+| `VaultCatalog.domaines(role)` | Domaines autorisés du rôle (paresseux, en cache) |
+| `VaultCatalogError` | Erreur unique du module (`source`, `key`) |
 
 ---
 
