@@ -4,8 +4,10 @@ Toutes sont explicites (aucune ``autouse``) : un fichier de tests les active
 avec ``pytest.mark.usefixtures`` ou en les demandant en paramètre.
 """
 
-from collections.abc import Iterator
+import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -87,3 +89,36 @@ def vaults_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> VaultsEnv:
     return VaultsEnv(
         home, config_file, write_settings, write_emplacements, write_conventions
     )
+
+
+@pytest.fixture
+def parent_ferme(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], None]:
+    """Simule un dossier fermé (droits 0) : ses enfants lèvent ``PermissionError``.
+
+    Passe par ``os.stat``, ``os.lstat`` et ``os.open`` plutôt que par
+    ``chmod``, que root ignore : le comportement ne dépend pas du compte.
+    """
+    fermes: list[str] = []
+    reels: dict[str, Callable[..., Any]] = {
+        "stat": os.stat,
+        "lstat": os.lstat,
+        "open": os.open,
+    }
+
+    def garde(nom: str) -> Callable[..., Any]:
+        def appel(chemin: Any, *args: Any, **kwargs: Any) -> Any:
+            if isinstance(chemin, str | bytes | os.PathLike):
+                texte = os.fsdecode(chemin)
+                if any(texte.startswith(f"{d}{os.sep}") for d in fermes):
+                    raise PermissionError(13, "Permission denied", texte)
+            return reels[nom](chemin, *args, **kwargs)
+
+        return appel
+
+    for nom in reels:
+        monkeypatch.setattr(os, nom, garde(nom))
+
+    def fermer(dossier: Path) -> None:
+        fermes.append(str(dossier))
+
+    return fermer
