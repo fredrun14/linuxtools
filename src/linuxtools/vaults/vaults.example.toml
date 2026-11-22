@@ -1,0 +1,14 @@
+# Configuration commune des outils de vaults (linuxtools.vaults.VaultCatalog).
+# À copier dans ~/.config/vault-tools/vaults.toml (règle XDG).
+[sources]
+emplacements = "~/.claude/CLAUDE.md"
+conventions  = "~/.claude/references/conventions-vault.md"
+
+[emplacements]
+section = "## Emplacements"
+# rôle → libellé de la colonne « Contenu »
+roles = { perso = "vault perso", pro = "vault pro", foyer = "vault foyer" }
+
+[conventions]
+# en-tête du tableau des domaines (§ 4)
+table_header = "| Vault | Valeurs |"
