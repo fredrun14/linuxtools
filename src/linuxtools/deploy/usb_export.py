@@ -723,6 +723,10 @@ fi
     def _write_run_script(self, target_dir: Path, entry_point: tuple[str, str]) -> str:
         """Génère run.sh pour le mode venv.
 
+        Les arguments de run.sh sont transmis tels quels au point d'entrée,
+        sans `--` : Python ne lit plus d'options après l'argument de `-c`,
+        et un `--` arriverait dans `sys.argv` du CLI.
+
         Args:
             target_dir: Répertoire cible.
             entry_point: Tuple (module, fonction) déjà validés par
@@ -739,7 +743,7 @@ set -euo pipefail
 USB="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 exec "$USB/venv/bin/python3" \\
-    -c "from {module} import {function}; {function}()" -- "$@"
+    -c "from {module} import {function}; {function}()" "$@"
 """
         dest_path = target_dir / "run.sh"
         ContentSink(LocalDestination(), logger=self._logger).write(

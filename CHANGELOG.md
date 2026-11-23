@@ -2,6 +2,13 @@
 
 ## [Non publié]
 
+### Corrigé
+
+- fix(deploy): le `run.sh` généré par `UsbExporter` (mode `venv`) ne glisse plus de `--`
+  dans les arguments du CLI : `run.sh --help` et les options placées avant la commande
+  (`--config …`) sont transmises telles quelles. Test de contrat qui exécute le vrai
+  `run.sh` (T1). Les clés déjà exportées gardent l'ancien `run.sh` jusqu'au prochain export.
+
 ## [3.1.0] - 2026-11-22
 
 ### Ajouté
