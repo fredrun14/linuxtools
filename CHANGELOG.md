@@ -2,6 +2,8 @@
 
 ## [Non publié]
 
+## [3.1.1] - 2026-11-23
+
 ### Corrigé
 
 - fix(deploy): le `run.sh` généré par `UsbExporter` (mode `venv`) ne glisse plus de `--`
