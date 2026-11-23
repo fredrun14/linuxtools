@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -1563,3 +1566,47 @@ class TestExportConfigs:
         # test) : on vérifie donc le nom de fichier final, pas une
         # sous-chaîne quelconque du chemin complet.
         assert not any(Path(p).name == "configs" for p in report.created_paths)
+
+
+class TestRunScriptArguments:
+    """Contrat du run.sh généré : les arguments arrivent tels quels."""
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["--help"],
+            ["--config", "x", "cmd", "--dry-run"],
+            ["cmd", "a b"],
+            [],
+        ],
+    )
+    def test_run_script_transmet_les_arguments_tels_quels(
+        self, tmp_path: Path, executor: MagicMock, args: list[str]
+    ) -> None:
+        """`sys.argv[1:]` du point d'entrée égale les arguments de run.sh."""
+        # Arrange : faux venv (un lien vers sys.executable perdrait pyvenv.cfg)
+        target_dir = tmp_path / "usb"
+        fake_python = target_dir / "venv" / "bin" / "python3"
+        fake_python.parent.mkdir(parents=True)
+        fake_python.write_text(f'#!/usr/bin/env bash\nexec "{sys.executable}" "$@"\n')
+        fake_python.chmod(0o755)
+        (tmp_path / "demo_entry.py").write_text(
+            "import json\nimport sys\n\n\n"
+            "def main() -> None:\n"
+            "    print(json.dumps(sys.argv[1:]))\n"
+        )
+        exporter = UsbExporter(executor)
+        run_sh = exporter._write_run_script(target_dir, ("demo_entry", "main"))
+        env = {**os.environ, "PYTHONPATH": str(tmp_path)}
+
+        # Act
+        result = subprocess.run(  # noqa: S603 - liste d'arguments, aucune entrée externe
+            ["bash", run_sh, *args],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+        )
+
+        # Assert
+        assert json.loads(result.stdout) == args
