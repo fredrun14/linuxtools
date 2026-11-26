@@ -22,10 +22,8 @@ from linuxtools.jobnotify.runtime import (
     main,
     start,
 )
-from linuxtools.jobnotify.spec import NotifiedJob
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
-    BASE_OUTCOMES,
     BOB_PROPS,
     BOOT_A,
     BOOT_B,
@@ -44,7 +42,6 @@ from tests.unit.jobnotify.runtime_support import (
     Reply,
     answer,
     ctx_for,
-    descriptor_of,
     end_env,
     files_under,
     make_ctx,
@@ -804,29 +801,6 @@ def test_main_sans_descripteur_n_agit_pas_et_rend_zero(tmp_path: Path) -> None:
     assert runner.calls == []
     assert len(recorder.messages) == 1
     assert recorder.messages[0].startswith("absent-notify : descripteur")
-
-
-def test_main_scope_user_refuse_proprement_avant_t4(tmp_path: Path) -> None:
-    job = NotifiedJob(
-        name="demo",
-        owner="demo-app",
-        watched_unit="demo.service",
-        scope="user",
-        start_texts=("début", "corps"),
-        end_texts=dict.fromkeys(BASE_OUTCOMES, ("fin", "corps")),
-    )
-    recorder = Recorder()
-    runner = FakeRunner(system_handler(sessions={"1": ALICE_PROPS}))
-    ctx = ctx_for(runner, tmp_path, recorder, euid=1000, job=descriptor_of(job))
-
-    rc = main(["start"], ctx)
-
-    assert rc == 0
-    assert runner.calls == []
-    assert files_under(tmp_path) == {}
-    assert recorder.messages == [
-        "demo-notify : scope user non pris en charge, aucune action\n"
-    ]
 
 
 def test_verbe_sans_descripteur_leve_runtimeerror(tmp_path: Path) -> None:

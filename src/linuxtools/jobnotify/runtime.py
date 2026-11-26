@@ -280,6 +280,12 @@ def _job(ctx: Ctx) -> Descriptor:
     return ctx.descriptor
 
 
+def _systemctl(ctx: Ctx, *args: str) -> list[str]:
+    """Commande ``systemctl`` du gestionnaire du job (``--user`` en scope user)."""
+    scope = ["--user"] if _is_user_scope(ctx) else []
+    return [SYSTEMCTL, *scope, *args]
+
+
 def _warn(ctx: Ctx, message: str) -> None:
     """Écrit un diagnostic sur stderr, préfixé par ``<job>-notify``."""
     prefix = f"{ctx.descriptor.name}-notify" if ctx.descriptor else ctx.script.stem
@@ -491,6 +497,11 @@ def send_notification(  # noqa: PLR0913 (signature portée du hook : verbes T2/T
         L'identifiant renvoyé par le serveur de notifications, ou None si
         l'envoi échoue.
     """
+    if _is_user_scope(ctx):
+        # Destinataire unique (le propriétaire) : envoi direct, sans runuser.
+        return _send_to_self(
+            ctx, summary, body, persistent=persistent, replaces_id=replaces_id
+        )
     uid = session.uid
     urgency = _URGENCY_CRITICAL if persistent else _URGENCY_NORMAL
     # Argv en liste, sans shell : le nom d'utilisateur reste UN seul argument.
@@ -660,9 +671,53 @@ class _Target:
         return self.base / self.relative / self.name
 
 
+def _env_dir(ctx: Ctx, key: str) -> Path | None:
+    """Dossier absolu lu dans ``ctx.env`` (jamais ``Path.home()``), sinon None."""
+    value = ctx.env.get(key, "")
+    return Path(value) if value and Path(value).is_absolute() else None
+
+
+def _xdg_state_base(ctx: Ctx) -> Path | None:
+    """``$XDG_STATE_HOME``, ou ``$HOME/.local/state`` calculé depuis ``ctx.env``."""
+    base = _env_dir(ctx, "XDG_STATE_HOME")
+    if base is not None:
+        return base
+    home = _env_dir(ctx, "HOME")
+    return None if home is None else home / ".local" / "state"
+
+
+def _is_user_scope(ctx: Ctx) -> bool:
+    """Indique si le job tourne dans le gestionnaire de l'utilisateur."""
+    return _job(ctx).scope == "user"
+
+
+def _user_dirs_missing(ctx: Ctx) -> bool:
+    """Vrai si un dossier XDG (état ou exécution) manque pour le scope user."""
+    return _xdg_state_base(ctx) is None or _env_dir(ctx, "XDG_RUNTIME_DIR") is None
+
+
 def _state_target(ctx: Ctx) -> _Target:
-    """Fichier ``var/lib/<owner>/<name>/state.json`` (lisible de tous)."""
+    """Fichier d'état du job, selon le scope.
+
+    Système : ``var/lib/<owner>/<name>/state.json`` (lisible de tous) ; user :
+    ``$XDG_STATE_HOME/<owner>/<name>/state.json`` (privé).
+
+    Raises:
+        RuntimeError: En scope user sans dossier d'état (``main`` l'écarte avant).
+    """
     job = _job(ctx)
+    if _is_user_scope(ctx):
+        base = _xdg_state_base(ctx)
+        if base is None:
+            msg = "ni XDG_STATE_HOME ni HOME exploitable"
+            raise RuntimeError(msg)
+        return _Target(
+            base,
+            Path(job.owner) / job.name,
+            "state.json",
+            file_mode=0o600,
+            dir_mode=0o700,
+        )
     return _Target(
         ctx.root_dir,
         Path("var/lib") / job.owner / job.name,
@@ -678,11 +733,32 @@ def _run_relative(ctx: Ctx) -> Path:
     return Path("run") / job.owner / job.name
 
 
-def _lock_target(ctx: Ctx) -> _Target:
-    """Fichier de verrou : dans le dossier root 0700 des ID (``/run``)."""
+def _run_target(ctx: Ctx, name: str) -> _Target:
+    """Fichier volatil du job, selon le scope.
+
+    Système : sous ``/run/<owner>/<name>`` (root 0700) ; user : sous
+    ``$XDG_RUNTIME_DIR/<owner>/<name>``.
+
+    Raises:
+        RuntimeError: En scope user sans ``XDG_RUNTIME_DIR`` (``main`` l'écarte avant).
+    """
+    if not _is_user_scope(ctx):
+        return _Target(
+            ctx.root_dir, _run_relative(ctx), name, file_mode=0o600, dir_mode=0o700
+        )
+    base = _env_dir(ctx, "XDG_RUNTIME_DIR")
+    if base is None:
+        msg = "XDG_RUNTIME_DIR absent"
+        raise RuntimeError(msg)
+    job = _job(ctx)
     return _Target(
-        ctx.root_dir, _run_relative(ctx), "lock", file_mode=0o600, dir_mode=0o700
+        base, Path(job.owner) / job.name, name, file_mode=0o600, dir_mode=0o700
     )
+
+
+def _lock_target(ctx: Ctx) -> _Target:
+    """Fichier de verrou : dans le dossier 0700 des ID (``/run`` ou XDG)."""
+    return _run_target(ctx, "lock")
 
 
 def _ids_target(ctx: Ctx, uid: int) -> _Target:
@@ -697,7 +773,12 @@ def _ids_target(ctx: Ctx, uid: int) -> _Target:
 
 
 def _user_id_target(ctx: Ctx, uid: int) -> _Target:
-    """Fichier d'ID écrit par l'utilisateur : ``run/user/<uid>/<owner>/<name>.id``."""
+    """Fichier d'ID écrit par l'utilisateur : ``run/user/<uid>/<owner>/<name>.id``.
+
+    En scope user, c'est l'unique fichier d'ID : ``$XDG_RUNTIME_DIR/<owner>/<name>/id``.
+    """
+    if _is_user_scope(ctx):
+        return _run_target(ctx, "id")
     job = _job(ctx)
     return _Target(
         ctx.root_dir,
@@ -710,13 +791,8 @@ def _user_id_target(ctx: Ctx, uid: int) -> _Target:
 
 def _seen_target(ctx: Ctx) -> _Target | None:
     """Fichier ``seen`` de l'utilisateur, ou None sans dossier d'état utilisable."""
-    xdg = ctx.env.get("XDG_STATE_HOME", "")
-    home = ctx.env.get("HOME", "")
-    if xdg and Path(xdg).is_absolute():
-        base = Path(xdg)
-    elif home and Path(home).is_absolute():
-        base = Path(home) / ".local" / "state"
-    else:
+    base = _xdg_state_base(ctx)
+    if base is None:
         return None
     job = _job(ctx)
     return _Target(
@@ -869,6 +945,11 @@ def _validate_state(data: object) -> _State | None:
     return None
 
 
+def _expected_owner(ctx: Ctx) -> int | None:
+    """Propriétaire exigé des fichiers d'état : l'utilisateur en scope user."""
+    return ctx.geteuid() if _is_user_scope(ctx) else None
+
+
 def _read_state(ctx: Ctx) -> _State | None:
     """Lit ``state.json`` ; un fichier illisible ou corrompu vaut « pas d'état ».
 
@@ -880,7 +961,7 @@ def _read_state(ctx: Ctx) -> _State | None:
         sur stderr).
     """
     path = _state_target(ctx).path
-    raw = _read_regular(path, max_size=_MAX_STATE_SIZE)
+    raw = _read_regular(path, max_size=_MAX_STATE_SIZE, owner=_expected_owner(ctx))
     if raw is None:
         if path.is_symlink() or path.exists():
             _warn(ctx, "état illisible, ignoré")
@@ -918,7 +999,12 @@ def _read_boot_id(ctx: Ctx) -> str | None:
 
 
 def _read_root_id_stamped(ctx: Ctx, uid: int) -> tuple[int, float] | None:
-    """Lit l'ID mémorisé par root pour ``uid`` et la date d'écriture du fichier."""
+    """Lit l'ID mémorisé par root pour ``uid`` et la date d'écriture du fichier.
+
+    Sans objet en scope user (aucun ID root) : None.
+    """
+    if _is_user_scope(ctx):
+        return None
     result = _read_regular_stamped(
         _ids_target(ctx, uid).path, max_size=_MAX_ID_FILE_SIZE
     )
@@ -929,7 +1015,12 @@ def _read_root_id_stamped(ctx: Ctx, uid: int) -> tuple[int, float] | None:
 
 
 def _forget_root_id(ctx: Ctx, uid: int) -> None:
-    """Supprime l'ID mémorisé pour ``uid`` (un ID périmé ne doit rien remplacer)."""
+    """Supprime l'ID mémorisé pour ``uid`` (un ID périmé ne doit rien remplacer).
+
+    Sans objet en scope user (aucun ID root).
+    """
+    if _is_user_scope(ctx):
+        return
     with contextlib.suppress(OSError):
         _ids_target(ctx, uid).path.unlink(missing_ok=True)
 
@@ -1024,6 +1115,24 @@ def start(ctx: Ctx) -> None:
         _start_locked(ctx)
 
 
+def _recipients(ctx: Ctx) -> list[Session]:
+    """Destinataires : le propriétaire seul (scope user), sinon les sessions locales."""
+    if _is_user_scope(ctx):
+        # ``user`` n'est utilisé que par runuser (scope système) : rien à y mettre.
+        return [Session(uid=ctx.geteuid(), user=_job(ctx).owner)]
+    return list_graphical_sessions(ctx)
+
+
+def _remember_id(ctx: Ctx, session: Session, notification_id: int) -> None:
+    """Mémorise l'ID de la notification « en cours » (fichier root ou utilisateur)."""
+    target = (
+        _user_id_target(ctx, session.uid)
+        if _is_user_scope(ctx)
+        else _ids_target(ctx, session.uid)
+    )
+    _persist(ctx, target, f"{notification_id}\n")
+
+
 def _start_locked(ctx: Ctx) -> None:
     """Corps de ``start`` (état puis notifications), sous verrou."""
     boot_id = _read_boot_id(ctx)
@@ -1039,7 +1148,7 @@ def _start_locked(ctx: Ctx) -> None:
             delivered=[],
         ),
     )
-    for session in list_graphical_sessions(ctx):
+    for session in _recipients(ctx):
         _forget_root_id(ctx, session.uid)
         notification_id = send_notification(
             ctx,
@@ -1049,7 +1158,7 @@ def _start_locked(ctx: Ctx) -> None:
             persistent=True,
         )
         if notification_id is not None:
-            _persist(ctx, _ids_target(ctx, session.uid), f"{notification_id}\n")
+            _remember_id(ctx, session, notification_id)
 
 
 def _system_stopping(ctx: Ctx) -> bool:
@@ -1182,10 +1291,8 @@ def _fingerprint(ctx: Ctx) -> str | None:
 
 
 def _before_target(ctx: Ctx) -> _Target:
-    """Fichier de l'empreinte d'avant run : dans le dossier root 0700 de ``/run``."""
-    return _Target(
-        ctx.root_dir, _run_relative(ctx), "before", file_mode=0o600, dir_mode=0o700
-    )
+    """Fichier de l'empreinte d'avant run : dans le dossier 0700 des ID."""
+    return _run_target(ctx, "before")
 
 
 def _forget_before(ctx: Ctx) -> None:
@@ -1203,7 +1310,9 @@ def _read_before(ctx: Ctx) -> str | None:
         gros, mal formé : message sur stderr).
     """
     path = _before_target(ctx).path
-    raw = _read_regular(path, max_size=_MAX_FINGERPRINT_SIZE)
+    raw = _read_regular(
+        path, max_size=_MAX_FINGERPRINT_SIZE, owner=_expected_owner(ctx)
+    )
     if raw is None:
         if path.is_symlink() or path.exists():
             _warn(ctx, "empreinte illisible, ignorée")
@@ -1281,7 +1390,7 @@ def _notify_end(ctx: Ctx, outcome: Outcome, started_at: float | None) -> list[in
     """Notifie le résultat à chaque session ; rend les uid effectivement servis."""
     summary, body = _job(ctx).end_texts[outcome]
     delivered: list[int] = []
-    for session in list_graphical_sessions(ctx):
+    for session in _recipients(ctx):
         replaces_id = _id_to_replace(ctx, session, started_at)
         notification_id = send_notification(
             ctx,
@@ -1333,7 +1442,7 @@ def _end_locked(ctx: Ctx) -> None:
     """Corps de ``end`` (arrêt du compagnon, issue, notification), sous verrou."""
     # Seul l'inhibiteur du compagnon est levé ici (le poste redevient éteignable) ;
     # le ``flock`` reste tenu jusqu'à la fin de ``end``.
-    _call(ctx, [SYSTEMCTL, "stop", _job(ctx).guard_unit])
+    _call(ctx, _systemctl(ctx, "stop", _job(ctx).guard_unit))
     state = _read_current_run_state(ctx)
     if state is None:
         _warn(ctx, "état de lancement absent, détail inconnu")
@@ -1370,9 +1479,11 @@ def _send_to_self(
     return _deliver(ctx, argv, "l'utilisateur courant")
 
 
-def _read_seen(target: _Target) -> float:
+def _read_seen(ctx: Ctx, target: _Target) -> float:
     """Lit l'horodatage du dernier résultat vu ; ``-inf`` s'il est absent ou hostile."""
-    raw = _read_regular(target.path, max_size=_MAX_SEEN_SIZE)
+    raw = _read_regular(
+        target.path, max_size=_MAX_SEEN_SIZE, owner=_expected_owner(ctx)
+    )
     if raw is None:
         return -math.inf
     try:
@@ -1399,7 +1510,7 @@ def _show_unseen(
     if target is None:
         _warn(ctx, "ni XDG_STATE_HOME ni HOME exploitable")
         return
-    if replaces_id == 0 and state["started_at"] <= _read_seen(target):
+    if replaces_id == 0 and state["started_at"] <= _read_seen(ctx, target):
         return
     summary, body = _job(ctx).end_texts[outcome]
     sent = _send_to_self(ctx, summary, body, persistent=False, replaces_id=replaces_id)
@@ -1420,7 +1531,7 @@ def _run_in_progress(ctx: Ctx, state: _State) -> bool:
         (_job(ctx).guard_unit, ACTIVE_STATES),
         (_job(ctx).watched_unit, WATCHED_RUNNING_STATES),
     ):
-        result = _call(ctx, [SYSTEMCTL, "is-active", unit])
+        result = _call(ctx, _systemctl(ctx, "is-active", unit))
         if result is not None and result[1].strip() in states:
             return True
     return False
@@ -1766,8 +1877,11 @@ def _dispatch(ctx: Ctx, args: Sequence[str]) -> None:
             f"(start|end|login|snapshot [{descriptor.name}])",
         )
         return
-    if descriptor.scope != "system":
-        _warn(ctx, f"scope {descriptor.scope} non pris en charge, aucune action")
+    if descriptor.scope == "user" and _user_dirs_missing(ctx):
+        # Échec fermé : sans dossiers XDG ni bus, rien n'est écrit ni notifié.
+        _warn(
+            ctx, "scope user : XDG_RUNTIME_DIR ou dossier d'état absent, aucune action"
+        )
         return
     handler(ctx)
 
