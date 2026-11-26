@@ -16,18 +16,22 @@ from linuxtools.jobnotify.runtime import (
     compute_dnf5_outcome,
     compute_flatpak_outcome,
     main,
+    parse_descriptor,
     resolve_outcome,
     snapshot,
 )
 from linuxtools.jobnotify.spec import NotifiedJob
+from linuxtools.jobnotify.spec import Outcome as SpecOutcome
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
     BASE_OUTCOMES,
     BOB_PROPS,
     BOOT_A,
     BOOT_B,
+    DNF5_DESC,
     FLATPAK_DESC,
     FLATPAK_GUARD,
+    FLATPAK_JOB,
     FLATPAK_LIST_ARGV,
     FLATPAK_START_SUMMARY,
     FLATPAK_WATCHED,
@@ -57,6 +61,7 @@ from tests.unit.jobnotify.runtime_support import (
     run_flatpak,
     sent_texts,
     system_handler,
+    write_before,
     write_boot_id,
     write_flatpak_state,
 )
@@ -720,7 +725,7 @@ def _none_job() -> Descriptor:
     ],
     ids=["succes", "echec", "service_result_vide", "arret_systeme"],
 )
-def test_resolve_none_rend_issue_generique(
+def test_resolve_none_selon_service_result_et_arret(
     tmp_path: Path, service_result: str, stopping: bool, attendu: Outcome
 ) -> None:
     ctx = ctx_for(
@@ -733,3 +738,85 @@ def test_resolve_none_rend_issue_generique(
     descriptor = _none_job()
 
     assert resolve_outcome(ctx, descriptor, None, stopping=stopping) is attendu
+
+
+def _etat_en_cours() -> Any:
+    """État de ``start`` d'un run en cours, démarré à ``STARTED_AT``."""
+    return cast(
+        "Any",
+        {
+            "boot_id": BOOT_A,
+            "started_at": STARTED_AT,
+            "status": "running",
+            "outcome": None,
+            "delivered": [],
+        },
+    )
+
+
+def test_sonde_inconnue_invalide_le_descripteur() -> None:
+    data = json.loads(FLATPAK_JOB.to_descriptor())
+    data["probe"] = {"kind": "inconnue", "argv": []}
+
+    assert parse_descriptor(data) is None
+
+
+def test_resolve_none_rend_success(tmp_path: Path) -> None:
+    runner = FakeRunner(lambda argv: (1, ""))
+    ctx = ctx_for(
+        runner, tmp_path, Recorder(), euid=0, env={"SERVICE_RESULT": "success"}
+    )
+
+    outcome = resolve_outcome(ctx, _none_job(), None, stopping=False)
+
+    assert outcome is Outcome.SUCCESS
+    assert runner.calls == []  # la sonde `none` n'interroge aucun binaire
+
+
+def test_resolve_fingerprint_inchange_si_empreinte_identique(tmp_path: Path) -> None:
+    write_before(tmp_path, HASH_AB)
+    runner = FakeRunner(flatpak_handler(listings=[(0, LISTING_AB)]))
+    ctx = ctx_for(
+        runner,
+        tmp_path,
+        Recorder(),
+        euid=0,
+        job=FLATPAK_DESC,
+        env=end_env("success"),
+    )
+
+    outcome = resolve_outcome(ctx, FLATPAK_DESC, _etat_en_cours(), stopping=False)
+
+    assert outcome is Outcome.NOTHING
+
+
+def test_resolve_dnf5_redemarrage_requis(tmp_path: Path) -> None:
+    reboot = '[{"type": "reboot", "reboot_required": true, "packages": ["kernel"]}]'
+    runner = FakeRunner(
+        system_handler(history=(0, json.dumps([RUN_OK])), needs=(1, reboot))
+    )
+    ctx = ctx_for(runner, tmp_path, Recorder(), euid=0, env=end_env("success"))
+
+    outcome = resolve_outcome(ctx, DNF5_DESC, _etat_en_cours(), stopping=False)
+
+    assert outcome is Outcome.SUCCESS_RESTART
+
+
+def test_snapshot_sans_effet_pour_une_sonde_sans_instantane(tmp_path: Path) -> None:
+    recorder = Recorder()
+    runner = FakeRunner(lambda argv: (1, ""))
+    ctx = ctx_for(runner, tmp_path, recorder, euid=0, job=_none_job())
+
+    rc = main(["snapshot"], ctx)
+
+    assert rc == 0
+    assert runner.calls == []
+    assert files_under(tmp_path) == {}
+
+
+def test_outcome_runtime_et_spec_ont_les_memes_noms_et_valeurs() -> None:
+    runtime = {member.name: member.value for member in Outcome}
+    spec = {member.name: member.value for member in SpecOutcome}
+
+    assert runtime == spec
+    assert runtime["SUCCESS_RESTART"] == "success_restart"  # schéma figé (Q-06)
