@@ -1,5 +1,6 @@
 """Brique générique « job systemd notifié » (description, runtime, installeur)."""
 
+from linuxtools.jobnotify.installer import NotifiedJobInstaller
 from linuxtools.jobnotify.spec import (
     Dnf5Probe,
     FingerprintProbe,
@@ -13,5 +14,6 @@ __all__ = [
     "FingerprintProbe",
     "NoProbe",
     "NotifiedJob",
+    "NotifiedJobInstaller",
     "Outcome",
 ]
