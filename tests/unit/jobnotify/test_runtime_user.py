@@ -41,6 +41,7 @@ USER_JOB = NotifiedJob(
     owner="demo-app",
     watched_unit="demo.service",
     scope="user",
+    lock=True,
     start_texts=("Sauvegarde en cours", "Ne coupez pas la session."),
     end_texts={
         outcome: (f"fin {outcome.value}", "corps de fin") for outcome in BASE_OUTCOMES

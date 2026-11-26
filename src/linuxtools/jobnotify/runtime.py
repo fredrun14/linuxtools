@@ -1442,7 +1442,8 @@ def _end_locked(ctx: Ctx) -> None:
     """Corps de ``end`` (arrêt du compagnon, issue, notification), sous verrou."""
     # Seul l'inhibiteur du compagnon est levé ici (le poste redevient éteignable) ;
     # le ``flock`` reste tenu jusqu'à la fin de ``end``.
-    _call(ctx, _systemctl(ctx, "stop", _job(ctx).guard_unit))
+    if _job(ctx).lock:  # sans verrou, il n'existe aucun compagnon à arrêter (A-05)
+        _call(ctx, _systemctl(ctx, "stop", _job(ctx).guard_unit))
     state = _read_current_run_state(ctx)
     if state is None:
         _warn(ctx, "état de lancement absent, détail inconnu")
