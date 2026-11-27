@@ -2054,6 +2054,86 @@ def test_sync_scope_user_refuse_lien_symbolique(
     assert list(outside.iterdir()) == []
 
 
+def test_sync_scope_user_suit_un_dossier_en_lien_sous_le_home(
+    user_installer: NotifiedJobInstaller, home: Path
+) -> None:
+    # Arrange : dotfiles gérés par stow, `~/.config/systemd/user` est un lien
+    # vers un dossier du home (F18) ; pas de frontière de privilège en user
+    stowed = home / "dotfiles/systemd-user"
+    stowed.mkdir(parents=True)
+    unit_dir = home / ".config/systemd/user"
+    unit_dir.parent.mkdir(parents=True)
+    unit_dir.symlink_to(stowed)
+
+    # Act
+    user_installer.sync(enabled=True, dry_run=False)
+
+    # Assert : écrit dans la cible du lien, le lien est conservé
+    assert unit_dir.is_symlink()
+    assert (stowed / "backup.service.d/backup-py-notify.conf").is_file()
+    assert (unit_dir / "backup.service.d/backup-py-notify.conf").is_file()
+
+
+def test_sync_scope_user_remplace_un_lien_final_sans_le_suivre(
+    user_installer: NotifiedJobInstaller, home: Path
+) -> None:
+    # Arrange : le descripteur est un lien (stow) vers un fichier du home
+    stowed = home / "dotfiles/descripteur.json"
+    stowed.parent.mkdir()
+    stowed.write_text("intact", encoding="utf-8")
+    descriptor = home / ".local/share/backup-py/backup-notify.json"
+    descriptor.parent.mkdir(parents=True)
+    descriptor.symlink_to(stowed)
+
+    # Act
+    user_installer.sync(enabled=True, dry_run=False)
+
+    # Assert : le lien est remplacé par un fichier, la cible n'est pas écrite
+    assert not descriptor.is_symlink()
+    assert descriptor.is_file()
+    assert stowed.read_text(encoding="utf-8") == "intact"
+
+
+@pytest.mark.parametrize(
+    "link_relative",
+    [".config/systemd/user", ".local/share/backup-py/backup-notify.json"],
+    ids=["dossier", "fichier-final"],
+)
+@pytest.mark.parametrize("enabled", [True, False])
+def test_sync_scope_user_refuse_un_lien_dont_la_cible_sort_du_home(
+    user_installer: NotifiedJobInstaller,
+    home: Path,
+    tmp_path: Path,
+    link_relative: str,
+    *,
+    enabled: bool,
+) -> None:
+    # Arrange : le lien pointe hors du home (F18)
+    outside = tmp_path / "dehors"
+    outside.mkdir()
+    link = home / link_relative
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(outside)
+
+    # Act / Assert : refus avant toute action, rien d'écrit à travers le lien
+    with pytest.raises(RuntimeError, match="Lien symbolique refusé"):
+        user_installer.sync(enabled=enabled, dry_run=False)
+    assert list(outside.iterdir()) == []
+
+
+def test_sync_scope_user_refuse_une_boucle_de_liens(
+    user_installer: NotifiedJobInstaller, home: Path
+) -> None:
+    # Arrange : deux liens qui se pointent l'un l'autre sous le home
+    (home / ".config").mkdir()
+    (home / ".config/systemd").symlink_to(home / ".config/boucle")
+    (home / ".config/boucle").symlink_to(home / ".config/systemd")
+
+    # Act / Assert : cible non résoluble, l'écriture échoue en `RuntimeError`
+    with pytest.raises(RuntimeError):
+        user_installer.sync(enabled=True, dry_run=False)
+
+
 @pytest.mark.parametrize(
     "dangereux",
     [

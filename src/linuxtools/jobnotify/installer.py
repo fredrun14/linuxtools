@@ -61,6 +61,9 @@ class _Layout:
     Attributes:
         base: Racine des écritures (`root_dir` en système, `home` en user) ;
             exemptée du refus de lien symbolique.
+        follow_links: True en scope user (F18) : un lien symbolique est suivi
+            tant que sa cible résolue reste sous `base` ; False en système, où
+            tout lien est refusé (frontière de privilège).
         runtime: Chemin du runtime (le descripteur est `<runtime>.json`).
         runtime_real: Chemin du runtime écrit dans les unités et l'autostart.
         guard: Unité du compagnon.
@@ -80,6 +83,7 @@ class _Layout:
     """
 
     base: Path
+    follow_links: bool
     runtime: Path
     runtime_real: str
     guard: Path
@@ -111,6 +115,7 @@ def _system_layout(job: NotifiedJob, root: Path) -> _Layout:
     run_dir = root / "run" / job.owner / job.name
     return _Layout(
         base=root,
+        follow_links=False,
         runtime=runtime,
         runtime_real=f"/usr/local/libexec/{job.owner}/{job.name}-notify",
         guard=unit_dir / f"{job.owner}-{job.name}-guard.service",
@@ -181,6 +186,7 @@ def _user_layout(job: NotifiedJob, home: Path, env: Mapping[str, str]) -> _Layou
     state_dir = state_root / job.owner / job.name
     return _Layout(
         base=home,
+        follow_links=True,
         runtime=runtime,
         runtime_real=str(runtime),
         guard=unit_dir / f"{job.owner}-{job.name}-guard.service",
@@ -238,14 +244,23 @@ def _tolerate_unreadable(*, dry_run: bool) -> Iterator[None]:
         # Dry-run : rien à planifier sous un composant illisible.
 
 
-def _refuse_symlinks(root: Path, path: Path) -> None:
+def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> None:
     """Refuse un lien symbolique sur un composant de `path` sous `root`.
 
     `root` lui-même est exempt. Un composant illisible (`PermissionError`) arrête
     la vérification sans erreur : en dessous, rien n'est atteignable.
 
+    Avec `follow_links` (scope user, sans frontière de privilège : dotfiles gérés
+    par stow), un lien est suivi mais sa cible résolue doit rester sous `root`.
+
+    Args:
+        root: Racine exemptée (`root_dir` ou `home`).
+        path: Chemin à contrôler, sous `root`.
+        follow_links: Accepte un lien dont la cible résolue reste sous `root`.
+
     Raises:
-        RuntimeError: Si un composant, cible comprise, est un lien symbolique.
+        RuntimeError: Lien symbolique (scope système), ou lien dont la cible
+            résolue sort de `root` (scope user).
     """
     current = root
     for part in path.relative_to(root).parts:
@@ -256,21 +271,26 @@ def _refuse_symlinks(root: Path, path: Path) -> None:
             # Dossier parent illisible : on ne peut pas le traverser, donc rien
             # n'y est modifiable non plus ; le composant n'est pas un lien.
             return
-        if is_link:
+        if not is_link:
+            continue
+        if not follow_links:
             msg = f"Lien symbolique refusé : {current}"
+            raise RuntimeError(msg)
+        if not current.resolve().is_relative_to(root.resolve()):
+            msg = f"Lien symbolique refusé (cible hors de {root}) : {current}"
             raise RuntimeError(msg)
 
 
-def _ensure_dir(root: Path, path: Path, mode: int) -> None:
+def _ensure_dir(root: Path, path: Path, mode: int, *, follow_links: bool) -> None:
     """Crée les composants manquants de `path` sous `root`, en `mode`.
 
     Le mode est appliqué par `chmod` (indépendant de l'umask) ; un composant
     existant n'est jamais modifié.
 
     Raises:
-        RuntimeError: Lien symbolique ou création refusée.
+        RuntimeError: Lien symbolique (cf. `_refuse_symlinks`) ou création refusée.
     """
-    _refuse_symlinks(root, path)
+    _refuse_symlinks(root, path, follow_links=follow_links)
     current = root
     for part in path.relative_to(root).parts:
         current /= part
@@ -280,20 +300,21 @@ def _ensure_dir(root: Path, path: Path, mode: int) -> None:
                 current.chmod(mode)
 
 
-def _write_atomic(
-    root: Path, path: Path, content: str, mode: int, dir_mode: int
-) -> None:
-    """Écrit `path` de façon atomique, sans suivre de lien symbolique.
+def _write_atomic(layout: _Layout, path: Path, content: str, mode: int) -> None:
+    """Écrit `path` de façon atomique, sans suivre de lien symbolique final.
 
     Le contenu va dans un temporaire voisin (`O_EXCL`/`O_NOFOLLOW`, mode `mode`)
     puis `replace` le substitue à la cible : celle-ci n'est jamais vide ni
-    tronquée. Un lien symbolique sur la cible est remplacé, jamais suivi.
+    tronquée. Un lien symbolique sur la cible est remplacé, jamais suivi (y
+    compris en scope user, où seuls les dossiers parents peuvent être des liens).
 
     Raises:
         RuntimeError: Écriture refusée (lien, E/S) ; le temporaire est supprimé
             et la cible laissée intacte.
     """
-    _ensure_dir(root, path.parent, dir_mode)
+    _ensure_dir(
+        layout.base, path.parent, layout.dir_mode, follow_links=layout.follow_links
+    )
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
         temporary.unlink(missing_ok=True)  # reste d'un run interrompu
@@ -620,7 +641,12 @@ class NotifiedJobInstaller:
             if dry_run:
                 actions.append(f"[dry-run] Créerait le dossier {layout.state_dir}")
             else:
-                _ensure_dir(layout.base, layout.state_dir, layout.dir_mode)
+                _ensure_dir(
+                    layout.base,
+                    layout.state_dir,
+                    layout.dir_mode,
+                    follow_links=layout.follow_links,
+                )
                 with _io_errors("Écriture refusée", layout.state_dir):
                     layout.state_dir.chmod(layout.dir_mode)  # corrige une dérive
                 actions.append(f"Dossier prêt {layout.state_dir}")
@@ -659,13 +685,7 @@ class NotifiedJobInstaller:
             return f"Retiré {path}"
         if dry_run:
             return f"[dry-run] Écrirait {path}"
-        _write_atomic(
-            self._layout.base,
-            path,
-            managed.content,
-            managed.mode,
-            self._layout.dir_mode,
-        )
+        _write_atomic(self._layout, path, managed.content, managed.mode)
         return f"Écrit {path}"
 
     # ------------------------------------------------------------------
@@ -808,6 +828,7 @@ class NotifiedJobInstaller:
         """Refuse tout lien symbolique sur les chemins gérés, avant toute action."""
         layout = self._layout
         for path in (*self._constant_files(), layout.state_dir):
-            _refuse_symlinks(layout.base, path)
+            _refuse_symlinks(layout.base, path, follow_links=layout.follow_links)
         if layout.run_dir is not None:
-            _refuse_symlinks(layout.base, layout.run_dir / "ids")  # F19
+            ids = layout.run_dir / "ids"  # F19 ; run_dir lui-même en est un préfixe
+            _refuse_symlinks(layout.base, ids, follow_links=layout.follow_links)
