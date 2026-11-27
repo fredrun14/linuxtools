@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import tomllib
 import zipfile
 from pathlib import Path
 
@@ -16,16 +15,6 @@ pytestmark = pytest.mark.integration
 
 _ROOT = Path(__file__).resolve().parents[2]
 _RUNTIME_IN_WHEEL = "linuxtools/jobnotify/runtime.py"
-
-
-def test_config_hatch_inclut_le_paquet_sans_exclure_runtime() -> None:
-    """La config hatch embarque tout ``src/linuxtools`` et n'exclut rien."""
-    config = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    wheel = config["tool"]["hatch"]["build"]["targets"]["wheel"]
-
-    assert "src/linuxtools" in wheel["packages"]
-    assert "exclude" not in wheel
-    assert "only-include" not in wheel
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv introuvable")

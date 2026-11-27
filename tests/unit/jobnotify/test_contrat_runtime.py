@@ -5,9 +5,9 @@ venv : ces tests lisent son code source (analyse ``ast``, sans l'importer) et
 vérifient les propriétés qui ne doivent jamais régresser : stdlib seule, aucun
 code dynamique, binaires en chemins absolus, ``subprocess`` confiné au runner.
 
-La cohérence des ``Outcome`` runtime/spec est déjà couverte par
-``test_runtime_sondes.py::test_outcome_runtime_et_spec_ont_les_memes_noms_et_valeurs``
-et n'est pas dupliquée ici. L'exécution réelle isolée est dans
+Les ``Outcome`` de ``spec.py`` et du runtime sont le même objet (F05) :
+``test_parite_spec_runtime.py::test_spec_n_a_qu_une_source_de_constantes`` le
+vérifie. L'exécution réelle isolée est dans
 ``tests/integration/test_runtime_isole.py``.
 """
 
@@ -136,7 +136,7 @@ def _head_problems(
             return resolu
     if isinstance(node, ast.Attribute) and node.attr == "probe_argv":
         # Argv de la sonde : validé en chemin absolu à la lecture du descripteur.
-        return _probe_validation_problems(functions)
+        return _probe_validation_problems()
     return [f"tête d'argv non résolue ({ast.unparse(node)})"]
 
 
@@ -180,22 +180,21 @@ def _element_problems(head: ast.expr | None, constants: dict[str, str]) -> list[
     return []
 
 
-def _probe_validation_problems(functions: dict[str, ast.FunctionDef]) -> list[str]:
-    """La validation du descripteur doit exiger ``argv[0].startswith("/")``."""
-    validateur = functions.get("fingerprint_argv_ok")
-    if validateur is None:
-        return ["validateur fingerprint_argv_ok introuvable"]
-    appels = [
-        sub
-        for sub in ast.walk(validateur)
-        if isinstance(sub, ast.Call)
-        and isinstance(sub.func, ast.Attribute)
-        and sub.func.attr == "startswith"
-        and sub.args
-        and isinstance(sub.args[0], ast.Constant)
-        and sub.args[0].value == "/"
+def _probe_validation_problems() -> list[str]:
+    """La validation du descripteur doit refuser un ``argv[0]`` non absolu.
+
+    Appelle réellement ``fingerprint_argv_ok`` (et non plus une recherche de
+    texte dans son code) : un binaire relatif doit être refusé, un binaire
+    système absolu accepté.
+    """
+    problemes = [
+        f"argv[0] relatif accepté : {relatif!r}"
+        for relatif in ("flatpak", "./flatpak", "usr/bin/flatpak")
+        if runtime_module.fingerprint_argv_ok([relatif, "list"])
     ]
-    return [] if appels else ["fingerprint_argv_ok n'exige plus un chemin absolu"]
+    if not runtime_module.fingerprint_argv_ok(["/usr/bin/flatpak", "list"]):
+        problemes.append("argv[0] absolu système refusé")
+    return problemes
 
 
 def test_runtime_binaires_en_chemins_absolus(tree: ast.Module) -> None:

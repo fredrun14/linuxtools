@@ -815,14 +815,6 @@ def test_snapshot_sans_effet_pour_une_sonde_sans_instantane(tmp_path: Path) -> N
     assert files_under(tmp_path) == {}
 
 
-def test_outcome_runtime_et_spec_ont_les_memes_noms_et_valeurs() -> None:
-    runtime = {member.name: member.value for member in Outcome}
-    spec = {member.name: member.value for member in SpecOutcome}
-
-    assert runtime == spec
-    assert runtime["SUCCESS_RESTART"] == "success_restart"  # schéma figé (Q-06)
-
-
 # --- F06 : le binaire de la sonde est contrôlé par lstat avant d'être lancé en root.
 
 
