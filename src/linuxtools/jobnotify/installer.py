@@ -283,7 +283,13 @@ def _tolerate_unreadable(*, dry_run: bool) -> Iterator[None]:
         # Dry-run : rien à planifier sous un composant illisible.
 
 
-def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> None:
+def _refuse_symlinks(
+    root: Path,
+    path: Path,
+    *,
+    follow_links: bool = False,
+    removal: bool = False,
+) -> None:
     """Refuse un lien symbolique sur un composant de `path` sous `root`.
 
     `root` lui-même est exempt. Un composant illisible (`PermissionError`) arrête
@@ -292,15 +298,21 @@ def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> N
     Avec `follow_links` (scope user, sans frontière de privilège : dotfiles gérés
     par stow), un lien est suivi mais sa cible résolue doit rester sous `root`.
 
+    Au retrait (`removal`), un lien dont la cible est absente (stow défait) est
+    traité comme un composant illisible : rien n'est planifié en dessous, donc le
+    retrait du reste n'est pas bloqué (F28). Le refus demeure pour l'installation
+    et pour une boucle.
+
     Args:
         root: Racine exemptée (`root_dir` ou `home`).
         path: Chemin à contrôler, sous `root`.
         follow_links: Accepte un lien dont la cible résolue reste sous `root`.
+        removal: True au retrait : un lien à cible absente arrête la vérification.
 
     Raises:
         RuntimeError: Lien symbolique (scope système), lien dont la cible
-            résolue sort de `root` (scope user), ou lien irrésoluble (boucle,
-            cible absente).
+            résolue sort de `root` (scope user), ou lien irrésoluble (boucle ;
+            cible absente hors retrait).
     """
     current = root
     for part in path.relative_to(root).parts:
@@ -319,6 +331,8 @@ def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> N
         try:
             target = current.resolve(strict=True)
         except (OSError, RuntimeError) as exc:
+            if removal and isinstance(exc, FileNotFoundError):
+                return  # cible absente : rien à retirer dessous (F28)
             # Boucle (`RuntimeError` en 3.11, `OSError` ensuite) ou cible absente :
             # un seul message, identique en dry-run et en réel (F24).
             msg = f"Lien symbolique irrésoluble (boucle ou cible absente) : {current}"
@@ -526,7 +540,7 @@ class NotifiedJobInstaller:
             RuntimeError: Si un chemin traverse un lien symbolique, si
                 l'écriture est refusée ou si `systemctl daemon-reload` échoue.
         """
-        self._refuse_all_symlinks()
+        self._refuse_all_symlinks(removal=not enabled)
         if enabled:
             actions = self._install(dry_run=dry_run)
         else:
@@ -973,11 +987,19 @@ class NotifiedJobInstaller:
         )
         return False
 
-    def _refuse_all_symlinks(self) -> None:
-        """Refuse tout lien symbolique sur les chemins gérés, avant toute action."""
+    def _refuse_all_symlinks(self, *, removal: bool) -> None:
+        """Refuse tout lien symbolique sur les chemins gérés, avant toute action.
+
+        Args:
+            removal: True au retrait (un lien à cible absente est toléré, F28).
+        """
         layout = self._layout
         for path in (*self._constant_files(), layout.state_dir):
-            _refuse_symlinks(layout.base, path, follow_links=layout.follow_links)
+            _refuse_symlinks(
+                layout.base, path, follow_links=layout.follow_links, removal=removal
+            )
         if layout.run_dir is not None:
             ids = layout.run_dir / "ids"  # F19 ; run_dir lui-même en est un préfixe
-            _refuse_symlinks(layout.base, ids, follow_links=layout.follow_links)
+            _refuse_symlinks(
+                layout.base, ids, follow_links=layout.follow_links, removal=removal
+            )

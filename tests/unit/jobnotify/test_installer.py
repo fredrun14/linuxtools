@@ -978,7 +978,7 @@ def test_sync_retrait_ne_parcourt_pas_ids_devenu_lien_apres_le_controle(
     ids = tmp_path / _RUN / "ids"
     ids.parent.mkdir(parents=True, exist_ok=True)
     ids.symlink_to(outside)
-    monkeypatch.setattr(installer, "_refuse_all_symlinks", lambda: None)
+    monkeypatch.setattr(installer, "_refuse_all_symlinks", lambda **_: None)
 
     # Act / Assert : `iterdir()` ne suit jamais le lien (F19)
     for dry_run in (True, False):
@@ -2223,6 +2223,54 @@ def test_sync_scope_user_refuse_une_boucle_de_liens(
     with pytest.raises(RuntimeError, match="Lien symbolique irrésoluble") as info:
         user_installer.sync(enabled=enabled, dry_run=dry_run)
     assert str(home / ".config/systemd") in str(info.value)
+
+
+def test_sync_scope_user_installation_refuse_un_lien_orphelin(
+    user_installer: NotifiedJobInstaller, home: Path
+) -> None:
+    # Arrange : le dossier d'état est un lien dont la cible a disparu
+    state = home / ".local/state/backup-py"
+    state.parent.mkdir(parents=True)
+    state.symlink_to(home / "dotfiles-supprime")
+
+    # Act / Assert : on n'installe pas à travers un lien cassé (F28)
+    with pytest.raises(RuntimeError, match="Lien symbolique irrésoluble"):
+        user_installer.sync(enabled=True, dry_run=False)
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_sync_scope_user_retrait_tolere_un_lien_orphelin(
+    user_installer: NotifiedJobInstaller, home: Path, *, dry_run: bool
+) -> None:
+    # Arrange : installé, puis le dossier d'état devient un lien orphelin (stow
+    # défait) ; rien n'est lisible dessous, rien n'y est à retirer
+    user_installer.sync(enabled=True, dry_run=False)
+    state = home / ".local/state/backup-py"
+    state.rename(home / "ailleurs")
+    state.symlink_to(home / "dotfiles-supprime")
+    dropin = home / ".config/systemd/user/backup.service.d/backup-py-notify.conf"
+
+    # Act : le retrait du reste ne doit pas être bloqué (régression de F24)
+    actions = user_installer.sync(enabled=False, dry_run=dry_run)
+
+    # Assert : drop-in retiré (ou annoncé), le lien orphelin est laissé tel quel
+    assert any(str(dropin) in a for a in actions)
+    assert dropin.exists() is dry_run
+    assert state.is_symlink()
+
+
+def test_sync_scope_user_retrait_refuse_toujours_une_boucle(
+    user_installer: NotifiedJobInstaller, home: Path
+) -> None:
+    # Arrange : une boucle n'est pas une cible absente
+    user_installer.sync(enabled=True, dry_run=False)
+    (home / ".local/state/backup-py").rename(home / "ailleurs")
+    (home / ".local/state/backup-py").symlink_to(home / ".local/state/boucle")
+    (home / ".local/state/boucle").symlink_to(home / ".local/state/backup-py")
+
+    # Act / Assert
+    with pytest.raises(RuntimeError, match="Lien symbolique irrésoluble"):
+        user_installer.sync(enabled=False, dry_run=False)
 
 
 @pytest.mark.parametrize(
