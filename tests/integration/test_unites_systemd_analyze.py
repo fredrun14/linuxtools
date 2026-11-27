@@ -17,7 +17,8 @@ from linuxtools.jobnotify.spec import (
     Outcome,
 )
 from linuxtools.logging.base import Logger
-from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
+from linuxtools.systemd.executor import SystemdExecutor
+from tests.unit.jobnotify.systemd_support import user_manager
 
 pytestmark = [
     pytest.mark.integration,
@@ -69,22 +70,12 @@ def _install(tmp_path: Path, scope: str) -> tuple[Path, Path]:
     if scope == "user":
         home = tmp_path / "home"
         home.mkdir()
-        user = MagicMock(spec=UserSystemdExecutor)
-        user.get_status.return_value = "inactive"
-        user.reload_systemd.return_value = True
-        user.show_environment.return_value = {}
+        # Le gestionnaire réel n'est pas sollicité : faux gestionnaire partagé
+        user = user_manager(home)
         unit_dir = home / ".config/systemd/user"
-        # Le gestionnaire réel n'est pas sollicité : il charge ce qui est écrit
-        values = {
-            "UnitPath": str(unit_dir),
-            "DropInPaths": str(unit_dir / "demo.service.d/demo-app-notify.conf"),
-            "FragmentPath": str(unit_dir / _GUARD),
-        }
-        user.show_property.side_effect = lambda name, unit=None: values[name]
         NotifiedJobInstaller(job, user, logger, home=home).sync(
             enabled=True, dry_run=False
         )
-        unit_dir = home / ".config/systemd/user"
     else:
         system = MagicMock(spec=SystemdExecutor)
         system.get_status.return_value = "inactive"

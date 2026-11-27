@@ -716,8 +716,9 @@ class NotifiedJobInstaller:
                 with _io_errors("Écriture refusée", layout.state_dir):
                     layout.state_dir.chmod(layout.dir_mode)  # corrige une dérive
                 actions.append(f"Dossier prêt {layout.state_dir}")
-        if any(m.is_unit for m in pending) and not dry_run:
-            self._reload()
+        if not dry_run:
+            if any(m.is_unit for m in pending):
+                self._reload()
             if self._job.scope == "user":
                 self._verify_loaded()
         return actions
@@ -905,26 +906,46 @@ class NotifiedJobInstaller:
             raise RuntimeError(msg)
 
     def _verify_loaded(self) -> None:
-        """Vérifie que le gestionnaire user voit les unités écrites (F22).
+        """Vérifie que le gestionnaire user voit les unités écrites (F22, F27).
 
-        Après `daemon-reload`, le drop-in doit figurer dans `DropInPaths` de
-        l'unité surveillée et, avec verrou, le compagnon doit avoir pour
-        `FragmentPath` le fichier écrit : sinon les unités sont hors du chemin de
-        recherche et rien ne notifierait, sans erreur.
+        Exécutée à chaque `sync` réel d'installation, même sans rien écrire (un
+        second `sync` ne doit pas masquer une unité hors chemin). Deux contrôles :
+
+        - structurel : le dossier des unités figure dans `UnitPath` (comparaison
+          sur chemins résolus) ;
+        - chargement : le drop-in figure dans `DropInPaths` de l'unité surveillée
+          et, avec verrou, le compagnon a pour `FragmentPath` le fichier écrit.
+          Ils ne valent que pour une unité `LoadState=loaded` : une unité
+          surveillée absente ou masquée n'a aucun drop-in à rendre, d'où un
+          avertissement journalisé et non une erreur.
 
         Raises:
-            RuntimeError: Si une unité écrite n'est pas chargée depuis son
-                emplacement, ou si `systemctl show` échoue.
+            RuntimeError: Si le dossier des unités est hors de `UnitPath`, si une
+                unité chargée n'a pas le fichier écrit, ou si `systemctl show`
+                échoue.
         """
         layout = self._layout
-        dropins = self._systemd.show_property("DropInPaths", self._job.watched_unit)
-        if f" {layout.dropin} " not in f" {dropins} ":
+        unit_dir = layout.guard.parent
+        search = {
+            Path(entry).resolve()
+            for entry in self._systemd.show_property("UnitPath").split()
+        }
+        if unit_dir.resolve() not in search:
             msg = (
-                f"drop-in {layout.dropin} non chargé par systemd --user : dossier "
-                "hors de UnitPath, les notifications n'auraient pas lieu"
+                f"dossier des unités {unit_dir} hors de UnitPath du gestionnaire "
+                "systemd --user : les notifications n'auraient pas lieu"
             )
             raise RuntimeError(msg)
-        if self._job.lock:
+        watched = self._job.watched_unit
+        if self._is_loaded(watched):
+            dropins = self._systemd.show_property("DropInPaths", watched)
+            if f" {layout.dropin} " not in f" {dropins} ":
+                msg = (
+                    f"drop-in {layout.dropin} non chargé par systemd --user : "
+                    "les notifications n'auraient pas lieu"
+                )
+                raise RuntimeError(msg)
+        if self._job.lock and self._is_loaded(self._guard_unit):
             fragment = self._systemd.show_property("FragmentPath", self._guard_unit)
             if fragment != str(layout.guard):
                 msg = (
@@ -932,6 +953,25 @@ class NotifiedJobInstaller:
                     f"(FragmentPath={fragment!r}) : dossier hors de UnitPath"
                 )
                 raise RuntimeError(msg)
+
+    def _is_loaded(self, unit: str) -> bool:
+        """Dit si `unit` est `LoadState=loaded`, sinon journalise un avertissement.
+
+        Args:
+            unit: Nom de l'unité interrogée.
+
+        Returns:
+            True si le gestionnaire a chargé l'unité ; False (absente, masquée…)
+            après avoir journalisé l'état, sans erreur.
+        """
+        state = self._systemd.show_property("LoadState", unit)
+        if state == "loaded":
+            return True
+        self._logger.log_warning(
+            f"[{self._job.name}] unité {unit} non chargée par systemd --user "
+            f"(LoadState={state!r}) : chargement des drop-ins non vérifié"
+        )
+        return False
 
     def _refuse_all_symlinks(self) -> None:
         """Refuse tout lien symbolique sur les chemins gérés, avant toute action."""

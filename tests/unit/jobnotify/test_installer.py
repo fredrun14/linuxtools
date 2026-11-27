@@ -12,7 +12,7 @@ import json
 import os
 import shutil
 import stat
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Literal
 from unittest.mock import MagicMock
@@ -2418,6 +2418,23 @@ def test_sync_scope_user_unite_hors_du_chemin_de_recherche_leve_runtimeerror(
     installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
     # Act / Assert : pas de succès silencieux, le message nomme le drop-in
+    with pytest.raises(RuntimeError, match=r"systemd/user.*hors de UnitPath"):
+        installer.sync(enabled=True, dry_run=False)
+
+
+def test_sync_scope_user_dropin_non_charge_leve_runtimeerror(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : dossier dans `UnitPath`, mais le gestionnaire ne rend pas le drop-in
+    real = user_systemd.show_property.side_effect
+
+    def show_property(name: str, unit: str | None = None) -> str:
+        return "" if name == "DropInPaths" else str(real(name, unit))
+
+    user_systemd.show_property.side_effect = show_property
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act / Assert
     with pytest.raises(RuntimeError, match=r"drop-in.*backup-py-notify\.conf"):
         installer.sync(enabled=True, dry_run=False)
 
@@ -2455,7 +2472,7 @@ def test_sync_scope_user_sans_verrou_ne_verifie_pas_le_compagnon(
     assert "FragmentPath" not in asked
 
 
-def test_sync_scope_user_dry_run_et_conforme_ne_verifient_rien(
+def test_sync_scope_user_dry_run_ne_verifie_rien(
     user_systemd: MagicMock, logger: MagicMock, home: Path
 ) -> None:
     # Arrange
@@ -2464,12 +2481,131 @@ def test_sync_scope_user_dry_run_et_conforme_ne_verifient_rien(
     user_systemd.show_property.reset_mock()
     user_systemd.show_property.side_effect = RuntimeError("ne doit pas être lu")
 
-    # Act : déjà conforme (aucun reload), puis dry-run d'un retrait
-    installer.sync(enabled=True, dry_run=False)
+    # Act : dry-run d'une installation puis d'un retrait
+    installer.sync(enabled=True, dry_run=True)
     installer.sync(enabled=False, dry_run=True)
 
     # Assert
     user_systemd.show_property.assert_not_called()
+
+
+def test_sync_scope_user_conforme_reverifie_la_postcondition(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : premier sync réel, puis le gestionnaire perd le drop-in
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+    installer.sync(enabled=True, dry_run=False)
+    real = user_systemd.show_property.side_effect
+
+    def show_property(name: str, unit: str | None = None) -> str:
+        return "" if name == "DropInPaths" else str(real(name, unit))
+
+    user_systemd.show_property.side_effect = show_property
+    user_systemd.reload_systemd.reset_mock()
+
+    # Act / Assert : déjà conforme (aucun reload), mais la vérification a lieu (F27)
+    with pytest.raises(RuntimeError, match=r"drop-in.*backup-py-notify\.conf"):
+        installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.assert_not_called()
+
+
+def test_sync_scope_user_retrait_ne_verifie_rien(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+    installer.sync(enabled=True, dry_run=False)
+    user_systemd.show_property.reset_mock()
+
+    # Act
+    installer.sync(enabled=False, dry_run=False)
+
+    # Assert : rien à charger après un retrait
+    user_systemd.show_property.assert_not_called()
+
+
+def test_sync_scope_user_unitpath_compare_les_chemins_resolus(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : `UnitPath` illisible à l'init (repli), puis rendu via un lien
+    unit_dir = home / ".config/systemd/user"
+    unit_dir.mkdir(parents=True)
+    link = home / "lien-unites"
+    link.symlink_to(unit_dir)
+    real = user_systemd.show_property.side_effect
+    calls = {"unit_path": 0}
+
+    def show_property(name: str, unit: str | None = None) -> str:
+        if name == "UnitPath":
+            calls["unit_path"] += 1
+            if calls["unit_path"] == 1:
+                raise RuntimeError("bus injoignable")
+            return str(link)
+        return str(real(name, unit))
+
+    user_systemd.show_property.side_effect = show_property
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act : ne lève pas, le lien et le dossier sont le même dossier résolu
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert
+    assert (unit_dir / "backup.service.d/backup-py-notify.conf").is_file()
+
+
+@pytest.mark.parametrize(
+    ("vendor_units", "masked", "etat"),
+    [
+        ((), (), "not-found"),
+        (("backup.service",), ("backup.service",), "masked"),
+    ],
+)
+def test_sync_scope_user_unite_surveillee_non_chargee_avertit_sans_erreur(
+    home: Path,
+    logger: MagicMock,
+    vendor_units: Collection[str],
+    masked: Collection[str],
+    etat: str,
+) -> None:
+    # Arrange : systemd réel rend LoadState=not-found/masked et DropInPaths vide
+    manager = user_manager(home, vendor_units=vendor_units, masked=masked)
+    installer = NotifiedJobInstaller(_user_job(), manager, logger, home=home)
+
+    # Act : pas d'erreur (faux positif F27)
+    actions = installer.sync(enabled=True, dry_run=False)
+
+    # Assert : écrit, avertissement qui nomme l'unité et l'état, drop-in non lu
+    assert actions
+    warning = logger.log_warning.call_args.args[0]
+    assert "backup.service" in warning
+    assert etat in warning
+    asked = [c.args[0] for c in manager.show_property.call_args_list]
+    assert "DropInPaths" not in asked
+
+
+def test_sync_scope_user_compagnon_non_charge_par_loadstate_avertit(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : le compagnon n'est pas `loaded` (masqué après écriture)
+    real = user_systemd.show_property.side_effect
+
+    def show_property(name: str, unit: str | None = None) -> str:
+        if name == "LoadState" and unit == "backup-py-backup-guard.service":
+            return "masked"
+        return str(real(name, unit))
+
+    user_systemd.show_property.side_effect = show_property
+    installer = NotifiedJobInstaller(
+        _user_job(lock=True), user_systemd, logger, home=home
+    )
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : avertissement, FragmentPath non lu
+    assert "masked" in logger.log_warning.call_args.args[0]
+    asked = [c.args[0] for c in user_systemd.show_property.call_args_list]
+    assert "FragmentPath" not in asked
 
 
 def test_sync_scope_systeme_ne_lit_aucune_propriete(
