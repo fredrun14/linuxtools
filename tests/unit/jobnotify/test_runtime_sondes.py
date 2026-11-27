@@ -3,7 +3,7 @@
 import json
 import os
 import stat
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, MutableMapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,6 +11,7 @@ import pytest
 
 from linuxtools.jobnotify.runtime import (
     BUSCTL,
+    PROBE_COMMANDS,
     SYSTEMCTL,
     Descriptor,
     Outcome,
@@ -916,3 +917,14 @@ def test_snapshot_controle_le_binaire_de_la_sonde_par_lstat(tmp_path: Path) -> N
     assert vus == ["/usr/bin/flatpak"]
     assert len(runner.calls) == 1
     assert before_path(tmp_path).read_text() == HASH_AB + "\n"
+
+
+def test_catalogue_de_sondes_est_en_lecture_seule() -> None:
+    # Arrange : vue mutable du catalogue (le type public est un `Mapping`)
+    catalogue = cast("MutableMapping[str, Any]", PROBE_COMMANDS)
+
+    # Act / Assert : le catalogue fermé ne peut être étendu à l'exécution (F37)
+    with pytest.raises(TypeError):
+        catalogue["/usr/bin/python3"] = PROBE_COMMANDS["/usr/bin/flatpak"]
+    with pytest.raises(TypeError):
+        del catalogue["/usr/bin/flatpak"]

@@ -27,6 +27,7 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import NoReturn, Protocol, TypedDict, TypeGuard
 
 
@@ -1694,14 +1695,19 @@ class ProbeCommand:
 # Catalogue fermé des sondes ``fingerprint`` (F20, F26) : par chemin exact de
 # binaire, une sous-commande imposée et des options fermées. Les colonnes admettent
 # le suffixe ``:f`` de flatpak (``active:f``). Étendre le catalogue exige un
-# amendement (ADR « catalogue de sondes »).
-PROBE_COMMANDS: Mapping[str, ProbeCommand] = {
-    "/usr/bin/flatpak": ProbeCommand(
-        subcommand="list",
-        options=frozenset({"--system", "--user", "--app", "--runtime"}),
-        option_re=re.compile(r"--columns=[a-z]+(?::[a-z]+)?(?:,[a-z]+(?::[a-z]+)?)*"),
-    ),
-}
+# amendement (ADR « catalogue de sondes »). Vue en lecture seule : un import ne
+# peut pas étendre le catalogue à l'exécution (F37).
+PROBE_COMMANDS: Mapping[str, ProbeCommand] = MappingProxyType(
+    {
+        "/usr/bin/flatpak": ProbeCommand(
+            subcommand="list",
+            options=frozenset({"--system", "--user", "--app", "--runtime"}),
+            option_re=re.compile(
+                r"--columns=[a-z]+(?::[a-z]+)?(?:,[a-z]+(?::[a-z]+)?)*"
+            ),
+        ),
+    }
+)
 DESCRIPTOR_VERSION = 1
 _MAX_DESCRIPTOR_SIZE = 16 * 1024
 _GROUP_OTHERS_WRITE = 0o022
