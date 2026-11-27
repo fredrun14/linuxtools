@@ -135,7 +135,8 @@ def _head_problems(
         if resolu is not None:
             return resolu
     if isinstance(node, ast.Attribute) and node.attr == "probe_argv":
-        # Argv de la sonde : validé en chemin absolu à la lecture du descripteur.
+        # Argv de la sonde : validé contre le catalogue fermé PROBE_COMMANDS
+        # (binaire à chemin exact), à la lecture du descripteur.
         return _probe_validation_problems()
     return [f"tête d'argv non résolue ({ast.unparse(node)})"]
 
