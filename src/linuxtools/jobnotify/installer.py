@@ -319,6 +319,11 @@ def _dir_conform(path: Path, mode: int) -> bool:
     return path.is_dir() and stat.S_IMODE(path.stat().st_mode) == mode
 
 
+def _is_root() -> bool:
+    """Indique si le processus tourne en root (point d'injection des tests)."""
+    return os.geteuid() == 0
+
+
 def _validate_home(home: Path) -> None:
     """Refuse un `home` qui ne serait pas un chemin absolu sûr pour une unité.
 
@@ -372,8 +377,9 @@ class NotifiedJobInstaller:
 
         Raises:
             ValueError: Si l'exécuteur ne correspond pas au scope du job, si
-                `home` (scope user) n'est pas un chemin absolu sûr, ou si un
-                dossier XDG de `env` est dangereux ou hors de `home`.
+                `home` (scope user) n'est pas un chemin absolu sûr, si
+                l'installeur tourne en root en scope user, ou si un dossier XDG de `env`
+                est dangereux ou hors de `home`.
         """
         if isinstance(systemd, UserSystemdExecutor) != (job.scope == "user"):
             msg = f"exécuteur systemd incompatible avec le scope {job.scope!r}"
@@ -382,6 +388,13 @@ class NotifiedJobInstaller:
         self._systemd = systemd
         self._logger = logger
         if job.scope == "user":
+            if _is_root():
+                msg = (
+                    "scope user : lancer l'installeur en tant que l'utilisateur "
+                    "concerné, pas en root (il viserait /root et le gestionnaire "
+                    "systemd de root)"
+                )
+                raise ValueError(msg)
             user_home = Path.home() if home is None else home
             _validate_home(user_home)
             session = os.environ if env is None else env

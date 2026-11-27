@@ -1673,6 +1673,45 @@ def user_installer(
     return NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
 
+def test_init_scope_user_en_root_leve_valueerror(
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : lancé en root, l'installeur écrirait sous /root (F11)
+    monkeypatch.setattr(installer_module, "_is_root", lambda: True)
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="root"):
+        NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+
+@pytest.mark.parametrize(("euid", "attendu"), [(0, True), (1000, False)])
+def test_is_root_lit_l_euid_du_processus(
+    monkeypatch: pytest.MonkeyPatch, euid: int, attendu: bool
+) -> None:
+    # Arrange : le vrai `_is_root`, que la fixture autouse remplace
+    monkeypatch.undo()
+    monkeypatch.setattr(os, "geteuid", lambda: euid)
+
+    # Act / Assert
+    assert installer_module._is_root() is attendu
+
+
+def test_init_scope_systeme_en_root_est_permis(
+    systemd: MagicMock,
+    logger: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : le scope système s'installe, lui, en root
+    monkeypatch.setattr(installer_module, "_is_root", lambda: True)
+
+    # Act / Assert : aucune exception
+    NotifiedJobInstaller(_dnf_job(), systemd, logger, root_dir=tmp_path)
+
+
 def test_sync_scope_user_chemins_xdg(
     user_installer: NotifiedJobInstaller,
     user_systemd: MagicMock,

@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from linuxtools.jobnotify import installer as installer_module
 from linuxtools.jobnotify.installer import NotifiedJobInstaller
 from linuxtools.jobnotify.spec import (
     FingerprintProbe,
@@ -26,6 +27,12 @@ pytestmark = [
 ]
 
 _GUARD = "demo-app-demo-guard.service"
+
+
+@pytest.fixture(autouse=True)
+def _non_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le test ne dépend pas de l'uid réel (la CI peut tourner en root)."""
+    monkeypatch.setattr(installer_module, "_is_root", lambda: False)
 
 
 def _verify(*units: Path) -> subprocess.CompletedProcess[str]:
