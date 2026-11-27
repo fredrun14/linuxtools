@@ -63,7 +63,7 @@ def _install(tmp_path: Path, scope: str) -> tuple[Path, Path]:
         start_texts=("Début", "Corps"),
         end_texts=dict.fromkeys(Outcome, ("Fin", "Corps")),
         lock=True,
-        probe=FingerprintProbe(argv=("/usr/bin/true",)),
+        probe=FingerprintProbe(argv=("/usr/bin/flatpak", "list")),
     )
     logger = MagicMock(spec=Logger)
     if scope == "user":

@@ -27,7 +27,6 @@ from linuxtools.jobnotify.spec import (
 
 _BASE = (Outcome.SUCCESS, Outcome.FAILURE, Outcome.INTERRUPTED)
 _FLATPAK = (*_BASE, Outcome.NOTHING, Outcome.DONE_NO_DETAIL)
-_OK_ARGV = ["/usr/bin/flatpak", "list"]
 
 
 def _textes(*issues: Outcome) -> dict[Outcome, tuple[str, str]]:
@@ -98,119 +97,194 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
     ("why guillemet", {"inhibit_why": 'a"b'}, False),
     ("why espaces", {"inhibit_why": "Mise à jour en cours"}, True),
     ("why dollar", {"inhibit_why": "a$b"}, False),
-    ("argv relatif", {"probe": {"kind": "fingerprint", "argv": ["flatpak"]}}, False),
-    ("argv vide", {"probe": {"kind": "fingerprint", "argv": []}}, False),
+    (
+        "argv relatif",
+        {"probe": {"kind": "fingerprint", "argv": ["flatpak"]}},
+        False,
+    ),
+    (
+        "argv vide",
+        {"probe": {"kind": "fingerprint", "argv": []}},
+        False,
+    ),
     (
         "argv octet nul",
-        {"probe": {"kind": "fingerprint", "argv": [*_OK_ARGV, "\x00"]}},
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "a\x00b"]}},
         False,
     ),
     (
-        "argv sous /usr/sbin",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/sbin/x"]}},
+        "argv flatpak seul",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak"]}},
         True,
     ),
     (
-        "argv sous /bin",
-        {"probe": {"kind": "fingerprint", "argv": ["/bin/x", "a"]}},
+        "argv flatpak list system",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": [
+                    "/usr/bin/flatpak",
+                    "list",
+                    "--system",
+                    "--columns=ref,active:f",
+                ],
+            }
+        },
         True,
     ),
-    ("argv sous /sbin", {"probe": {"kind": "fingerprint", "argv": ["/sbin/x"]}}, True),
     (
-        "argv avec ..",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/../bin/x"]}},
+        "argv binaire hors liste blanche /usr/bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "list"]}},
         False,
     ),
     (
-        "argv .. final",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/.."]}},
+        "argv binaire sous /usr/sbin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/sbin/flatpak"]}},
         False,
     ),
     (
-        "argv sous /usr/local/bin",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/local/bin/x"]}},
+        "argv binaire sous /bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/bin/flatpak"]}},
         False,
     ),
     (
-        "argv sous /home",
-        {"probe": {"kind": "fingerprint", "argv": ["/home/u/venv/bin/x"]}},
-        False,
-    ),
-    ("argv sous /tmp", {"probe": {"kind": "fingerprint", "argv": ["/tmp/x"]}}, False),
-    (
-        "argv double slash",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin//x"]}},
-        False,
-    ),
-    ("argv point", {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/./x"]}}, False),
-    (
-        "argv sous-dossier",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/sub/x"]}},
+        "argv binaire sous /sbin",
+        {"probe": {"kind": "fingerprint", "argv": ["/sbin/flatpak"]}},
         False,
     ),
     (
-        "argv slash final",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/"]}},
+        "argv binaire avec ..",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/../bin/flatpak"]}},
         False,
     ),
     (
-        "argv dossier nu",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin"]}},
+        "argv binaire sous /usr/local/bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/local/bin/flatpak"]}},
+        False,
+    ),
+    (
+        "argv binaire sous /home",
+        {"probe": {"kind": "fingerprint", "argv": ["/home/u/venv/bin/flatpak"]}},
+        False,
+    ),
+    (
+        "argv binaire double slash",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin//flatpak"]}},
+        False,
+    ),
+    (
+        "argv binaire point",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/./flatpak"]}},
+        False,
+    ),
+    (
+        "argv binaire suffixe",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak-x"]}},
         False,
     ),
     (
         "argv argument relatif avec ..",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "../a"]}},
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "../a"]}},
         False,
     ),
     (
         "argv argument .. seul",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", ".."]}},
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", ".."]}},
         False,
     ),
     (
-        "argv .. dans un argument d'option",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "--d=../a"]}},
+        "argv argument .. dans une option",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "--d=../a"]}},
         False,
     ),
     (
-        "argv argument contenant .. sans segment",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "a..b", "..."]}},
-        True,
-    ),
-    (
-        "argv argument libre non chemin",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "-a", "list=1"]}},
-        True,
+        "argv argument .. sans segment",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "a..b"]}},
+        False,
     ),
     (
         "argv argument absolu sous /usr/bin",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/usr/bin/y"]}},
-        True,
-    ),
-    (
-        "argv argument absolu hors dossiers systeme",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/home/u/x.py"]}},
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "/usr/bin/y"]}},
         False,
     ),
     (
         "argv argument absolu sous /tmp",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/tmp/x"]}},
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "/tmp/x"]}},
         False,
     ),
     (
-        "argv argument absolu non normalise",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/usr/bin//y"]}},
+        "argv argument absolu hors dossiers systeme",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/flatpak", "/home/u/x.py"],
+            }
+        },
         False,
+    ),
+    (
+        "argv argument relatif avec slash",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "tmp/x"]}},
+        False,
+    ),
+    (
+        "argv argument option collee a un chemin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "-f../x"]}},
+        False,
+    ),
+    (
+        "argv argument avec espace",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "a b"]}},
+        False,
+    ),
+    (
+        "argv argument commence par un tiret seul",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "-"]}},
+        False,
+    ),
+    (
+        "argv argument trois tirets",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "---x"]}},
+        False,
+    ),
+    (
+        "argv argument vide",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", ""]}},
+        False,
+    ),
+    (
+        "argv argument avec point-virgule",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "a;id"]}},
+        False,
+    ),
+    (
+        "argv argument avec dollar",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "$x"]}},
+        False,
+    ),
+    (
+        "argv argument option courte",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "-y"]}},
+        True,
+    ),
+    (
+        "argv argument option valeur",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/flatpak", "--columns=ref,active:f"],
+            }
+        },
+        True,
+    ),
+    (
+        "argv argument mot nu",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "list"]}},
+        True,
     ),
     (
         "argv interpreteur python3",
         {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/python3", "-V"]}},
-        False,
-    ),
-    (
-        "argv interpreteur python3.12",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/python3.12"]}},
         False,
     ),
     (
@@ -224,24 +298,74 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         False,
     ),
     (
-        "argv shell sh sous /bin",
-        {"probe": {"kind": "fingerprint", "argv": ["/bin/sh", "-c", "id"]}},
+        "argv node-22",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/node-22", "-e", "x"]}},
         False,
     ),
     (
-        "argv interpreteur perl",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/perl", "-e", "1"]}},
+        "argv luajit versionne",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/luajit-2.1.1767980792", "-e", "x"],
+            }
+        },
         False,
     ),
     (
-        "argv lanceur sudo",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/sudo", "id"]}},
+        "argv rpm --eval",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/rpm", "--eval", "%(id)"]}},
         False,
     ),
     (
-        "argv binaire au nom proche d'un interpreteur",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/pythonista"]}},
-        True,
+        "argv sed",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/sed", "-n", "1e id", "etc/hostname"],
+            }
+        },
+        False,
+    ),
+    (
+        "argv flock -c",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/flock", "tmp/l", "-c", "id"],
+            }
+        },
+        False,
+    ),
+    (
+        "argv git -c",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/git", "-c", "alias.x=!id", "x"],
+            }
+        },
+        False,
+    ),
+    (
+        "argv time bash",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/time", "/usr/bin/bash", "-c", "id"],
+            }
+        },
+        False,
+    ),
+    (
+        "argv cp relatifs",
+        {
+            "probe": {
+                "kind": "fingerprint",
+                "argv": ["/usr/bin/cp", "tmp/evil", "etc/sudoers.d/x"],
+            }
+        },
+        False,
     ),
     ("dnf5 sans fin complete", {"probe": {"kind": "dnf5", "argv": []}}, False),
 ]
