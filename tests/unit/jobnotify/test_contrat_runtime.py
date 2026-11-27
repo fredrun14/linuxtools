@@ -182,9 +182,9 @@ def _element_problems(head: ast.expr | None, constants: dict[str, str]) -> list[
 
 def _probe_validation_problems(functions: dict[str, ast.FunctionDef]) -> list[str]:
     """La validation du descripteur doit exiger ``argv[0].startswith("/")``."""
-    validateur = functions.get("_probe")
+    validateur = functions.get("fingerprint_argv_ok")
     if validateur is None:
-        return ["validateur _probe introuvable"]
+        return ["validateur fingerprint_argv_ok introuvable"]
     appels = [
         sub
         for sub in ast.walk(validateur)
@@ -195,7 +195,7 @@ def _probe_validation_problems(functions: dict[str, ast.FunctionDef]) -> list[st
         and isinstance(sub.args[0], ast.Constant)
         and sub.args[0].value == "/"
     ]
-    return [] if appels else ["_probe n'exige plus un chemin absolu"]
+    return [] if appels else ["fingerprint_argv_ok n'exige plus un chemin absolu"]
 
 
 def test_runtime_binaires_en_chemins_absolus(tree: ast.Module) -> None:

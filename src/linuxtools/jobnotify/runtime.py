@@ -1614,7 +1614,7 @@ _PROBES: Mapping[str, _Resolver] = {
 _SNAPSHOTS: Mapping[str, Callable[[Ctx], None]] = {"fingerprint": _snapshot_flatpak}
 # Issues atteignables par sonde : ``end_texts`` doit toutes les couvrir.
 _BASE_OUTCOMES = frozenset({Outcome.SUCCESS, Outcome.FAILURE, Outcome.INTERRUPTED})
-_REACHABLE: Mapping[str, frozenset[Outcome]] = {
+REACHABLE: Mapping[str, frozenset[Outcome]] = {
     "none": _BASE_OUTCOMES,
     "fingerprint": _BASE_OUTCOMES | {Outcome.NOTHING, Outcome.DONE_NO_DETAIL},
     "dnf5": frozenset(Outcome),
@@ -1640,15 +1640,16 @@ def resolve_outcome(
 
 # ---------------------------------------------------------------------------
 # Descripteur : lecture sûre et validation stricte (stdlib seule, jamais d'import
-# de ``spec.py`` : motifs réécrits ici, d'où le test de roundtrip côté tests).
+# de ``spec.py``). Source UNIQUE des constantes et motifs de validation :
+# ``spec.py`` les importe d'ici (F05) ; le sens inverse reste interdit.
 # ---------------------------------------------------------------------------
 
-_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
-_UNIT_RE = re.compile(r"[A-Za-z0-9:_.@-]+\.service")
-_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
-_WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
-_MAX_TEXT_LEN = 200
-_DESCRIPTOR_VERSION = 1
+NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
+UNIT_RE = re.compile(r"[A-Za-z0-9:_.@-]+\.service")
+CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
+MAX_TEXT_LEN = 200
+DESCRIPTOR_VERSION = 1
 _MAX_DESCRIPTOR_SIZE = 16 * 1024
 _GROUP_OTHERS_WRITE = 0o022
 _DESCRIPTOR_KEYS = frozenset(
@@ -1684,8 +1685,8 @@ def _text(value: object, field_name: str) -> str:
     """Valide un texte affiché : chaîne plafonnée, sans caractère de contrôle."""
     if (
         not isinstance(value, str)
-        or len(value) > _MAX_TEXT_LEN
-        or _CONTROL_RE.search(value) is not None
+        or len(value) > MAX_TEXT_LEN
+        or CONTROL_RE.search(value) is not None
     ):
         _invalid(field_name)
     return value
@@ -1709,7 +1710,20 @@ def _units(value: object, field_name: str) -> tuple[str, ...]:
     """Valide une liste d'unités ``.service``."""
     if not isinstance(value, list):
         _invalid(field_name)
-    return tuple(_matching(unit, _UNIT_RE, field_name) for unit in value)
+    return tuple(_matching(unit, UNIT_RE, field_name) for unit in value)
+
+
+def fingerprint_argv_ok(argv: Sequence[str]) -> bool:
+    """Indique si ``argv`` est une commande acceptable pour la sonde fingerprint.
+
+    Args:
+        argv: Commande de l'instantané.
+
+    Returns:
+        True si ``argv`` n'est pas vide, sans octet nul, et si ``argv[0]`` est
+        un chemin absolu.
+    """
+    return bool(argv) and argv[0].startswith("/") and not any("\x00" in a for a in argv)
 
 
 def _probe(value: object) -> tuple[str, tuple[str, ...]]:
@@ -1723,7 +1737,7 @@ def _probe(value: object) -> tuple[str, tuple[str, ...]]:
     if not isinstance(argv, list) or not all(isinstance(arg, str) for arg in argv):
         _invalid("probe.argv")
     if kind == "fingerprint":
-        if not argv or not argv[0].startswith("/") or any("\x00" in a for a in argv):
+        if not fingerprint_argv_ok(argv):
             _invalid("probe.argv")
     elif argv:
         _invalid("probe.argv")
@@ -1735,7 +1749,7 @@ def _end_texts(value: object, kind: str) -> dict[Outcome, tuple[str, str]]:
     if not isinstance(value, dict) or not set(value) <= _OUTCOME_VALUES:
         _invalid("end_texts")
     texts = {Outcome(key): _text_pair(pair, "end_texts") for key, pair in value.items()}
-    if not _REACHABLE[kind] <= texts.keys():
+    if not REACHABLE[kind] <= texts.keys():
         _invalid("end_texts")
     return texts
 
@@ -1744,8 +1758,8 @@ def _inhibit_why(value: object) -> str:
     """Valide le motif d'inhibition (futur contenu d'unité systemd)."""
     if (
         not isinstance(value, str)
-        or _CONTROL_RE.search(value) is not None
-        or _WHY_FORBIDDEN_RE.search(value) is not None
+        or CONTROL_RE.search(value) is not None
+        or WHY_FORBIDDEN_RE.search(value) is not None
     ):
         _invalid("inhibit_why")
     return value
@@ -1754,7 +1768,7 @@ def _inhibit_why(value: object) -> str:
 def _build_descriptor(data: Mapping[str, object]) -> Descriptor:
     """Construit le descripteur champ par champ (aucune clé étrangère conservée)."""
     version = data["version"]
-    if isinstance(version, bool) or version != _DESCRIPTOR_VERSION:
+    if isinstance(version, bool) or version != DESCRIPTOR_VERSION:
         _invalid("version")
     scope = data["scope"]
     if not isinstance(scope, str) or scope not in _SCOPES:
@@ -1764,9 +1778,9 @@ def _build_descriptor(data: Mapping[str, object]) -> Descriptor:
         _invalid("lock")
     kind, argv = _probe(data["probe"])
     return Descriptor(
-        name=_matching(data["name"], _NAME_RE, "name"),
-        owner=_matching(data["owner"], _NAME_RE, "owner"),
-        watched_unit=_matching(data["watched_unit"], _UNIT_RE, "watched_unit"),
+        name=_matching(data["name"], NAME_RE, "name"),
+        owner=_matching(data["owner"], NAME_RE, "owner"),
+        watched_unit=_matching(data["watched_unit"], UNIT_RE, "watched_unit"),
         scope=scope,
         start_texts=_text_pair(data["start_texts"], "start_texts"),
         end_texts=_end_texts(data["end_texts"], kind),

@@ -5,30 +5,36 @@ aucune E/S. Le descripteur JSON qu'il produit est relu, en stdlib seule, par
 `runtime.py` sur le poste.
 """
 
-import enum
 import json
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Literal
 
-_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
-_UNIT_RE = re.compile(r"[A-Za-z0-9:_.@-]+\.service")
-_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
-_WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
-_MAX_TEXT_LEN = 200
-_DESCRIPTOR_VERSION = 1
+# Source unique des motifs, plafonds et issues : `runtime.py` (F05). `Outcome` est
+# celui du runtime (un seul type exposé) ; le sens runtime -> spec reste interdit.
+from linuxtools.jobnotify.runtime import (
+    CONTROL_RE,
+    DESCRIPTOR_VERSION,
+    MAX_TEXT_LEN,
+    NAME_RE,
+    REACHABLE,
+    UNIT_RE,
+    WHY_FORBIDDEN_RE,
+    Outcome,
+    fingerprint_argv_ok,
+)
 
+_PAIR_LEN = 2  # (résumé, corps)
 
-class Outcome(enum.StrEnum):
-    """Issue d'un run surveillé (valeurs identiques au hook : schéma figé)."""
-
-    SUCCESS = "success"
-    SUCCESS_RESTART = "success_restart"  # réussi, redémarrage requis
-    NOTHING = "nothing"  # rien à mettre à jour
-    DONE_NO_DETAIL = "done_no_detail"  # terminé, détail illisible
-    FAILURE = "failure"
-    INTERRUPTED = "interrupted"
+__all__ = [
+    "Dnf5Probe",
+    "FingerprintProbe",
+    "NoProbe",
+    "NotifiedJob",
+    "Outcome",
+    "Probe",
+]
 
 
 @dataclass(frozen=True)
@@ -54,13 +60,6 @@ class Dnf5Probe:
 
 Probe = NoProbe | FingerprintProbe | Dnf5Probe
 
-_BASE_OUTCOMES = frozenset({Outcome.SUCCESS, Outcome.FAILURE, Outcome.INTERRUPTED})
-# Issues atteignables par sonde ; Flatpak n'annonce jamais de redémarrage.
-_REACHABLE: Mapping[type[object], frozenset[Outcome]] = {
-    NoProbe: _BASE_OUTCOMES,
-    FingerprintProbe: _BASE_OUTCOMES | {Outcome.NOTHING, Outcome.DONE_NO_DETAIL},
-    Dnf5Probe: frozenset(Outcome),
-}
 _PROBE_KINDS: Mapping[type[object], str] = {
     NoProbe: "none",
     FingerprintProbe: "fingerprint",
@@ -70,29 +69,39 @@ _PROBE_KINDS: Mapping[type[object], str] = {
 
 def _check_name(value: str) -> None:
     """Valide un nom de job ou de propriétaire."""
-    if _NAME_RE.fullmatch(value) is None:
+    if NAME_RE.fullmatch(value) is None:
         raise ValueError(f"nom de job invalide : {value!r}")
 
 
 def _check_unit(value: str) -> None:
     """Valide un nom d'unité `.service`."""
-    if _UNIT_RE.fullmatch(value) is None:
+    if UNIT_RE.fullmatch(value) is None:
         raise ValueError(f"unité invalide : {value!r}")
 
 
-def _check_text(label: str, value: str) -> None:
-    """Valide un texte affiché : longueur plafonnée, sans caractère de contrôle."""
-    if len(value) > _MAX_TEXT_LEN or _CONTROL_RE.search(value) is not None:
-        raise ValueError(f"texte invalide ({label}) : {value[:40]!r}")
+def _check_text(label: str, value: object) -> None:
+    """Valide un texte affiché : chaîne plafonnée, sans caractère de contrôle."""
+    if (
+        not isinstance(value, str)
+        or len(value) > MAX_TEXT_LEN
+        or CONTROL_RE.search(value) is not None
+    ):
+        raise ValueError(f"texte invalide ({label}) : {str(value)[:40]!r}")
+
+
+def _check_pair(label: str, value: object) -> tuple[str, str]:
+    """Valide un couple (résumé, corps) et le rend en tuple (copie)."""
+    if not isinstance(value, tuple | list) or len(value) != _PAIR_LEN:
+        raise ValueError(f"couple (résumé, corps) invalide ({label}) : {value!r}")
+    summary, body = value
+    _check_text(label, summary)
+    _check_text(label, body)
+    return summary, body
 
 
 def _check_probe(probe: Probe) -> None:
     """Valide les paramètres d'une sonde (binaire en chemin absolu)."""
-    if isinstance(probe, FingerprintProbe) and (
-        not probe.argv
-        or not probe.argv[0].startswith("/")
-        or any("\x00" in arg for arg in probe.argv)
-    ):
+    if isinstance(probe, FingerprintProbe) and not fingerprint_argv_ok(probe.argv):
         raise ValueError(
             f"argv de sonde invalide (binaire en chemin absolu) : {probe.argv!r}"
         )
@@ -121,7 +130,8 @@ class NotifiedJob:
     watched_unit: str
     scope: Literal["system", "user"]
     start_texts: tuple[str, str]
-    end_texts: Mapping[Outcome, tuple[str, str]]
+    # Exclu du hash (un mapping n'est pas hachable) ; comparé par valeur.
+    end_texts: Mapping[Outcome, tuple[str, str]] = field(hash=False)
     lock: bool = False
     probe: Probe = field(default_factory=NoProbe)
     icon: str = "system-software-update"
@@ -143,16 +153,22 @@ class NotifiedJob:
         if self.scope not in ("system", "user"):
             raise ValueError(f"scope invalide : {self.scope!r}")
         if (
-            _CONTROL_RE.search(self.inhibit_why) is not None
-            or _WHY_FORBIDDEN_RE.search(self.inhibit_why) is not None
+            CONTROL_RE.search(self.inhibit_why) is not None
+            or WHY_FORBIDDEN_RE.search(self.inhibit_why) is not None
         ):
             raise ValueError(f"inhibit_why invalide : {self.inhibit_why!r}")
         _check_text("icon", self.icon)
-        for texts in (self.start_texts, *self.end_texts.values()):
-            for text in texts:
-                _check_text("résumé ou corps", text)
+        # Copies gelées : une mutation ultérieure, par l'appelant, ne peut plus
+        # produire un job que le runtime refuserait en silence.
+        start = _check_pair("start_texts", self.start_texts)
+        ends = {
+            Outcome(issue): _check_pair("end_texts", pair)
+            for issue, pair in self.end_texts.items()
+        }
+        object.__setattr__(self, "start_texts", start)
+        object.__setattr__(self, "end_texts", MappingProxyType(ends))
         _check_probe(self.probe)
-        missing = sorted(_REACHABLE[type(self.probe)] - self.end_texts.keys())
+        missing = sorted(REACHABLE[_PROBE_KINDS[type(self.probe)]] - ends.keys())
         if missing:
             raise ValueError(f"end_texts : issue manquante {missing[0].value}")
 
@@ -164,7 +180,7 @@ class NotifiedJob:
         """
         argv = list(self.probe.argv) if isinstance(self.probe, FingerprintProbe) else []
         data = {
-            "version": _DESCRIPTOR_VERSION,
+            "version": DESCRIPTOR_VERSION,
             "name": self.name,
             "owner": self.owner,
             "watched_unit": self.watched_unit,

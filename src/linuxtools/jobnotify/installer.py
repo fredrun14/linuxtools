@@ -17,6 +17,7 @@ disparaissent que vides, car les dossiers parents sont partagés entre jobs.
 """
 
 import contextlib
+import json
 import os
 import re
 import stat
@@ -27,7 +28,11 @@ from pathlib import Path
 from typing import Final
 
 from linuxtools.filesystem.linux import write_text_secure
-from linuxtools.jobnotify.runtime import ACTIVE_STATES, WATCHED_RUNNING_STATES
+from linuxtools.jobnotify.runtime import (
+    ACTIVE_STATES,
+    WATCHED_RUNNING_STATES,
+    parse_descriptor,
+)
 from linuxtools.jobnotify.spec import FingerprintProbe, NotifiedJob
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
@@ -474,6 +479,7 @@ class NotifiedJobInstaller:
 
     def _install(self, *, dry_run: bool) -> list[str]:
         """Installe ou corrige les artefacts et le dossier d'état."""
+        self._check_descriptor()
         layout = self._layout
         pending = [m for m in self._managed() if not self._is_done(m)]
         need_state_dir = not _dir_conform(layout.state_dir, layout.dir_mode)
@@ -492,6 +498,19 @@ class NotifiedJobInstaller:
         if any(m.is_unit for m in pending) and not dry_run:
             self._reload()
         return actions
+
+    def _check_descriptor(self) -> None:
+        """Refuse un descripteur que le runtime refuserait (échec fermé, en silence).
+
+        Appelé avant toute écriture : le runtime ignore sans bruit un descripteur
+        hors schéma, et le job ne notifierait plus jamais.
+
+        Raises:
+            ValueError: Si `parse_descriptor` rejette le descripteur produit.
+        """
+        if parse_descriptor(json.loads(self._job.to_descriptor())) is None:
+            msg = f"descripteur de {self._job.name!r} refusé par le runtime"
+            raise ValueError(msg)
 
     @staticmethod
     def _is_done(managed: _Managed) -> bool:

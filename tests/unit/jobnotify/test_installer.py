@@ -8,6 +8,7 @@ assertions de comportement sont reprises, seuls changent l'import, le
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import stat
@@ -1764,3 +1765,41 @@ def test_symboles_publics_exportes_par_jobnotify_et_linuxtools(nom: str) -> None
     assert getattr(linuxtools, nom) is getattr(brique, nom)
     assert nom in linuxtools.__all__
     assert nom in brique.__all__
+
+
+def test_sync_refuse_un_descripteur_que_le_runtime_refuserait(
+    systemd: MagicMock,
+    logger: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : un descripteur que le schéma du runtime refuse (corps à 3 éléments)
+    job = _dnf_job()
+    valide = json.loads(job.to_descriptor())
+    valide["start_texts"] = ["a", "b", "c"]
+    monkeypatch.setattr(
+        NotifiedJob, "to_descriptor", lambda _self: json.dumps(valide) + "\n"
+    )
+    installer = NotifiedJobInstaller(job, systemd, logger, root_dir=tmp_path)
+
+    # Act / Assert : refus (même en dry-run) AVANT toute écriture ou appel systemd
+    for dry_run in (True, False):
+        with pytest.raises(ValueError, match="descripteur"):
+            installer.sync(enabled=True, dry_run=dry_run)
+    assert list(tmp_path.rglob("*")) == []
+    assert systemd.method_calls == []
+
+
+def test_sync_retrait_n_exige_pas_un_descripteur_valide(
+    systemd: MagicMock,
+    logger: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : le descripteur ne sert pas au retrait
+    job = _dnf_job()
+    monkeypatch.setattr(NotifiedJob, "to_descriptor", lambda _self: "{}\n")
+    installer = NotifiedJobInstaller(job, systemd, logger, root_dir=tmp_path)
+
+    # Act / Assert
+    assert installer.sync(enabled=False, dry_run=False) == []
