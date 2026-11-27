@@ -52,6 +52,10 @@ class FingerprintProbe:
 
     argv: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        """Gèle `argv` en tuple : une liste passée par l'appelant est copiée."""
+        object.__setattr__(self, "argv", tuple(self.argv))
+
 
 @dataclass(frozen=True)
 class Dnf5Probe:
@@ -148,6 +152,10 @@ class NotifiedJob:
         _check_name(self.name)
         _check_name(self.owner)
         _check_unit(self.watched_unit)
+        if type(self.lock) is not bool:
+            # `1` serait refusé plus tard, en silence, par le runtime (F16).
+            raise ValueError(f"lock invalide (booléen attendu) : {self.lock!r}")
+        object.__setattr__(self, "guard_after", tuple(self.guard_after))
         for unit in self.guard_after:
             _check_unit(unit)
         if self.scope not in ("system", "user"):

@@ -209,3 +209,34 @@ def test_to_descriptor_kind_de_sonde_sans_argv(
 
 def test_to_descriptor_conserve_les_accents_sans_echappement() -> None:
     assert "Résumé" in _job().to_descriptor()
+
+
+@pytest.mark.parametrize("lock", [1, 0, "oui", None])
+def test_notifiedjob_refuse_lock_non_booleen(lock: Any) -> None:
+    # `lock=1` serait accepté ici puis refusé en silence par le runtime (F16)
+    with pytest.raises(ValueError, match="lock"):
+        _job(lock=lock)
+
+
+def test_notifiedjob_gele_guard_after_et_argv_en_tuples_hachables() -> None:
+    # Arrange : listes mutables passées par l'appelant
+    guard_after: Any = ["a.service"]
+    argv: Any = ["/usr/bin/flatpak", "list"]
+
+    # Act
+    job = _job(
+        guard_after=guard_after,
+        probe=FingerprintProbe(argv=argv),
+        end_texts=_textes(*FLATPAK),
+    )
+    guard_after.append("pirate.service")
+    argv.append("--evil")
+
+    # Assert : copies gelées, hachables, descripteur inchangé
+    assert job.guard_after == ("a.service",)
+    assert job.probe == FingerprintProbe(argv=("/usr/bin/flatpak", "list"))
+    assert isinstance(hash(job), int)
+    assert json.loads(job.to_descriptor())["probe"]["argv"] == [
+        "/usr/bin/flatpak",
+        "list",
+    ]
