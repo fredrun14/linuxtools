@@ -72,7 +72,8 @@ def _install(tmp_path: Path, scope: str) -> tuple[Path, Path]:
         user = MagicMock(spec=UserSystemdExecutor)
         user.get_status.return_value = "inactive"
         user.reload_systemd.return_value = True
-        NotifiedJobInstaller(job, user, logger, home=home, env={}).sync(
+        user.show_environment.return_value = {}
+        NotifiedJobInstaller(job, user, logger, home=home).sync(
             enabled=True, dry_run=False
         )
         unit_dir = home / ".config/systemd/user"

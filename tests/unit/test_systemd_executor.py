@@ -877,3 +877,48 @@ class TestUserSystemdExecutorMocked:
         result = executor.reload_systemd()
         assert result is False
         logger.log_error.assert_called_once()
+
+
+class TestShowEnvironment:
+    """Tests pour show_environment() (environnement du gestionnaire systemd)."""
+
+    def test_user_lit_l_environnement_du_gestionnaire_user(self) -> None:
+        """show_environment() interroge `systemctl --user` et parse KEY=VALUE."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(
+            stdout="LANG=fr_FR.UTF-8\nXDG_STATE_HOME=/home/u/etat\nVIDE=\n"
+        )
+        executor = UserSystemdExecutor(MagicMock(), command_executor)
+
+        env = executor.show_environment()
+
+        assert env == {
+            "LANG": "fr_FR.UTF-8",
+            "XDG_STATE_HOME": "/home/u/etat",
+            "VIDE": "",
+        }
+        command_executor.run.assert_called_once_with(
+            ["systemctl", "--user", "show-environment"]
+        )
+
+    def test_systeme_interroge_le_gestionnaire_systeme(self) -> None:
+        """Sans --user : `systemctl show-environment`, valeur avec `=` conservée."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(stdout="A=b=c\nsans-egal\n\n")
+        executor = SystemdExecutor(MagicMock(), command_executor)
+
+        env = executor.show_environment()
+
+        assert env == {"A": "b=c"}
+        command_executor.run.assert_called_once_with(["systemctl", "show-environment"])
+
+    def test_echec_leve_runtimeerror(self) -> None:
+        """Un échec de systemctl n'est pas confondu avec un environnement vide."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(
+            return_code=1, stderr="Failed to connect to bus"
+        )
+        executor = UserSystemdExecutor(MagicMock(), command_executor)
+
+        with pytest.raises(RuntimeError, match="show-environment"):
+            executor.show_environment()

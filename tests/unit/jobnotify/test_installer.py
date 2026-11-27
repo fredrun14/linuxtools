@@ -1640,6 +1640,7 @@ def user_systemd() -> MagicMock:
     mock = MagicMock(spec=UserSystemdExecutor)
     mock.get_status.return_value = "inactive"
     mock.reload_systemd.return_value = True
+    mock.show_environment.return_value = {}
     return mock
 
 
@@ -1737,8 +1738,14 @@ def test_sync_scope_user_chemins_xdg(
         f"ExecStopPost=-/usr/bin/python3 -I {script} end backup\n"
     )
     desktop = home / ".config/autostart/backup-py-backup-notify.desktop"
-    assert f"Exec=/usr/bin/python3 -I {script} login backup\n" in desktop.read_text(
-        encoding="utf-8"
+    assert desktop.read_text(encoding="utf-8") == (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=Notification backup\n"
+        f"Exec=/usr/bin/env XDG_STATE_HOME={home}/.local/state "
+        f"/usr/bin/python3 -I {script} login backup\n"
+        "NoDisplay=true\n"
+        "X-GNOME-Autostart-Phase=Applications\n"
     )
     state = home / ".local/state/backup-py/backup"
     assert stat.S_IMODE(state.stat().st_mode) == 0o700
@@ -1752,7 +1759,7 @@ def test_sync_scope_user_avec_verrou_le_debut_ne_depend_pas_du_compagnon(
 ) -> None:
     # Arrange : le verrou user dépend de polkit (Q-04), il peut être refusé (F04)
     job = _user_job(lock=True, guard_after=("network.service",))
-    installer = NotifiedJobInstaller(job, user_systemd, logger, home=home, env={})
+    installer = NotifiedJobInstaller(job, user_systemd, logger, home=home)
     script = home / ".local/share/backup-py/backup-notify"
 
     # Act
@@ -1791,15 +1798,13 @@ def test_sync_scope_user_avec_verrou_le_debut_ne_depend_pas_du_compagnon(
 def test_sync_scope_user_suit_les_dossiers_xdg_de_la_session(
     user_systemd: MagicMock, logger: MagicMock, home: Path
 ) -> None:
-    # Arrange : session avec XDG personnalisés (F03), sous le home
-    env = {
+    # Arrange : gestionnaire `systemd --user` avec XDG personnalisés (F03, F15)
+    user_systemd.show_environment.return_value = {
         "XDG_DATA_HOME": f"{home}/donnees",
         "XDG_CONFIG_HOME": f"{home}/reglages",
         "XDG_STATE_HOME": f"{home}/etat",
     }
-    installer = NotifiedJobInstaller(
-        _user_job(), user_systemd, logger, home=home, env=env
-    )
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
     script = home / "donnees/backup-py/backup-notify"
 
     # Act
@@ -1832,10 +1837,12 @@ def test_sync_scope_user_xdg_vide_ou_relatif_est_ignore(
     user_systemd: MagicMock, logger: MagicMock, home: Path
 ) -> None:
     # Arrange : la spec XDG ignore une valeur vide ou relative
-    env = {"XDG_DATA_HOME": "", "XDG_CONFIG_HOME": "relatif", "XDG_STATE_HOME": "."}
-    installer = NotifiedJobInstaller(
-        _user_job(), user_systemd, logger, home=home, env=env
-    )
+    user_systemd.show_environment.return_value = {
+        "XDG_DATA_HOME": "",
+        "XDG_CONFIG_HOME": "relatif",
+        "XDG_STATE_HOME": ".",
+    }
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
     # Act
     installer.sync(enabled=True, dry_run=False)
@@ -1855,28 +1862,113 @@ def test_init_refuse_un_xdg_dangereux_ou_hors_du_home(
     user_systemd: MagicMock, logger: MagicMock, home: Path, valeur: str
 ) -> None:
     # Arrange : XDG injecté dans une unité, et base des refus de lien symbolique
-    env = {"XDG_STATE_HOME": valeur.format(home=home)}
+    user_systemd.show_environment.return_value = {
+        "XDG_STATE_HOME": valeur.format(home=home)
+    }
 
     # Act / Assert
     with pytest.raises(ValueError, match="XDG_STATE_HOME"):
-        NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home, env=env)
+        NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
 
-def test_init_scope_user_lit_os_environ_par_defaut(
+def test_init_scope_user_lit_l_environnement_du_gestionnaire_pas_celui_du_processus(
     user_systemd: MagicMock,
     logger: MagicMock,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Arrange : sans `env`, l'environnement du processus (la session)
-    monkeypatch.setenv("XDG_DATA_HOME", f"{home}/donnees")
+    # Arrange : trois environnements distincts (F15). L'installeur (os.environ)
+    # et la session pointent ailleurs que le gestionnaire `systemd --user`, seul
+    # à fixer ce que verront les unités.
+    monkeypatch.setenv("XDG_DATA_HOME", f"{home}/data-installeur")
+    monkeypatch.setenv("XDG_CONFIG_HOME", f"{home}/config-installeur")
+    monkeypatch.setenv("XDG_STATE_HOME", f"{home}/etat-installeur")
+    user_systemd.show_environment.return_value = {
+        "XDG_DATA_HOME": f"{home}/data-gestionnaire",
+        "XDG_CONFIG_HOME": f"{home}/config-gestionnaire",
+        "XDG_STATE_HOME": f"{home}/etat-gestionnaire",
+    }
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+    script = home / "data-gestionnaire/backup-py/backup-notify"
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : tout suit le gestionnaire ; rien chez l'installeur
+    assert script.is_file()
+    dropin = home / "config-gestionnaire/systemd/user/backup.service.d"
+    assert f"Environment=XDG_STATE_HOME={home}/etat-gestionnaire\n" in (
+        dropin / "backup-py-notify.conf"
+    ).read_text(encoding="utf-8")
+    desktop = home / "config-gestionnaire/autostart/backup-py-backup-notify.desktop"
+    assert (
+        f"Exec=/usr/bin/env XDG_STATE_HOME={home}/etat-gestionnaire "
+        f"/usr/bin/python3 -I {script} login backup\n"
+    ) in desktop.read_text(encoding="utf-8")
+    assert (home / "etat-gestionnaire/backup-py/backup").is_dir()
+    assert not any(p.name.endswith("-installeur") for p in home.iterdir())
+    user_systemd.show_environment.assert_called_once_with()
+
+
+def test_init_scope_user_sans_xdg_du_gestionnaire_ignore_os_environ(
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : le gestionnaire ne définit aucun XDG, l'installeur en a (F15)
+    monkeypatch.setenv("XDG_STATE_HOME", f"{home}/etat-installeur")
+    monkeypatch.setenv("XDG_CONFIG_HOME", f"{home}/config-installeur")
     installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
     # Act
     installer.sync(enabled=True, dry_run=False)
 
-    # Assert
-    assert (home / "donnees/backup-py/backup-notify").is_file()
+    # Assert : repli relatif au home
+    assert (home / ".local/state/backup-py/backup").is_dir()
+    assert (home / ".config/systemd/user/backup.service.d").is_dir()
+    assert not (home / "etat-installeur").exists()
+    assert not (home / "config-installeur").exists()
+
+
+def test_init_scope_user_gestionnaire_illisible_repli_sous_le_home(
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : `show-environment` échoue (bus injoignable) ; os.environ n'est
+    # PAS une source de secours (F15)
+    monkeypatch.setenv("XDG_STATE_HOME", f"{home}/etat-installeur")
+    user_systemd.show_environment.side_effect = RuntimeError("bus injoignable")
+
+    # Act
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : repli sous le home, avec un avertissement qui nomme la cause
+    assert (home / ".local/state/backup-py/backup").is_dir()
+    assert not (home / "etat-installeur").exists()
+    logger.log_warning.assert_called_once()
+    message = logger.log_warning.call_args.args[0]
+    assert "bus injoignable" in message
+    assert "backup" in message
+
+
+def test_init_scope_systeme_n_interroge_pas_show_environment(
+    systemd: MagicMock, logger: MagicMock, tmp_path: Path
+) -> None:
+    # Act
+    installer = NotifiedJobInstaller(_dnf_job(), systemd, logger, root_dir=tmp_path)
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : le scope système ne lit aucun environnement ; son autostart reste
+    # sans `env` (littéral du scope système)
+    systemd.show_environment.assert_not_called()
+    desktop = next((tmp_path / "etc/xdg/autostart").glob("*.desktop"))
+    assert "Exec=/usr/bin/python3 -I /usr/local/libexec/" in desktop.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_sync_scope_user_home_par_defaut(

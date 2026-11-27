@@ -38,6 +38,7 @@ from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
 
 _PYTHON: Final = "/usr/bin/python3"
+_ENV: Final = "/usr/bin/env"
 _INHIBIT: Final = "/usr/bin/systemd-inhibit"
 # Un `home` ou un dossier XDG valide : absolu, sans espace, %, $, guillemet,
 # antislash ni saut de ligne (systemd découpe et interprète ces caractères dans
@@ -136,14 +137,14 @@ def _system_layout(job: NotifiedJob, root: Path) -> _Layout:
 
 
 def _xdg_dir(env: Mapping[str, str], key: str, home: Path, default: str) -> Path:
-    """Dossier XDG de la session, ou son repli sous `home`.
+    """Dossier XDG du gestionnaire `systemd --user`, ou son repli sous `home`.
 
     Comme la spécification XDG, une valeur vide ou relative est ignorée. Le
     dossier est écrit dans les unités et sert de base aux refus de lien
     symbolique : il doit être sûr et sous `home`.
 
     Args:
-        env: Environnement de la session de l'utilisateur.
+        env: Environnement du gestionnaire `systemd --user` (F15).
         key: Variable XDG (`XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`).
         home: Dossier personnel (validé).
         default: Repli relatif à `home` (`.local/share`, `.config`, ...).
@@ -170,7 +171,7 @@ def _xdg_dir(env: Mapping[str, str], key: str, home: Path, default: str) -> Path
 
 
 def _user_layout(job: NotifiedJob, home: Path, env: Mapping[str, str]) -> _Layout:
-    """Chemins du scope user : dossiers XDG de la session, repli sous `home`."""
+    """Chemins du scope user : dossiers XDG du gestionnaire, repli sous `home`."""
     data_dir = _xdg_dir(env, "XDG_DATA_HOME", home, ".local/share") / job.owner
     runtime = data_dir / f"{job.name}-notify"
     config_dir = _xdg_dir(env, "XDG_CONFIG_HOME", home, ".config")
@@ -350,14 +351,13 @@ class NotifiedJobInstaller:
         déconnexion, et les fichiers périmés sont ignorés par le runtime.
     """
 
-    def __init__(  # noqa: PLR0913 — dépendances et racines injectées, indépendantes
+    def __init__(
         self,
         job: NotifiedJob,
         systemd: SystemdExecutor,
         logger: Logger,
         root_dir: Path = Path("/"),
         home: Path | None = None,
-        env: Mapping[str, str] | None = None,
     ) -> None:
         """Initialise l'installeur.
 
@@ -370,16 +370,18 @@ class NotifiedJobInstaller:
                 `tmp_path` en test) ; écritures uniquement.
             home: Dossier personnel, scope user (`Path.home()` par défaut) ;
                 tout y est écrit. Ignoré en scope système.
-            env: Environnement de la session de l'utilisateur, scope user
-                (`os.environ` par défaut) : `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et
-                `XDG_STATE_HOME` (sous `home`) remplacent les emplacements par
-                défaut. Ignoré en scope système.
 
         Raises:
             ValueError: Si l'exécuteur ne correspond pas au scope du job, si
                 `home` (scope user) n'est pas un chemin absolu sûr, si
-                l'installeur tourne en root en scope user, ou si un dossier XDG de `env`
-                est dangereux ou hors de `home`.
+                l'installeur tourne en root en scope user, ou si un dossier XDG du
+                gestionnaire `systemd --user` est dangereux ou hors de `home`.
+
+        Note:
+            En scope `user`, les `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et
+            `XDG_STATE_HOME` viennent de `systemctl --user show-environment`
+            (exécuteur injecté), jamais de l'environnement de l'installeur ni de
+            la session (F15) ; à défaut, les emplacements par défaut sous `home`.
         """
         if isinstance(systemd, UserSystemdExecutor) != (job.scope == "user"):
             msg = f"exécuteur systemd incompatible avec le scope {job.scope!r}"
@@ -397,10 +399,25 @@ class NotifiedJobInstaller:
                 raise ValueError(msg)
             user_home = Path.home() if home is None else home
             _validate_home(user_home)
-            session = os.environ if env is None else env
-            self._layout = _user_layout(job, user_home, session)
+            manager_env = self._manager_environment()
+            self._layout = _user_layout(job, user_home, manager_env)
         else:
             self._layout = _system_layout(job, root_dir)
+
+    def _manager_environment(self) -> Mapping[str, str]:
+        """Environnement du gestionnaire `systemd --user` (vide s'il est illisible).
+
+        Un échec n'est pas masqué : il est journalisé, et les emplacements par
+        défaut sous `home` s'appliquent (jamais `os.environ`).
+        """
+        try:
+            return self._systemd.show_environment()
+        except RuntimeError as exc:
+            self._logger.log_warning(
+                f"[{self._job.name}] environnement du gestionnaire systemd --user "
+                f"illisible ({exc}) : emplacements XDG par défaut sous le home"
+            )
+            return {}
 
     @property
     def _guard_unit(self) -> str:
@@ -467,8 +484,9 @@ class NotifiedJobInstaller:
         Une unité `systemd --user` n'a pas forcément `XDG_STATE_HOME` : sans lui
         le runtime ne sait pas où écrire (`HOME` est défini par le gestionnaire
         user, il n'est donc pas répété). La valeur est celle que résout
-        l'installeur d'après la session : le `login` de l'autostart, qui hérite de
-        cette même session, lit au même endroit (F03).
+        l'installeur d'après le gestionnaire ; l'autostart la fixe aussi dans son
+        `Exec` (`_desktop_exec`), donc `start`, `end` et `login` lisent au même
+        endroit quelle que soit la session (F03, F15).
         """
         state_home = self._layout.state_home
         if state_home is None:
@@ -524,13 +542,26 @@ class NotifiedJobInstaller:
         lines.append(self._exec("ExecStopPost", "end"))
         return "\n".join(lines) + "\n"
 
+    def _desktop_exec(self) -> str:
+        """Ligne `Exec=` de l'autostart, racine d'état figée en scope user (F15).
+
+        La session qui lance l'autostart n'a pas forcément le `XDG_STATE_HOME` du
+        gestionnaire : `env` le fixe, comme `Environment=` pour les unités.
+        """
+        state_home = self._layout.state_home
+        prefix = "" if state_home is None else f"{_ENV} XDG_STATE_HOME={state_home} "
+        return (
+            f"Exec={prefix}{_PYTHON} -I {self._layout.runtime_real} "
+            f"login {self._job.name}\n"
+        )
+
     def _desktop_content(self) -> str:
         """Texte exact de l'entrée XDG autostart (rattrapage `login`)."""
         return (
             "[Desktop Entry]\n"
             "Type=Application\n"
             f"Name=Notification {self._job.name}\n"
-            f"Exec={_PYTHON} -I {self._layout.runtime_real} login {self._job.name}\n"
+            f"{self._desktop_exec()}"
             "NoDisplay=true\n"
             "X-GNOME-Autostart-Phase=Applications\n"
         )

@@ -39,8 +39,13 @@ END_SUCCESS = ("Sauvegarde terminée", "Tout est enregistré.")
 END_FAILURE = ("Sauvegarde en échec", "Consultez le journal.")
 END_INTERRUPTED = ("Sauvegarde interrompue", "Elle n'a pas abouti.")
 # Ligne d'exécution d'unité ou d'autostart :
-# `Exec…=[-]/usr/bin/python3 -I <chemin> <verbe> <job>`.
-EXEC_RE = re.compile(r"^Exec\w*=-?/usr/bin/python3 -I (\S+) (\w+) (\S+)$", re.MULTILINE)
+# `Exec…=[-][/usr/bin/env K=V ]/usr/bin/python3 -I <chemin> <verbe> <job>`.
+EXEC_RE = re.compile(
+    r"^Exec\w*=-?(?:/usr/bin/env \S+=\S+ )?/usr/bin/python3 -I (\S+) (\w+) (\S+)$",
+    re.MULTILINE,
+)
+# Affectations portées par le préfixe `/usr/bin/env` d'un `Exec`.
+ENV_PREFIX_RE = re.compile(r"^Exec\w*=-?/usr/bin/env (\S+)=(\S+) ", re.MULTILINE)
 ENV_RE = re.compile(r"^Environment=(.+)$", re.MULTILINE)
 
 
@@ -79,17 +84,18 @@ def install_user(
 ) -> NotifiedJobInstaller:
     """Installe le job fictif (scope user) sous le `home` de test.
 
-    `env` est l'environnement de la session de l'utilisateur (XDG personnalisés).
+    `env` est l'environnement du gestionnaire `systemd --user` (XDG personnalisés),
+    lu par l'installeur via `show-environment`.
     """
     systemd = MagicMock(spec=UserSystemdExecutor)
     systemd.get_status.return_value = "inactive"
     systemd.reload_systemd.return_value = True
+    systemd.show_environment.return_value = {} if env is None else dict(env)
     installer = NotifiedJobInstaller(
         demo_job(scope="user", lock=False),
         systemd,
         MagicMock(spec=Logger),
         home=home,
-        env={} if env is None else env,
     )
     installer.sync(enabled=True, dry_run=False)
     return installer
@@ -281,17 +287,24 @@ def test_job_fictif_sans_verrou_ne_pose_aucun_inhibiteur(tmp_path: Path) -> None
 )
 def test_job_fictif_scope_user_debut_fin_login(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     xdg: Mapping[str, str],
     data: str,
     config: str,
     state: str,
 ) -> None:
-    # Arrange : la session de l'utilisateur définit (ou non) des dossiers XDG ;
-    # l'installeur et le login de l'autostart voient la MÊME session (A-06, F03).
+    # Arrange : trois environnements DISTINCTS (A-06, F03, F15) : le gestionnaire
+    # `systemd --user` définit (ou non) des dossiers XDG, lus par l'installeur via
+    # `show-environment` ; l'environnement du processus installeur et la session
+    # qui lance le login de l'autostart pointent ailleurs.
     home = tmp_path / "home"
     home.mkdir()
-    session = {"HOME": str(home), **{k: str(home / v) for k, v in xdg.items()}}
-    install_user(home, session)
+    manager = {"HOME": str(home), **{k: str(home / v) for k, v in xdg.items()}}
+    monkeypatch.setenv("XDG_STATE_HOME", str(home / "etat-installeur"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / "data-installeur"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / "config-installeur"))
+    session = {"HOME": str(home), "XDG_STATE_HOME": str(home / "etat-session")}
+    install_user(home, manager)
     write_boot_id(tmp_path, BOOT_A)
     script = home / data / "demo-app/demo-notify"
     dropin = home / config / "systemd/user/demo.service.d/demo-app-notify.conf"
@@ -301,7 +314,8 @@ def test_job_fictif_scope_user_debut_fin_login(
     assert exec_lines(dropin) == [(str(script), "start"), (str(script), "end")]
     assert exec_lines(desktop) == [(str(script), "login")]
     # Environnement des unités relu du drop-in écrit, plus le bus ; le login de
-    # l'autostart, lui, n'a que l'environnement de la session (jamais celui de l'unité).
+    # l'autostart reçoit celui de SA session, surchargé par le préfixe `env` de
+    # l'`Exec` écrit (jamais l'environnement de l'unité ni celui de l'installeur).
     unit_env = dict(
         item.split("=", 1)
         for line in ENV_RE.findall(dropin.read_text())
@@ -309,7 +323,9 @@ def test_job_fictif_scope_user_debut_fin_login(
     )
     bus = {"XDG_RUNTIME_DIR": str(tmp_path / "run")}
     unit_ctx_env = {**unit_env, **bus}
-    login_env = {**session, **bus}
+    exec_env = dict(ENV_PREFIX_RE.findall(desktop.read_text()))
+    assert exec_env == {"XDG_STATE_HOME": str(home / state)}
+    login_env = {**session, **exec_env, **bus}
     recorder = Recorder()
 
     # Act : début, fin sans bureau (busctl échoue), puis login qui rattrape
@@ -359,6 +375,8 @@ def test_job_fictif_scope_user_debut_fin_login(
     assert [a[0] for a, _ in start_runner.calls] == [BUSCTL]  # ni loginctl ni runuser
     assert (home / state / "demo-app/demo/state.json").is_file()
     assert (home / state / "demo-app/demo/seen").is_file()
+    assert not (home / "etat-session").exists()
+    assert not (home / "etat-installeur").exists()
 
 
 def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
@@ -371,12 +389,12 @@ def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
     systemd = MagicMock(spec=UserSystemdExecutor)
     systemd.get_status.return_value = "inactive"
     systemd.reload_systemd.return_value = True
+    systemd.show_environment.return_value = {}
     NotifiedJobInstaller(
         demo_job(scope="user", lock=True),
         systemd,
         MagicMock(spec=Logger),
         home=home,
-        env={},
     ).sync(enabled=True, dry_run=False)
     write_boot_id(tmp_path, BOOT_A)
     script = home / ".local/share/demo-app/demo-notify"

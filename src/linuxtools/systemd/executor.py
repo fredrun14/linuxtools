@@ -248,6 +248,28 @@ class SystemdExecutor:
         result = self._run_systemctl(["is-active", unit_name])
         return result.stdout.strip()
 
+    def show_environment(self) -> dict[str, str]:
+        """Lit l'environnement du gestionnaire systemd (`show-environment`).
+
+        Pour `UserSystemdExecutor`, c'est celui de `systemd --user` : la source
+        des variables que reçoivent les unités utilisateur, distincte de
+        l'environnement du processus appelant et de celui de la session.
+
+        Returns:
+            Les variables `KEY=VALUE` du gestionnaire (valeur brute, telle que
+            systemd l'affiche : une valeur à caractères spéciaux y est citée).
+
+        Raises:
+            RuntimeError: Si `systemctl show-environment` échoue (bus
+                injoignable...) : un échec n'est pas un environnement vide.
+        """
+        result = self._run_systemctl(["show-environment"])
+        if not result.success:
+            msg = f"Erreur systemctl show-environment : {result.stderr}"
+            raise RuntimeError(msg)
+        pairs = (line.partition("=") for line in result.stdout.splitlines())
+        return {key: value for key, sep, value in pairs if sep}
+
     def is_active(self, unit_name: str) -> bool:
         """Vérifie si une unité systemd est active.
 
