@@ -218,6 +218,22 @@ def _io_errors(action: str, path: Path) -> Iterator[None]:
         raise RuntimeError(msg) from exc
 
 
+@contextlib.contextmanager
+def _tolerate_unreadable(*, dry_run: bool) -> Iterator[None]:
+    """Ignore un composant illisible en dry-run, le traduit en `RuntimeError` sinon.
+
+    Raises:
+        RuntimeError: `PermissionError` hors dry-run (cause chaînée).
+    """
+    try:
+        yield
+    except PermissionError as exc:
+        if not dry_run:
+            msg = "Retrait impossible, composant illisible (sudo requis)"
+            raise RuntimeError(msg) from exc
+        # Dry-run : rien à planifier sous un composant illisible.
+
+
 def _refuse_symlinks(root: Path, path: Path) -> None:
     """Refuse un lien symbolique sur un composant de `path` sous `root`.
 
@@ -616,24 +632,40 @@ class NotifiedJobInstaller:
             paths += [layout.run_dir / name for name in _RUN_FILES]
         return paths
 
-    def _removal_plan(self) -> tuple[list[Path], list[Path]]:
+    def _removal_plan(self, *, dry_run: bool) -> tuple[list[Path], list[Path]]:
         """Fichiers constants présents et dossiers qui seront vides après eux.
 
         Un dossier n'est retiré que si tout son contenu l'est aussi : un fichier
         étranger, ou celui d'un autre job, le préserve avec ses parents.
+
+        Un composant illisible (`/run/<owner>` en root 0700, sans sudo) : en
+        dry-run, rien n'est planifié en dessous (comme `_refuse_symlinks`) ; en
+        réel, on ne peut ni retirer ni garantir l'état, d'où une `RuntimeError`.
+
+        Args:
+            dry_run: True si le retrait ne sera pas appliqué.
+
+        Raises:
+            RuntimeError: Composant illisible, hors dry-run.
         """
-        files = [path for path in self._constant_files() if path.exists()]
-        gone = set(files)
+        files: list[Path] = []
+        gone: set[Path] = set()
         dirs: list[Path] = []
+        for path in self._constant_files():
+            with _tolerate_unreadable(dry_run=dry_run):
+                if path.exists():
+                    files.append(path)
+        gone.update(files)
         for directory in self._layout.prune_dirs:
-            if directory.is_dir() and all(c in gone for c in directory.iterdir()):
-                gone.add(directory)
-                dirs.append(directory)
+            with _tolerate_unreadable(dry_run=dry_run):
+                if directory.is_dir() and all(c in gone for c in directory.iterdir()):
+                    gone.add(directory)
+                    dirs.append(directory)
         return files, dirs
 
     def _remove(self, *, dry_run: bool) -> list[str]:
         """Retire les chemins constants présents puis les dossiers devenus vides."""
-        files, dirs = self._removal_plan()
+        files, dirs = self._removal_plan(dry_run=dry_run)
         units = (self._layout.guard, self._layout.dropin)
         if self._must_defer(unit_change=any(path in units for path in files)):
             return [self._deferred()]

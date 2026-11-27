@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import stat
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 from unittest.mock import MagicMock
@@ -787,6 +788,42 @@ def test_sync_dry_run_sans_sudo_dossier_run_illisible_sans_traceback(
     # Assert : les actions sont rendues, aucune exception
     assert len(actions) == 6
     assert all(a.startswith("[dry-run]") for a in actions)
+
+
+@pytest.fixture
+def run_illisible(tmp_path: Path) -> Iterator[Path]:
+    """`/run/<owner>` en 0000 (réel, non simulé) : illisible pour un non-root."""
+    if os.geteuid() == 0:
+        pytest.skip("root traverse un dossier 0000")
+    _simulate_hook_run_dir(tmp_path)
+    parent = tmp_path / "run" / "fedora-post-install"
+    parent.chmod(0o000)
+    yield parent
+    parent.chmod(0o700)
+
+
+def test_sync_retrait_dry_run_sans_sudo_dossier_run_illisible_tolere(
+    installer: NotifiedJobInstaller, run_illisible: Path
+) -> None:
+    # Arrange : /run/<owner> illisible (F01), rien d'installé
+
+    # Act
+    actions = installer.sync(enabled=False, dry_run=True)
+
+    # Assert : rien à planifier sous le dossier illisible, aucune exception
+    assert all(a.startswith("[dry-run]") for a in actions)
+    assert not any(str(run_illisible) in a for a in actions)
+
+
+def test_sync_retrait_reel_dossier_run_illisible_leve_runtimeerror(
+    installer: NotifiedJobInstaller, run_illisible: Path
+) -> None:
+    # Arrange : idem, mais le retrait est réel
+
+    # Act / Assert : le contrat est RuntimeError, jamais PermissionError brute
+    with pytest.raises(RuntimeError, match="illisible") as excinfo:
+        installer.sync(enabled=False, dry_run=False)
+    assert isinstance(excinfo.value.__cause__, PermissionError)
 
 
 # ----------------------------------------------------------------------
