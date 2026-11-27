@@ -401,7 +401,12 @@ def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
     unit_dir = home / ".config/systemd/user"
     guard = unit_dir / GUARD
     dropin = unit_dir / "demo.service.d/demo-app-notify.conf"
-    assert exec_lines(guard) == []  # le compagnon ne porte plus le début
+    # Le compagnon ne porte plus le début : assertion sur son texte, car
+    # `exec_lines(guard) == []` passerait aussi sur un fichier vide (F17).
+    guard_text = guard.read_text()
+    assert "systemd-inhibit" in guard_text
+    assert "ExecStartPost" not in guard_text
+    assert "demo-notify" not in guard_text
     unit_env = dict(
         item.split("=", 1)
         for line in ENV_RE.findall(dropin.read_text())
