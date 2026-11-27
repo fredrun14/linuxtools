@@ -1,6 +1,7 @@
 """Tests du verbe login du runtime."""
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from linuxtools.jobnotify.runtime import (
 from tests.unit.jobnotify.runtime_support import (
     BOOT_A,
     BOOT_B,
+    DNF5_JOB,
     END_TEXTS,
     GUARD_UNIT,
     START_SUMMARY,
@@ -24,6 +26,7 @@ from tests.unit.jobnotify.runtime_support import (
     Recorder,
     Reply,
     ctx_for,
+    descriptor_of,
     mode_of,
     notify_calls,
     parse_notify,
@@ -220,6 +223,29 @@ def test_login_compagnon_actif_dnf_inactif_signale_en_cours(
     (argv,) = notify_calls(runner)
     assert parse_notify(argv)["summary"] == START_SUMMARY
     assert [SYSTEMCTL, "is-active", GUARD_UNIT] in [a for a, _ in runner.calls]
+
+
+def test_login_sans_verrou_n_interroge_pas_le_compagnon(tmp_path: Path) -> None:
+    """F10 : sans verrou, aucun compagnon n'existe, donc pas d'`is-active` dessus."""
+    write_state_file(tmp_path)
+    write_boot_id(tmp_path, BOOT_A)
+    sans_verrou = descriptor_of(replace(DNF5_JOB, lock=False))
+    runner = FakeRunner(system_handler(active=(0, "active\n")))
+    ctx = ctx_for(
+        runner,
+        tmp_path,
+        Recorder(),
+        euid=1000,
+        job=sans_verrou,
+        env=login_env(tmp_path),
+    )
+
+    login(ctx)
+
+    interroges = [a[2] for a, _ in runner.calls if a[:2] == [SYSTEMCTL, "is-active"]]
+    assert interroges == ["dnf5-automatic.service"]
+    (argv,) = notify_calls(runner)
+    assert parse_notify(argv)["summary"] == START_SUMMARY
 
 
 def test_login_dnf_deactivating_signale_en_cours(tmp_path: Path) -> None:

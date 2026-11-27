@@ -1547,14 +1547,15 @@ def _run_in_progress(ctx: Ctx, state: _State) -> bool:
 
     Le compagnon ``active``/``activating`` suffit : il est actif même quand dnf
     est encore ``inactive`` à attendre ``network-online``. Sinon dnf lui-même
-    ``activating``/``active``/``deactivating``.
+    ``activating``/``active``/``deactivating``. Sans verrou, il n'y a pas de
+    compagnon : seul dnf est interrogé.
     """
     if state["boot_id"] != _read_boot_id(ctx):
         return False
-    for unit, states in (
-        (_job(ctx).guard_unit, ACTIVE_STATES),
-        (_job(ctx).watched_unit, WATCHED_RUNNING_STATES),
-    ):
+    checks = [(_job(ctx).watched_unit, WATCHED_RUNNING_STATES)]
+    if _job(ctx).lock:  # sans verrou, il n'existe aucun compagnon à interroger (F10)
+        checks.insert(0, (_job(ctx).guard_unit, ACTIVE_STATES))
+    for unit, states in checks:
         result = _call(ctx, _systemctl(ctx, "is-active", unit))
         if result is not None and result[1].strip() in states:
             return True

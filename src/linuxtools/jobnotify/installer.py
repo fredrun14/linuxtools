@@ -425,6 +425,9 @@ class NotifiedJobInstaller:
             True si le compagnon est `active`/`activating` ou si le service
             surveillé est `activating`/`active`/`deactivating`.
         """
+        # Le compagnon est interrogé même sans verrou (contrairement au runtime) :
+        # après un passage verrou -> sans verrou, un ancien compagnon peut rester
+        # actif, et son unité (encore sur le poste) ne doit pas changer sous lui.
         status = self._systemd.get_status
         return (
             status(self._guard_unit) in ACTIVE_STATES
