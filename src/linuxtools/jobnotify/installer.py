@@ -37,6 +37,11 @@ from linuxtools.jobnotify.spec import FingerprintProbe, NotifiedJob
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
 
+# États `LoadState` non chargés tolérés (avertissement) : l'unité surveillée
+# appartient à un tiers (absente ou masquée) ; le compagnon, écrit par
+# l'installeur, ne peut être que masqué (F34).
+_WATCHED_NOT_LOADED_OK: Final = frozenset({"not-found", "masked"})
+_GUARD_NOT_LOADED_OK: Final = frozenset({"masked"})
 _PYTHON: Final = "/usr/bin/python3"
 _ENV: Final = "/usr/bin/env"
 _INHIBIT: Final = "/usr/bin/systemd-inhibit"
@@ -958,13 +963,15 @@ class NotifiedJobInstaller:
         - chargement : le drop-in figure dans `DropInPaths` de l'unité surveillée
           et, avec verrou, le compagnon a pour `FragmentPath` le fichier écrit.
           Ils ne valent que pour une unité `LoadState=loaded` : une unité
-          surveillée absente ou masquée n'a aucun drop-in à rendre, d'où un
-          avertissement journalisé et non une erreur.
+          surveillée absente (`not-found`) ou masquée n'a aucun drop-in à rendre,
+          et un compagnon masqué est un choix de l'utilisateur, d'où un
+          avertissement journalisé. Tout autre état non chargé (compagnon
+          `not-found`, `error`, `bad-setting`…) est une erreur (F34).
 
         Raises:
             RuntimeError: Si le dossier des unités est hors de `UnitPath`, si une
-                unité chargée n'a pas le fichier écrit, ou si `systemctl show`
-                échoue.
+                unité chargée n'a pas le fichier écrit, si une unité est dans un
+                état non chargé non toléré, ou si `systemctl show` échoue.
         """
         layout = self._layout
         unit_dir = layout.guard.parent
@@ -979,7 +986,7 @@ class NotifiedJobInstaller:
             )
             raise RuntimeError(msg)
         watched = self._job.watched_unit
-        if self._is_loaded(watched):
+        if self._is_loaded(watched, tolerated=_WATCHED_NOT_LOADED_OK):
             dropins = self._systemd.show_property("DropInPaths", watched)
             if f" {layout.dropin} " not in f" {dropins} ":
                 msg = (
@@ -987,7 +994,9 @@ class NotifiedJobInstaller:
                     "les notifications n'auraient pas lieu"
                 )
                 raise RuntimeError(msg)
-        if self._job.lock and self._is_loaded(self._guard_unit):
+        if self._job.lock and self._is_loaded(
+            self._guard_unit, tolerated=_GUARD_NOT_LOADED_OK
+        ):
             fragment = self._systemd.show_property("FragmentPath", self._guard_unit)
             if fragment != str(layout.guard):
                 msg = (
@@ -996,19 +1005,31 @@ class NotifiedJobInstaller:
                 )
                 raise RuntimeError(msg)
 
-    def _is_loaded(self, unit: str) -> bool:
-        """Dit si `unit` est `LoadState=loaded`, sinon journalise un avertissement.
+    def _is_loaded(self, unit: str, *, tolerated: frozenset[str]) -> bool:
+        """Dit si `unit` est `LoadState=loaded` ; tolère certains états seulement.
 
         Args:
             unit: Nom de l'unité interrogée.
+            tolerated: États `LoadState` non chargés qui ne sont qu'un
+                avertissement (unité surveillée : `not-found`, `masked` ;
+                compagnon, écrit par l'installeur : `masked` seulement).
 
         Returns:
-            True si le gestionnaire a chargé l'unité ; False (absente, masquée…)
-            après avoir journalisé l'état, sans erreur.
+            True si le gestionnaire a chargé l'unité ; False si elle est dans un
+            état toléré, après avoir journalisé l'état.
+
+        Raises:
+            RuntimeError: Si l'état n'est ni `loaded` ni toléré (F34).
         """
         state = self._systemd.show_property("LoadState", unit)
         if state == "loaded":
             return True
+        if state not in tolerated:
+            msg = (
+                f"unité {unit} non chargée par systemd --user "
+                f"(LoadState={state!r}) : les notifications n'auraient pas lieu"
+            )
+            raise RuntimeError(msg)
         self._logger.log_warning(
             f"[{self._job.name}] unité {unit} non chargée par systemd --user "
             f"(LoadState={state!r}) : chargement des drop-ins non vérifié"

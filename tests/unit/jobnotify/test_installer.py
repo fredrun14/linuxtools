@@ -2739,6 +2739,44 @@ def test_sync_scope_user_compagnon_non_charge_par_loadstate_avertit(
     assert "FragmentPath" not in asked
 
 
+@pytest.mark.parametrize(
+    ("unit", "etat", "lock"),
+    [
+        ("backup-py-backup-guard.service", "not-found", True),
+        ("backup-py-backup-guard.service", "bad-setting", True),
+        ("backup.service", "error", False),
+        ("backup.service", "bad-setting", False),
+    ],
+)
+def test_sync_scope_user_etat_non_charge_inattendu_leve_runtimeerror(
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    unit: str,
+    etat: str,
+    *,
+    lock: bool,
+) -> None:
+    # Arrange : le compagnon, écrit par l'installeur, n'est ni chargé ni masqué
+    # (ou l'unité surveillée est en erreur) : ce n'est pas un état toléré (F34)
+    real = user_systemd.show_property.side_effect
+
+    def show_property(name: str, unit_name: str | None = None) -> str:
+        if name == "LoadState" and unit_name == unit:
+            return etat
+        return str(real(name, unit_name))
+
+    user_systemd.show_property.side_effect = show_property
+    installer = NotifiedJobInstaller(
+        _user_job(lock=lock), user_systemd, logger, home=home
+    )
+
+    # Act / Assert : erreur, qui nomme l'unité et l'état
+    with pytest.raises(RuntimeError, match=etat) as info:
+        installer.sync(enabled=True, dry_run=False)
+    assert unit in str(info.value)
+
+
 def test_sync_scope_systeme_ne_lit_aucune_propriete(
     systemd: MagicMock, logger: MagicMock, tmp_path: Path
 ) -> None:
