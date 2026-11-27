@@ -45,7 +45,8 @@
   n'est qu'un avertissement ; tout autre état non chargé est une erreur (T20, T23, T24).
 - fix(systemd): `SystemdExecutor.get_status()` lit `ActiveState` (`show -p … --value`)
   au lieu de `is-active` : mêmes valeurs rendues, mais les codes 3 et 4 de `is-active`
-  ne sont plus journalisés en ERROR par l'exécuteur de commandes (T24).
+  ne sont plus journalisés en ERROR par l'exécuteur de commandes (T24). Prérequis :
+  `show --value` exige systemd >= 230 (valeur vide sur un hôte plus ancien).
 
 ### Corrigé
 

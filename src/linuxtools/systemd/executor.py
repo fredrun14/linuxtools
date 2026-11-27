@@ -252,6 +252,9 @@ class SystemdExecutor:
             `is-active` : même valeur, mais `is-active` sort en code 3
             (inactive) ou 4 (inconnue), que l'exécuteur de commandes
             journalise en ERROR alors que ce sont des réponses normales.
+            `show --value` exige systemd >= 230 : sur un hôte plus ancien,
+            atteint par un CommandExecutor distant, la valeur rendue serait
+            vide.
         """
         validate_full_unit_name(unit_name)
         result = self._run_systemctl(
