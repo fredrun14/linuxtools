@@ -20,7 +20,7 @@ from linuxtools.jobnotify.installer import NotifiedJobInstaller
 from linuxtools.jobnotify.runtime import BUSCTL, SYSTEMCTL, Ctx, main
 from linuxtools.jobnotify.spec import NoProbe, NotifiedJob, Outcome
 from linuxtools.logging.base import Logger
-from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
+from linuxtools.systemd.executor import SystemdExecutor
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
     BOOT_A,
@@ -31,6 +31,7 @@ from tests.unit.jobnotify.runtime_support import (
     system_handler,
     write_boot_id,
 )
+from tests.unit.jobnotify.systemd_support import user_manager, wire_user_manager
 
 OWNER_UID = os.geteuid()  # les fichiers de test appartiennent à l'utilisateur réel
 GUARD = "demo-app-demo-guard.service"
@@ -87,10 +88,10 @@ def install_user(
     `env` est l'environnement du gestionnaire `systemd --user` (XDG personnalisés),
     lu par l'installeur via `show-environment`.
     """
-    systemd = MagicMock(spec=UserSystemdExecutor)
-    systemd.get_status.return_value = "inactive"
-    systemd.reload_systemd.return_value = True
+    systemd = user_manager(home)
     systemd.show_environment.return_value = {} if env is None else dict(env)
+    if env is not None and "XDG_CONFIG_HOME" in env:
+        wire_user_manager(systemd, home, [f"{env['XDG_CONFIG_HOME']}/systemd/user"])
     installer = NotifiedJobInstaller(
         demo_job(scope="user", lock=False),
         systemd,
@@ -386,10 +387,7 @@ def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
     # compagnon n'exécute rien (F04) : seuls les Exec du drop-in tournent.
     home = tmp_path / "home"
     home.mkdir()
-    systemd = MagicMock(spec=UserSystemdExecutor)
-    systemd.get_status.return_value = "inactive"
-    systemd.reload_systemd.return_value = True
-    systemd.show_environment.return_value = {}
+    systemd = user_manager(home)
     NotifiedJobInstaller(
         demo_job(scope="user", lock=True),
         systemd,

@@ -879,6 +879,58 @@ class TestUserSystemdExecutorMocked:
         logger.log_error.assert_called_once()
 
 
+class TestShowProperty:
+    """Tests pour show_property() (propriété du gestionnaire ou d'une unité)."""
+
+    def test_user_lit_une_propriete_du_gestionnaire(self) -> None:
+        """Sans unité : `systemctl --user show -p NAME --value`, sans saut final."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(stdout="/a/user /b/user\n")
+        executor = UserSystemdExecutor(MagicMock(), command_executor)
+
+        value = executor.show_property("UnitPath")
+
+        assert value == "/a/user /b/user"
+        command_executor.run.assert_called_once_with(
+            ["systemctl", "--user", "show", "-p", "UnitPath", "--value"]
+        )
+
+    def test_systeme_lit_une_propriete_d_unite(self) -> None:
+        """Avec unité : elle termine la commande ; une valeur vide est rendue."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(stdout="\n")
+        executor = SystemdExecutor(MagicMock(), command_executor)
+
+        value = executor.show_property("DropInPaths", "demo.service")
+
+        assert value == ""
+        command_executor.run.assert_called_once_with(
+            ["systemctl", "show", "-p", "DropInPaths", "--value", "demo.service"]
+        )
+
+    def test_echec_leve_runtimeerror(self) -> None:
+        """Un échec de systemctl n'est pas confondu avec une propriété vide."""
+        command_executor = MagicMock()
+        command_executor.run.return_value = _result(
+            return_code=1, stderr="Failed to connect to bus"
+        )
+        executor = UserSystemdExecutor(MagicMock(), command_executor)
+
+        with pytest.raises(RuntimeError, match="UnitPath"):
+            executor.show_property("UnitPath")
+
+    @pytest.mark.parametrize("name", ["", "Unit Path", "-p", "A=b", "A;id"])
+    def test_nom_de_propriete_invalide_leve_valueerror(self, name: str) -> None:
+        """Le nom de propriété est une option de systemctl : liste blanche."""
+        command_executor = MagicMock()
+        executor = UserSystemdExecutor(MagicMock(), command_executor)
+
+        with pytest.raises(ValueError, match="propriété"):
+            executor.show_property(name)
+
+        command_executor.run.assert_not_called()
+
+
 class TestShowEnvironment:
     """Tests pour show_environment() (environnement du gestionnaire systemd)."""
 

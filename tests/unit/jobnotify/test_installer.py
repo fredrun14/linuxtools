@@ -33,6 +33,7 @@ from linuxtools.jobnotify.spec import (
 )
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor, UserSystemdExecutor
+from tests.unit.jobnotify.systemd_support import user_manager, wire_user_manager
 
 _OWNER_DIR = "usr/local/libexec/fedora-post-install"
 _HOOK = f"{_OWNER_DIR}/dnf5-auto-notify"
@@ -1659,13 +1660,9 @@ def _sans_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def user_systemd() -> MagicMock:
-    """UserSystemdExecutor mocké : unité inactive, reload réussi."""
-    mock = MagicMock(spec=UserSystemdExecutor)
-    mock.get_status.return_value = "inactive"
-    mock.reload_systemd.return_value = True
-    mock.show_environment.return_value = {}
-    return mock
+def user_systemd(home: Path) -> MagicMock:
+    """UserSystemdExecutor simulé (`UnitPath` par défaut, reload réussi)."""
+    return user_manager(home)
 
 
 def _user_job(*, lock: bool = False, guard_after: tuple[str, ...] = ()) -> NotifiedJob:
@@ -1828,6 +1825,7 @@ def test_sync_scope_user_suit_les_dossiers_xdg_de_la_session(
         "XDG_CONFIG_HOME": f"{home}/reglages",
         "XDG_STATE_HOME": f"{home}/etat",
     }
+    wire_user_manager(user_systemd, home, [f"{home}/reglages/systemd/user"])
     installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
     script = home / "donnees/backup-py/backup-notify"
 
@@ -1912,6 +1910,7 @@ def test_init_scope_user_lit_l_environnement_du_gestionnaire_pas_celui_du_proces
         "XDG_CONFIG_HOME": f"{home}/config-gestionnaire",
         "XDG_STATE_HOME": f"{home}/etat-gestionnaire",
     }
+    wire_user_manager(user_systemd, home, [f"{home}/config-gestionnaire/systemd/user"])
     installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
     script = home / "data-gestionnaire/backup-py/backup-notify"
 
@@ -2239,3 +2238,155 @@ def test_sync_retrait_n_exige_pas_un_descripteur_valide(
 
     # Act / Assert
     assert installer.sync(enabled=False, dry_run=False) == []
+
+
+# ---------------------------------------------------------------------------
+# F22 : dossier des unités tiré de `UnitPath`, post-condition après reload
+# ---------------------------------------------------------------------------
+
+
+def test_sync_scope_user_ecrit_les_unites_dans_le_dossier_de_unitpath(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : `UnitPath` du gestionnaire (F22) : `.control` et un dossier hors du
+    # home précèdent le premier dossier persistant sous le home
+    wire_user_manager(
+        user_systemd,
+        home,
+        [
+            f"{home}/.config/systemd/user.control",
+            "/run/user/1000/systemd/generator.early",
+            "/etc/systemd/user",
+            f"{home}/unites/systemd/user",
+            f"{home}/.config/systemd/user",
+        ],
+    )
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : le drop-in est dans le premier dossier persistant ; l'autostart,
+    # lu par la session, reste sous XDG_CONFIG_HOME (repli ~/.config)
+    assert (
+        home / "unites/systemd/user/backup.service.d/backup-py-notify.conf"
+    ).is_file()
+    assert (home / ".config/autostart/backup-py-backup-notify.desktop").is_file()
+    assert not (home / ".config/systemd").exists()
+
+
+@pytest.mark.parametrize(
+    "unit_path",
+    [
+        [],
+        ["/etc/systemd/user", "/usr/lib/systemd/user"],
+        ["{home}/.config/systemd/user.control", "{home}/g/generator.late"],
+        ["relatif/user", "{home}/../dehors", "{home}/a%h/user"],
+    ],
+    ids=["vide", "hors-du-home", "control-et-generator", "relatif-remontee-pourcent"],
+)
+def test_sync_scope_user_unitpath_ignore_les_entrees_inutilisables(
+    user_systemd: MagicMock, logger: MagicMock, home: Path, unit_path: list[str]
+) -> None:
+    # Arrange : aucune entrée persistante, sûre et sous le home
+    entries = [e.format(home=home) for e in unit_path]
+    # le repli est `~/.config/systemd/user` : il figure en dernier dans UnitPath
+    # (entrée sûre, mais choisie par le repli seul si les précédentes sont refusées)
+    wire_user_manager(user_systemd, home, [*entries, f"{home}/.config/systemd/user"])
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert
+    assert (home / ".config/systemd/user/backup.service.d").is_dir()
+
+
+def test_init_scope_user_unitpath_illisible_repli_sous_le_home(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : `show -p UnitPath` échoue (bus injoignable)
+    user_systemd.show_property.side_effect = RuntimeError("bus injoignable")
+
+    # Act
+    NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Assert : repli et avertissement qui nomme la cause
+    message = logger.log_warning.call_args.args[0]
+    assert "bus injoignable" in message
+    assert "UnitPath" in message
+
+
+def test_sync_scope_user_unite_hors_du_chemin_de_recherche_leve_runtimeerror(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : le gestionnaire ne cherche pas dans `~/.config/systemd/user`
+    # (aucune entrée sous le home : repli) -> le drop-in n'est jamais chargé
+    wire_user_manager(user_systemd, home, ["/etc/systemd/user"])
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act / Assert : pas de succès silencieux, le message nomme le drop-in
+    with pytest.raises(RuntimeError, match=r"drop-in.*backup-py-notify\.conf"):
+        installer.sync(enabled=True, dry_run=False)
+
+
+def test_sync_scope_user_compagnon_non_charge_leve_runtimeerror(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : drop-in chargé, mais le gestionnaire ne trouve pas le compagnon
+    real = user_systemd.show_property.side_effect
+
+    def show_property(name: str, unit: str | None = None) -> str:
+        return "" if name == "FragmentPath" else str(real(name, unit))
+
+    user_systemd.show_property.side_effect = show_property
+    installer = NotifiedJobInstaller(
+        _user_job(lock=True), user_systemd, logger, home=home
+    )
+
+    # Act / Assert
+    with pytest.raises(RuntimeError, match=r"compagnon.*guard"):
+        installer.sync(enabled=True, dry_run=False)
+
+
+def test_sync_scope_user_sans_verrou_ne_verifie_pas_le_compagnon(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Act
+    NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home).sync(
+        enabled=True, dry_run=False
+    )
+
+    # Assert : drop-in vérifié (watched), aucun FragmentPath demandé
+    asked = [c.args[0] for c in user_systemd.show_property.call_args_list]
+    assert "DropInPaths" in asked
+    assert "FragmentPath" not in asked
+
+
+def test_sync_scope_user_dry_run_et_conforme_ne_verifient_rien(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+    installer.sync(enabled=True, dry_run=False)
+    user_systemd.show_property.reset_mock()
+    user_systemd.show_property.side_effect = RuntimeError("ne doit pas être lu")
+
+    # Act : déjà conforme (aucun reload), puis dry-run d'un retrait
+    installer.sync(enabled=True, dry_run=False)
+    installer.sync(enabled=False, dry_run=True)
+
+    # Assert
+    user_systemd.show_property.assert_not_called()
+
+
+def test_sync_scope_systeme_ne_lit_aucune_propriete(
+    systemd: MagicMock, logger: MagicMock, tmp_path: Path
+) -> None:
+    # Act
+    NotifiedJobInstaller(_dnf_job(), systemd, logger, root_dir=tmp_path).sync(
+        enabled=True, dry_run=False
+    )
+
+    # Assert : `UnitPath` ne concerne que le scope user
+    systemd.show_property.assert_not_called()

@@ -175,12 +175,46 @@ def _xdg_dir(env: Mapping[str, str], key: str, home: Path, default: str) -> Path
     return path
 
 
-def _user_layout(job: NotifiedJob, home: Path, env: Mapping[str, str]) -> _Layout:
-    """Chemins du scope user : dossiers XDG du gestionnaire, repli sous `home`."""
+def _unit_search_dir(unit_path: str, home: Path) -> Path:
+    """Premier dossier d'unités persistant, sûr et sous `home` (F22).
+
+    Ignore les dossiers volatils ou générés (`*.control`, `generator*`,
+    `transient`), les entrées relatives ou hors de `home`, et celles que
+    `Environment=`/les unités ne peuvent pas citer sans risque.
+
+    Args:
+        unit_path: Valeur de `systemctl --user show -p UnitPath` (séparée par
+            des espaces, dans l'ordre de priorité du gestionnaire).
+        home: Dossier personnel (validé).
+
+    Returns:
+        Le premier dossier retenu, ou `~/.config/systemd/user` à défaut.
+    """
+    for entry in unit_path.split():
+        path = Path(entry)
+        if (
+            entry.startswith("/")
+            and _HOME_RE.fullmatch(entry) is not None
+            and ".." not in path.parts
+            and path.is_relative_to(home)
+            and not path.name.endswith(".control")
+            and not path.name.startswith(("generator", "transient"))
+        ):
+            return path
+    return home / ".config/systemd/user"
+
+
+def _user_layout(
+    job: NotifiedJob, home: Path, env: Mapping[str, str], unit_dir: Path
+) -> _Layout:
+    """Chemins du scope user : XDG du gestionnaire, unités dans `unit_dir`.
+
+    `unit_dir` (dossier des unités et drop-ins) vient de `UnitPath` (F22) ;
+    l'autostart, lu par la session, suit `XDG_CONFIG_HOME`.
+    """
     data_dir = _xdg_dir(env, "XDG_DATA_HOME", home, ".local/share") / job.owner
     runtime = data_dir / f"{job.name}-notify"
     config_dir = _xdg_dir(env, "XDG_CONFIG_HOME", home, ".config")
-    unit_dir = config_dir / "systemd/user"
     dropin_dir = unit_dir / f"{job.watched_unit}.d"
     state_root = _xdg_dir(env, "XDG_STATE_HOME", home, ".local/state")
     state_dir = state_root / job.owner / job.name
@@ -403,6 +437,7 @@ class NotifiedJobInstaller:
             `XDG_STATE_HOME` viennent de `systemctl --user show-environment`
             (exécuteur injecté), jamais de l'environnement de l'installeur ni de
             la session (F15) ; à défaut, les emplacements par défaut sous `home`.
+            Le dossier des unités et drop-ins vient de `show -p UnitPath` (F22).
         """
         if isinstance(systemd, UserSystemdExecutor) != (job.scope == "user"):
             msg = f"exécuteur systemd incompatible avec le scope {job.scope!r}"
@@ -421,7 +456,8 @@ class NotifiedJobInstaller:
             user_home = Path.home() if home is None else home
             _validate_home(user_home)
             manager_env = self._manager_environment()
-            self._layout = _user_layout(job, user_home, manager_env)
+            unit_dir = _unit_search_dir(self._manager_unit_path(), user_home)
+            self._layout = _user_layout(job, user_home, manager_env, unit_dir)
         else:
             self._layout = _system_layout(job, root_dir)
 
@@ -439,6 +475,23 @@ class NotifiedJobInstaller:
                 f"illisible ({exc}) : emplacements XDG par défaut sous le home"
             )
             return {}
+
+    def _manager_unit_path(self) -> str:
+        """`UnitPath` du gestionnaire `systemd --user` (vide s'il est illisible).
+
+        `show-environment` ne donne pas le chemin de recherche des unités (F22) :
+        seule cette propriété dit où le gestionnaire lit. Un échec est journalisé,
+        et le dossier par défaut sous `home` s'applique ; la post-condition
+        d'après `daemon-reload` détecte alors une unité hors chemin.
+        """
+        try:
+            return self._systemd.show_property("UnitPath")
+        except RuntimeError as exc:
+            self._logger.log_warning(
+                f"[{self._job.name}] UnitPath du gestionnaire systemd --user "
+                f"illisible ({exc}) : dossier d'unités par défaut sous le home"
+            )
+            return ""
 
     @property
     def _guard_unit(self) -> str:
@@ -652,6 +705,8 @@ class NotifiedJobInstaller:
                 actions.append(f"Dossier prêt {layout.state_dir}")
         if any(m.is_unit for m in pending) and not dry_run:
             self._reload()
+            if self._job.scope == "user":
+                self._verify_loaded()
         return actions
 
     def _check_descriptor(self) -> None:
@@ -823,6 +878,35 @@ class NotifiedJobInstaller:
         if not self._systemd.reload_systemd():
             msg = "systemctl daemon-reload a échoué"
             raise RuntimeError(msg)
+
+    def _verify_loaded(self) -> None:
+        """Vérifie que le gestionnaire user voit les unités écrites (F22).
+
+        Après `daemon-reload`, le drop-in doit figurer dans `DropInPaths` de
+        l'unité surveillée et, avec verrou, le compagnon doit avoir pour
+        `FragmentPath` le fichier écrit : sinon les unités sont hors du chemin de
+        recherche et rien ne notifierait, sans erreur.
+
+        Raises:
+            RuntimeError: Si une unité écrite n'est pas chargée depuis son
+                emplacement, ou si `systemctl show` échoue.
+        """
+        layout = self._layout
+        dropins = self._systemd.show_property("DropInPaths", self._job.watched_unit)
+        if f" {layout.dropin} " not in f" {dropins} ":
+            msg = (
+                f"drop-in {layout.dropin} non chargé par systemd --user : dossier "
+                "hors de UnitPath, les notifications n'auraient pas lieu"
+            )
+            raise RuntimeError(msg)
+        if self._job.lock:
+            fragment = self._systemd.show_property("FragmentPath", self._guard_unit)
+            if fragment != str(layout.guard):
+                msg = (
+                    f"compagnon {layout.guard} non chargé par systemd --user "
+                    f"(FragmentPath={fragment!r}) : dossier hors de UnitPath"
+                )
+                raise RuntimeError(msg)
 
     def _refuse_all_symlinks(self) -> None:
         """Refuse tout lien symbolique sur les chemins gérés, avant toute action."""

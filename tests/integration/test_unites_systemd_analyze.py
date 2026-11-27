@@ -73,6 +73,14 @@ def _install(tmp_path: Path, scope: str) -> tuple[Path, Path]:
         user.get_status.return_value = "inactive"
         user.reload_systemd.return_value = True
         user.show_environment.return_value = {}
+        unit_dir = home / ".config/systemd/user"
+        # Le gestionnaire réel n'est pas sollicité : il charge ce qui est écrit
+        values = {
+            "UnitPath": str(unit_dir),
+            "DropInPaths": str(unit_dir / "demo.service.d/demo-app-notify.conf"),
+            "FragmentPath": str(unit_dir / _GUARD),
+        }
+        user.show_property.side_effect = lambda name, unit=None: values[name]
         NotifiedJobInstaller(job, user, logger, home=home).sync(
             enabled=True, dry_run=False
         )
