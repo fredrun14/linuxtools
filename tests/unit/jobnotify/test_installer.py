@@ -2198,17 +2198,25 @@ def test_sync_scope_user_retrait_recharge_meme_si_une_etape_suivante_echoue(
     user_systemd.reload_systemd.assert_called_once_with()
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("dry_run", [True, False])
 def test_sync_scope_user_refuse_une_boucle_de_liens(
-    user_installer: NotifiedJobInstaller, home: Path
+    user_installer: NotifiedJobInstaller,
+    home: Path,
+    *,
+    enabled: bool,
+    dry_run: bool,
 ) -> None:
-    # Arrange : deux liens qui se pointent l'un l'autre sous le home
+    # Arrange : deux liens qui se pointent l'un l'autre sous le home (F24)
     (home / ".config").mkdir()
     (home / ".config/systemd").symlink_to(home / ".config/boucle")
     (home / ".config/boucle").symlink_to(home / ".config/systemd")
 
-    # Act / Assert : cible non résoluble, l'écriture échoue en `RuntimeError`
-    with pytest.raises(RuntimeError):
-        user_installer.sync(enabled=True, dry_run=False)
+    # Act / Assert : même message en dry-run et en réel, quelle que soit la
+    # version de Python (`resolve` lève `RuntimeError` en 3.11, `OSError` ensuite)
+    with pytest.raises(RuntimeError, match="Lien symbolique irrésoluble") as info:
+        user_installer.sync(enabled=enabled, dry_run=dry_run)
+    assert str(home / ".config/systemd") in str(info.value)
 
 
 @pytest.mark.parametrize(

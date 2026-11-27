@@ -298,8 +298,9 @@ def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> N
         follow_links: Accepte un lien dont la cible résolue reste sous `root`.
 
     Raises:
-        RuntimeError: Lien symbolique (scope système), ou lien dont la cible
-            résolue sort de `root` (scope user).
+        RuntimeError: Lien symbolique (scope système), lien dont la cible
+            résolue sort de `root` (scope user), ou lien irrésoluble (boucle,
+            cible absente).
     """
     current = root
     for part in path.relative_to(root).parts:
@@ -315,7 +316,14 @@ def _refuse_symlinks(root: Path, path: Path, *, follow_links: bool = False) -> N
         if not follow_links:
             msg = f"Lien symbolique refusé : {current}"
             raise RuntimeError(msg)
-        if not current.resolve().is_relative_to(root.resolve()):
+        try:
+            target = current.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            # Boucle (`RuntimeError` en 3.11, `OSError` ensuite) ou cible absente :
+            # un seul message, identique en dry-run et en réel (F24).
+            msg = f"Lien symbolique irrésoluble (boucle ou cible absente) : {current}"
+            raise RuntimeError(msg) from exc
+        if not target.is_relative_to(root.resolve()):
             msg = f"Lien symbolique refusé (cible hors de {root}) : {current}"
             raise RuntimeError(msg)
 
