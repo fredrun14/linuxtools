@@ -21,7 +21,6 @@ import json
 import os
 import re
 import stat
-import sys
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from importlib import resources
@@ -877,6 +876,7 @@ class NotifiedJobInstaller:
             return actions
 
         unit_removed = False
+        failed = False
         try:
             for path in (*files, *dirs):
                 if dry_run:
@@ -889,15 +889,20 @@ class NotifiedJobInstaller:
                         path.unlink()
                 unit_removed = unit_removed or path in units
                 self._note(actions, f"Retiré {path}")
+        except BaseException:
+            # Drapeau local, jamais `sys.exception()` : celui-ci verrait aussi
+            # l'exception d'un `except` de l'appelant et avalerait un reload en
+            # échec alors que le retrait lui-même a réussi (F33).
+            failed = True
+            raise
         finally:
             # Une unité déjà retirée doit être déchargée même si une étape
             # suivante échoue (F21), sinon systemd garde l'ancienne.
-            in_progress = sys.exception()
             if unit_removed:
                 try:
                     self._reload()
                 except RuntimeError as exc:
-                    if in_progress is None:
+                    if not failed:
                         raise
                     # L'erreur d'origine prime : l'échec du reload est journalisé
                     # sans la masquer (F29).

@@ -2249,6 +2249,23 @@ def test_sync_retrait_reload_en_echec_seul_leve_runtimeerror(
         user_installer.sync(enabled=False, dry_run=False)
 
 
+def test_sync_retrait_reload_en_echec_leve_depuis_un_bloc_except(
+    user_installer: NotifiedJobInstaller, user_systemd: MagicMock
+) -> None:
+    # Arrange : le reload échoue, et l'appelant retire depuis un `except` (rollback)
+    user_installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.return_value = False
+
+    # Act / Assert : l'exception en cours chez l'appelant n'est pas celle du
+    # retrait (F33) : l'échec du reload ne doit pas être avalé
+    try:
+        msg = "échec du consommateur"
+        raise ValueError(msg)  # noqa: TRY301
+    except ValueError:
+        with pytest.raises(RuntimeError, match="daemon-reload"):
+            user_installer.sync(enabled=False, dry_run=False)
+
+
 def test_sync_retrait_journalise_les_actions_au_fil_de_l_eau(
     user_installer: NotifiedJobInstaller,
     logger: MagicMock,
