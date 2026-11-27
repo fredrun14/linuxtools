@@ -74,8 +74,13 @@ def install_system(tmp_path: Path, *, lock: bool) -> NotifiedJobInstaller:
     return installer
 
 
-def install_user(home: Path) -> NotifiedJobInstaller:
-    """Installe le job fictif (scope user) sous le `home` de test."""
+def install_user(
+    home: Path, env: Mapping[str, str] | None = None
+) -> NotifiedJobInstaller:
+    """Installe le job fictif (scope user) sous le `home` de test.
+
+    `env` est l'environnement de la session de l'utilisateur (XDG personnalisés).
+    """
     systemd = MagicMock(spec=UserSystemdExecutor)
     systemd.get_status.return_value = "inactive"
     systemd.reload_systemd.return_value = True
@@ -84,6 +89,7 @@ def install_user(home: Path) -> NotifiedJobInstaller:
         systemd,
         MagicMock(spec=Logger),
         home=home,
+        env={} if env is None else env,
     )
     installer.sync(enabled=True, dry_run=False)
     return installer
@@ -256,27 +262,54 @@ def test_job_fictif_sans_verrou_ne_pose_aucun_inhibiteur(tmp_path: Path) -> None
     assert recorder.messages == []
 
 
-def test_job_fictif_scope_user_debut_fin_login(tmp_path: Path) -> None:
-    # Arrange : installation réelle scope user sous un home de test
+@pytest.mark.parametrize(
+    ("xdg", "data", "config", "state"),
+    [
+        ({}, ".local/share", ".config", ".local/state"),
+        (
+            {
+                "XDG_DATA_HOME": "donnees",
+                "XDG_CONFIG_HOME": "reglages",
+                "XDG_STATE_HOME": "etat",
+            },
+            "donnees",
+            "reglages",
+            "etat",
+        ),
+    ],
+    ids=["xdg_par_defaut", "xdg_personnalises"],
+)
+def test_job_fictif_scope_user_debut_fin_login(
+    tmp_path: Path,
+    xdg: Mapping[str, str],
+    data: str,
+    config: str,
+    state: str,
+) -> None:
+    # Arrange : la session de l'utilisateur définit (ou non) des dossiers XDG ;
+    # l'installeur et le login de l'autostart voient la MÊME session (A-06, F03).
     home = tmp_path / "home"
     home.mkdir()
-    install_user(home)
+    session = {"HOME": str(home), **{k: str(home / v) for k, v in xdg.items()}}
+    install_user(home, session)
     write_boot_id(tmp_path, BOOT_A)
-    script = home / ".local/share/demo-app/demo-notify"
-    dropin = home / ".config/systemd/user/demo.service.d/demo-app-notify.conf"
-    desktop = home / ".config/autostart/demo-app-demo-notify.desktop"
+    script = home / data / "demo-app/demo-notify"
+    dropin = home / config / "systemd/user/demo.service.d/demo-app-notify.conf"
+    desktop = home / config / "autostart/demo-app-demo-notify.desktop"
     assert script.is_file()
     assert script.with_name("demo-notify.json").is_file()
     assert exec_lines(dropin) == [(str(script), "start"), (str(script), "end")]
     assert exec_lines(desktop) == [(str(script), "login")]
-    # Environnement relu de l'unité écrite (HOME, XDG_STATE_HOME), plus le bus
+    # Environnement des unités relu du drop-in écrit, plus le bus ; le login de
+    # l'autostart, lui, n'a que l'environnement de la session (jamais celui de l'unité).
     unit_env = dict(
         item.split("=", 1)
         for line in ENV_RE.findall(dropin.read_text())
         for item in line.split()
     )
-    assert unit_env["XDG_STATE_HOME"] == f"{home}/.local/state"
-    env = {**unit_env, "XDG_RUNTIME_DIR": str(tmp_path / "run")}
+    bus = {"XDG_RUNTIME_DIR": str(tmp_path / "run")}
+    unit_ctx_env = {**unit_env, **bus}
+    login_env = {**session, **bus}
     recorder = Recorder()
 
     # Act : début, fin sans bureau (busctl échoue), puis login qui rattrape
@@ -287,7 +320,12 @@ def test_job_fictif_scope_user_debut_fin_login(tmp_path: Path) -> None:
         main(
             ["start"],
             installed_ctx(
-                start_runner, tmp_path, script, recorder, euid=OWNER_UID, env=env
+                start_runner,
+                tmp_path,
+                script,
+                recorder,
+                euid=OWNER_UID,
+                env=unit_ctx_env,
             ),
         ),
         main(
@@ -298,24 +336,29 @@ def test_job_fictif_scope_user_debut_fin_login(tmp_path: Path) -> None:
                 script,
                 recorder,
                 euid=OWNER_UID,
-                env={**env, "SERVICE_RESULT": "success"},
+                env={**unit_ctx_env, "SERVICE_RESULT": "success"},
             ),
         ),
         main(
             ["login"],
             installed_ctx(
-                login_runner, tmp_path, script, recorder, euid=OWNER_UID, env=env
+                login_runner,
+                tmp_path,
+                script,
+                recorder,
+                euid=OWNER_UID,
+                env=login_env,
             ),
         ),
     ]
 
-    # Assert : chemins XDG, un seul destinataire, texte de fin au login
+    # Assert : le login relit l'état écrit par start/end, donc rattrape la fin
     assert codes == [0, 0, 0]
     assert notifications(start_runner) == [("0", *START)]
     assert notifications(login_runner) == [("0", *END_SUCCESS)]
     assert [a[0] for a, _ in start_runner.calls] == [BUSCTL]  # ni loginctl ni runuser
-    assert (home / ".local/state/demo-app/demo/state.json").is_file()
-    assert (home / ".local/state/demo-app/demo/seen").is_file()
+    assert (home / state / "demo-app/demo/state.json").is_file()
+    assert (home / state / "demo-app/demo/seen").is_file()
 
 
 @pytest.mark.parametrize(

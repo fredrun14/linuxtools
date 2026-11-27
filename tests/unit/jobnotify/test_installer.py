@@ -1534,6 +1534,13 @@ def test_jobs_sans_chemin_commun(
 # ----------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _sans_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aucun `XDG_*` de la machine de test (l'installeur lit `os.environ`)."""
+    for key in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME"):
+        monkeypatch.delenv(key, raising=False)
+
+
 @pytest.fixture
 def user_systemd() -> MagicMock:
     """UserSystemdExecutor mocké : unité inactive, reload réussi."""
@@ -1593,7 +1600,7 @@ def test_sync_scope_user_chemins_xdg(
     dropin = home / ".config/systemd/user/backup.service.d/backup-py-notify.conf"
     assert dropin.read_text(encoding="utf-8") == (
         "[Service]\n"
-        f"Environment=HOME={home} XDG_STATE_HOME={home}/.local/state\n"
+        f"Environment=XDG_STATE_HOME={home}/.local/state\n"
         f"ExecStartPre=-/usr/bin/python3 -I {script} start backup\n"
         f"ExecStopPost=-/usr/bin/python3 -I {script} end backup\n"
     )
@@ -1613,7 +1620,7 @@ def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
 ) -> None:
     # Arrange
     job = _user_job(lock=True, guard_after=("network.service",))
-    installer = NotifiedJobInstaller(job, user_systemd, logger, home=home)
+    installer = NotifiedJobInstaller(job, user_systemd, logger, home=home, env={})
     script = home / ".local/share/backup-py/backup-notify"
 
     # Act
@@ -1622,7 +1629,7 @@ def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
         encoding="utf-8"
     )
 
-    # Assert : sans HOME ni XDG_STATE_HOME le runtime refuserait tout
+    # Assert : sans XDG_STATE_HOME le runtime ne sait pas où écrire
     assert guard == (
         "[Unit]\n"
         "Description=Verrou d'extinction et de veille pendant backup\n"
@@ -1631,12 +1638,103 @@ def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
         "\n"
         "[Service]\n"
         "Type=exec\n"
-        f"Environment=HOME={home} XDG_STATE_HOME={home}/.local/state\n"
+        f"Environment=XDG_STATE_HOME={home}/.local/state\n"
         "ExecStart=/usr/bin/systemd-inhibit "
         "--what=shutdown:sleep:handle-lid-switch --mode=block "
         '--who=backup-py "--why=Mise à jour en cours" /usr/bin/sleep 3600\n'
         f"ExecStartPost=-/usr/bin/python3 -I {script} start backup\n"
     )
+
+
+def test_sync_scope_user_suit_les_dossiers_xdg_de_la_session(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : session avec XDG personnalisés (F03), sous le home
+    env = {
+        "XDG_DATA_HOME": f"{home}/donnees",
+        "XDG_CONFIG_HOME": f"{home}/reglages",
+        "XDG_STATE_HOME": f"{home}/etat",
+    }
+    installer = NotifiedJobInstaller(
+        _user_job(), user_systemd, logger, home=home, env=env
+    )
+    script = home / "donnees/backup-py/backup-notify"
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : runtime, unités, autostart et état suivent les XDG ; rien aux
+    # emplacements par défaut ; l'unité fixe XDG_STATE_HOME à la valeur résolue
+    assert script.is_file()
+    assert Path(f"{script}.json").is_file()
+    dropin = home / "reglages/systemd/user/backup.service.d/backup-py-notify.conf"
+    assert dropin.read_text(encoding="utf-8") == (
+        "[Service]\n"
+        f"Environment=XDG_STATE_HOME={home}/etat\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {script} start backup\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {script} end backup\n"
+    )
+    assert (home / "reglages/autostart/backup-py-backup-notify.desktop").is_file()
+    assert (home / "etat/backup-py/backup").is_dir()
+    assert not (home / ".local").exists()
+    assert not (home / ".config").exists()
+
+    # Retrait : mêmes chemins, dossiers propres
+    installer.sync(enabled=False, dry_run=False)
+    assert [p for p in home.rglob("*") if p.is_file()] == []
+    assert not (home / "donnees/backup-py").exists()
+    assert not (home / "etat/backup-py").exists()
+
+
+def test_sync_scope_user_xdg_vide_ou_relatif_est_ignore(
+    user_systemd: MagicMock, logger: MagicMock, home: Path
+) -> None:
+    # Arrange : la spec XDG ignore une valeur vide ou relative
+    env = {"XDG_DATA_HOME": "", "XDG_CONFIG_HOME": "relatif", "XDG_STATE_HOME": "."}
+    installer = NotifiedJobInstaller(
+        _user_job(), user_systemd, logger, home=home, env=env
+    )
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : repli sur les emplacements par défaut
+    assert (home / ".local/share/backup-py/backup-notify").is_file()
+    assert (home / ".config/systemd/user/backup.service.d").is_dir()
+    assert (home / ".local/state/backup-py/backup").is_dir()
+
+
+@pytest.mark.parametrize(
+    "valeur",
+    ["{home}/a b", "{home}/a%h", "{home}/../dehors", "/ailleurs/etat"],
+    ids=["espace", "pourcent", "remontee", "hors-du-home"],
+)
+def test_init_refuse_un_xdg_dangereux_ou_hors_du_home(
+    user_systemd: MagicMock, logger: MagicMock, home: Path, valeur: str
+) -> None:
+    # Arrange : XDG injecté dans une unité, et base des refus de lien symbolique
+    env = {"XDG_STATE_HOME": valeur.format(home=home)}
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="XDG_STATE_HOME"):
+        NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home, env=env)
+
+
+def test_init_scope_user_lit_os_environ_par_defaut(
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : sans `env`, l'environnement du processus (la session)
+    monkeypatch.setenv("XDG_DATA_HOME", f"{home}/donnees")
+    installer = NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert
+    assert (home / "donnees/backup-py/backup-notify").is_file()
 
 
 def test_sync_scope_user_home_par_defaut(
