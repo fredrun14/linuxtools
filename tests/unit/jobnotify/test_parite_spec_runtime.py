@@ -159,8 +159,88 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         False,
     ),
     (
-        "argv arguments libres",
+        "argv argument relatif avec ..",
         {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "../a"]}},
+        False,
+    ),
+    (
+        "argv argument .. seul",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", ".."]}},
+        False,
+    ),
+    (
+        "argv .. dans un argument d'option",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "--d=../a"]}},
+        False,
+    ),
+    (
+        "argv argument contenant .. sans segment",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "a..b", "..."]}},
+        True,
+    ),
+    (
+        "argv argument libre non chemin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "-a", "list=1"]}},
+        True,
+    ),
+    (
+        "argv argument absolu sous /usr/bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/usr/bin/y"]}},
+        True,
+    ),
+    (
+        "argv argument absolu hors dossiers systeme",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/home/u/x.py"]}},
+        False,
+    ),
+    (
+        "argv argument absolu sous /tmp",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/tmp/x"]}},
+        False,
+    ),
+    (
+        "argv argument absolu non normalise",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "/usr/bin//y"]}},
+        False,
+    ),
+    (
+        "argv interpreteur python3",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/python3", "-V"]}},
+        False,
+    ),
+    (
+        "argv interpreteur python3.12",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/python3.12"]}},
+        False,
+    ),
+    (
+        "argv lanceur env",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/env", "x"]}},
+        False,
+    ),
+    (
+        "argv shell bash",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/bash", "-c", "id"]}},
+        False,
+    ),
+    (
+        "argv shell sh sous /bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/bin/sh", "-c", "id"]}},
+        False,
+    ),
+    (
+        "argv interpreteur perl",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/perl", "-e", "1"]}},
+        False,
+    ),
+    (
+        "argv lanceur sudo",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/sudo", "id"]}},
+        False,
+    ),
+    (
+        "argv binaire au nom proche d'un interpreteur",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/pythonista"]}},
         True,
     ),
     ("dnf5 sans fin complete", {"probe": {"kind": "dnf5", "argv": []}}, False),

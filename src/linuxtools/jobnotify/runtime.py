@@ -1676,6 +1676,16 @@ WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
 MAX_TEXT_LEN = 200
 # Dossiers admis pour le binaire d'une sonde ``fingerprint`` (F06).
 PROBE_BINARY_DIRS = frozenset({"/usr/bin", "/usr/sbin", "/bin", "/sbin"})
+# Segment ``..`` d'un argument, y compris derrière ``=`` (``--dir=../x``).
+_DOTDOT_RE = re.compile(r"(?:^|[/=])\.\.(?:$|/)")
+# Interpréteurs et lanceurs refusés comme binaire de sonde (F14) : ils exécutent
+# ce qu'on leur passe en argument (``env x``, ``bash -c``, ``python3 /tmp/x.py``).
+_LAUNCHER_RE = re.compile(
+    r"(?:env|sh|bash|dash|zsh|ksh|csh|tcsh|fish|ash|busybox|xargs|sudo|su|doas"
+    r"|pkexec|run0|systemd-run|nohup|nice|timeout|setsid|stdbuf|chroot|nsenter"
+    r"|unshare|strace|expect|awk|gawk|find|node|nodejs|lua|php|tclsh"
+    r"|(?:python|perl|ruby)[0-9.]*)"
+)
 DESCRIPTOR_VERSION = 1
 _MAX_DESCRIPTOR_SIZE = 16 * 1024
 _GROUP_OTHERS_WRITE = 0o022
@@ -1740,26 +1750,44 @@ def _units(value: object, field_name: str) -> tuple[str, ...]:
     return tuple(_matching(unit, UNIT_RE, field_name) for unit in value)
 
 
+def _system_binary_path(path: str) -> bool:
+    """Indique si ``path`` est un chemin absolu normalisé sous un dossier système.
+
+    Aucun ``..``, ``.`` ni ``//`` : ``/usr/bin/x``, ``/usr/sbin/x``, ``/bin/x`` ou
+    ``/sbin/x`` (directement dans le dossier).
+    """
+    return (
+        path.startswith("/")
+        and os.path.normpath(path) == path
+        and path.rpartition("/")[0] in PROBE_BINARY_DIRS
+    )
+
+
 def fingerprint_argv_ok(argv: Sequence[str]) -> bool:
     """Indique si ``argv`` est une commande acceptable pour la sonde fingerprint.
 
-    Le binaire est lancé en root : ``argv[0]`` doit être un chemin absolu normalisé
-    (aucun ``..``, ``.`` ni ``//``) directement sous un dossier système.
+    Le binaire est lancé en root et ses arguments peuvent le détourner : la règle
+    porte sur toute la commande (F14), pas seulement sur ``argv[0]``. Source
+    unique, partagée par ``spec.py`` et le runtime.
 
     Args:
         argv: Commande de l'instantané.
 
     Returns:
-        True si ``argv`` n'est pas vide, sans octet nul, et si ``argv[0]`` est
-        ``/usr/bin/x``, ``/usr/sbin/x``, ``/bin/x`` ou ``/sbin/x``.
+        True si ``argv`` n'est pas vide, sans octet nul, si ``argv[0]`` est
+        ``/usr/bin/x``, ``/usr/sbin/x``, ``/bin/x`` ou ``/sbin/x`` sans être un
+        interpréteur ni un lanceur (``env``, ``sh``, ``python*``, ``sudo``...), si
+        tout argument absolu respecte la même règle de chemin, et si aucun
+        argument n'a de segment ``..`` (même derrière ``=``).
     """
     if not argv or any("\x00" in a for a in argv):
         return False
     binary = argv[0]
     return (
-        binary.startswith("/")
-        and os.path.normpath(binary) == binary
-        and binary.rpartition("/")[0] in PROBE_BINARY_DIRS
+        _system_binary_path(binary)
+        and _LAUNCHER_RE.fullmatch(binary.rpartition("/")[2]) is None
+        and all(_DOTDOT_RE.search(a) is None for a in argv)
+        and all(_system_binary_path(a) for a in argv[1:] if a.startswith("/"))
     )
 
 
