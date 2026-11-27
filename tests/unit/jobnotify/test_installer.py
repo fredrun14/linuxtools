@@ -1654,7 +1654,13 @@ def test_jobs_sans_chemin_commun(
 
 @pytest.fixture(autouse=True)
 def _sans_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Aucun `XDG_*` de la machine de test (l'installeur lit `os.environ`)."""
+    """Aucun `XDG_*` dans l'environnement du processus de test.
+
+    L'installeur ne lit plus `os.environ` (F15) : il lit celui du gestionnaire
+    `systemd --user`, injecté par `show_environment`. La fixture garantit qu'un
+    `XDG_*` de la machine ne s'y glisse jamais (les tests de F15 en posent
+    volontairement pour prouver qu'il est ignoré).
+    """
     for key in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME"):
         monkeypatch.delenv(key, raising=False)
 
