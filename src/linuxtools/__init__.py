@@ -28,6 +28,8 @@ Modules disponibles:
   Forgejo (check_for_update, UpdateCheckResult,
   format_update_notice)
 - vaults: Catalogue des vaults par rôle (VaultCatalog, VaultCatalogError)
+- jobnotify: Job systemd notifié, décrit par ses données (NotifiedJob,
+  sondes, Outcome, NotifiedJobInstaller) — chargé à la demande
 """
 
 from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
@@ -263,6 +265,14 @@ from linuxtools.validation import (
 from linuxtools.vaults import VaultCatalog, VaultCatalogError
 
 if TYPE_CHECKING:
+    from linuxtools.jobnotify import (
+        Dnf5Probe,
+        FingerprintProbe,
+        NoProbe,
+        NotifiedJob,
+        NotifiedJobInstaller,
+        Outcome,
+    )
     from linuxtools.network import (
         AsusRouterClient,
         AsusRouterDhcpManager,
@@ -293,11 +303,22 @@ _NOMS_UPDATES = (
     "check_for_update",
     "format_update_notice",
 )
+# Brique « job systemd notifié » : chargée au premier accès (l'installeur tire
+# systemd et la copie du runtime ; `import linuxtools` reste léger).
+_NOMS_JOBNOTIFY = (
+    "Dnf5Probe",
+    "FingerprintProbe",
+    "NoProbe",
+    "NotifiedJob",
+    "NotifiedJobInstaller",
+    "Outcome",
+)
 __getattr__ = make_lazy_getattr(
     __name__,
     {
         **dict.fromkeys(_NOMS_ROUTEUR, "linuxtools.network"),
         **dict.fromkeys(_NOMS_UPDATES, "linuxtools.updates"),
+        **dict.fromkeys(_NOMS_JOBNOTIFY, "linuxtools.jobnotify"),
     },
 )
 
@@ -527,4 +548,11 @@ __all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     # Vaults - Catalogue des vaults par rôle
     "VaultCatalog",
     "VaultCatalogError",
+    # Jobnotify - Job systemd notifié (chargé à la demande)
+    "NotifiedJob",
+    "NotifiedJobInstaller",
+    "Outcome",
+    "NoProbe",
+    "FingerprintProbe",
+    "Dnf5Probe",
 ]

@@ -1,12 +1,15 @@
 """Exécuteur de commandes systemctl."""
 
 import json
+import re
 from typing import ClassVar
 
 from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.validators import validate_full_unit_name
+
+_PROPERTY_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*")
 
 # Sortie texte de `list-units` : 4 champs obligatoires puis la description.
 _CHAMPS_UNITE_MIN = 4
@@ -243,10 +246,73 @@ class SystemdExecutor:
             chaîne vide si la commande échoue (CommandExecutor.run()
             ne lève jamais — une erreur système est déjà convertie en
             CommandResult avec un stdout vide).
+
+        Note:
+            Lit `ActiveState` par `show -p --value` plutôt que par
+            `is-active` : même valeur, mais `is-active` sort en code 3
+            (inactive) ou 4 (inconnue), que l'exécuteur de commandes
+            journalise en ERROR alors que ce sont des réponses normales.
+            `show --value` exige systemd >= 230 : sur un hôte plus ancien,
+            atteint par un CommandExecutor distant, la valeur rendue serait
+            vide.
         """
         validate_full_unit_name(unit_name)
-        result = self._run_systemctl(["is-active", unit_name])
+        result = self._run_systemctl(
+            ["show", "-p", "ActiveState", "--value", unit_name]
+        )
         return result.stdout.strip()
+
+    def show_environment(self) -> dict[str, str]:
+        """Lit l'environnement du gestionnaire systemd (`show-environment`).
+
+        Pour `UserSystemdExecutor`, c'est celui de `systemd --user` : la source
+        des variables que reçoivent les unités utilisateur, distincte de
+        l'environnement du processus appelant et de celui de la session.
+
+        Returns:
+            Les variables `KEY=VALUE` du gestionnaire (valeur brute, telle que
+            systemd l'affiche : une valeur à caractères spéciaux y est citée).
+
+        Raises:
+            RuntimeError: Si `systemctl show-environment` échoue (bus
+                injoignable...) : un échec n'est pas un environnement vide.
+        """
+        result = self._run_systemctl(["show-environment"])
+        if not result.success:
+            msg = f"Erreur systemctl show-environment : {result.stderr}"
+            raise RuntimeError(msg)
+        pairs = (line.partition("=") for line in result.stdout.splitlines())
+        return {key: value for key, sep, value in pairs if sep}
+
+    def show_property(self, property_name: str, unit_name: str | None = None) -> str:
+        """Lit une propriété du gestionnaire ou d'une unité (`show -p --value`).
+
+        Args:
+            property_name: Nom de la propriété (`UnitPath`, `DropInPaths`,
+                `FragmentPath`...), lettres et chiffres seulement.
+            unit_name: Unité interrogée, ou None pour le gestionnaire.
+
+        Returns:
+            La valeur brute, sans saut de ligne final (vide si la propriété l'est,
+            par exemple pour une unité inconnue).
+
+        Raises:
+            ValueError: Si le nom de propriété ou d'unité est invalide.
+            RuntimeError: Si `systemctl show` échoue (bus injoignable...) : un
+                échec n'est pas une valeur vide.
+        """
+        if _PROPERTY_RE.fullmatch(property_name) is None:
+            msg = f"Nom de propriété systemd invalide : {property_name!r}"
+            raise ValueError(msg)
+        args = ["show", "-p", property_name, "--value"]
+        if unit_name is not None:
+            validate_full_unit_name(unit_name)
+            args.append(unit_name)
+        result = self._run_systemctl(args)
+        if not result.success:
+            msg = f"Erreur systemctl show {property_name} : {result.stderr}"
+            raise RuntimeError(msg)
+        return result.stdout.rstrip("\n")
 
     def is_active(self, unit_name: str) -> bool:
         """Vérifie si une unité systemd est active.
