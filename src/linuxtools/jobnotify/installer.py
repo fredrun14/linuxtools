@@ -411,6 +411,16 @@ class NotifiedJobInstaller:
     # Contenus
     # ------------------------------------------------------------------
 
+    @property
+    def _start_in_guard(self) -> bool:
+        """Vrai si le compagnon porte la notification de début (verrou système).
+
+        En scope user le verrou dépend de polkit (Q-04) et peut être refusé : le
+        compagnon échouerait et le début serait perdu. Il n'y fait donc qu'inhiber,
+        et le drop-in porte le début (`ExecStartPre=-`), comme sans verrou (F04).
+        """
+        return self._job.lock and self._job.scope == "system"
+
     def _environment_line(self) -> list[str]:
         """Ligne `Environment=` du scope user (liste vide en scope système).
 
@@ -453,11 +463,11 @@ class NotifiedJobInstaller:
             "",
             "[Service]",
             "Type=exec",
-            *self._environment_line(),
             f"ExecStart={_INHIBIT} --what=shutdown:sleep:handle-lid-switch "
             f"--mode=block --who={job.owner} {why} /usr/bin/sleep 3600",
-            self._exec("ExecStartPost", "start"),
         ]
+        if self._start_in_guard:
+            lines.append(self._exec("ExecStartPost", "start"))
         return "\n".join(lines) + "\n"
 
     def _dropin_content(self) -> str:
@@ -467,7 +477,7 @@ class NotifiedJobInstaller:
         if job.lock:
             lines += ["[Unit]", f"Wants={self._guard_unit}", ""]
         lines += ["[Service]", *self._environment_line()]
-        if not job.lock:
+        if not self._start_in_guard:
             lines.append(self._exec("ExecStartPre", "start"))
         if isinstance(job.probe, FingerprintProbe):
             lines.append(self._exec("ExecStartPre", "snapshot"))

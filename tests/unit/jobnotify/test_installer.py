@@ -1615,21 +1615,24 @@ def test_sync_scope_user_chemins_xdg(
     user_systemd.reload_systemd.assert_called_once_with()
 
 
-def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
+def test_sync_scope_user_avec_verrou_le_debut_ne_depend_pas_du_compagnon(
     user_systemd: MagicMock, logger: MagicMock, home: Path
 ) -> None:
-    # Arrange
+    # Arrange : le verrou user dépend de polkit (Q-04), il peut être refusé (F04)
     job = _user_job(lock=True, guard_after=("network.service",))
     installer = NotifiedJobInstaller(job, user_systemd, logger, home=home, env={})
     script = home / ".local/share/backup-py/backup-notify"
 
     # Act
     installer.sync(enabled=True, dry_run=False)
-    guard = (home / ".config/systemd/user/backup-py-backup-guard.service").read_text(
+    unit_dir = home / ".config/systemd/user"
+    guard = (unit_dir / "backup-py-backup-guard.service").read_text(encoding="utf-8")
+    dropin = (unit_dir / "backup.service.d/backup-py-notify.conf").read_text(
         encoding="utf-8"
     )
 
-    # Assert : sans XDG_STATE_HOME le runtime ne sait pas où écrire
+    # Assert : le compagnon n'inhibe que (aucun appel au runtime) ; le début est
+    # porté par le drop-in, comme sans verrou
     assert guard == (
         "[Unit]\n"
         "Description=Verrou d'extinction et de veille pendant backup\n"
@@ -1638,11 +1641,18 @@ def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
         "\n"
         "[Service]\n"
         "Type=exec\n"
-        f"Environment=XDG_STATE_HOME={home}/.local/state\n"
         "ExecStart=/usr/bin/systemd-inhibit "
         "--what=shutdown:sleep:handle-lid-switch --mode=block "
         '--who=backup-py "--why=Mise à jour en cours" /usr/bin/sleep 3600\n'
-        f"ExecStartPost=-/usr/bin/python3 -I {script} start backup\n"
+    )
+    assert dropin == (
+        "[Unit]\n"
+        "Wants=backup-py-backup-guard.service\n"
+        "\n"
+        "[Service]\n"
+        f"Environment=XDG_STATE_HOME={home}/.local/state\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {script} start backup\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {script} end backup\n"
     )
 
 

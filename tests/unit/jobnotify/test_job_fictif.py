@@ -361,6 +361,58 @@ def test_job_fictif_scope_user_debut_fin_login(
     assert (home / state / "demo-app/demo/seen").is_file()
 
 
+def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
+    tmp_path: Path,
+) -> None:
+    # Arrange : job user AVEC verrou ; polkit refuse l'inhibiteur (Q-04), donc le
+    # compagnon n'exécute rien (F04) : seuls les Exec du drop-in tournent.
+    home = tmp_path / "home"
+    home.mkdir()
+    systemd = MagicMock(spec=UserSystemdExecutor)
+    systemd.get_status.return_value = "inactive"
+    systemd.reload_systemd.return_value = True
+    NotifiedJobInstaller(
+        demo_job(scope="user", lock=True),
+        systemd,
+        MagicMock(spec=Logger),
+        home=home,
+        env={},
+    ).sync(enabled=True, dry_run=False)
+    write_boot_id(tmp_path, BOOT_A)
+    script = home / ".local/share/demo-app/demo-notify"
+    unit_dir = home / ".config/systemd/user"
+    guard = unit_dir / GUARD
+    dropin = unit_dir / "demo.service.d/demo-app-notify.conf"
+    assert exec_lines(guard) == []  # le compagnon ne porte plus le début
+    unit_env = dict(
+        item.split("=", 1)
+        for line in ENV_RE.findall(dropin.read_text())
+        for item in line.split()
+    )
+    env = {**unit_env, "XDG_RUNTIME_DIR": str(tmp_path / "run")}
+    runner = demo_runner()
+
+    # Act : le service démarre (compagnon en échec : jamais lancé ici), puis fin
+    codes = [
+        main(
+            [verb, "demo"],
+            installed_ctx(
+                runner,
+                tmp_path,
+                script,
+                Recorder(),
+                euid=OWNER_UID,
+                env={**env, "SERVICE_RESULT": "success"},
+            ),
+        )
+        for _, verb in exec_lines(dropin)
+    ]
+
+    # Assert : début notifié malgré le verrou refusé, puis fin
+    assert codes == [0, 0]
+    assert notifications(runner) == [("0", *START), ("42", *END_SUCCESS)]
+
+
 @pytest.mark.parametrize(
     "failure",
     [(1, ""), OSError("busctl introuvable")],
