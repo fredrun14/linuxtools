@@ -3,6 +3,7 @@
 import fcntl
 import json
 import os
+import stat
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
@@ -299,6 +300,11 @@ def system_handler(
     return handler
 
 
+def root_binary_lstat(_path: str) -> os.stat_result:
+    """`lstat` d'un binaire sûr : fichier régulier 0755 appartenant à root."""
+    return os.stat_result((stat.S_IFREG | 0o755, 1, 1, 1, 0, 0, 0, 0, 0, 0))
+
+
 def ctx_for(
     runner: FakeRunner,
     tmp_path: Path,
@@ -318,6 +324,7 @@ def ctx_for(
         now=now,
         monotonic=monotonic,
         geteuid=lambda: euid,
+        lstat=root_binary_lstat,
         stderr=recorder,
         descriptor=job,
     )

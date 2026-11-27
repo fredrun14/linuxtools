@@ -2,6 +2,7 @@
 
 import json
 import os
+import stat
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -820,3 +821,106 @@ def test_outcome_runtime_et_spec_ont_les_memes_noms_et_valeurs() -> None:
 
     assert runtime == spec
     assert runtime["SUCCESS_RESTART"] == "success_restart"  # schéma figé (Q-06)
+
+
+# --- F06 : le binaire de la sonde est contrôlé par lstat avant d'être lancé en root.
+
+
+def _stat(mode: int, uid: int = 0) -> os.stat_result:
+    """Résultat de `lstat` fabriqué : type et droits `mode`, propriétaire `uid`."""
+    return os.stat_result((mode, 1, 1, 1, uid, 0, 0, 0, 0, 0))
+
+
+_REG = stat.S_IFREG
+_BINAIRES_REFUSES = [
+    pytest.param(
+        lambda _path: _stat(_REG | 0o755, uid=1000), id="proprietaire-utilisateur"
+    ),
+    pytest.param(lambda _path: _stat(_REG | 0o755, uid=1), id="proprietaire-non-root"),
+    pytest.param(lambda _path: _stat(_REG | 0o775), id="inscriptible-groupe"),
+    pytest.param(lambda _path: _stat(_REG | 0o757), id="inscriptible-autres"),
+    pytest.param(lambda _path: _stat(_REG | 0o777), id="inscriptible-tous"),
+    pytest.param(lambda _path: _stat(stat.S_IFLNK | 0o777), id="lien-symbolique"),
+    pytest.param(lambda _path: _stat(stat.S_IFDIR | 0o755), id="dossier"),
+    pytest.param(lambda _path: _stat(stat.S_IFIFO | 0o755), id="fifo"),
+]
+
+
+def _refuse_lstat(_path: str) -> os.stat_result:
+    """`lstat` d'un binaire absent."""
+    raise FileNotFoundError
+
+
+@pytest.mark.parametrize(
+    "faux_lstat",
+    [*_BINAIRES_REFUSES, pytest.param(_refuse_lstat, id="absent")],
+)
+def test_snapshot_refuse_un_binaire_de_sonde_non_fiable_sans_le_lancer(
+    tmp_path: Path, faux_lstat: Callable[[str], os.stat_result]
+) -> None:
+    # Arrange
+    write_boot_id(tmp_path, BOOT_A)
+    runner = FakeRunner(flatpak_handler(listings=[(0, LISTING_AB)]))
+    recorder = Recorder()
+    ctx = ctx_for(runner, tmp_path, recorder, euid=0, job=FLATPAK_DESC)
+    ctx.lstat = faux_lstat
+
+    # Act
+    rc = main(["snapshot", "flatpak-auto"], ctx)
+
+    # Assert : rc 0, jamais exécuté, aucune empreinte, diagnostic sur stderr
+    assert rc == 0
+    assert runner.calls == []
+    assert not before_path(tmp_path).exists()
+    assert any("binaire de sonde refusé" in m for m in recorder.messages)
+
+
+@pytest.mark.parametrize("faux_lstat", _BINAIRES_REFUSES)
+def test_end_avec_binaire_de_sonde_non_fiable_notifie_done_no_detail(
+    tmp_path: Path, faux_lstat: Callable[[str], os.stat_result]
+) -> None:
+    # Arrange : un run démarré, empreinte d'avant présente, binaire douteux ensuite
+    write_boot_id(tmp_path, BOOT_A)
+    write_flatpak_state(tmp_path)
+    write_before(tmp_path, HASH_AB)
+    runner = FakeRunner(
+        flatpak_handler(
+            sessions={"1": ALICE_PROPS},
+            listings=[(0, LISTING_AB)],
+            running=(0, "running\n"),
+        )
+    )
+    ctx = ctx_for(
+        runner, tmp_path, Recorder(), euid=0, job=FLATPAK_DESC, env=end_env("success")
+    )
+    ctx.lstat = faux_lstat
+
+    # Act
+    rc = main(["end", "flatpak-auto"], ctx)
+
+    # Assert : issue DONE_NO_DETAIL (détail illisible), flatpak jamais lancé
+    assert rc == 0
+    assert all("/usr/bin/flatpak" not in argv for argv, _ in runner.calls)
+    assert sent_texts(runner) == [FLATPAK_JOB.end_texts[SpecOutcome.DONE_NO_DETAIL]]
+
+
+def test_snapshot_controle_le_binaire_de_la_sonde_par_lstat(tmp_path: Path) -> None:
+    # Arrange
+    write_boot_id(tmp_path, BOOT_A)
+    vus: list[str] = []
+
+    def lstat_espion(path: str) -> os.stat_result:
+        vus.append(path)
+        return _stat(_REG | 0o755)
+
+    runner = FakeRunner(flatpak_handler(listings=[(0, LISTING_AB)]))
+    ctx = ctx_for(runner, tmp_path, Recorder(), euid=0, job=FLATPAK_DESC)
+    ctx.lstat = lstat_espion
+
+    # Act
+    main(["snapshot", "flatpak-auto"], ctx)
+
+    # Assert : un binaire root 0755 régulier est lancé, après contrôle de argv[0]
+    assert vus == ["/usr/bin/flatpak"]
+    assert len(runner.calls) == 1
+    assert before_path(tmp_path).read_text() == HASH_AB + "\n"

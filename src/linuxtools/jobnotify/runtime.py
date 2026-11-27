@@ -254,6 +254,8 @@ class Ctx:
     # Horloge monotone : mesure du budget (insensible aux sauts de l'horloge murale).
     monotonic: Callable[[], float] = time.monotonic
     geteuid: Callable[[], int] = os.geteuid
+    # Métadonnées d'un binaire sans suivre le lien final (contrôle des sondes, F06).
+    lstat: Callable[[str], os.stat_result] = os.lstat
     # Pause entre deux essais non bloquants du verrou (seam de test).
     sleep: Callable[[float], None] = time.sleep
     stderr: Callable[[str], object] = _write_stderr
@@ -1269,6 +1271,23 @@ def _resolve_dnf5(ctx: Ctx, state: _State | None, *, stopping: bool) -> Outcome:
     return outcome
 
 
+def _trusted_binary(ctx: Ctx, path: str) -> bool:
+    """Indique si ``path`` est un binaire sûr à lancer en root (échec fermé).
+
+    Un fichier régulier (ni lien, ni dossier), appartenant à root et non
+    inscriptible par le groupe ni les autres. Une erreur de ``lstat`` refuse.
+    """
+    try:
+        info = ctx.lstat(path)
+    except OSError:
+        return False
+    return (
+        stat.S_ISREG(info.st_mode)
+        and info.st_uid == 0
+        and not info.st_mode & _GROUP_OTHERS_WRITE
+    )
+
+
 def _fingerprint(ctx: Ctx) -> str | None:
     """Empreinte sha256 des refs Flatpak système installées (ADR empreinte).
 
@@ -1282,7 +1301,11 @@ def _fingerprint(ctx: Ctx) -> str | None:
         L'empreinte en hexadécimal (une liste vide est valide), ou None si
         ``flatpak list`` est inutilisable (message sur stderr).
     """
-    result = _call(ctx, list(_job(ctx).probe_argv))
+    argv = list(_job(ctx).probe_argv)
+    if not _trusted_binary(ctx, argv[0]):
+        _warn(ctx, f"binaire de sonde refusé ({argv[0]}), empreinte indisponible")
+        return None
+    result = _call(ctx, argv)
     if result is None or result[0] != 0:
         _warn(ctx, "flatpak list illisible, empreinte indisponible")
         return None
@@ -1649,6 +1672,8 @@ UNIT_RE = re.compile(r"[A-Za-z0-9:_.@-]+\.service")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
 MAX_TEXT_LEN = 200
+# Dossiers admis pour le binaire d'une sonde ``fingerprint`` (F06).
+PROBE_BINARY_DIRS = frozenset({"/usr/bin", "/usr/sbin", "/bin", "/sbin"})
 DESCRIPTOR_VERSION = 1
 _MAX_DESCRIPTOR_SIZE = 16 * 1024
 _GROUP_OTHERS_WRITE = 0o022
@@ -1716,14 +1741,24 @@ def _units(value: object, field_name: str) -> tuple[str, ...]:
 def fingerprint_argv_ok(argv: Sequence[str]) -> bool:
     """Indique si ``argv`` est une commande acceptable pour la sonde fingerprint.
 
+    Le binaire est lancé en root : ``argv[0]`` doit être un chemin absolu normalisé
+    (aucun ``..``, ``.`` ni ``//``) directement sous un dossier système.
+
     Args:
         argv: Commande de l'instantané.
 
     Returns:
         True si ``argv`` n'est pas vide, sans octet nul, et si ``argv[0]`` est
-        un chemin absolu.
+        ``/usr/bin/x``, ``/usr/sbin/x``, ``/bin/x`` ou ``/sbin/x``.
     """
-    return bool(argv) and argv[0].startswith("/") and not any("\x00" in a for a in argv)
+    if not argv or any("\x00" in a for a in argv):
+        return False
+    binary = argv[0]
+    return (
+        binary.startswith("/")
+        and os.path.normpath(binary) == binary
+        and binary.rpartition("/")[0] in PROBE_BINARY_DIRS
+    )
 
 
 def _probe(value: object) -> tuple[str, tuple[str, ...]]:

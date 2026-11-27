@@ -105,6 +105,64 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         {"probe": {"kind": "fingerprint", "argv": [*_OK_ARGV, "\x00"]}},
         False,
     ),
+    (
+        "argv sous /usr/sbin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/sbin/x"]}},
+        True,
+    ),
+    (
+        "argv sous /bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/bin/x", "a"]}},
+        True,
+    ),
+    ("argv sous /sbin", {"probe": {"kind": "fingerprint", "argv": ["/sbin/x"]}}, True),
+    (
+        "argv avec ..",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/../bin/x"]}},
+        False,
+    ),
+    (
+        "argv .. final",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/.."]}},
+        False,
+    ),
+    (
+        "argv sous /usr/local/bin",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/local/bin/x"]}},
+        False,
+    ),
+    (
+        "argv sous /home",
+        {"probe": {"kind": "fingerprint", "argv": ["/home/u/venv/bin/x"]}},
+        False,
+    ),
+    ("argv sous /tmp", {"probe": {"kind": "fingerprint", "argv": ["/tmp/x"]}}, False),
+    (
+        "argv double slash",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin//x"]}},
+        False,
+    ),
+    ("argv point", {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/./x"]}}, False),
+    (
+        "argv sous-dossier",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/sub/x"]}},
+        False,
+    ),
+    (
+        "argv slash final",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/"]}},
+        False,
+    ),
+    (
+        "argv dossier nu",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin"]}},
+        False,
+    ),
+    (
+        "argv arguments libres",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/x", "../a"]}},
+        True,
+    ),
     ("dnf5 sans fin complete", {"probe": {"kind": "dnf5", "argv": []}}, False),
 ]
 
