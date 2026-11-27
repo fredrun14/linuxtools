@@ -1893,6 +1893,25 @@ def test_init_refuse_un_xdg_dangereux_ou_hors_du_home(
         NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
 
 
+@pytest.mark.parametrize(
+    "valeur",
+    ["$'{home}/a b'", '"{home}/etat"', "'{home}/etat'"],
+    ids=["dollar-quote", "guillemets", "apostrophes"],
+)
+def test_init_refuse_un_xdg_cite_par_systemd(
+    user_systemd: MagicMock, logger: MagicMock, home: Path, valeur: str
+) -> None:
+    # Arrange : `show-environment` cite une valeur à caractères spéciaux (F23) ;
+    # l'ignorer en silence écrirait ailleurs que là où le gestionnaire lit
+    user_systemd.show_environment.return_value = {
+        "XDG_STATE_HOME": valeur.format(home=home)
+    }
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"XDG_STATE_HOME cité"):
+        NotifiedJobInstaller(_user_job(), user_systemd, logger, home=home)
+
+
 def test_init_scope_user_lit_l_environnement_du_gestionnaire_pas_celui_du_processus(
     user_systemd: MagicMock,
     logger: MagicMock,

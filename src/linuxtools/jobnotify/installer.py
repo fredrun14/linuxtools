@@ -144,7 +144,9 @@ def _system_layout(job: NotifiedJob, root: Path) -> _Layout:
 def _xdg_dir(env: Mapping[str, str], key: str, home: Path, default: str) -> Path:
     """Dossier XDG du gestionnaire `systemd --user`, ou son repli sous `home`.
 
-    Comme la spécification XDG, une valeur vide ou relative est ignorée. Le
+    Comme la spécification XDG, une valeur vide ou relative est ignorée. Une
+    valeur citée par systemd (`$'…'`, guillemets) n'est jamais ignorée : le repli
+    écrirait ailleurs que là où le gestionnaire lit (F23). Le
     dossier est écrit dans les unités et sert de base aux refus de lien
     symbolique : il doit être sûr et sous `home`.
 
@@ -158,10 +160,13 @@ def _xdg_dir(env: Mapping[str, str], key: str, home: Path, default: str) -> Path
         Le dossier à utiliser, absolu.
 
     Raises:
-        ValueError: Valeur absolue avec un caractère hors liste blanche, un
-            `..`, ou située hors de `home`.
+        ValueError: Valeur citée, ou absolue avec un caractère hors liste
+            blanche, un `..`, ou située hors de `home`.
     """
     value = env.get(key, "")
+    if value.startswith(("$", "'", '"')):
+        msg = f"{key} cité par systemd (valeur à caractères spéciaux) : {value!r}"
+        raise ValueError(msg)
     if not value.startswith("/"):
         return home / default
     path = Path(value)
