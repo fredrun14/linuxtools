@@ -2,7 +2,7 @@
 
 import json
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -19,7 +19,7 @@ from linuxtools.jobnotify.runtime import (
     start,
 )
 from linuxtools.jobnotify.spec import NotifiedJob
-from tests.unit.jobnotify.privileges import UNPRIVILEGED_UID, unprivileged_tmp
+from tests.unit.jobnotify.root_support import UNPRIVILEGED_UID, autouse_unprivileged
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
     BASE_OUTCOMES,
@@ -37,16 +37,10 @@ from tests.unit.jobnotify.runtime_support import (
     write_boot_id,
 )
 
-# Le hook `login` refuse root : en CI (root), `tmp_path` ci-dessous abaisse l'euid.
+# Le hook `login` refuse root : en CI (root), `as_unprivileged_user` joue UID 1000.
 OWNER_UID = os.geteuid() or UNPRIVILEGED_UID
 
-
-@pytest.fixture
-def tmp_path() -> Iterator[Path]:
-    """Remplace `tmp_path` : dossier d'un utilisateur ordinaire, même sous root."""
-    yield from unprivileged_tmp()
-
-
+unprivileged = autouse_unprivileged()
 GUARD = "demo-app-demo-guard.service"
 USER_JOB = NotifiedJob(
     name="demo",

@@ -10,7 +10,7 @@ fait échouer ces tests. Le job ne porte aucune logique, uniquement des données
 
 import os
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -21,7 +21,7 @@ from linuxtools.jobnotify.runtime import BUSCTL, SYSTEMCTL, Ctx, main
 from linuxtools.jobnotify.spec import NoProbe, NotifiedJob, Outcome
 from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor
-from tests.unit.jobnotify.privileges import UNPRIVILEGED_UID, unprivileged_tmp
+from tests.unit.jobnotify.root_support import UNPRIVILEGED_UID, autouse_unprivileged
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
     BOOT_A,
@@ -34,16 +34,10 @@ from tests.unit.jobnotify.runtime_support import (
 )
 from tests.unit.jobnotify.systemd_support import user_manager, wire_user_manager
 
-# Le hook `login` refuse root : en CI (root), `tmp_path` ci-dessous abaisse l'euid.
+# Le hook `login` refuse root : en CI (root), `as_unprivileged_user` joue UID 1000.
 OWNER_UID = os.geteuid() or UNPRIVILEGED_UID
 
-
-@pytest.fixture
-def tmp_path() -> Iterator[Path]:
-    """Remplace `tmp_path` : dossier d'un utilisateur ordinaire, même sous root."""
-    yield from unprivileged_tmp()
-
-
+unprivileged = autouse_unprivileged(autouse=False)
 GUARD = "demo-app-demo-guard.service"
 START = ("Sauvegarde démarrée", "Ne coupez pas le poste.")
 END_SUCCESS = ("Sauvegarde terminée", "Tout est enregistré.")
@@ -155,6 +149,8 @@ def installed_ctx(
     ctx = ctx_for(runner, root, recorder, euid=euid, env=env)
     ctx.descriptor = None
     ctx.script = script
+    # Root, le vrai propriétaire des fichiers de test et l'euid simulé.
+    ctx.trusted_uids = frozenset({0, os.geteuid(), euid})
     return ctx
 
 
@@ -279,6 +275,7 @@ def test_job_fictif_sans_verrou_ne_pose_aucun_inhibiteur(tmp_path: Path) -> None
     assert recorder.messages == []
 
 
+@pytest.mark.usefixtures("unprivileged")
 @pytest.mark.parametrize(
     ("xdg", "data", "config", "state"),
     [
@@ -390,6 +387,7 @@ def test_job_fictif_scope_user_debut_fin_login(
     assert not (home / "etat-installeur").exists()
 
 
+@pytest.mark.usefixtures("unprivileged")
 def test_job_fictif_scope_user_verrou_refuse_par_polkit_le_debut_est_notifie(
     tmp_path: Path,
 ) -> None:
