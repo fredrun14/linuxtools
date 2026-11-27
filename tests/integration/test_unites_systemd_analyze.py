@@ -20,10 +20,31 @@ from linuxtools.logging.base import Logger
 from linuxtools.systemd.executor import SystemdExecutor
 from tests.unit.jobnotify.systemd_support import user_manager
 
+
+def _manager_utilisable() -> bool:
+    """Vrai si ``systemd-analyze --user verify`` peut démarrer son gestionnaire.
+
+    Dans un conteneur de CI sans session systemd, il échoue à s'initialiser
+    (« Failed to initialize manager ») avant de lire la moindre unité.
+    """
+    systemd_analyze = shutil.which("systemd-analyze")
+    if systemd_analyze is None:
+        return False
+    completed = subprocess.run(  # noqa: S603 - argv fixe
+        [systemd_analyze, "--user", "verify", "/nonexistent.service"],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=60,
+        check=False,
+    )
+    return "Failed to initialize manager" not in completed.stderr
+
+
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
-        shutil.which("systemd-analyze") is None, reason="systemd-analyze absent"
+        not _manager_utilisable(),
+        reason="systemd-analyze absent ou sans gestionnaire utilisable",
     ),
 ]
 

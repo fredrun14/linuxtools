@@ -15,8 +15,31 @@ pytestmark = pytest.mark.integration
 _SYSTEM_PYTHON = "/usr/bin/python3"
 
 
+def _system_python_at_least_3_11() -> bool:
+    """Vrai si le python3 système sait exécuter le runtime (``enum.StrEnum``).
+
+    Sur la cible (Fedora) le python3 système est récent ; l'image de CI peut
+    en embarquer un plus ancien, que le test ne doit pas juger.
+    """
+    if not Path(_SYSTEM_PYTHON).exists():
+        return False
+    completed = subprocess.run(  # noqa: S603 - argv fixe
+        [
+            _SYSTEM_PYTHON,
+            "-I",
+            "-c",
+            "import sys; sys.exit(sys.version_info < (3, 11))",
+        ],
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
 @pytest.mark.skipif(
-    not Path(_SYSTEM_PYTHON).exists(), reason="python3 système introuvable"
+    not _system_python_at_least_3_11(),
+    reason="python3 système introuvable ou antérieur à 3.11",
 )
 def test_runtime_lance_par_python_isole_rend_zero_sans_descripteur(
     tmp_path: Path,
