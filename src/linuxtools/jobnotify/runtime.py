@@ -1120,8 +1120,9 @@ def start(ctx: Ctx) -> None:
 def _recipients(ctx: Ctx) -> list[Session]:
     """Destinataires : le propriétaire seul (scope user), sinon les sessions locales."""
     if _is_user_scope(ctx):
-        # ``user`` n'est utilisé que par runuser (scope système) : rien à y mettre.
-        return [Session(uid=ctx.geteuid(), user=_job(ctx).owner)]
+        # ``user`` n'est utilisé que par runuser (scope système) : vide ici, plutôt
+        # que de détourner le champ avec le propriétaire du job (F12).
+        return [Session(uid=ctx.geteuid(), user="")]
     return list_graphical_sessions(ctx)
 
 

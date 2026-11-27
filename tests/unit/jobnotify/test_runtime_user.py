@@ -12,6 +12,8 @@ from linuxtools.jobnotify.runtime import (
     LOGINCTL,
     RUNUSER,
     SYSTEMCTL,
+    Session,
+    _recipients,
     login,
     main,
     start,
@@ -120,6 +122,13 @@ def run_verb(
     ctx = ctx_for(runner, tmp_path, recorder, euid=euid, job=USER_DESC, env=base_env)
     assert main([verb], ctx) == 0
     return recorder
+
+
+def test_destinataire_scope_user_n_a_pas_de_nom_d_utilisateur(tmp_path: Path) -> None:
+    """F12 : `user` ne sert qu'à runuser ; le propriétaire du job n'y est pas mis."""
+    ctx = ctx_for(user_runner(), tmp_path, Recorder(), euid=1234, job=USER_DESC, env={})
+
+    assert _recipients(ctx) == [Session(uid=1234, user="")]
 
 
 def test_start_scope_user_notifie_le_seul_proprietaire(tmp_path: Path) -> None:
