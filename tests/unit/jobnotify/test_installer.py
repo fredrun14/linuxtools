@@ -625,6 +625,62 @@ def test_sync_enabled_false_garde_un_dossier_non_vide(
     assert foreign.is_file()
 
 
+def test_sync_retrait_efface_les_ids_numeriques_et_elague_run(
+    installer: NotifiedJobInstaller, tmp_path: Path
+) -> None:
+    # Arrange : le runtime a écrit un ID par uid (fichier 0600) sous `ids/` (F02)
+    installer.sync(enabled=True, dry_run=False)
+    ids = tmp_path / _RUN / "ids"
+    ids.mkdir(parents=True, mode=0o700, exist_ok=True)
+    for uid in ("0", "1000"):
+        (ids / uid).write_text("42\n", encoding="utf-8")
+
+    # Act
+    actions = installer.sync(enabled=False, dry_run=False)
+
+    # Assert : ni `ids/`, ni `run/<owner>/<job>`, ni `run/<owner>` ne subsistent
+    assert not (tmp_path / "run/fedora-post-install").exists()
+    assert f"Retiré {ids / '1000'}" in actions
+
+
+def test_sync_retrait_dry_run_annonce_les_ids_numeriques(
+    installer: NotifiedJobInstaller, tmp_path: Path
+) -> None:
+    # Arrange
+    installer.sync(enabled=True, dry_run=False)
+    ids = tmp_path / _RUN / "ids"
+    ids.mkdir(parents=True, mode=0o700, exist_ok=True)
+    (ids / "1000").write_text("42\n", encoding="utf-8")
+
+    # Act
+    actions = installer.sync(enabled=False, dry_run=True)
+
+    # Assert : annoncé, rien retiré
+    assert f"[dry-run] Retirerait {ids / '1000'}" in actions
+    assert (ids / "1000").is_file()
+
+
+def test_sync_retrait_ne_suit_pas_un_lien_ni_un_dossier_nomme_comme_un_uid(
+    installer: NotifiedJobInstaller, tmp_path: Path
+) -> None:
+    # Arrange : `ids/1000` est un lien, `ids/1001` un dossier : jamais retirés
+    installer.sync(enabled=True, dry_run=False)
+    ids = tmp_path / _RUN / "ids"
+    ids.mkdir(parents=True, mode=0o700, exist_ok=True)
+    cible = tmp_path / "cible"
+    cible.write_text("x", encoding="utf-8")
+    (ids / "1000").symlink_to(cible)
+    (ids / "1001").mkdir()
+
+    # Act
+    installer.sync(enabled=False, dry_run=False)
+
+    # Assert
+    assert (ids / "1000").is_symlink()
+    assert cible.read_text(encoding="utf-8") == "x"
+    assert (ids / "1001").is_dir()
+
+
 def test_sync_retrait_ne_touche_que_les_chemins_constants(
     installer: NotifiedJobInstaller,
     tmp_path: Path,
@@ -636,7 +692,7 @@ def test_sync_retrait_ne_touche_que_les_chemins_constants(
     etrangers = [
         tmp_path / _OWNER_DIR / "autre-notify",
         tmp_path / _STATE / "autre.json",
-        tmp_path / _RUN / "ids" / "1000",
+        tmp_path / _RUN / "ids" / "autre",
         tmp_path / "var/lib/fedora-post-install" / "autre-job" / "state.json",
     ]
     for path in etrangers:

@@ -48,6 +48,9 @@ _HOME_RE: Final = re.compile(r"/[A-Za-z0-9_.+@:/-]*")
 _STATE_FILES_SYSTEM: Final = ("state.json",)
 _STATE_FILES_USER: Final = ("state.json", "seen")
 _RUN_FILES: Final = ("lock", "before")
+# `ids/<uid>` : un fichier régulier par utilisateur notifié (nom décimal), écrit
+# par le runtime ; tout autre nom est étranger et préservé.
+_RUN_ID_RE: Final = re.compile(r"[0-9]+")
 
 
 @dataclass(frozen=True)
@@ -335,6 +338,11 @@ class NotifiedJobInstaller:
         _systemd: Exécuteur systemctl (daemon-reload, état des unités).
         _logger: Logger injecté.
         _layout: Chemins constants du job, selon le scope.
+
+    Note:
+        En scope `user`, le retrait ne touche pas `$XDG_RUNTIME_DIR/<owner>/<job>`
+        (`lock`, `id`, `before`) : c'est un tmpfs de session, vidé à la
+        déconnexion, et les fichiers périmés sont ignorés par le runtime.
     """
 
     def __init__(  # noqa: PLR0913 — dépendances et racines injectées, indépendantes
@@ -632,6 +640,23 @@ class NotifiedJobInstaller:
             paths += [layout.run_dir / name for name in _RUN_FILES]
         return paths
 
+    def _run_id_files(self) -> list[Path]:
+        """Fichiers `ids/<uid>` que le runtime a écrits (nom décimal, réguliers).
+
+        Un lien symbolique, un dossier ou un nom non décimal n'est jamais retiré
+        (ni suivi) : il reste, avec ses parents.
+        """
+        run_dir = self._layout.run_dir
+        if run_dir is None or not (run_dir / "ids").is_dir():
+            return []
+        return sorted(
+            entry
+            for entry in (run_dir / "ids").iterdir()
+            if _RUN_ID_RE.fullmatch(entry.name)
+            and entry.is_file()
+            and not entry.is_symlink()
+        )
+
     def _removal_plan(self, *, dry_run: bool) -> tuple[list[Path], list[Path]]:
         """Fichiers constants présents et dossiers qui seront vides après eux.
 
@@ -655,6 +680,8 @@ class NotifiedJobInstaller:
             with _tolerate_unreadable(dry_run=dry_run):
                 if path.exists():
                     files.append(path)
+        with _tolerate_unreadable(dry_run=dry_run):
+            files.extend(self._run_id_files())
         gone.update(files)
         for directory in self._layout.prune_dirs:
             with _tolerate_unreadable(dry_run=dry_run):
