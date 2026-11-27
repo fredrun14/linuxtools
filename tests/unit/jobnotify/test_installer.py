@@ -8,6 +8,7 @@ assertions de comportement sont reprises, seuls changent l'import, le
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import shutil
@@ -848,12 +849,25 @@ def test_sync_dry_run_sans_sudo_dossier_run_illisible_sans_traceback(
 
 
 @pytest.fixture
-def run_illisible(tmp_path: Path) -> Iterator[Path]:
-    """`/run/<owner>` en 0000 (réel, non simulé) : illisible pour un non-root."""
-    if os.geteuid() == 0:
-        pytest.skip("root traverse un dossier 0000")
+def run_illisible(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """`/run/<owner>` illisible : 0000 pour un non-root, simulé sous root.
+
+    Root traverse un dossier 0000 : en CI (root), `Path.is_dir` lève alors la
+    `PermissionError` que le noyau lèverait à un utilisateur ordinaire.
+    """
     _simulate_hook_run_dir(tmp_path)
     parent = tmp_path / "run" / "fedora-post-install"
+    if os.geteuid() == 0:
+        real_is_dir = Path.is_dir
+
+        def is_dir(self: Path, **kwargs: bool) -> bool:
+            if self.is_relative_to(parent) and self != parent:
+                raise PermissionError(errno.EACCES, "Permission denied", str(self))
+            return real_is_dir(self, **kwargs)
+
+        monkeypatch.setattr(Path, "is_dir", is_dir)
+        yield parent
+        return
     parent.chmod(0o000)
     yield parent
     parent.chmod(0o700)
