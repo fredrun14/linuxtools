@@ -3434,7 +3434,9 @@ installer.sync(enabled=False, dry_run=False)  # retire (chemins constants seulem
   `--user`, `--app`, `--runtime` et `--columns=<col>[:<fmt>],…`. Toute autre commande est
   refusée par `NotifiedJob` (`ValueError`) comme par le runtime ; l'étendre demande un
   amendement du catalogue, pas un argument libre.
-- **Dry-run** : `sync(dry_run=True)` n'écrit rien et n'appelle pas systemd.
+- **Dry-run** : `sync(dry_run=True)` n'écrit rien et ne recharge pas systemd ; il
+  l'interroge en lecture seule (statut des unités pour le report et, en scope `user`,
+  environnement et `UnitPath` du gestionnaire, dès la construction de l'installeur).
 - **Report** : si l'unité surveillée tourne, la réécriture des unités est différée.
 
 ### Scopes
@@ -3471,11 +3473,14 @@ L'installeur en scope `user` refuse de tourner en root.
   réguliers (jamais de `rmtree`, jamais un lien) et les dossiers devenus vides. `ids`
   lui-même en lien symbolique est refusé. En scope `user`, le retrait ne touche pas
   `$XDG_RUNTIME_DIR` (tmpfs de session).
-- **Post-condition (scope user)** : après chaque `sync` réel, l'installeur vérifie que le
-  dossier des unités figure dans `UnitPath` et, pour une unité `LoadState=loaded`, que
-  `DropInPaths` (unité surveillée) et `FragmentPath` (compagnon) désignent les fichiers
-  écrits ; sinon `RuntimeError`. Une unité surveillée absente ou masquée donne un
-  avertissement journalisé, pas une erreur.
+- **Post-condition (scope user)** : après chaque installation réelle
+  (`sync(enabled=True, dry_run=False)`, même sans rien écrire), l'installeur vérifie que
+  le dossier des unités figure dans `UnitPath` et, pour une unité `LoadState=loaded`,
+  que `DropInPaths` (unité surveillée) et `FragmentPath` (compagnon) désignent les
+  fichiers écrits ; sinon `RuntimeError`. Elle ne tourne ni au retrait ni en dry-run.
+  Une unité surveillée `not-found` ou masquée, ou un compagnon masqué, donne un
+  avertissement journalisé ; tout autre état non chargé (compagnon `not-found`,
+  `error`, `bad-setting`…) lève `RuntimeError`.
 
 ### Documentation API
 
@@ -3486,7 +3491,7 @@ L'installeur en scope `user` refuse de tourner en root.
 | `Outcome` | `SUCCESS`, `SUCCESS_RESTART`, `NOTHING`, `DONE_NO_DETAIL`, `FAILURE`, `INTERRUPTED` |
 | `NotifiedJobInstaller(job, systemd, logger, root_dir=…, home=None)` | `sync(*, enabled, dry_run)`, `run_in_progress()` |
 | `SystemdExecutor.show_environment()` | Environnement du gestionnaire (`systemctl show-environment`) ; `RuntimeError` si l'appel échoue |
-| `SystemdExecutor.show_property(name, unit=None)` | Propriété du gestionnaire ou d'une unité (`show -p … --value`) ; `ValueError` si nom invalide, `RuntimeError` si l'appel échoue |
+| `SystemdExecutor.show_property(property_name, unit_name=None)` | Propriété du gestionnaire ou d'une unité (`show -p … --value`) ; `ValueError` si nom invalide, `RuntimeError` si l'appel échoue |
 
 `show_environment` et `show_property` sont publiques (héritées par
 `UserSystemdExecutor`) : elles servent l'installeur mais restent utilisables seules.

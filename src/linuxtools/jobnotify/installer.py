@@ -536,14 +536,19 @@ class NotifiedJobInstaller:
         Args:
             enabled: True installe ou corrige, False retire.
             dry_run: Si True, liste les actions (`[dry-run] …`) sans rien
-                modifier ni appeler systemd.
+                écrire ni recharger systemd. Systemd reste interrogé en lecture
+                seule : statut des unités (report) et, en scope `user`, environnement
+                et `UnitPath` du gestionnaire (dès l'initialisation).
 
         Returns:
             Actions effectuées (liste vide si déjà conforme).
 
         Raises:
             RuntimeError: Si un chemin traverse un lien symbolique, si
-                l'écriture est refusée ou si `systemctl daemon-reload` échoue.
+                l'écriture est refusée, si `systemctl daemon-reload` échoue ou, en
+                scope `user` à l'installation réelle (`enabled=True`), si la
+                post-condition de chargement n'est pas tenue (`_verify_loaded`,
+                même quand rien n'a été écrit ; jamais au retrait ni en dry-run).
         """
         self._refuse_all_symlinks(removal=not enabled)
         if enabled:

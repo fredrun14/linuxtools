@@ -20,7 +20,7 @@
   fermé (`O_NOFOLLOW`, propriétaire, droits, schéma). Test de contrat : stdlib seule,
   binaires en chemins absolus, ni `exec` ni import dynamique, `subprocess` confiné
   (T2 à T5).
-- feat(jobnotify): catalogue fermé de sondes `PROBE_COMMANDS` : la commande d'une sonde
+- feat(jobnotify): catalogue fermé (en lecture seule) de sondes `PROBE_COMMANDS` : la commande d'une sonde
   `fingerprint` est fixée (aujourd'hui `/usr/bin/flatpak list` et ses options
   `--system`, `--user`, `--app`, `--runtime`, `--columns=`), contrôlée par
   `NotifiedJob` et par le runtime ; toute autre commande est refusée (T15, T18, T20,
@@ -38,17 +38,23 @@
   fixés dans les unités et l'autostart ; le dossier des unités vient de `UnitPath`. Un
   lien symbolique du home (stow) est suivi si sa cible reste sous le home ; en système
   tout lien est refusé (T16, T18, T19, T20).
-- feat(jobnotify): après chaque `sync` réel en scope `user`, post-condition : le dossier
-  des unités figure dans `UnitPath` et les unités chargées (`LoadState=loaded`) référencent
-  les fichiers écrits, sinon `RuntimeError` (T20, T23).
+- feat(jobnotify): après chaque installation réelle (`sync(enabled=True)`, hors dry-run)
+  en scope `user`, post-condition : le dossier des unités figure dans `UnitPath` et les
+  unités chargées (`LoadState=loaded`) référencent les fichiers écrits, sinon
+  `RuntimeError`. Une unité surveillée `not-found` ou masquée, ou un compagnon masqué,
+  n'est qu'un avertissement ; tout autre état non chargé est une erreur (T20, T23, T24).
+- fix(systemd): `SystemdExecutor.get_status()` lit `ActiveState` (`show -p … --value`)
+  au lieu de `is-active` : mêmes valeurs rendues, mais les codes 3 et 4 de `is-active`
+  ne sont plus journalisés en ERROR par l'exécuteur de commandes (T24).
 
 ### Corrigé
 
-- fix(jobnotify): passes de revue 1 à 4 (T15 à T23) : nom du job dans les lignes `Exec`,
+- fix(jobnotify): passes de revue 1 à 5 (T15 à T24) : nom du job dans les lignes `Exec`,
   constantes de validation uniques, retrait des `ids/<uid>` et des dossiers vides sous
   `/run`, refus de l'installeur `user` en root, retrait tolérant un lien orphelin ou un
   composant illisible sans sudo, journalisation d'un reload en échec sans masquer
-  l'erreur d'origine.
+  l'erreur d'origine (y compris quand le retrait est appelé depuis un `except`),
+  catalogue `PROBE_COMMANDS` en lecture seule.
 
 ## [3.1.1] - 2026-11-23
 
