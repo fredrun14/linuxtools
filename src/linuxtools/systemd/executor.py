@@ -246,9 +246,17 @@ class SystemdExecutor:
             chaîne vide si la commande échoue (CommandExecutor.run()
             ne lève jamais — une erreur système est déjà convertie en
             CommandResult avec un stdout vide).
+
+        Note:
+            Lit `ActiveState` par `show -p --value` plutôt que par
+            `is-active` : même valeur, mais `is-active` sort en code 3
+            (inactive) ou 4 (inconnue), que l'exécuteur de commandes
+            journalise en ERROR alors que ce sont des réponses normales.
         """
         validate_full_unit_name(unit_name)
-        result = self._run_systemctl(["is-active", unit_name])
+        result = self._run_systemctl(
+            ["show", "-p", "ActiveState", "--value", unit_name]
+        )
         return result.stdout.strip()
 
     def show_environment(self) -> dict[str, str]:

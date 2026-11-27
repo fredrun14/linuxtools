@@ -1,11 +1,15 @@
 """Tests pour le module systemd.executor."""
 
 import json
+import os
+import stat
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from linuxtools.commands.base import CommandResult
+from linuxtools.commands.runner import LinuxCommandExecutor
 from linuxtools.systemd.executor import (
     SystemdExecutor,
     UserSystemdExecutor,
@@ -974,3 +978,64 @@ class TestShowEnvironment:
 
         with pytest.raises(RuntimeError, match="show-environment"):
             executor.show_environment()
+
+
+def _faux_systemctl(dossier: Path) -> None:
+    """Dépose un `systemctl` qui se comporte comme le vrai pour une unité inactive.
+
+    `is-active` rend `inactive` avec le code 3 ; `show -p ActiveState --value`
+    rend `inactive` avec le code 0.
+    """
+    script = dossier / "systemctl"
+    script.write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        '  [ "$a" = is-active ] && { echo inactive; exit 3; }\n'
+        "done\n"
+        "echo inactive\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+
+
+def test_get_status_unite_inactive_ne_journalise_pas_d_erreur(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange : exécuteur réel, `systemctl` simulé (unité inactive : code 3
+    # avec `is-active`), PATH limité au dossier de test
+    _faux_systemctl(tmp_path)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    logger = MagicMock()
+    executor = SystemdExecutor(logger, LinuxCommandExecutor(logger=logger))
+
+    # Act
+    statut = executor.get_status("backup.service")
+
+    # Assert : la valeur rendue est inchangée, et rien n'est journalisé en ERROR
+    # (un statut inactif n'est pas une erreur, F38)
+    assert statut == "inactive"
+    logger.log_error.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("classe", "prefixe"),
+    [
+        (SystemdExecutor, ["systemctl"]),
+        (UserSystemdExecutor, ["systemctl", "--user"]),
+    ],
+)
+def test_get_status_lit_activestate_sans_is_active(
+    classe: type[SystemdExecutor], prefixe: list[str]
+) -> None:
+    # Arrange
+    command_executor = MagicMock()
+    command_executor.run.return_value = _result(stdout="failed\n")
+
+    # Act
+    statut = classe(MagicMock(), command_executor).get_status("backup.service")
+
+    # Assert : valeur inchangée, commande sans code de retour d'état (F38)
+    assert statut == "failed"
+    command_executor.run.assert_called_once_with(
+        [*prefixe, "show", "-p", "ActiveState", "--value", "backup.service"]
+    )
