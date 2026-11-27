@@ -918,6 +918,7 @@ def test_sync_refuse_lien_symbolique_avant_toute_action(
         (_dnf_job(), _DESC),  # descripteur
         (_dnf_job(), "var/lib/fedora-post-install"),  # parent d'état
         (_dnf_job(), _RUN),  # dossier d'exécution lui-même
+        (_dnf_job(), f"{_RUN}/ids"),  # dossier des ids (F19)
         (_flatpak_job(), "etc/systemd/system"),
         (_flatpak_job(), _F_GUARD),
         (_flatpak_job(), "var/lib/fedora-post-install"),
@@ -929,6 +930,7 @@ def test_sync_refuse_lien_symbolique_avant_toute_action(
         "dnf-descripteur",
         "dnf-parent-etat",
         "dnf-run",
+        "dnf-ids",
         "flatpak-parent",
         "flatpak-cible",
         "flatpak-parent-etat",
@@ -960,6 +962,28 @@ def test_sync_lien_symbolique_refuse(
     # Rien n'a été écrit à travers le lien, ni ailleurs
     assert list(outside.iterdir()) == []
     assert not (tmp_path / _OWNER_DIR / f"{job.name}-notify").exists()
+
+
+def test_sync_retrait_ne_parcourt_pas_ids_devenu_lien_apres_le_controle(
+    installer: NotifiedJobInstaller,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : course simulée, `ids` devient un lien vers un dossier d'uid
+    installer.sync(enabled=True, dry_run=False)
+    outside = tmp_path.parent / f"{tmp_path.name}-dehors"
+    outside.mkdir()
+    (outside / "1000").write_text("x", encoding="utf-8")
+    ids = tmp_path / _RUN / "ids"
+    ids.parent.mkdir(parents=True, exist_ok=True)
+    ids.symlink_to(outside)
+    monkeypatch.setattr(installer, "_refuse_all_symlinks", lambda: None)
+
+    # Act / Assert : `iterdir()` ne suit jamais le lien (F19)
+    for dry_run in (True, False):
+        with pytest.raises(RuntimeError, match="Lien symbolique refusé"):
+            installer.sync(enabled=False, dry_run=dry_run)
+    assert (outside / "1000").read_text(encoding="utf-8") == "x"
 
 
 def test_sync_racine_symbolique_exempte(

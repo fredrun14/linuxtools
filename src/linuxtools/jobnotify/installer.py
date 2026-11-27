@@ -692,13 +692,23 @@ class NotifiedJobInstaller:
 
         Un lien symbolique, un dossier ou un nom non décimal n'est jamais retiré
         (ni suivi) : il reste, avec ses parents.
+
+        Raises:
+            RuntimeError: Si `ids` lui-même est un lien symbolique (F19) : il
+                n'est jamais parcouru, `iterdir()` le suivrait.
         """
         run_dir = self._layout.run_dir
-        if run_dir is None or not (run_dir / "ids").is_dir():
+        if run_dir is None:
+            return []
+        ids = run_dir / "ids"
+        if ids.is_symlink():
+            msg = f"Lien symbolique refusé : {ids}"
+            raise RuntimeError(msg)
+        if not ids.is_dir():
             return []
         return sorted(
             entry
-            for entry in (run_dir / "ids").iterdir()
+            for entry in ids.iterdir()
             if _RUN_ID_RE.fullmatch(entry.name)
             and entry.is_file()
             and not entry.is_symlink()
@@ -800,4 +810,4 @@ class NotifiedJobInstaller:
         for path in (*self._constant_files(), layout.state_dir):
             _refuse_symlinks(layout.base, path)
         if layout.run_dir is not None:
-            _refuse_symlinks(layout.base, layout.run_dir)
+            _refuse_symlinks(layout.base, layout.run_dir / "ids")  # F19
