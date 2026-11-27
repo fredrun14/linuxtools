@@ -21,6 +21,7 @@ import json
 import os
 import re
 import stat
+import sys
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from importlib import resources
@@ -545,9 +546,16 @@ class NotifiedJobInstaller:
             actions = self._install(dry_run=dry_run)
         else:
             actions = self._remove(dry_run=dry_run)
-        for action in actions:
-            self._logger.log_info(f"[{self._job.name}] {action}")
         return actions
+
+    def _note(self, actions: list[str], action: str) -> None:
+        """Ajoute `action` à la liste rendue et la journalise aussitôt (F29).
+
+        Une étape suivante qui échoue ne fait donc pas perdre ce qui a déjà été
+        fait.
+        """
+        actions.append(action)
+        self._logger.log_info(f"[{self._job.name}] {action}")
 
     def run_in_progress(self) -> bool:
         """Indique si un run du service surveillé est en cours (compagnon compris).
@@ -713,13 +721,16 @@ class NotifiedJobInstaller:
         layout = self._layout
         pending = [m for m in self._managed() if not self._is_done(m)]
         need_state_dir = not _dir_conform(layout.state_dir, layout.dir_mode)
+        actions: list[str] = []
         if self._must_defer(unit_change=any(m.is_unit for m in pending)):
-            return [self._deferred()]
+            self._note(actions, self._deferred())
+            return actions
 
-        actions = [self._apply(managed, dry_run=dry_run) for managed in pending]
+        for managed in pending:
+            self._note(actions, self._apply(managed, dry_run=dry_run))
         if need_state_dir:
             if dry_run:
-                actions.append(f"[dry-run] Créerait le dossier {layout.state_dir}")
+                self._note(actions, f"[dry-run] Créerait le dossier {layout.state_dir}")
             else:
                 _ensure_dir(
                     layout.base,
@@ -729,7 +740,7 @@ class NotifiedJobInstaller:
                 )
                 with _io_errors("Écriture refusée", layout.state_dir):
                     layout.state_dir.chmod(layout.dir_mode)  # corrige une dérive
-                actions.append(f"Dossier prêt {layout.state_dir}")
+                self._note(actions, f"Dossier prêt {layout.state_dir}")
         if not dry_run:
             if any(m.is_unit for m in pending):
                 self._reload()
@@ -860,15 +871,16 @@ class NotifiedJobInstaller:
         """Retire les chemins constants présents puis les dossiers devenus vides."""
         files, dirs = self._removal_plan(dry_run=dry_run)
         units = (self._layout.guard, self._layout.dropin)
-        if self._must_defer(unit_change=any(path in units for path in files)):
-            return [self._deferred()]
-
         actions: list[str] = []
+        if self._must_defer(unit_change=any(path in units for path in files)):
+            self._note(actions, self._deferred())
+            return actions
+
         unit_removed = False
         try:
             for path in (*files, *dirs):
                 if dry_run:
-                    actions.append(f"[dry-run] Retirerait {path}")
+                    self._note(actions, f"[dry-run] Retirerait {path}")
                     continue
                 with _io_errors("Retrait refusé", path):
                     if path in dirs:
@@ -876,12 +888,23 @@ class NotifiedJobInstaller:
                     else:
                         path.unlink()
                 unit_removed = unit_removed or path in units
-                actions.append(f"Retiré {path}")
+                self._note(actions, f"Retiré {path}")
         finally:
             # Une unité déjà retirée doit être déchargée même si une étape
             # suivante échoue (F21), sinon systemd garde l'ancienne.
+            in_progress = sys.exception()
             if unit_removed:
-                self._reload()
+                try:
+                    self._reload()
+                except RuntimeError as exc:
+                    if in_progress is None:
+                        raise
+                    # L'erreur d'origine prime : l'échec du reload est journalisé
+                    # sans la masquer (F29).
+                    self._logger.log_error(
+                        f"[{self._job.name}] rechargement systemd en échec après "
+                        f"un retrait interrompu : {exc}"
+                    )
         return actions
 
     # ------------------------------------------------------------------

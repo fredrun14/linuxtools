@@ -2204,6 +2204,72 @@ def test_sync_scope_user_retrait_recharge_meme_si_une_etape_suivante_echoue(
     user_systemd.reload_systemd.assert_called_once_with()
 
 
+def _refuse_unlink_du_desktop(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    """Fait échouer le retrait de l'autostart, après celui du drop-in."""
+    desktop = home / ".config/autostart/backup-py-backup-notify.desktop"
+    real_unlink = Path.unlink
+
+    def unlink_refuse(self: Path, *, missing_ok: bool = False) -> None:
+        if self == desktop:
+            raise PermissionError
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink_refuse)
+
+
+def test_sync_retrait_reload_en_echec_ne_masque_pas_l_erreur_d_origine(
+    user_installer: NotifiedJobInstaller,
+    user_systemd: MagicMock,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : le drop-in est retiré, l'autostart refuse, et le reload échoue (F29)
+    user_installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.return_value = False
+    _refuse_unlink_du_desktop(monkeypatch, home)
+
+    # Act / Assert : l'erreur d'origine remonte, pas celle du reload
+    with pytest.raises(RuntimeError, match="Retrait refusé"):
+        user_installer.sync(enabled=False, dry_run=False)
+
+    # Assert : l'échec du reload est journalisé, sans être perdu
+    assert "daemon-reload" in logger.log_error.call_args.args[0]
+
+
+def test_sync_retrait_reload_en_echec_seul_leve_runtimeerror(
+    user_installer: NotifiedJobInstaller, user_systemd: MagicMock
+) -> None:
+    # Arrange : aucune erreur en cours, seul le reload échoue
+    user_installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.return_value = False
+
+    # Act / Assert : l'échec du reload n'est pas avalé
+    with pytest.raises(RuntimeError, match="daemon-reload"):
+        user_installer.sync(enabled=False, dry_run=False)
+
+
+def test_sync_retrait_journalise_les_actions_au_fil_de_l_eau(
+    user_installer: NotifiedJobInstaller,
+    logger: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : une étape échoue après le retrait du drop-in
+    user_installer.sync(enabled=True, dry_run=False)
+    logger.log_info.reset_mock()
+    _refuse_unlink_du_desktop(monkeypatch, home)
+
+    # Act
+    with pytest.raises(RuntimeError, match="Retrait refusé"):
+        user_installer.sync(enabled=False, dry_run=False)
+
+    # Assert : ce qui a été retiré avant l'échec est déjà dans le journal
+    dropin = home / ".config/systemd/user/backup.service.d/backup-py-notify.conf"
+    logged = [c.args[0] for c in logger.log_info.call_args_list]
+    assert f"[backup] Retiré {dropin}" in logged
+
+
 @pytest.mark.parametrize("enabled", [True, False])
 @pytest.mark.parametrize("dry_run", [True, False])
 def test_sync_scope_user_refuse_une_boucle_de_liens(
