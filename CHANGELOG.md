@@ -2,6 +2,54 @@
 
 ## [Non publié]
 
+## [3.2.0] - 2026-11-27
+
+### Ajouté
+
+- feat(jobnotify): module `linuxtools.jobnotify`, brique « job systemd notifié » : un
+  `NotifiedJob` (données seules, validées, `to_descriptor()` JSON strict) décrit un
+  service surveillé ; `NotifiedJobInstaller` (`sync(*, enabled, dry_run)`,
+  `run_in_progress()`) installe ou retire le runtime, le descripteur, le compagnon
+  `systemd-inhibit` (si `lock=True`), le drop-in et l'autostart, avec un seul
+  `daemon-reload`. Notifications de début, de fin selon l'issue (`Outcome`) et de
+  rattrapage à la reconnexion, en scope `system` (chaque session graphique) ou `user`.
+  Sondes `NoProbe`, `FingerprintProbe`, `Dnf5Probe` ; exports depuis `linuxtools`,
+  chargés à la demande (T1 à T7).
+- feat(jobnotify): `runtime.py` en stdlib seule, copié tel quel sur le poste et lancé
+  par `/usr/bin/python3 -I` hors venv, qui rend toujours 0 ; descripteur relu en échec
+  fermé (`O_NOFOLLOW`, propriétaire, droits, schéma). Test de contrat : stdlib seule,
+  binaires en chemins absolus, ni `exec` ni import dynamique, `subprocess` confiné
+  (T2 à T5).
+- feat(jobnotify): catalogue fermé de sondes `PROBE_COMMANDS` : la commande d'une sonde
+  `fingerprint` est fixée (aujourd'hui `/usr/bin/flatpak list` et ses options
+  `--system`, `--user`, `--app`, `--runtime`, `--columns=`), contrôlée par
+  `NotifiedJob` et par le runtime ; toute autre commande est refusée (T15, T18, T20,
+  T22).
+- feat(systemd): `SystemdExecutor.show_environment()` et
+  `SystemdExecutor.show_property(property_name, unit_name=None)`, publiques et héritées
+  par `UserSystemdExecutor` : environnement du gestionnaire (`show-environment`) et
+  propriété d'une unité (`show -p --value`) ; un échec de `systemctl` lève
+  `RuntimeError`, jamais une valeur vide (T18, T20).
+
+### Modifié
+
+- feat(jobnotify): en scope `user`, les `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et
+  `XDG_STATE_HOME` sont lus dans l'environnement du gestionnaire `systemd --user` et
+  fixés dans les unités et l'autostart ; le dossier des unités vient de `UnitPath`. Un
+  lien symbolique du home (stow) est suivi si sa cible reste sous le home ; en système
+  tout lien est refusé (T16, T18, T19, T20).
+- feat(jobnotify): après chaque `sync` réel en scope `user`, post-condition : le dossier
+  des unités figure dans `UnitPath` et les unités chargées (`LoadState=loaded`) référencent
+  les fichiers écrits, sinon `RuntimeError` (T20, T23).
+
+### Corrigé
+
+- fix(jobnotify): passes de revue 1 à 4 (T15 à T23) : nom du job dans les lignes `Exec`,
+  constantes de validation uniques, retrait des `ids/<uid>` et des dossiers vides sous
+  `/run`, refus de l'installeur `user` en root, retrait tolérant un lien orphelin ou un
+  composant illisible sans sudo, journalisation d'un reload en échec sans masquer
+  l'erreur d'origine.
+
 ## [3.1.1] - 2026-11-23
 
 ### Corrigé

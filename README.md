@@ -36,6 +36,7 @@ Fournit des classes réutilisables et extensibles pour le logging, la configurat
 - [Module validation](#-module-validation)
 - [Module notification](#-module-notification)
 - [Module vaults](#-module-vaults)
+- [Module jobnotify](#-module-jobnotify)
 - [Exemple Complet](#-exemple-complet)
 - [Tests](#-tests)
 - [Troubleshooting](#-troubleshooting)
@@ -399,11 +400,16 @@ linuxtools/
 │   │   ├── __init__.py
 │   │   ├── base.py              # CliCommand (ABC), CliApplication
 │   │   └── dry_run.py           # DryRunContext, add_dry_run_argument
-│   └── vaults/
+│   ├── vaults/
+│   │   ├── __init__.py
+│   │   ├── catalog.py           # VaultCatalog, VaultCatalogError
+│   │   ├── _tables.py           # parseur privé de tableaux Markdown
+│   │   └── vaults.example.toml  # exemple de configuration empaqueté
+│   └── jobnotify/
 │       ├── __init__.py
-│       ├── catalog.py           # VaultCatalog, VaultCatalogError
-│       ├── _tables.py           # parseur privé de tableaux Markdown
-│       └── vaults.example.toml  # exemple de configuration empaqueté
+│       ├── spec.py              # Outcome, NoProbe, FingerprintProbe, Dnf5Probe, NotifiedJob
+│       ├── runtime.py           # hook stdlib seule, copié sur le poste (jamais importé)
+│       └── installer.py         # NotifiedJobInstaller
 ├── tests/
 │   ├── __init__.py
 │   ├── test_logging.py
@@ -3361,6 +3367,129 @@ except VaultCatalogError as exc:
 | `VaultCatalog.role_of(path)` | Rôle dont la racine est exactement `path` (égalité stricte, un sous-dossier rend `None`), ou `None` |
 | `VaultCatalog.domaines(role)` | Domaines autorisés du rôle (paresseux, en cache) |
 | `VaultCatalogError` | Erreur unique du module (`source`, `key`) |
+
+---
+
+## 🔔 Module `jobnotify`
+
+Brique générique « job systemd notifié » : un service systemd (mise à jour, sauvegarde…)
+qui prévient les sessions graphiques **au début**, **à la fin** (selon l'issue) et, à la
+reconnexion, d'une notification manquée. Le job est décrit par des **données**
+(`NotifiedJob`), jamais par du code : `NotifiedJobInstaller` amène le poste à l'état voulu.
+
+### Utilisation
+
+```python
+from linuxtools import (
+    ConsoleLogger,
+    FingerprintProbe,
+    NotifiedJob,
+    NotifiedJobInstaller,
+    Outcome,
+    SystemdExecutor,
+)
+
+job = NotifiedJob(
+    name="flatpak-auto",             # ^[a-z0-9][a-z0-9-]{0,63}$
+    owner="mon-appli",               # même motif ; sert de dossier et de préfixe
+    watched_unit="flatpak-update.service",
+    scope="system",                  # ou "user"
+    start_texts=("Mise à jour", "Flatpak démarre."),
+    end_texts={                      # toutes les issues atteignables par la sonde
+        Outcome.SUCCESS: ("Mise à jour", "Terminée."),
+        Outcome.NOTHING: ("Mise à jour", "Rien à mettre à jour."),
+        Outcome.DONE_NO_DETAIL: ("Mise à jour", "Terminée."),
+        Outcome.FAILURE: ("Mise à jour", "Échec."),
+        Outcome.INTERRUPTED: ("Mise à jour", "Interrompue."),
+    },
+    lock=True,                       # verrou d'arrêt/veille pendant le run (défaut False)
+    probe=FingerprintProbe(
+        argv=("/usr/bin/flatpak", "list", "--system", "--columns=ref,active:f"),
+    ),
+)
+
+logger = ConsoleLogger()
+installer = NotifiedJobInstaller(job, SystemdExecutor(logger), logger)
+installer.sync(enabled=True, dry_run=True)    # liste les actions `[dry-run] …`
+installer.sync(enabled=True, dry_run=False)   # écrit, puis un seul daemon-reload
+installer.run_in_progress()                   # unité activating/active/deactivating
+installer.sync(enabled=False, dry_run=False)  # retire (chemins constants seulement)
+```
+
+- **Descripteur** : `job.to_descriptor()` rend un JSON strict (clés triées, schéma fermé,
+  `version: 1`). L'installeur le valide avant toute écriture et le pose à côté du runtime
+  (`<job>-notify.json`) ; le runtime l'ouvre en `O_NOFOLLOW`, exige un fichier régulier
+  appartenant à root (ou à l'utilisateur en scope `user`) et non inscriptible par le
+  groupe ou les autres, sinon il n'agit pas.
+- **Runtime copié, stdlib seule** : `runtime.py` n'est **pas** importé : l'installeur le
+  copie tel quel (`usr/local/libexec/<owner>/<job>-notify`) et le poste le lance par
+  `/usr/bin/python3 -I`, hors de tout venv. Il n'importe jamais `linuxtools` (test de
+  contrat). Il rend toujours 0 : une notification en échec ne fait pas échouer le job.
+- **Verrou** : `lock=False` (défaut) n'ajoute ni compagnon ni inhibiteur ; `lock=True`
+  ajoute une unité compagnon `systemd-inhibit` (arrêt, veille, capot).
+- **Sonde** (issue d'un run réussi) : `NoProbe` (toujours `SUCCESS`),
+  `FingerprintProbe` (instantané avant/après d'une commande) ou `Dnf5Probe` (historique
+  dnf5 et `needs-restarting`). Le runtime n'exécute que les commandes du catalogue fermé
+  `PROBE_COMMANDS` : aujourd'hui `/usr/bin/flatpak list` avec les options `--system`,
+  `--user`, `--app`, `--runtime` et `--columns=<col>[:<fmt>],…`. Toute autre commande est
+  refusée par `NotifiedJob` (`ValueError`) comme par le runtime ; l'étendre demande un
+  amendement du catalogue, pas un argument libre.
+- **Dry-run** : `sync(dry_run=True)` n'écrit rien et n'appelle pas systemd.
+- **Report** : si l'unité surveillée tourne, la réécriture des unités est différée.
+
+### Scopes
+
+| | `system` | `user` |
+|---|---|---|
+| Exécuteur | `SystemdExecutor` | `UserSystemdExecutor` (sinon `ValueError`) |
+| Runtime | `/usr/local/libexec/<owner>/<job>-notify` (0644) | `$XDG_DATA_HOME/<owner>/<job>-notify` (0700) |
+| État | `/var/lib/<owner>/<job>/` | `$XDG_STATE_HOME/<owner>/<job>/` |
+| Verrou et ID | `/run/<owner>/<job>/` | `$XDG_RUNTIME_DIR/<owner>/<job>/` |
+| Unités | `/etc/systemd/system/` | dossier tiré de `UnitPath` (repli `~/.config/systemd/user`) |
+| Autostart | `/etc/xdg/autostart/` | `$XDG_CONFIG_HOME/autostart/` |
+| Destinataires | chaque session graphique (`loginctl`) | le seul propriétaire |
+
+L'installeur en scope `user` refuse de tourner en root.
+
+### Cas rares
+
+- **XDG personnalisés (scope user)** : les `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et
+  `XDG_STATE_HOME` sont lus dans l'environnement du gestionnaire `systemd --user`
+  (`systemctl --user show-environment`), jamais dans celui de l'installeur ni de la
+  session. Pour les personnaliser, les poser dans cet environnement
+  (`systemctl --user set-environment`, `environment.d`) puis relancer `sync`. La racine
+  d'état résolue est fixée dans `Environment=` des unités et dans l'`Exec` de
+  l'autostart : `start`, `end` et `login` écrivent au même endroit. Une valeur vide ou
+  relative est ignorée ; une valeur citée par systemd (`$'…'`) ou hors du home lève
+  `ValueError`.
+- **Liens symboliques et stow (scope user)** : un lien dans le home est suivi tant que
+  la cible résolue reste sous le home, et l'écriture remplace la cible sans la suivre.
+  En scope système, tout lien sur le chemin est refusé (`RuntimeError`). Au retrait, un
+  lien orphelin est toléré ; à l'installation, il est refusé.
+- **`ids/<uid>`** (scope système) : le runtime écrit un fichier d'ID de notification par
+  utilisateur sous `/run/<owner>/<job>/ids/` ; le retrait supprime les noms décimaux
+  réguliers (jamais de `rmtree`, jamais un lien) et les dossiers devenus vides. `ids`
+  lui-même en lien symbolique est refusé. En scope `user`, le retrait ne touche pas
+  `$XDG_RUNTIME_DIR` (tmpfs de session).
+- **Post-condition (scope user)** : après chaque `sync` réel, l'installeur vérifie que le
+  dossier des unités figure dans `UnitPath` et, pour une unité `LoadState=loaded`, que
+  `DropInPaths` (unité surveillée) et `FragmentPath` (compagnon) désignent les fichiers
+  écrits ; sinon `RuntimeError`. Une unité surveillée absente ou masquée donne un
+  avertissement journalisé, pas une erreur.
+
+### Documentation API
+
+| Élément | Rôle |
+|---|---|
+| `NotifiedJob` | Description (dataclass figée, validée) ; `to_descriptor()` |
+| `NoProbe`, `FingerprintProbe`, `Dnf5Probe` | Sondes d'issue |
+| `Outcome` | `SUCCESS`, `SUCCESS_RESTART`, `NOTHING`, `DONE_NO_DETAIL`, `FAILURE`, `INTERRUPTED` |
+| `NotifiedJobInstaller(job, systemd, logger, root_dir=…, home=None)` | `sync(*, enabled, dry_run)`, `run_in_progress()` |
+| `SystemdExecutor.show_environment()` | Environnement du gestionnaire (`systemctl show-environment`) ; `RuntimeError` si l'appel échoue |
+| `SystemdExecutor.show_property(name, unit=None)` | Propriété du gestionnaire ou d'une unité (`show -p … --value`) ; `ValueError` si nom invalide, `RuntimeError` si l'appel échoue |
+
+`show_environment` et `show_property` sont publiques (héritées par
+`UserSystemdExecutor`) : elles servent l'installeur mais restent utilisables seules.
 
 ---
 
