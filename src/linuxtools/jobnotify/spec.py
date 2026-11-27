@@ -47,7 +47,8 @@ class FingerprintProbe:
     """Instantané avant/après (flatpak).
 
     Attributes:
-        argv: Commande de l'instantané ; `argv[0]` est un chemin absolu.
+        argv: Commande de l'instantané, du catalogue fermé `PROBE_COMMANDS`
+            (binaire exact, sous-commande et options fixées).
     """
 
     argv: tuple[str, ...]
@@ -104,7 +105,7 @@ def _check_pair(label: str, value: object) -> tuple[str, str]:
 
 
 def _check_probe(probe: Probe) -> None:
-    """Valide les paramètres d'une sonde (catalogue fermé, F20)."""
+    """Valide les paramètres d'une sonde (catalogue fermé, F20, F26)."""
     if isinstance(probe, FingerprintProbe) and not fingerprint_argv_ok(probe.argv):
         raise ValueError(
             f"argv de sonde invalide (hors catalogue de sondes) : {probe.argv!r}"

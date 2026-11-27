@@ -181,11 +181,11 @@ def _element_problems(head: ast.expr | None, constants: dict[str, str]) -> list[
 
 
 def _probe_validation_problems() -> list[str]:
-    """La validation du descripteur doit refuser un ``argv[0]`` non absolu.
+    """La validation du descripteur doit refuser un ``argv[0]`` hors catalogue.
 
     Appelle réellement ``fingerprint_argv_ok`` (et non plus une recherche de
-    texte dans son code) : un binaire relatif doit être refusé, un binaire
-    système absolu accepté.
+    texte dans son code) : un binaire relatif doit être refusé, la commande
+    ``/usr/bin/flatpak list`` du catalogue fermé acceptée.
     """
     problemes = [
         f"argv[0] relatif accepté : {relatif!r}"
@@ -193,7 +193,7 @@ def _probe_validation_problems() -> list[str]:
         if runtime_module.fingerprint_argv_ok([relatif, "list"])
     ]
     if not runtime_module.fingerprint_argv_ok(["/usr/bin/flatpak", "list"]):
-        problemes.append("argv[0] absolu système refusé")
+        problemes.append("commande du catalogue refusée")
     return problemes
 
 

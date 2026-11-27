@@ -1674,12 +1674,34 @@ UNIT_RE = re.compile(r"[A-Za-z0-9:_.@-]+\.service")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 WHY_FORBIDDEN_RE = re.compile(r"[\"'%$\\]")
 MAX_TEXT_LEN = 200
-# Catalogue fermé des binaires de sonde ``fingerprint`` (F20) : chemins exacts.
-# En ajouter un exige un amendement (ADR « catalogue de sondes »).
-PROBE_BINARIES = frozenset({"/usr/bin/flatpak"})
-# Argument de sonde : mot ou option (``-y``, ``--columns=ref,active:f``), sans ``/``
-# (donc ni chemin absolu ni relatif), sans espace ni métacaractère.
-_PROBE_ARG_RE = re.compile(r"(?:-{1,2})?[A-Za-z0-9][A-Za-z0-9_.=,:@+-]*")
+
+
+@dataclass(frozen=True)
+class ProbeCommand:
+    """Commande de sonde fixée pour un binaire (F26).
+
+    Attributes:
+        subcommand: Sous-commande imposée en ``argv[1]``.
+        options: Options exactes admises après la sous-commande.
+        option_re: Motif des options à valeur admises (``--columns=…``).
+    """
+
+    subcommand: str
+    options: frozenset[str]
+    option_re: re.Pattern[str]
+
+
+# Catalogue fermé des sondes ``fingerprint`` (F20, F26) : par chemin exact de
+# binaire, une sous-commande imposée et des options fermées. Les colonnes admettent
+# le suffixe ``:f`` de flatpak (``active:f``). Étendre le catalogue exige un
+# amendement (ADR « catalogue de sondes »).
+PROBE_COMMANDS: Mapping[str, ProbeCommand] = {
+    "/usr/bin/flatpak": ProbeCommand(
+        subcommand="list",
+        options=frozenset({"--system", "--user", "--app", "--runtime"}),
+        option_re=re.compile(r"--columns=[a-z]+(?::[a-z]+)?(?:,[a-z]+(?::[a-z]+)?)*"),
+    ),
+}
 DESCRIPTOR_VERSION = 1
 _MAX_DESCRIPTOR_SIZE = 16 * 1024
 _GROUP_OTHERS_WRITE = 0o022
@@ -1745,32 +1767,35 @@ def _units(value: object, field_name: str) -> tuple[str, ...]:
 
 
 def fingerprint_argv_ok(argv: Sequence[str]) -> bool:
-    """Indique si ``argv`` est une commande acceptable pour la sonde fingerprint.
+    """Indique si ``argv`` est une commande de sonde du catalogue fermé.
 
-    Le binaire est lancé en root : une liste noire de lanceurs ne peut pas être
-    complète (F20), le catalogue est donc une liste blanche. Source unique,
-    partagée par ``spec.py`` et le runtime.
+    Le binaire est lancé en root : ni une liste noire de lanceurs (F20), ni une
+    liste blanche de binaires (F26, ``flatpak uninstall --all``) ne suffisent. Le
+    catalogue fixe la commande entière. Source unique, partagée par ``spec.py`` et
+    le runtime.
 
     Args:
         argv: Commande de l'instantané.
 
     Returns:
-        True si ``argv[0]`` est un élément de ``PROBE_BINARIES`` et si chaque
-        argument suivant est un mot ou une option sans ``/``, sans espace et sans
-        ``..`` (``list``, ``--system``, ``--columns=ref,active:f``).
+        True si ``argv[0]`` est un binaire de ``PROBE_COMMANDS``, ``argv[1]`` sa
+        sous-commande imposée, et chaque argument suivant l'une de ses options
+        exactes ou une option à valeur conforme à son motif.
     """
+    command = PROBE_COMMANDS.get(argv[0]) if argv else None
     return (
-        bool(argv)
-        and argv[0] in PROBE_BINARIES
+        command is not None
+        and len(argv) > 1
+        and argv[1] == command.subcommand
         and all(
-            _PROBE_ARG_RE.fullmatch(arg) is not None and ".." not in arg
-            for arg in argv[1:]
+            arg in command.options or command.option_re.fullmatch(arg) is not None
+            for arg in argv[2:]
         )
     )
 
 
 def _probe(value: object) -> tuple[str, tuple[str, ...]]:
-    """Valide la sonde : ``kind`` du catalogue fermé, ``argv`` en chemin absolu."""
+    """Valide la sonde : ``kind`` du catalogue fermé, ``argv`` d'une commande fixée."""
     if not isinstance(value, dict) or set(value) != {"kind", "argv"}:
         _invalid("probe")
     kind = value["kind"]

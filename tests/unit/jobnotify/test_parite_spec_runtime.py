@@ -113,9 +113,9 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         False,
     ),
     (
-        "argv flatpak seul",
+        "argv flatpak sans sous-commande",
         {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak"]}},
-        True,
+        False,
     ),
     (
         "argv flatpak list system",
@@ -263,19 +263,19 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         False,
     ),
     (
-        "argv argument option courte",
-        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "-y"]}},
-        True,
+        "argv argument option courte hors liste",
+        {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", "list", "-y"]}},
+        False,
     ),
     (
-        "argv argument option valeur",
+        "argv option en premier sans sous-commande",
         {
             "probe": {
                 "kind": "fingerprint",
                 "argv": ["/usr/bin/flatpak", "--columns=ref,active:f"],
             }
         },
-        True,
+        False,
     ),
     (
         "argv argument mot nu",
@@ -367,6 +367,29 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         },
         False,
     ),
+    *[
+        (
+            f"argv flatpak {nom} (F26)",
+            {"probe": {"kind": "fingerprint", "argv": ["/usr/bin/flatpak", *args]}},
+            attendu,
+        )
+        for nom, args, attendu in [
+            ("uninstall --all", ["uninstall", "--all"], False),
+            ("run --command", ["run", "--command=sh", "org.x.App"], False),
+            ("install", ["install", "org.x.App"], False),
+            ("override", ["override", "--user", "--filesystem=host"], False),
+            ("remote-modify", ["remote-modify", "--no-enumerate", "r"], False),
+            ("sous-commande en second", ["--system", "list"], False),
+            ("list option inconnue", ["list", "--all"], False),
+            ("list option --columns vide", ["list", "--columns="], False),
+            ("list --columns majuscule", ["list", "--columns=Ref"], False),
+            ("list --columns avec tiret", ["list", "--columns=ref,all-x"], False),
+            ("list mot en plus", ["list", "org.x.App"], False),
+            ("list --app --runtime", ["list", "--app", "--runtime"], True),
+            ("list --user", ["list", "--user"], True),
+            ("list --columns=ref", ["list", "--columns=ref"], True),
+        ]
+    ],
     ("dnf5 sans fin complete", {"probe": {"kind": "dnf5", "argv": []}}, False),
 ]
 

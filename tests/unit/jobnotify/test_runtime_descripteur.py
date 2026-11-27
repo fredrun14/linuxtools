@@ -235,7 +235,7 @@ def test_parse_descriptor_refuse_ce_qui_n_est_pas_un_objet() -> None:
     assert parse_descriptor(["version"]) is None
 
 
-def test_parse_descriptor_refuse_fingerprint_sans_argv_absolu() -> None:
+def test_parse_descriptor_refuse_fingerprint_hors_catalogue_binaire_relatif() -> None:
     data = _data(FLATPAK_JOB)
     data["probe"]["argv"] = ["flatpak", "list"]
 
