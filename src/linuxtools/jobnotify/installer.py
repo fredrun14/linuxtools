@@ -373,8 +373,14 @@ class NotifiedJobInstaller:
         ]
 
     def _exec(self, key: str, verb: str) -> str:
-        """Ligne `Exec…=` du runtime, tolérante (préfixe `-`, A-07)."""
-        return f"{key}=-{_PYTHON} -I {self._layout.runtime_real} {verb}"
+        """Ligne `Exec…=` du runtime, tolérante (préfixe `-`, A-07).
+
+        Le nom du job est passé en dernier argument : le runtime refuse un appel
+        dont le job diffère de celui de son descripteur (F07, Q-07).
+        """
+        return (
+            f"{key}=-{_PYTHON} -I {self._layout.runtime_real} {verb} {self._job.name}"
+        )
 
     def _guard_content(self) -> str:
         """Texte exact du compagnon : verrou d'inhibition lié au service."""
@@ -421,7 +427,7 @@ class NotifiedJobInstaller:
             "[Desktop Entry]\n"
             "Type=Application\n"
             f"Name=Notification {self._job.name}\n"
-            f"Exec={_PYTHON} -I {self._layout.runtime_real} login\n"
+            f"Exec={_PYTHON} -I {self._layout.runtime_real} login {self._job.name}\n"
             "NoDisplay=true\n"
             "X-GNOME-Autostart-Phase=Applications\n"
         )

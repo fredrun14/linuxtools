@@ -57,14 +57,14 @@ _EXPECTED_GUARD = (
     "--what=shutdown:sleep:handle-lid-switch --mode=block "
     "--who=fedora-post-install "
     "--why=Mise-à-jour-automatique-en-cours /usr/bin/sleep 3600\n"
-    f"ExecStartPost=-/usr/bin/python3 -I {_REAL_HOOK} start\n"
+    f"ExecStartPost=-/usr/bin/python3 -I {_REAL_HOOK} start dnf5-auto\n"
 )
 _EXPECTED_DROPIN = (
     "[Unit]\n"
     "Wants=fedora-post-install-dnf5-auto-guard.service\n"
     "\n"
     "[Service]\n"
-    f"ExecStopPost=-/usr/bin/python3 -I {_REAL_HOOK} end\n"
+    f"ExecStopPost=-/usr/bin/python3 -I {_REAL_HOOK} end dnf5-auto\n"
 )
 
 # Chemins du job Flatpak (littéraux écrits à la main).
@@ -276,7 +276,7 @@ def test_desktop_contenu_exact(installer: NotifiedJobInstaller, tmp_path: Path) 
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=Notification dnf5-auto\n"
-        f"Exec=/usr/bin/python3 -I {_REAL_HOOK} login\n"
+        f"Exec=/usr/bin/python3 -I {_REAL_HOOK} login dnf5-auto\n"
         "NoDisplay=true\n"
         "X-GNOME-Autostart-Phase=Applications\n"
     )
@@ -433,8 +433,8 @@ def test_sans_verrou_aucun_compagnon_ni_inhibiteur(
     dropin = (tmp_path / _DROPIN).read_text(encoding="utf-8")
     assert dropin == (
         "[Service]\n"
-        f"ExecStartPre=-/usr/bin/python3 -I {_REAL_HOOK} start\n"
-        f"ExecStopPost=-/usr/bin/python3 -I {_REAL_HOOK} end\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {_REAL_HOOK} start dnf5-auto\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {_REAL_HOOK} end dnf5-auto\n"
     )
     for path in tmp_path.rglob("*"):
         if (
@@ -461,9 +461,15 @@ def test_unites_avec_verrou(
     assert "--what=shutdown:sleep:handle-lid-switch" in guard
     assert "BindsTo=flatpak-automatic.service\n" in guard
     assert "After=dnf5-automatic.service\n" in guard
-    assert f"ExecStartPost=-/usr/bin/python3 -I {_F_REAL_HOOK} start\n" in guard
+    assert (
+        f"ExecStartPost=-/usr/bin/python3 -I {_F_REAL_HOOK} start flatpak-auto\n"
+        in guard
+    )
     assert "Wants=fedora-post-install-flatpak-auto-guard.service\n" in dropin
-    assert f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot\n" in dropin
+    assert (
+        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot flatpak-auto\n"
+        in dropin
+    )
     assert " start\n" not in dropin
 
 
@@ -1249,7 +1255,7 @@ def test_flatpak_compagnon_contenu_exact(
         "--what=shutdown:sleep:handle-lid-switch --mode=block "
         "--who=fedora-post-install "
         "--why=Mise-à-jour-Flatpak-automatique-en-cours /usr/bin/sleep 3600\n"
-        f"ExecStartPost=-/usr/bin/python3 -I {_F_REAL_HOOK} start\n"
+        f"ExecStartPost=-/usr/bin/python3 -I {_F_REAL_HOOK} start flatpak-auto\n"
     )
     assert "[Install]" not in text
     assert str(tmp_path) not in text  # chemin réel de production, jamais root_dir
@@ -1267,8 +1273,8 @@ def test_flatpak_dropin_contenu_exact_snapshot_puis_end(
         "Wants=fedora-post-install-flatpak-auto-guard.service\n"
         "\n"
         "[Service]\n"
-        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot\n"
-        f"ExecStopPost=-/usr/bin/python3 -I {_F_REAL_HOOK} end\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot flatpak-auto\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {_F_REAL_HOOK} end flatpak-auto\n"
     )
 
 
@@ -1293,9 +1299,9 @@ def test_flatpak_sans_verrou_demarre_puis_prend_l_instantane(
     # Assert : `start` puis `snapshot` avant le run, `end` après
     assert (tmp_path / _F_DROPIN).read_text(encoding="utf-8") == (
         "[Service]\n"
-        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} start\n"
-        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot\n"
-        f"ExecStopPost=-/usr/bin/python3 -I {_F_REAL_HOOK} end\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} start flatpak-auto\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {_F_REAL_HOOK} snapshot flatpak-auto\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {_F_REAL_HOOK} end flatpak-auto\n"
     )
 
 
@@ -1587,11 +1593,11 @@ def test_sync_scope_user_chemins_xdg(
     assert dropin.read_text(encoding="utf-8") == (
         "[Service]\n"
         f"Environment=HOME={home} XDG_STATE_HOME={home}/.local/state\n"
-        f"ExecStartPre=-/usr/bin/python3 -I {script} start\n"
-        f"ExecStopPost=-/usr/bin/python3 -I {script} end\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {script} start backup\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {script} end backup\n"
     )
     desktop = home / ".config/autostart/backup-py-backup-notify.desktop"
-    assert f"Exec=/usr/bin/python3 -I {script} login\n" in desktop.read_text(
+    assert f"Exec=/usr/bin/python3 -I {script} login backup\n" in desktop.read_text(
         encoding="utf-8"
     )
     state = home / ".local/state/backup-py/backup"
@@ -1628,7 +1634,7 @@ def test_sync_scope_user_avec_verrou_definit_l_environnement_du_compagnon(
         "ExecStart=/usr/bin/systemd-inhibit "
         "--what=shutdown:sleep:handle-lid-switch --mode=block "
         '--who=backup-py "--why=Mise à jour en cours" /usr/bin/sleep 3600\n'
-        f"ExecStartPost=-/usr/bin/python3 -I {script} start\n"
+        f"ExecStartPost=-/usr/bin/python3 -I {script} start backup\n"
     )
 
 

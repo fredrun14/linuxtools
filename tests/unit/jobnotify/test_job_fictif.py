@@ -39,8 +39,8 @@ END_SUCCESS = ("Sauvegarde terminée", "Tout est enregistré.")
 END_FAILURE = ("Sauvegarde en échec", "Consultez le journal.")
 END_INTERRUPTED = ("Sauvegarde interrompue", "Elle n'a pas abouti.")
 # Ligne d'exécution d'unité ou d'autostart :
-# `Exec…=[-]/usr/bin/python3 -I <chemin> <verbe>`.
-EXEC_RE = re.compile(r"^Exec\w*=-?/usr/bin/python3 -I (\S+) (\w+)$", re.MULTILINE)
+# `Exec…=[-]/usr/bin/python3 -I <chemin> <verbe> <job>`.
+EXEC_RE = re.compile(r"^Exec\w*=-?/usr/bin/python3 -I (\S+) (\w+) (\S+)$", re.MULTILINE)
 ENV_RE = re.compile(r"^Environment=(.+)$", re.MULTILINE)
 
 
@@ -90,12 +90,18 @@ def install_user(home: Path) -> NotifiedJobInstaller:
 
 
 def exec_lines(*unit_files: Path) -> list[tuple[str, str]]:
-    """(chemin du runtime, verbe) de chaque ligne d'exécution des fichiers écrits."""
-    return [
-        (script, verb)
+    """(chemin du runtime, verbe) de chaque ligne d'exécution des fichiers écrits.
+
+    Le nom du job (dernier argument, F07) doit être celui du job fictif : il est
+    vérifié ici, car le runtime refuse tout appel dont le job diffère du sien.
+    """
+    found = [
+        (script, verb, job)
         for unit in unit_files
-        for script, verb in EXEC_RE.findall(unit.read_text())
+        for script, verb, job in EXEC_RE.findall(unit.read_text())
     ]
+    assert {job for _, _, job in found} <= {"demo"}
+    return [(script, verb) for script, verb, _ in found]
 
 
 def demo_runner(
@@ -229,7 +235,7 @@ def test_job_fictif_sans_verrou_ne_pose_aucun_inhibiteur(tmp_path: Path) -> None
     # Act : le drop-in lance start puis end
     codes = [
         main(
-            [verb],
+            [verb, "demo"],
             installed_ctx(
                 runner,
                 tmp_path,
@@ -330,7 +336,7 @@ def test_job_fictif_echec_bureau_ne_fait_pas_echouer_le_job(
     # Act : chaque verbe lancé par les unités écrites, avec un bureau en échec
     codes = [
         main(
-            [verb],
+            [verb, "demo"],
             installed_ctx(
                 runner,
                 tmp_path,
