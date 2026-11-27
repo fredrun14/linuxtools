@@ -793,7 +793,9 @@ class NotifiedJobInstaller:
         """Fichiers constants présents et dossiers qui seront vides après eux.
 
         Un dossier n'est retiré que si tout son contenu l'est aussi : un fichier
-        étranger, ou celui d'un autre job, le préserve avec ses parents.
+        étranger, ou celui d'un autre job, le préserve avec ses parents. Un dossier
+        qui est un lien symbolique (scope user, stow) n'est jamais élagué, comme
+        un fichier étranger : `rmdir` d'un lien échouerait (F21).
 
         Un composant illisible (`/run/<owner>` en root 0700, sans sudo) : en
         dry-run, rien n'est planifié en dessous (comme `_refuse_symlinks`) ; en
@@ -817,7 +819,11 @@ class NotifiedJobInstaller:
         gone.update(files)
         for directory in self._layout.prune_dirs:
             with _tolerate_unreadable(dry_run=dry_run):
-                if directory.is_dir() and all(c in gone for c in directory.iterdir()):
+                if (
+                    directory.is_dir()
+                    and not directory.is_symlink()
+                    and all(c in gone for c in directory.iterdir())
+                ):
                     gone.add(directory)
                     dirs.append(directory)
         return files, dirs
@@ -830,18 +836,24 @@ class NotifiedJobInstaller:
             return [self._deferred()]
 
         actions: list[str] = []
-        for path in (*files, *dirs):
-            if dry_run:
-                actions.append(f"[dry-run] Retirerait {path}")
-                continue
-            with _io_errors("Retrait refusé", path):
-                if path in dirs:
-                    path.rmdir()
-                else:
-                    path.unlink()
-            actions.append(f"Retiré {path}")
-        if any(path in units for path in files) and not dry_run:
-            self._reload()
+        unit_removed = False
+        try:
+            for path in (*files, *dirs):
+                if dry_run:
+                    actions.append(f"[dry-run] Retirerait {path}")
+                    continue
+                with _io_errors("Retrait refusé", path):
+                    if path in dirs:
+                        path.rmdir()
+                    else:
+                        path.unlink()
+                unit_removed = unit_removed or path in units
+                actions.append(f"Retiré {path}")
+        finally:
+            # Une unité déjà retirée doit être déchargée même si une étape
+            # suivante échoue (F21), sinon systemd garde l'ancienne.
+            if unit_removed:
+                self._reload()
         return actions
 
     # ------------------------------------------------------------------

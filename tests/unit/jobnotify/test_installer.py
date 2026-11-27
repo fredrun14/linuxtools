@@ -2120,6 +2120,65 @@ def test_sync_scope_user_refuse_un_lien_dont_la_cible_sort_du_home(
     assert list(outside.iterdir()) == []
 
 
+@pytest.mark.parametrize(
+    "link_relative",
+    [".local/share/backup-py", ".local/state/backup-py/backup"],
+    ids=["dossier-de-donnees", "dossier-d-etat"],
+)
+def test_sync_scope_user_retrait_laisse_un_dossier_elagable_en_lien(
+    user_installer: NotifiedJobInstaller,
+    user_systemd: MagicMock,
+    home: Path,
+    link_relative: str,
+) -> None:
+    # Arrange : dossier du job géré par stow (lien vers un dossier du home), F21
+    stowed = home / "dotfiles" / "cible"
+    stowed.mkdir(parents=True)
+    link = home / link_relative
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(stowed)
+    user_installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.reset_mock()
+
+    # Act : le retrait ne lève pas (`rmdir` d'un lien donnerait NotADirectoryError)
+    actions = user_installer.sync(enabled=False, dry_run=False)
+
+    # Assert : le lien n'est jamais élagué ni cité, ses fichiers sont retirés, et
+    # le gestionnaire est rechargé (le drop-in a bien été retiré)
+    assert link.is_symlink()
+    assert f"Retiré {link}" not in actions
+    assert [p for p in stowed.rglob("*") if p.is_file()] == []
+    user_systemd.reload_systemd.assert_called_once_with()
+
+
+def test_sync_scope_user_retrait_recharge_meme_si_une_etape_suivante_echoue(
+    user_installer: NotifiedJobInstaller,
+    user_systemd: MagicMock,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange : le drop-in est retiré, puis le retrait de l'autostart échoue (F21)
+    user_installer.sync(enabled=True, dry_run=False)
+    user_systemd.reload_systemd.reset_mock()
+    desktop = home / ".config/autostart/backup-py-backup-notify.desktop"
+    real_unlink = Path.unlink
+
+    def unlink_refuse(self: Path, *, missing_ok: bool = False) -> None:
+        if self == desktop:
+            raise PermissionError
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink_refuse)
+
+    # Act / Assert : l'erreur remonte, mais l'unité retirée est déjà rechargée
+    with pytest.raises(RuntimeError, match="Retrait refusé"):
+        user_installer.sync(enabled=False, dry_run=False)
+    assert not (
+        home / ".config/systemd/user/backup.service.d/backup-py-notify.conf"
+    ).exists()
+    user_systemd.reload_systemd.assert_called_once_with()
+
+
 def test_sync_scope_user_refuse_une_boucle_de_liens(
     user_installer: NotifiedJobInstaller, home: Path
 ) -> None:
