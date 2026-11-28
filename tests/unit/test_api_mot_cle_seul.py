@@ -264,6 +264,7 @@ SURCHARGES_ATTENDUES: frozenset[tuple[str, str, str]] = frozenset(
             "install",
             "with_automount",
         ),
+        ("linuxtools.systemd.executor.UserSystemdExecutor", "_run_systemctl", "probe"),
         ("linuxtools.systemd.base.UserUnitManager", "__init__", "remote_write"),
         (
             "linuxtools.systemd.mount.LinuxMountUnitManager",
