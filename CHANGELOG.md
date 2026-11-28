@@ -10,8 +10,16 @@
   même en `--dry-run` : `NotifiedJobInstaller.sync` et `run_in_progress` détectent un
   run en cours en simulation (revue F02 de `fedora_post_install`). En dry-run,
   `get_status` et `is_active` exécutent donc réellement `systemctl show`, y compris
-  sur l'hôte distant via `SshCommandExecutor` (une connexion ssh est ouverte) ;
-  `is_enabled`, `is_masked` et les autres lectures restent simulées.
+  sur l'hôte distant via `SshCommandExecutor` (une connexion ssh est ouverte). Il en va
+  de même, par la même sonde, pour toutes les autres lectures seules : `show_environment`,
+  `show_property`, `is_enabled`, `is_masked`, `list_units`, `list_unit_files` et
+  `list_timers` (replis texte compris). Les mutations (`daemon-reload`, `enable`,
+  `disable`, `start`, `stop`, `restart`, `mask`, `unmask`) restent simulées en dry-run.
+- fix(systemd): en dry-run, un échec réel de `show_environment`, `show_property`,
+  `list_units`, `list_unit_files` ou `list_timers` (bus injoignable, `systemctl`
+  absent) lève désormais `RuntimeError` là où la simulation rendait un résultat vide.
+  En scope `user`, `NotifiedJobInstaller` lit désormais en dry-run le vrai
+  environnement et le vrai `UnitPath` du gestionnaire.
 
 ## [3.2.0] - 2026-11-27
 

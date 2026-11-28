@@ -627,7 +627,8 @@ class _TimerOperationsMixin:
 
         Utilise ``--output=json`` pour un parsing fiable, avec
         fallback sur le parsing texte si le format JSON n'est pas
-        supporté par la version de systemd installée.
+        supporté par la version de systemd installée. Lecture seule :
+        exécutée même en dry-run (`probe`).
 
         Returns:
             Liste de dictionnaires avec les infos des timers.
@@ -637,7 +638,7 @@ class _TimerOperationsMixin:
         """
         # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
         result = self.executor._run_systemctl(  # noqa: SLF001
-            ["list-timers", "--no-pager", "--output=json"]
+            ["list-timers", "--no-pager", "--output=json"], probe=True
         )
 
         if result.return_code != 0:
@@ -668,6 +669,8 @@ class _TimerOperationsMixin:
     def _list_timers_text_fallback(self) -> "list[dict[str, str]]":
         """Fallback texte pour list_timers sur vieux systemd.
 
+        Lecture seule : exécutée même en dry-run (`probe`).
+
         Returns:
             Liste de dictionnaires avec les infos des timers.
 
@@ -676,7 +679,7 @@ class _TimerOperationsMixin:
         """
         # accès intra-package voulu : l'exécuteur est le collaborateur du gestionnaire
         result = self.executor._run_systemctl(  # noqa: SLF001
-            ["list-timers", "--no-pager", "--plain"]
+            ["list-timers", "--no-pager", "--plain"], probe=True
         )
 
         if result.return_code != 0:
