@@ -28,6 +28,7 @@ from linuxtools.jobnotify.installer import NotifiedJobInstaller
 from linuxtools.jobnotify.spec import (
     Dnf5Probe,
     FingerprintProbe,
+    FwupdProbe,
     NoProbe,
     NotifiedJob,
     Outcome,
@@ -498,6 +499,39 @@ def test_unites_lignes_exec_tolerantes(
     # Assert : préfixe `-` partout (A-07 : un échec ne casse pas le service)
     assert len(lignes) == 5
     assert all(ligne.split("=", 1)[1].startswith("-") for ligne in lignes)
+
+
+def test_sync_job_fwupd_sans_snapshot_ni_compagnon(
+    systemd: MagicMock, logger: MagicMock, tmp_path: Path
+) -> None:
+    # Arrange : sonde fwupd, sans verrou (fwupd prépare sans rien flasher)
+    job = NotifiedJob(
+        name="fwupd-auto",
+        owner="fedora-post-install",
+        watched_unit="fwupd-automatic.service",
+        scope="system",
+        start_texts=("Début", "Corps"),
+        end_texts=_texts(),
+        lock=False,
+        probe=FwupdProbe(),
+    )
+    installer = NotifiedJobInstaller(job, systemd, logger, root_dir=tmp_path)
+
+    # Act
+    installer.sync(enabled=True, dry_run=False)
+
+    # Assert : ni compagnon, ni ExecStartPre de snapshot ; seulement start et end
+    assert not list(tmp_path.rglob("*guard*"))
+    hook = f"/{_OWNER_DIR}/fwupd-auto-notify"
+    dropin = (tmp_path / "etc/systemd/system/fwupd-automatic.service.d").glob("*.conf")
+    textes = [p.read_text(encoding="utf-8") for p in dropin]
+    assert textes == [
+        "[Service]\n"
+        f"ExecStartPre=-/usr/bin/python3 -I {hook} start fwupd-auto\n"
+        f"ExecStopPost=-/usr/bin/python3 -I {hook} end fwupd-auto\n"
+    ]
+    descripteur = tmp_path / _OWNER_DIR / "fwupd-auto-notify.json"
+    assert '"kind": "fwupd"' in descripteur.read_text(encoding="utf-8")
 
 
 def test_why_avec_espaces_est_cite_dans_le_compagnon(
@@ -2471,6 +2505,7 @@ def test_init_scope_systeme_ignore_le_home(
         "NoProbe",
         "FingerprintProbe",
         "Dnf5Probe",
+        "FwupdProbe",
     ],
 )
 def test_symboles_publics_exportes_par_jobnotify_et_linuxtools(nom: str) -> None:

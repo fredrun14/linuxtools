@@ -16,7 +16,7 @@ from linuxtools.jobnotify.runtime import (
     load_descriptor,
     parse_descriptor,
 )
-from linuxtools.jobnotify.spec import NotifiedJob
+from linuxtools.jobnotify.spec import FwupdProbe, NotifiedJob
 from linuxtools.jobnotify.spec import Outcome as SpecOutcome
 from tests.unit.jobnotify.runtime_support import (
     DNF5_JOB,
@@ -289,3 +289,45 @@ def test_load_descriptor_erreur_de_lecture_rend_none(
 
     assert load_descriptor(_ctx(tmp_path, recorder)) is None
     assert len(recorder.messages) == 1
+
+
+def _fwupd_job() -> NotifiedJob:
+    """Job fwupd aux cinq issues atteignables (textes écrits à la main)."""
+    return NotifiedJob(
+        name="fwupd-auto",
+        owner="fedora-post-install",
+        watched_unit="fwupd-automatic.service",
+        scope="system",
+        start_texts=("Début", "Corps"),
+        end_texts={
+            SpecOutcome.SUCCESS_RESTART: ("Prêt", "Redémarrez"),
+            SpecOutcome.NOTHING: ("À jour", "Rien"),
+            SpecOutcome.DONE_NO_DETAIL: ("Fini", "Détail illisible"),
+            SpecOutcome.FAILURE: ("Échec", "Voir le journal"),
+            SpecOutcome.INTERRUPTED: ("Interrompu", "Relancé au prochain run"),
+        },
+        lock=False,
+        probe=FwupdProbe(),
+    )
+
+
+def test_descripteur_fwupd_roundtrip() -> None:
+    descriptor = descriptor_of(_fwupd_job())
+
+    assert descriptor.probe_kind == "fwupd"
+    assert descriptor.probe_argv == ()
+    assert descriptor.lock is False
+    assert set(descriptor.end_texts) == {
+        Outcome.SUCCESS_RESTART,
+        Outcome.NOTHING,
+        Outcome.DONE_NO_DETAIL,
+        Outcome.FAILURE,
+        Outcome.INTERRUPTED,
+    }
+
+
+def test_descripteur_fwupd_argv_non_vide_refuse() -> None:
+    data = _data(_fwupd_job())
+    data["probe"] = {"kind": "fwupd", "argv": ["/usr/bin/fwupdmgr", "update"]}
+
+    assert parse_descriptor(data) is None

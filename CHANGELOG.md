@@ -2,6 +2,19 @@
 
 ## [Non publié]
 
+## [3.3.0] - 2026-11-28
+
+### Ajouté
+
+- feat(jobnotify): sonde `FwupdProbe` (kind `fwupd`) au catalogue fermé : détecte un
+  firmware préparé qui attend le redémarrage (`UpdateState == 4` dans
+  `fwupdmgr get-devices --json`, lu par le runtime avec une commande fixe). Issues :
+  `SUCCESS_RESTART` (prime sur `FAILURE`), `NOTHING`, `DONE_NO_DETAIL`, `FAILURE`,
+  `INTERRUPTED`, jamais `SUCCESS` ; `end_texts` doit couvrir ces cinq issues.
+  Sortie plafonnée à 1 Mio et analysée défensivement ; rien du JSON (numéros de série,
+  noms) n'est conservé ni journalisé. `PROBE_COMMANDS` et `DESCRIPTOR_VERSION` sont
+  inchangés. Exportée par `linuxtools.jobnotify` et `linuxtools`.
+
 ## [3.2.1] - 2026-11-28
 
 ### Corrigé

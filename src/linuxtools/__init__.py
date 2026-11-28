@@ -268,6 +268,7 @@ if TYPE_CHECKING:
     from linuxtools.jobnotify import (
         Dnf5Probe,
         FingerprintProbe,
+        FwupdProbe,
         NoProbe,
         NotifiedJob,
         NotifiedJobInstaller,
@@ -308,6 +309,7 @@ _NOMS_UPDATES = (
 _NOMS_JOBNOTIFY = (
     "Dnf5Probe",
     "FingerprintProbe",
+    "FwupdProbe",
     "NoProbe",
     "NotifiedJob",
     "NotifiedJobInstaller",
@@ -555,4 +557,5 @@ __all__ = [  # noqa: RUF022 — regroupé par domaine (sections commentées)
     "NoProbe",
     "FingerprintProbe",
     "Dnf5Probe",
+    "FwupdProbe",
 ]
