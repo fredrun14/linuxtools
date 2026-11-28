@@ -51,18 +51,24 @@ class SystemdExecutor:
         self.logger = logger
         self._executor = executor or LinuxCommandExecutor(logger=logger)
 
-    def _run_systemctl(self, args: list[str]) -> CommandResult:
+    def _run_systemctl(self, args: list[str], *, probe: bool = False) -> CommandResult:
         """Exécute une commande systemctl via l'executor injecté.
 
         Args:
             args: Arguments de la commande systemctl.
+            probe: Si True, la commande est une sonde en lecture seule : elle
+                s'exécute même en dry-run (`CommandExecutor.probe`). Réservé
+                aux lectures sans effet de bord.
 
         Returns:
             CommandResult de l'exécution (jamais d'exception levée
             sur un code de retour non nul — à l'appelant de vérifier
             `.success`).
         """
-        return self._executor.run(["systemctl", *args])
+        cmd = ["systemctl", *args]
+        if probe:
+            return self._executor.probe(cmd)
+        return self._executor.run(cmd)
 
     def run_raw(self, command: list[str], stdin: str | None = None) -> CommandResult:
         """Exécute une commande arbitraire via l'executor injecté.
@@ -243,7 +249,7 @@ class SystemdExecutor:
 
         Returns:
             Statut de l'unité (active, inactive, failed, etc.), ou
-            chaîne vide si la commande échoue (CommandExecutor.run()
+            chaîne vide si la commande échoue (CommandExecutor.probe()
             ne lève jamais — une erreur système est déjà convertie en
             CommandResult avec un stdout vide).
 
@@ -255,10 +261,12 @@ class SystemdExecutor:
             `show --value` exige systemd >= 230 : sur un hôte plus ancien,
             atteint par un CommandExecutor distant, la valeur rendue serait
             vide.
+            Lecture seule : passe par `probe`, donc lue même en dry-run,
+            pour que l'état rendu reste réel (R1 de `jobnotify`).
         """
         validate_full_unit_name(unit_name)
         result = self._run_systemctl(
-            ["show", "-p", "ActiveState", "--value", unit_name]
+            ["show", "-p", "ActiveState", "--value", unit_name], probe=True
         )
         return result.stdout.strip()
 
@@ -590,13 +598,19 @@ class UserSystemdExecutor(SystemdExecutor):
 
     _label = " utilisateur"
 
-    def _run_systemctl(self, args: list[str]) -> CommandResult:
+    def _run_systemctl(self, args: list[str], *, probe: bool = False) -> CommandResult:
         """Exécute une commande systemctl --user via l'executor injecté.
 
         Args:
             args: Arguments de la commande systemctl.
+            probe: Si True, la commande est une sonde en lecture seule : elle
+                s'exécute même en dry-run (`CommandExecutor.probe`). Réservé
+                aux lectures sans effet de bord.
 
         Returns:
             CommandResult de l'exécution.
         """
-        return self._executor.run(["systemctl", "--user", *args])
+        cmd = ["systemctl", "--user", *args]
+        if probe:
+            return self._executor.probe(cmd)
+        return self._executor.run(cmd)

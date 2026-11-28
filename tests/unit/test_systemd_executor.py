@@ -275,7 +275,7 @@ class TestSystemdExecutorMocked:
     def test_get_status_retourne_statut(self) -> None:
         """get_status() retourne le statut de l unite."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="active\n")
+        command_executor.probe.return_value = _result(stdout="active\n")
         status = executor.get_status("backup.service")
         assert status == "active"
 
@@ -284,11 +284,11 @@ class TestSystemdExecutorMocked:
     ) -> None:
         """get_status() retourne "" (jamais None) si la commande echoue.
 
-        CommandExecutor.run() ne leve jamais : une erreur systeme est
+        CommandExecutor.probe() ne leve jamais : une erreur systeme est
         deja convertie en CommandResult avec un stdout vide.
         """
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=-1, stdout="", stderr="systemctl non trouve"
         )
         result = executor.get_status("backup.service")
@@ -297,13 +297,13 @@ class TestSystemdExecutorMocked:
     def test_is_active_retourne_true(self) -> None:
         """is_active() retourne True si statut == active."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="active\n")
+        command_executor.probe.return_value = _result(stdout="active\n")
         assert executor.is_active("backup.service") is True
 
     def test_is_active_retourne_false(self) -> None:
         """is_active() retourne False si statut != active."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="inactive\n")
+        command_executor.probe.return_value = _result(stdout="inactive\n")
         assert executor.is_active("backup.service") is False
 
     def test_is_enabled_retourne_true(self) -> None:
@@ -980,11 +980,12 @@ class TestShowEnvironment:
             executor.show_environment()
 
 
-def _faux_systemctl(dossier: Path) -> None:
-    """Dépose un `systemctl` qui se comporte comme le vrai pour une unité inactive.
+def _faux_systemctl(dossier: Path, etat: str = "inactive") -> None:
+    """Dépose un `systemctl` qui se comporte comme le vrai pour une unité.
 
-    `is-active` rend `inactive` avec le code 3 ; `show -p ActiveState --value`
-    rend `inactive` avec le code 0.
+    `show -p ActiveState --value` rend `etat` avec le code 0. Le faux
+    `is-active` ignore `etat` : il rend toujours `inactive` (code 3), car
+    `get_status` ne l'appelle plus (F38).
     """
     script = dossier / "systemctl"
     script.write_text(
@@ -992,7 +993,7 @@ def _faux_systemctl(dossier: Path) -> None:
         'for a in "$@"; do\n'
         '  [ "$a" = is-active ] && { echo inactive; exit 3; }\n'
         "done\n"
-        "echo inactive\n",
+        f"echo {etat}\n",
         encoding="utf-8",
     )
     script.chmod(script.stat().st_mode | stat.S_IXUSR)
@@ -1029,13 +1030,55 @@ def test_get_status_lit_activestate_sans_is_active(
 ) -> None:
     # Arrange
     command_executor = MagicMock()
-    command_executor.run.return_value = _result(stdout="failed\n")
+    command_executor.probe.return_value = _result(stdout="failed\n")
 
     # Act
     statut = classe(MagicMock(), command_executor).get_status("backup.service")
 
     # Assert : valeur inchangée, commande sans code de retour d'état (F38)
     assert statut == "failed"
-    command_executor.run.assert_called_once_with(
+    command_executor.probe.assert_called_once_with(
         [*prefixe, "show", "-p", "ActiveState", "--value", "backup.service"]
     )
+    # Lecture seule : sonde (exécutée même en dry-run), jamais run
+    command_executor.run.assert_not_called()
+
+
+def test_get_status_dry_run_lit_l_etat_reel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange : exécuteur réel en dry-run, `systemctl` simulé qui rend `active`
+    _faux_systemctl(tmp_path, etat="active")
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    logger = MagicMock()
+    executor = SystemdExecutor(
+        logger, LinuxCommandExecutor(logger=logger, dry_run=True)
+    )
+
+    # Act
+    statut = executor.get_status("backup.service")
+
+    # Assert : l'état réel est lu malgré le dry-run (sinon "")
+    assert statut == "active"
+
+
+@pytest.mark.parametrize(
+    ("classe", "prefixe"),
+    [
+        (SystemdExecutor, ["systemctl"]),
+        (UserSystemdExecutor, ["systemctl", "--user"]),
+    ],
+)
+def test_run_systemctl_sans_probe_utilise_run(
+    classe: type[SystemdExecutor], prefixe: list[str]
+) -> None:
+    # Arrange
+    command_executor = MagicMock()
+    command_executor.run.return_value = _result()
+
+    # Act
+    classe(MagicMock(), command_executor)._run_systemctl(["daemon-reload"])
+
+    # Assert : sans `probe`, comportement historique (run, pas de sonde)
+    command_executor.run.assert_called_once_with([*prefixe, "daemon-reload"])
+    command_executor.probe.assert_not_called()

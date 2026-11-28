@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from linuxtools.commands.base import CommandExecutor, CommandResult
 from linuxtools.filesystem.linux import write_text_secure
 from linuxtools.jobnotify import installer as installer_module
 from linuxtools.jobnotify import runtime
@@ -1236,6 +1237,50 @@ def test_run_in_progress_ignore_deactivating_du_compagnon(
 
     # Act / Assert
     assert installer.run_in_progress() is False
+
+
+def _result(stdout: str = "") -> CommandResult:
+    """CommandResult réussi portant ``stdout``."""
+    return CommandResult(
+        command=("systemctl",),
+        return_code=0,
+        stdout=stdout,
+        stderr="",
+        success=True,
+        duration=0.0,
+    )
+
+
+@pytest.fixture
+def installer_dry_run(logger: MagicMock, tmp_path: Path) -> NotifiedJobInstaller:
+    """Installeur sur un SystemdExecutor réel, hôte simulé en dry-run.
+
+    ``run`` rend un résultat vide (ce que fait un exécuteur en ``dry_run``) ;
+    ``probe`` rend l'état réel : un run ``activating``.
+    """
+    command_executor = MagicMock(spec=CommandExecutor)
+    command_executor.run.return_value = _result()
+    command_executor.probe.return_value = _result("activating\n")
+    real_systemd = SystemdExecutor(logger, command_executor)
+    return NotifiedJobInstaller(_dnf_job(), real_systemd, logger, root_dir=tmp_path)
+
+
+def test_run_in_progress_detecte_un_run_en_dry_run(
+    installer_dry_run: NotifiedJobInstaller,
+) -> None:
+    # Act / Assert : l'état est lu par la sonde, pas par run (vide en dry-run)
+    assert installer_dry_run.run_in_progress() is True
+
+
+def test_sync_dry_run_differe_si_run_en_cours(
+    installer_dry_run: NotifiedJobInstaller, tmp_path: Path
+) -> None:
+    # Act : des unités sont à écrire, mais un run est en cours
+    actions = installer_dry_run.sync(enabled=True, dry_run=True)
+
+    # Assert : la simulation annonce le report, comme le vrai passage
+    assert actions == [_DEFERRED_DNF]
+    assert list(tmp_path.rglob("*")) == []
 
 
 # ----------------------------------------------------------------------

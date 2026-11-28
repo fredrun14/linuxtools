@@ -2,6 +2,17 @@
 
 ## [Non publié]
 
+## [3.2.1] - 2026-11-28
+
+### Corrigé
+
+- fix(systemd): `SystemdExecutor.get_status` lit l'état par `probe` (lecture seule), donc
+  même en `--dry-run` : `NotifiedJobInstaller.sync` et `run_in_progress` détectent un
+  run en cours en simulation (revue F02 de `fedora_post_install`). En dry-run,
+  `get_status` et `is_active` exécutent donc réellement `systemctl show`, y compris
+  sur l'hôte distant via `SshCommandExecutor` (une connexion ssh est ouverte) ;
+  `is_enabled`, `is_masked` et les autres lectures restent simulées.
+
 ## [3.2.0] - 2026-11-27
 
 ### Ajouté
