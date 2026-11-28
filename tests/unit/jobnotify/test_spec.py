@@ -9,6 +9,7 @@ import pytest
 from linuxtools.jobnotify.spec import (
     Dnf5Probe,
     FingerprintProbe,
+    FwupdProbe,
     NoProbe,
     NotifiedJob,
     Outcome,
@@ -111,15 +112,17 @@ def test_notifiedjob_refuse_icon_avec_caractere_de_controle() -> None:
         (NoProbe(), Outcome.INTERRUPTED),
         (FingerprintProbe(argv=("/usr/bin/flatpak", "list")), Outcome.NOTHING),
         (Dnf5Probe(), Outcome.SUCCESS_RESTART),
+        (FwupdProbe(), Outcome.SUCCESS_RESTART),
     ],
 )
 def test_notifiedjob_leve_si_end_texts_incomplet_pour_dnf5(
-    probe: NoProbe | FingerprintProbe | Dnf5Probe, manquante: Outcome
+    probe: NoProbe | FingerprintProbe | Dnf5Probe | FwupdProbe, manquante: Outcome
 ) -> None:
     attendues = {
         NoProbe: BASE,
         FingerprintProbe: FLATPAK,
         Dnf5Probe: tuple(Outcome),
+        FwupdProbe: tuple(o for o in Outcome if o is not Outcome.SUCCESS),
     }[type(probe)]
     fins = _textes(*(o for o in attendues if o is not manquante))
     with pytest.raises(ValueError, match=manquante.value):
@@ -197,10 +200,11 @@ def test_to_descriptor_roundtrip() -> None:
 
 
 @pytest.mark.parametrize(
-    ("probe", "kind"), [(NoProbe(), "none"), (Dnf5Probe(), "dnf5")]
+    ("probe", "kind"),
+    [(NoProbe(), "none"), (Dnf5Probe(), "dnf5"), (FwupdProbe(), "fwupd")],
 )
 def test_to_descriptor_kind_de_sonde_sans_argv(
-    probe: NoProbe | Dnf5Probe, kind: str
+    probe: NoProbe | Dnf5Probe | FwupdProbe, kind: str
 ) -> None:
     fins = _textes(*Outcome)
     donnees = json.loads(_job(probe=probe, end_texts=fins).to_descriptor())

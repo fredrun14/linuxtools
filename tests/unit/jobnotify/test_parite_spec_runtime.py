@@ -19,6 +19,7 @@ from linuxtools.jobnotify.runtime import parse_descriptor
 from linuxtools.jobnotify.spec import (
     Dnf5Probe,
     FingerprintProbe,
+    FwupdProbe,
     NoProbe,
     NotifiedJob,
     Outcome,
@@ -53,7 +54,9 @@ def _sonde(probe: dict[str, Any]) -> Probe:
     """Sonde de la spec décrite par la sonde JSON."""
     if probe["kind"] == "fingerprint":
         return FingerprintProbe(argv=tuple(probe["argv"]))
-    return Dnf5Probe() if probe["kind"] == "dnf5" else NoProbe()
+    if probe["kind"] == "dnf5":
+        return Dnf5Probe()
+    return FwupdProbe() if probe["kind"] == "fwupd" else NoProbe()
 
 
 def _job_depuis(data: dict[str, Any]) -> NotifiedJob:
@@ -391,6 +394,12 @@ _CAS: list[tuple[str, dict[str, Any], bool]] = [
         ]
     ],
     ("dnf5 sans fin complete", {"probe": {"kind": "dnf5", "argv": []}}, False),
+    ("fwupd sans fin complete", {"probe": {"kind": "fwupd", "argv": []}}, False),
+    (
+        "fwupd argv non vide",
+        {"probe": {"kind": "fwupd", "argv": ["/usr/bin/x"]}},
+        False,
+    ),
 ]
 
 
@@ -501,3 +510,38 @@ def test_spec_n_a_qu_une_source_de_constantes() -> None:
 
     assert spec_module.Outcome is runtime_module.Outcome
     assert "re.compile" not in source
+
+
+_FWUPD = (
+    Outcome.SUCCESS_RESTART,
+    Outcome.NOTHING,
+    Outcome.DONE_NO_DETAIL,
+    Outcome.FAILURE,
+    Outcome.INTERRUPTED,
+)
+
+
+def test_sonde_fwupd_est_au_catalogue_du_runtime_et_de_la_spec() -> None:
+    # Attendu écrit à la main : cinq issues atteignables, jamais SUCCESS.
+    assert "fwupd" in runtime_module._PROBES
+    assert spec_module._PROBE_KINDS[FwupdProbe] == "fwupd"
+    assert set(runtime_module.REACHABLE["fwupd"]) == {Outcome(o.value) for o in _FWUPD}
+    assert runtime_module.Outcome.SUCCESS not in runtime_module.REACHABLE["fwupd"]
+    assert "fwupd" not in runtime_module._SNAPSHOTS
+
+
+def test_spec_et_runtime_acceptent_un_job_fwupd_aux_cinq_issues() -> None:
+    job = NotifiedJob(
+        name="demo",
+        owner="demo-app",
+        watched_unit="demo.service",
+        scope="system",
+        start_texts=("Début", "Corps"),
+        end_texts=_textes(*_FWUPD),
+        probe=FwupdProbe(),
+    )
+    data = json.loads(job.to_descriptor())
+
+    assert data["probe"] == {"kind": "fwupd", "argv": []}
+    assert parse_descriptor(data) is not None
+    assert _job_depuis(data) == job

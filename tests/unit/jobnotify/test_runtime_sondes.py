@@ -11,18 +11,22 @@ import pytest
 
 from linuxtools.jobnotify.runtime import (
     BUSCTL,
+    FWUPDMGR,
     PROBE_COMMANDS,
     SYSTEMCTL,
     Descriptor,
     Outcome,
+    _pending_update,
+    _resolve_fwupd,
     compute_dnf5_outcome,
     compute_flatpak_outcome,
+    compute_fwupd_outcome,
     main,
     parse_descriptor,
     resolve_outcome,
     snapshot,
 )
-from linuxtools.jobnotify.spec import NotifiedJob
+from linuxtools.jobnotify.spec import FwupdProbe, NotifiedJob
 from linuxtools.jobnotify.spec import Outcome as SpecOutcome
 from tests.unit.jobnotify.runtime_support import (
     ALICE_PROPS,
@@ -928,3 +932,210 @@ def test_catalogue_de_sondes_est_en_lecture_seule() -> None:
         catalogue["/usr/bin/python3"] = PROBE_COMMANDS["/usr/bin/flatpak"]
     with pytest.raises(TypeError):
         del catalogue["/usr/bin/flatpak"]
+
+
+# --- Sonde fwupd : un firmware préparé attend le redémarrage.
+
+
+def test_compute_fwupd_outcome_pending_prime_sur_echec() -> None:
+    # Une capsule déjà en attente reste à signaler même si l'`update` a échoué.
+    outcome = compute_fwupd_outcome(
+        service_result="exit-code", system_stopping=False, pending=True
+    )
+
+    assert outcome is Outcome.SUCCESS_RESTART
+
+
+@pytest.mark.parametrize(
+    ("service_result", "stopping", "pending", "attendu"),
+    [
+        ("success", True, True, Outcome.INTERRUPTED),
+        ("exit-code", True, None, Outcome.INTERRUPTED),
+        ("success", False, True, Outcome.SUCCESS_RESTART),
+        ("exit-code", False, False, Outcome.FAILURE),
+        ("", False, None, Outcome.FAILURE),
+        ("success", False, None, Outcome.DONE_NO_DETAIL),
+        ("success", False, False, Outcome.NOTHING),
+    ],
+    ids=[
+        "arret_prime_sur_pending",
+        "arret_apres_echec",
+        "pending",
+        "echec",
+        "service_result_vide",
+        "illisible",
+        "rien",
+    ],
+)
+def test_compute_fwupd_outcome_table(
+    service_result: str, stopping: bool, pending: bool | None, attendu: Outcome
+) -> None:
+    outcome = compute_fwupd_outcome(
+        service_result=service_result, system_stopping=stopping, pending=pending
+    )
+
+    assert outcome is attendu
+
+
+# Sorties de `fwupdmgr get-devices --json` écrites à la main : aucune donnée réelle,
+# aucun numéro de série.
+def _devices(*etats: object) -> str:
+    """JSON de `get-devices` avec un périphérique par valeur de `UpdateState`."""
+    return json.dumps(
+        {
+            "Devices": [
+                {"Name": f"Périphérique {i}", "UpdateState": e}
+                for i, e in enumerate(etats)
+            ]
+        }
+    )
+
+
+def _fwupd_ctx(
+    tmp_path: Path, reponse: tuple[int, str] | None, recorder: Recorder | None = None
+) -> tuple[Any, FakeRunner, Recorder]:
+    """Contexte dont `fwupdmgr` répond `reponse` (None : commande injouable)."""
+    runner = FakeRunner(lambda argv: answer(reponse or OSError("absent")))
+    messages = recorder or Recorder()
+    return ctx_for(runner, tmp_path, messages, euid=0), runner, messages
+
+
+def test_pending_update_etat_4_detecte(tmp_path: Path) -> None:
+    ctx, runner, _ = _fwupd_ctx(tmp_path, (0, _devices(0, 2, 4)))
+
+    assert _pending_update(ctx) is True
+    assert runner.calls == [([FWUPDMGR, "get-devices", "--json"], 5)]
+
+
+def test_pending_update_etat_2_ignore(tmp_path: Path) -> None:
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, _devices(0, 1, 2, 3, 5)))
+
+    assert _pending_update(ctx) is False
+
+
+def test_pending_update_drapeau_needs_reboot_ignore(tmp_path: Path) -> None:
+    sortie = json.dumps(
+        {"Devices": [{"Name": "Périphérique", "Flags": ["needs-reboot"]}]}
+    )
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, sortie))
+
+    assert _pending_update(ctx) is False
+
+
+def test_pending_update_booleen_refuse(tmp_path: Path) -> None:
+    # `True == 1`, mais `UpdateState: true` n'est pas un état entier.
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, '{"Devices": [{"UpdateState": true}]}'))
+
+    assert _pending_update(ctx) is False
+
+
+def test_pending_update_ignore_les_entrees_qui_ne_sont_pas_des_objets(
+    tmp_path: Path,
+) -> None:
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, '{"Devices": [4, "4", null, [4]]}'))
+
+    assert _pending_update(ctx) is False
+
+
+@pytest.mark.parametrize(
+    "sortie",
+    [
+        "pas du json",
+        "[]",
+        '{"Autre": []}',
+        '{"Devices": {"UpdateState": 4}}',
+        "[" * 100_000,
+        '{"Devices": [], "Remplissage": "' + "x" * (1024 * 1024) + '"}',
+    ],
+    ids=["texte", "liste", "devices_absent", "devices_dict", "profondeur", "trop_gros"],
+)
+def test_pending_update_json_hostile_donne_none(tmp_path: Path, sortie: str) -> None:
+    ctx, _, recorder = _fwupd_ctx(tmp_path, (0, sortie))
+
+    assert _pending_update(ctx) is None
+    assert any("sortie fwupd illisible" in m for m in recorder.messages)
+
+
+def test_pending_update_rc2_sans_peripherique_donne_rien(tmp_path: Path) -> None:
+    ctx, _, recorder = _fwupd_ctx(tmp_path, (2, "Aucun périphérique"))
+
+    assert _pending_update(ctx) is False
+    assert recorder.messages == []
+
+
+def test_pending_update_code_inattendu_donne_none(tmp_path: Path) -> None:
+    ctx, _, recorder = _fwupd_ctx(tmp_path, (1, _devices(4)))
+
+    assert _pending_update(ctx) is None
+    assert any("code 1" in m for m in recorder.messages)
+
+
+def test_pending_update_commande_injouable_donne_none(tmp_path: Path) -> None:
+    ctx, _, _ = _fwupd_ctx(tmp_path, None)
+
+    assert _pending_update(ctx) is None
+
+
+@pytest.mark.parametrize(
+    "faux_lstat",
+    [*_BINAIRES_REFUSES, pytest.param(_refuse_lstat, id="absent")],
+)
+def test_pending_update_binaire_refuse_donne_none(
+    tmp_path: Path, faux_lstat: Callable[[str], os.stat_result]
+) -> None:
+    ctx, runner, recorder = _fwupd_ctx(tmp_path, (0, _devices(4)))
+    ctx.lstat = faux_lstat
+
+    assert _pending_update(ctx) is None
+    assert runner.calls == []  # le binaire douteux n'est jamais lancé
+    assert any("binaire de sonde refusé" in m for m in recorder.messages)
+
+
+def _fwupd_descriptor() -> Descriptor:
+    return descriptor_of(
+        NotifiedJob(
+            name="fwupd-auto",
+            owner="demo-app",
+            watched_unit="fwupd-automatic.service",
+            scope="system",
+            start_texts=("début", "corps"),
+            end_texts=dict.fromkeys(
+                (
+                    SpecOutcome.SUCCESS_RESTART,
+                    SpecOutcome.NOTHING,
+                    SpecOutcome.DONE_NO_DETAIL,
+                    SpecOutcome.FAILURE,
+                    SpecOutcome.INTERRUPTED,
+                ),
+                ("fin", "corps"),
+            ),
+            probe=FwupdProbe(),
+        )
+    )
+
+
+def test_resolve_fwupd_arret_n_appelle_pas_fwupd(tmp_path: Path) -> None:
+    ctx, runner, _ = _fwupd_ctx(tmp_path, (0, _devices(4)))
+
+    outcome = _resolve_fwupd(ctx, None, stopping=True)
+
+    assert outcome is Outcome.INTERRUPTED
+    assert runner.calls == []
+
+
+def test_resolve_fwupd_via_resolve_outcome_echec_avec_capsule_en_attente(
+    tmp_path: Path,
+) -> None:
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, _devices(4)))
+    ctx.env = {"SERVICE_RESULT": "exit-code"}
+
+    outcome = resolve_outcome(ctx, _fwupd_descriptor(), None, stopping=False)
+
+    assert outcome is Outcome.SUCCESS_RESTART
+
+
+def test_resolve_fwupd_rien_si_aucun_etat_4(tmp_path: Path) -> None:
+    ctx, _, _ = _fwupd_ctx(tmp_path, (0, _devices(0)))
+    ctx.env = {"SERVICE_RESULT": "success"}
+
+    assert _resolve_fwupd(ctx, None, stopping=False) is Outcome.NOTHING

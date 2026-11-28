@@ -103,6 +103,34 @@ def compute_flatpak_outcome(
     return Outcome.NOTHING if before == after else Outcome.SUCCESS
 
 
+def compute_fwupd_outcome(
+    *, service_result: str, system_stopping: bool, pending: bool | None
+) -> Outcome:
+    """Déduit l'issue d'un run de fwupd-automatic.
+
+    Args:
+        service_result: Valeur de ``$SERVICE_RESULT``.
+        system_stopping: ``systemctl is-system-running`` vaut ``stopping``.
+        pending: Un périphérique attend le redémarrage (``UpdateState == 4``),
+            ou None si l'état est illisible.
+
+    Returns:
+        INTERRUPTED, SUCCESS_RESTART, FAILURE, DONE_NO_DETAIL ou NOTHING, dans
+        cet ordre de priorité ; jamais SUCCESS.
+    """
+    if system_stopping:
+        return Outcome.INTERRUPTED
+    # Avant l'échec : une capsule déjà en attente reste à signaler même si un
+    # nouvel ``update`` a échoué.
+    if pending is True:
+        return Outcome.SUCCESS_RESTART
+    if service_result != "success":
+        return Outcome.FAILURE
+    if pending is None:
+        return Outcome.DONE_NO_DETAIL
+    return Outcome.NOTHING
+
+
 def _is_run_transaction(transaction: object, started_at: float) -> bool:
     """Indique si une entrée de l'historique appartient au run de dnf automatic.
 
@@ -140,6 +168,7 @@ ENV_BIN = "/usr/bin/env"
 BUSCTL = "/usr/bin/busctl"
 SYSTEMCTL = "/usr/bin/systemctl"
 DNF5 = "/usr/bin/dnf5"
+FWUPDMGR = "/usr/bin/fwupdmgr"
 
 CALL_TIMEOUT_S = 5  # durée maximale (s) de chaque commande lancée par le hook
 TOTAL_BUDGET_S = 30  # durée maximale (s) d'un verbe : reste sous TimeoutStopSec (90)
@@ -212,7 +241,8 @@ class Descriptor:
         start_texts: (résumé, corps) de la notification de lancement.
         end_texts: (résumé, corps) par issue atteignable.
         lock: Un verrou d'inhibition (compagnon) est posé pendant le run.
-        probe_kind: Clé du catalogue de sondes (``none``, ``fingerprint``, ``dnf5``).
+        probe_kind: Clé du catalogue de sondes (``none``, ``fingerprint``, ``dnf5``,
+            ``fwupd``).
         probe_argv: Commande de l'instantané (sonde ``fingerprint`` seulement).
         icon: Nom d'icône de la notification.
         inhibit_why: Motif affiché par l'inhibiteur (utile à l'installeur).
@@ -1393,6 +1423,73 @@ def _resolve_flatpak(ctx: Ctx, state: _State | None, *, stopping: bool) -> Outco
     )
 
 
+_MAX_FWUPD_JSON = 1024 * 1024  # plafond (octets) de la sortie de fwupdmgr lue
+_UPDATE_STATE_NEEDS_REBOOT = 4  # FwupdUpdateState : en attente de redémarrage
+_FWUPD_NO_DEVICE_RC = 2  # ``fwupdmgr get-devices`` : aucun périphérique
+
+
+def _needs_reboot_in(output: str) -> bool | None:
+    """Analyse la sortie JSON de ``fwupdmgr get-devices --json``.
+
+    Seul un booléen est rendu : rien du JSON (numéros de série, noms de
+    périphériques) n'est conservé, journalisé ni notifié.
+
+    Args:
+        output: Sortie standard de la commande.
+
+    Returns:
+        True si un périphérique a ``UpdateState == 4``, False sinon, ou None si
+        la sortie est trop grosse ou n'a pas la forme attendue.
+    """
+    if len(output.encode("utf-8", errors="replace")) > _MAX_FWUPD_JSON:
+        return None
+    try:
+        data = json.loads(output)
+    except (ValueError, RecursionError):
+        return None
+    devices = data.get("Devices") if isinstance(data, dict) else None
+    if not isinstance(devices, list):
+        return None
+    # ``type(x) is int`` exclut les booléens (``True == 1`` en Python).
+    return any(
+        type(device) is dict
+        and type(device.get("UpdateState")) is int
+        and device["UpdateState"] == _UPDATE_STATE_NEEDS_REBOOT
+        for device in devices
+    )
+
+
+def _pending_update(ctx: Ctx) -> bool | None:
+    """Indique si un firmware attend le redémarrage (None si illisible)."""
+    if not _trusted_binary(ctx, FWUPDMGR):
+        _warn(ctx, f"binaire de sonde refusé ({FWUPDMGR}), état du firmware inconnu")
+        return None
+    result = _call(ctx, [FWUPDMGR, "get-devices", "--json"])
+    if result is None:
+        return None
+    code, output = result
+    if code == _FWUPD_NO_DEVICE_RC:
+        return False
+    if code != 0:
+        _warn(ctx, f"get-devices a rendu le code {code}, état du firmware inconnu")
+        return None
+    pending = _needs_reboot_in(output)
+    if pending is None:
+        _warn(ctx, "sortie fwupd illisible")
+    return pending
+
+
+def _resolve_fwupd(ctx: Ctx, state: _State | None, *, stopping: bool) -> Outcome:
+    """Calcule l'issue du run fwupd ; fwupd n'est pas interrogé à l'arrêt."""
+    del state  # sans instantané : l'état du run n'apporte rien
+    pending = None if stopping else _pending_update(ctx)
+    return compute_fwupd_outcome(
+        service_result=ctx.env.get("SERVICE_RESULT", ""),
+        system_stopping=stopping,
+        pending=pending,
+    )
+
+
 def _id_to_replace(ctx: Ctx, session: Session, started_at: float | None) -> int:
     """Choisit l'ID de la notification « en cours » à remplacer (0 : aucune).
 
@@ -1635,6 +1732,7 @@ _PROBES: Mapping[str, _Resolver] = {
     "none": _resolve_none,
     "fingerprint": _resolve_flatpak,
     "dnf5": _resolve_dnf5,
+    "fwupd": _resolve_fwupd,
 }
 # Sondes qui prennent un instantané avant le run (verbe ``snapshot``).
 _SNAPSHOTS: Mapping[str, Callable[[Ctx], None]] = {"fingerprint": _snapshot_flatpak}
@@ -1644,6 +1742,8 @@ REACHABLE: Mapping[str, frozenset[Outcome]] = {
     "none": _BASE_OUTCOMES,
     "fingerprint": _BASE_OUTCOMES | {Outcome.NOTHING, Outcome.DONE_NO_DETAIL},
     "dnf5": frozenset(Outcome),
+    # Jamais SUCCESS : fwupd prépare sans flasher, l'issue réussie est SUCCESS_RESTART.
+    "fwupd": frozenset(Outcome) - {Outcome.SUCCESS},
 }
 
 

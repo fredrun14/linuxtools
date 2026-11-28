@@ -30,6 +30,7 @@ _PAIR_LEN = 2  # (résumé, corps)
 __all__ = [
     "Dnf5Probe",
     "FingerprintProbe",
+    "FwupdProbe",
     "NoProbe",
     "NotifiedJob",
     "Outcome",
@@ -63,12 +64,18 @@ class Dnf5Probe:
     """Historique dnf5 et `needs-restarting` (algorithme porté verbatim)."""
 
 
-Probe = NoProbe | FingerprintProbe | Dnf5Probe
+@dataclass(frozen=True)
+class FwupdProbe:
+    """Firmware en attente de redémarrage (fwupd, état `UpdateState`)."""
+
+
+Probe = NoProbe | FingerprintProbe | Dnf5Probe | FwupdProbe
 
 _PROBE_KINDS: Mapping[type[object], str] = {
     NoProbe: "none",
     FingerprintProbe: "fingerprint",
     Dnf5Probe: "dnf5",
+    FwupdProbe: "fwupd",
 }
 
 
