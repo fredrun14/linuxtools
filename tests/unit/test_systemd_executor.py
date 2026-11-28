@@ -3,6 +3,7 @@
 import json
 import os
 import stat
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -309,19 +310,19 @@ class TestSystemdExecutorMocked:
     def test_is_enabled_retourne_true(self) -> None:
         """is_enabled() retourne True si statut == enabled."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="enabled\n")
+        command_executor.probe.return_value = _result(stdout="enabled\n")
         assert executor.is_enabled("backup.service") is True
 
     def test_is_enabled_retourne_false(self) -> None:
         """is_enabled() retourne False si statut != enabled."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="disabled\n")
+        command_executor.probe.return_value = _result(stdout="disabled\n")
         assert executor.is_enabled("backup.service") is False
 
     def test_is_enabled_erreur(self) -> None:
         """is_enabled() retourne False en cas d erreur."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=-1, stdout="", stderr="erreur"
         )
         result = executor.is_enabled("backup.service")
@@ -330,19 +331,19 @@ class TestSystemdExecutorMocked:
     def test_is_masked_retourne_true(self) -> None:
         """is_masked() retourne True si stdout == masked."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="masked\n")
+        command_executor.probe.return_value = _result(stdout="masked\n")
         assert executor.is_masked("packagekit.service") is True
 
     def test_is_masked_retourne_false(self) -> None:
         """is_masked() retourne False si stdout != masked."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="enabled\n")
+        command_executor.probe.return_value = _result(stdout="enabled\n")
         assert executor.is_masked("packagekit.service") is False
 
     def test_is_masked_erreur(self) -> None:
         """is_masked() retourne False en cas d erreur."""
         executor, _, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=-1, stdout="", stderr="erreur"
         )
         assert executor.is_masked("packagekit.service") is False
@@ -503,7 +504,7 @@ class TestSystemdExecutorListUnits:
                 },
             ]
         )
-        command_executor.run.return_value = _result(stdout=json_stdout)
+        command_executor.probe.return_value = _result(stdout=json_stdout)
         units = executor.list_units()
         assert units == [
             {
@@ -525,7 +526,7 @@ class TestSystemdExecutorListUnits:
     def test_list_units_json_vide(self) -> None:
         """list_units() retourne [] si le JSON est une liste vide."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         units = executor.list_units()
         assert units == []
 
@@ -537,7 +538,7 @@ class TestSystemdExecutorListUnits:
         contenant des espaces.
         """
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(
                 stdout=(
@@ -556,7 +557,7 @@ class TestSystemdExecutorListUnits:
                 "description": "Service de sauvegarde quotidienne",
             }
         ]
-        second_call_args = command_executor.run.call_args_list[1][0][0]
+        second_call_args = command_executor.probe.call_args_list[1][0][0]
         assert "--no-legend" in second_call_args
         assert "--plain" in second_call_args
         assert "--output=json" not in second_call_args
@@ -568,7 +569,7 @@ class TestSystemdExecutorListUnits:
         stdout n'est pas du JSON valide (couvre json.JSONDecodeError).
         """
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=0, stdout="pas du json"),
             _result(stdout="backup.service loaded active running Backup\n"),
         ]
@@ -586,7 +587,7 @@ class TestSystemdExecutorListUnits:
     def test_list_units_erreur_subprocess(self) -> None:
         """list_units() lève RuntimeError si systemctl échoue (JSON)."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=1, stderr="erreur inconnue"
         )
         with pytest.raises(RuntimeError, match="erreur inconnue"):
@@ -595,7 +596,7 @@ class TestSystemdExecutorListUnits:
     def test_list_units_erreur_subprocess_fallback(self) -> None:
         """list_units() lève RuntimeError si le fallback texte échoue."""
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(return_code=1, stderr="erreur fallback"),
         ]
@@ -605,7 +606,7 @@ class TestSystemdExecutorListUnits:
     def test_list_units_fallback_ligne_sans_description(self) -> None:
         """Une ligne texte sans description donne description vide."""
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(stdout="backup.service loaded active running\n"),
         ]
@@ -631,7 +632,7 @@ class TestSystemdExecutorListUnits:
         normalement après les lignes malformées.
         """
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(
                 stdout=(
@@ -658,9 +659,9 @@ class TestSystemdExecutorListUnits:
         logger = MagicMock()
         command_executor = MagicMock()
         executor = UserSystemdExecutor(logger, command_executor)
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         executor.list_units()
-        command_executor.run.assert_called_once_with(
+        command_executor.probe.assert_called_once_with(
             [
                 "systemctl",
                 "--user",
@@ -704,7 +705,7 @@ class TestSystemdExecutorListUnitFiles:
                 },
             ]
         )
-        command_executor.run.return_value = _result(stdout=json_stdout)
+        command_executor.probe.return_value = _result(stdout=json_stdout)
         files = executor.list_unit_files()
         assert files == [
             {
@@ -722,25 +723,25 @@ class TestSystemdExecutorListUnitFiles:
     def test_list_unit_files_json_vide(self) -> None:
         """list_unit_files() retourne [] si le JSON est une liste vide."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         files = executor.list_unit_files()
         assert files == []
 
     def test_list_unit_files_filtre_type_et_state(self) -> None:
         """Les filtres --type/--state sont bien passés à la commande."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         executor.list_unit_files(unit_type="service", state="enabled")
-        args = command_executor.run.call_args[0][0]
+        args = command_executor.probe.call_args[0][0]
         assert "--type=service" in args
         assert "--state=enabled" in args
 
     def test_list_unit_files_sans_filtre(self) -> None:
         """Sans paramètre, aucun --type/--state dans la commande."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         executor.list_unit_files()
-        args = command_executor.run.call_args[0][0]
+        args = command_executor.probe.call_args[0][0]
         assert not any(arg.startswith("--type=") for arg in args)
         assert not any(arg.startswith("--state=") for arg in args)
 
@@ -751,7 +752,7 @@ class TestSystemdExecutorListUnitFiles:
         bien appelée et parsée correctement (3 colonnes avec preset).
         """
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(stdout="abrt-journal-core.service enabled enabled\n"),
         ]
@@ -763,7 +764,7 @@ class TestSystemdExecutorListUnitFiles:
                 "preset": "enabled",
             }
         ]
-        second_call_args = command_executor.run.call_args_list[1][0][0]
+        second_call_args = command_executor.probe.call_args_list[1][0][0]
         assert "--no-legend" in second_call_args
         assert "--type=service" in second_call_args
         assert "--state=enabled" in second_call_args
@@ -772,7 +773,7 @@ class TestSystemdExecutorListUnitFiles:
     def test_list_unit_files_fallback_texte_sans_preset(self) -> None:
         """Une ligne texte à 2 tokens donne un preset vide."""
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(stdout="foo.service enabled\n"),
         ]
@@ -792,7 +793,7 @@ class TestSystemdExecutorListUnitFiles:
         stdout n'est pas du JSON valide (couvre json.JSONDecodeError).
         """
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=0, stdout="pas du json"),
             _result(stdout="foo.service enabled enabled\n"),
         ]
@@ -808,7 +809,7 @@ class TestSystemdExecutorListUnitFiles:
     def test_list_unit_files_erreur_subprocess(self) -> None:
         """list_unit_files() lève RuntimeError si systemctl échoue (JSON)."""
         executor, command_executor = self._make_executor()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=1, stderr="erreur inconnue"
         )
         with pytest.raises(RuntimeError, match="erreur inconnue"):
@@ -817,7 +818,7 @@ class TestSystemdExecutorListUnitFiles:
     def test_list_unit_files_erreur_subprocess_fallback(self) -> None:
         """list_unit_files() lève RuntimeError si le fallback échoue."""
         executor, command_executor = self._make_executor()
-        command_executor.run.side_effect = [
+        command_executor.probe.side_effect = [
             _result(return_code=1, stderr="Unknown option --output."),
             _result(return_code=1, stderr="erreur fallback"),
         ]
@@ -829,9 +830,9 @@ class TestSystemdExecutorListUnitFiles:
         logger = MagicMock()
         command_executor = MagicMock()
         executor = UserSystemdExecutor(logger, command_executor)
-        command_executor.run.return_value = _result(stdout="[]")
+        command_executor.probe.return_value = _result(stdout="[]")
         executor.list_unit_files()
-        command_executor.run.assert_called_once_with(
+        command_executor.probe.assert_called_once_with(
             [
                 "systemctl",
                 "--user",
@@ -889,33 +890,33 @@ class TestShowProperty:
     def test_user_lit_une_propriete_du_gestionnaire(self) -> None:
         """Sans unité : `systemctl --user show -p NAME --value`, sans saut final."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(stdout="/a/user /b/user\n")
+        command_executor.probe.return_value = _result(stdout="/a/user /b/user\n")
         executor = UserSystemdExecutor(MagicMock(), command_executor)
 
         value = executor.show_property("UnitPath")
 
         assert value == "/a/user /b/user"
-        command_executor.run.assert_called_once_with(
+        command_executor.probe.assert_called_once_with(
             ["systemctl", "--user", "show", "-p", "UnitPath", "--value"]
         )
 
     def test_systeme_lit_une_propriete_d_unite(self) -> None:
         """Avec unité : elle termine la commande ; une valeur vide est rendue."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(stdout="\n")
+        command_executor.probe.return_value = _result(stdout="\n")
         executor = SystemdExecutor(MagicMock(), command_executor)
 
         value = executor.show_property("DropInPaths", "demo.service")
 
         assert value == ""
-        command_executor.run.assert_called_once_with(
+        command_executor.probe.assert_called_once_with(
             ["systemctl", "show", "-p", "DropInPaths", "--value", "demo.service"]
         )
 
     def test_echec_leve_runtimeerror(self) -> None:
         """Un échec de systemctl n'est pas confondu avec une propriété vide."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=1, stderr="Failed to connect to bus"
         )
         executor = UserSystemdExecutor(MagicMock(), command_executor)
@@ -932,7 +933,7 @@ class TestShowProperty:
         with pytest.raises(ValueError, match="propriété"):
             executor.show_property(name)
 
-        command_executor.run.assert_not_called()
+        command_executor.probe.assert_not_called()
 
 
 class TestShowEnvironment:
@@ -941,7 +942,7 @@ class TestShowEnvironment:
     def test_user_lit_l_environnement_du_gestionnaire_user(self) -> None:
         """show_environment() interroge `systemctl --user` et parse KEY=VALUE."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             stdout="LANG=fr_FR.UTF-8\nXDG_STATE_HOME=/home/u/etat\nVIDE=\n"
         )
         executor = UserSystemdExecutor(MagicMock(), command_executor)
@@ -953,25 +954,27 @@ class TestShowEnvironment:
             "XDG_STATE_HOME": "/home/u/etat",
             "VIDE": "",
         }
-        command_executor.run.assert_called_once_with(
+        command_executor.probe.assert_called_once_with(
             ["systemctl", "--user", "show-environment"]
         )
 
     def test_systeme_interroge_le_gestionnaire_systeme(self) -> None:
         """Sans --user : `systemctl show-environment`, valeur avec `=` conservée."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(stdout="A=b=c\nsans-egal\n\n")
+        command_executor.probe.return_value = _result(stdout="A=b=c\nsans-egal\n\n")
         executor = SystemdExecutor(MagicMock(), command_executor)
 
         env = executor.show_environment()
 
         assert env == {"A": "b=c"}
-        command_executor.run.assert_called_once_with(["systemctl", "show-environment"])
+        command_executor.probe.assert_called_once_with(
+            ["systemctl", "show-environment"]
+        )
 
     def test_echec_leve_runtimeerror(self) -> None:
         """Un échec de systemctl n'est pas confondu avec un environnement vide."""
         command_executor = MagicMock()
-        command_executor.run.return_value = _result(
+        command_executor.probe.return_value = _result(
             return_code=1, stderr="Failed to connect to bus"
         )
         executor = UserSystemdExecutor(MagicMock(), command_executor)
@@ -1081,4 +1084,126 @@ def test_run_systemctl_sans_probe_utilise_run(
 
     # Assert : sans `probe`, comportement historique (run, pas de sonde)
     command_executor.run.assert_called_once_with([*prefixe, "daemon-reload"])
+    command_executor.probe.assert_not_called()
+
+
+_CLASSES = [
+    (SystemdExecutor, ["systemctl"]),
+    (UserSystemdExecutor, ["systemctl", "--user"]),
+]
+_ECHEC_JSON = _result(return_code=1, stderr="unknown option '--output=json'")
+
+# (appel, réponses de la sonde, commandes attendues sans le préfixe systemctl)
+_LECTURES: dict[
+    str,
+    tuple[Callable[[SystemdExecutor], object], list[CommandResult], list[list[str]]],
+] = {
+    "show_environment": (
+        lambda e: e.show_environment(),
+        [_result(stdout="A=b\n")],
+        [["show-environment"]],
+    ),
+    "show_property": (
+        lambda e: e.show_property("UnitPath", "backup.service"),
+        [_result(stdout="x\n")],
+        [["show", "-p", "UnitPath", "--value", "backup.service"]],
+    ),
+    "is_enabled": (
+        lambda e: e.is_enabled("backup.service"),
+        [_result(stdout="enabled\n")],
+        [["is-enabled", "backup.service"]],
+    ),
+    "is_masked": (
+        lambda e: e.is_masked("backup.service"),
+        [_result(stdout="masked\n")],
+        [["is-enabled", "backup.service"]],
+    ),
+    "list_units": (
+        lambda e: e.list_units(),
+        [_result(stdout="[]")],
+        [["list-units", "--no-pager", "--output=json"]],
+    ),
+    "list_units_repli_texte": (
+        lambda e: e.list_units(),
+        [_ECHEC_JSON, _result(stdout="")],
+        [
+            ["list-units", "--no-pager", "--output=json"],
+            ["list-units", "--no-pager", "--no-legend", "--plain"],
+        ],
+    ),
+    "list_unit_files": (
+        lambda e: e.list_unit_files(),
+        [_result(stdout="[]")],
+        [["list-unit-files", "--no-pager", "--output=json"]],
+    ),
+    "list_unit_files_repli_texte": (
+        lambda e: e.list_unit_files(),
+        [_ECHEC_JSON, _result(stdout="")],
+        [
+            ["list-unit-files", "--no-pager", "--output=json"],
+            ["list-unit-files", "--no-pager", "--no-legend"],
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize(("classe", "prefixe"), _CLASSES, ids=["system", "user"])
+@pytest.mark.parametrize("nom", list(_LECTURES))
+def test_lecture_seule_passe_par_probe(
+    classe: type[SystemdExecutor], prefixe: list[str], nom: str
+) -> None:
+    # Arrange
+    appel, reponses, commandes = _LECTURES[nom]
+    command_executor = MagicMock()
+    command_executor.probe.side_effect = reponses
+
+    # Act
+    appel(classe(MagicMock(), command_executor))
+
+    # Assert : sonde (exécutée même en dry-run) avec la commande attendue
+    assert [c.args[0] for c in command_executor.probe.call_args_list] == [
+        [*prefixe, *commande] for commande in commandes
+    ]
+    command_executor.run.assert_not_called()
+
+
+@pytest.mark.parametrize(("classe", "prefixe"), _CLASSES, ids=["system", "user"])
+@pytest.mark.parametrize(
+    ("appel", "commande"),
+    [
+        (lambda e: e.reload_systemd(), ["daemon-reload"]),
+        (lambda e: e.enable_unit("a.service", now=False), ["enable", "a.service"]),
+        (lambda e: e.disable_unit("a.service", now=False), ["disable", "a.service"]),
+        (lambda e: e.start_unit("a.service"), ["start", "a.service"]),
+        (lambda e: e.stop_unit("a.service"), ["stop", "a.service"]),
+        (lambda e: e.restart_unit("a.service"), ["restart", "a.service"]),
+        (lambda e: e.mask_unit("a.service"), ["mask", "a.service"]),
+        (lambda e: e.unmask_unit("a.service"), ["unmask", "a.service"]),
+    ],
+    ids=[
+        "reload_systemd",
+        "enable_unit",
+        "disable_unit",
+        "start_unit",
+        "stop_unit",
+        "restart_unit",
+        "mask_unit",
+        "unmask_unit",
+    ],
+)
+def test_mutation_reste_sur_run(
+    classe: type[SystemdExecutor],
+    prefixe: list[str],
+    appel: Callable[[SystemdExecutor], object],
+    commande: list[str],
+) -> None:
+    # Arrange
+    command_executor = MagicMock()
+    command_executor.run.return_value = _result()
+
+    # Act
+    appel(classe(MagicMock(), command_executor))
+
+    # Assert : une mutation est simulée en dry-run, donc jamais une sonde
+    command_executor.run.assert_called_once_with([*prefixe, *commande])
     command_executor.probe.assert_not_called()

@@ -644,3 +644,26 @@ class TestTimerToUnitFileSecurite:
         )
         with pytest.raises(ValueError, match="contrôle"):
             config.to_unit_file()
+
+
+@pytest.mark.parametrize("classe", [LinuxTimerUnitManager, LinuxUserTimerUnitManager])
+@pytest.mark.parametrize("echec", [False, True], ids=["json", "repli_texte"])
+def test_list_timers_lit_par_sonde(
+    classe: type[LinuxTimerUnitManager], echec: bool
+) -> None:
+    # Arrange : JSON puis, si `echec`, repli texte
+    executor = MagicMock()
+    json_ko = MagicMock(return_code=1, stdout="", stderr="unknown option")
+    ok = MagicMock(return_code=0, stdout="[]" if not echec else "", stderr="")
+    executor._run_systemctl.side_effect = [json_ko, ok] if echec else [ok]
+
+    # Act
+    classe(MagicMock(), executor).list_timers()
+
+    # Assert : lecture seule, exécutée même en dry-run (probe=True), bonnes commandes
+    appels = executor._run_systemctl.call_args_list
+    attendu = [["list-timers", "--no-pager", "--output=json"]]
+    if echec:
+        attendu.append(["list-timers", "--no-pager", "--plain"])
+    assert [a.args[0] for a in appels] == attendu
+    assert all(a.kwargs == {"probe": True} for a in appels)

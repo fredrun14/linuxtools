@@ -281,11 +281,13 @@ class SystemdExecutor:
             Les variables `KEY=VALUE` du gestionnaire (valeur brute, telle que
             systemd l'affiche : une valeur à caractères spéciaux y est citée).
 
+        Lecture seule : exécutée même en dry-run (`probe`).
+
         Raises:
             RuntimeError: Si `systemctl show-environment` échoue (bus
                 injoignable...) : un échec n'est pas un environnement vide.
         """
-        result = self._run_systemctl(["show-environment"])
+        result = self._run_systemctl(["show-environment"], probe=True)
         if not result.success:
             msg = f"Erreur systemctl show-environment : {result.stderr}"
             raise RuntimeError(msg)
@@ -302,7 +304,8 @@ class SystemdExecutor:
 
         Returns:
             La valeur brute, sans saut de ligne final (vide si la propriété l'est,
-            par exemple pour une unité inconnue).
+            par exemple pour une unité inconnue). Lecture seule, exécutée
+            même en dry-run (`probe`).
 
         Raises:
             ValueError: Si le nom de propriété ou d'unité est invalide.
@@ -316,7 +319,7 @@ class SystemdExecutor:
         if unit_name is not None:
             validate_full_unit_name(unit_name)
             args.append(unit_name)
-        result = self._run_systemctl(args)
+        result = self._run_systemctl(args, probe=True)
         if not result.success:
             msg = f"Erreur systemctl show {property_name} : {result.stderr}"
             raise RuntimeError(msg)
@@ -341,10 +344,10 @@ class SystemdExecutor:
 
         Returns:
             True si activée, False sinon (y compris si la commande
-            échoue).
+            échoue). Lecture seule, exécutée même en dry-run (`probe`).
         """
         validate_full_unit_name(unit_name)
-        result = self._run_systemctl(["is-enabled", unit_name])
+        result = self._run_systemctl(["is-enabled", unit_name], probe=True)
         return result.stdout.strip() == "enabled"
 
     def is_masked(self, unit_name: str) -> bool:
@@ -356,10 +359,10 @@ class SystemdExecutor:
 
         Returns:
             True si masquée, False sinon (y compris si la commande
-            échoue).
+            échoue). Lecture seule, exécutée même en dry-run (`probe`).
         """
         validate_full_unit_name(unit_name)
-        result = self._run_systemctl(["is-enabled", unit_name])
+        result = self._run_systemctl(["is-enabled", unit_name], probe=True)
         return result.stdout.strip() == "masked"
 
     def list_units(self) -> list[dict[str, str]]:
@@ -369,6 +372,7 @@ class SystemdExecutor:
         fallback sur le parsing texte si le format JSON n'est pas
         supporté par la version de systemd installée — même
         stratégie que ``list_timers()`` côté managers de timer.
+        Lecture seule : exécutée même en dry-run (`probe`).
 
         Returns:
             Liste de dictionnaires (``unit``, ``load``, ``active``,
@@ -379,7 +383,9 @@ class SystemdExecutor:
             RuntimeError: Si l'exécution de systemctl échoue pour
                 une raison autre que l'absence de support JSON.
         """
-        result = self._run_systemctl(["list-units", "--no-pager", "--output=json"])
+        result = self._run_systemctl(
+            ["list-units", "--no-pager", "--output=json"], probe=True
+        )
 
         if result.return_code != 0:
             if (
@@ -408,6 +414,8 @@ class SystemdExecutor:
     def _list_units_text_fallback(self) -> list[dict[str, str]]:
         """Fallback texte pour list_units sur vieux systemd.
 
+        Lecture seule : exécutée même en dry-run (`probe`).
+
         Returns:
             Liste de dictionnaires (mêmes clés que list_units()).
 
@@ -415,7 +423,7 @@ class SystemdExecutor:
             RuntimeError: Si l'exécution de systemctl échoue.
         """
         result = self._run_systemctl(
-            ["list-units", "--no-pager", "--no-legend", "--plain"]
+            ["list-units", "--no-pager", "--no-legend", "--plain"], probe=True
         )
 
         if result.return_code != 0:
@@ -451,7 +459,8 @@ class SystemdExecutor:
         Distinct de ``list_units()`` : ``list-unit-files`` rapporte
         tous les fichiers d'unité installés (avec leur état enabled/
         disabled/masked et leur preset vendeur), indépendamment de ce
-        qui est actuellement chargé en mémoire.
+        qui est actuellement chargé en mémoire. Lecture seule : exécutée
+        même en dry-run (`probe`).
 
         Args:
             unit_type: Filtre ``--type`` (ex. "service"), ou None pour
@@ -474,7 +483,7 @@ class SystemdExecutor:
         if state is not None:
             args.append(f"--state={state}")
 
-        result = self._run_systemctl(args)
+        result = self._run_systemctl(args, probe=True)
 
         if result.return_code != 0:
             if (
@@ -505,6 +514,8 @@ class SystemdExecutor:
     ) -> list[dict[str, str]]:
         """Fallback texte pour list_unit_files sur vieux systemd.
 
+        Lecture seule : exécutée même en dry-run (`probe`).
+
         Args:
             unit_type: Filtre ``--type``, ou None.
             state: Filtre ``--state``, ou None.
@@ -521,7 +532,7 @@ class SystemdExecutor:
         if state is not None:
             args.append(f"--state={state}")
 
-        result = self._run_systemctl(args)
+        result = self._run_systemctl(args, probe=True)
 
         if result.return_code != 0:
             raise RuntimeError(f"Erreur systemctl list-unit-files : {result.stderr}")

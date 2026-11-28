@@ -93,7 +93,7 @@ def test_desactivation_sans_arret_immediat(logger: MagicMock) -> None:
 def test_liste_des_fichiers_d_unite_en_repli_texte(logger: MagicMock) -> None:
     """Sans JSON, le repli texte ignore lignes vides et lignes incomplètes."""
     executeur, commandes = _executeur_systemd(logger)
-    commandes.run.side_effect = [
+    commandes.probe.side_effect = [
         cmd_result(success=False, stderr="unknown option '--output=json'"),
         cmd_result(stdout="a.service enabled enabled\n\nseul\nb.timer disabled\n"),
     ]
